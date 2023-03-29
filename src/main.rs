@@ -6,9 +6,17 @@ use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::{stable_graph::IndexType, Graph};
 use rand::seq::SliceRandom;
 
+const NODE_RADIUS: f32 = 5.;
+const EDGE_WIDTH: f32 = 2.;
+const NODE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
+const EDGE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
+const STD_FPS: usize = 60;
+const CNT: usize = 100;
+
 pub struct MyApp {
     simulation: Simulation<(), ()>,
     fps: usize,
+    dt: f32,
     fps_accumulator: usize,
     last_fps_point: Instant,
     zoom: f32,
@@ -21,13 +29,13 @@ impl MyApp {
         let mut graph = Graph::<_, ()>::new();
 
         let mut nodes = vec![];
-        (0..100).for_each(|_| {
+        (0..CNT).for_each(|_| {
             nodes.push(graph.add_node(()));
         });
 
         // Randomly connect nodes 100 nodes
         let mut rng = rand::thread_rng();
-        for _ in 0..100 {
+        for _ in 0..CNT {
             let mut nodes = nodes.clone();
             nodes.shuffle(&mut rng);
             let (a, b) = nodes.split_at(2);
@@ -51,6 +59,7 @@ impl MyApp {
         Self {
             simulation,
             fps: 0,
+            dt: 1. / STD_FPS as f32,
             fps_accumulator: 0,
             last_fps_point: Instant::now(),
             zoom: 1.,
@@ -62,7 +71,10 @@ impl MyApp {
 impl App for MyApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
-            ui.label(format!("fps: {}", self.fps));
+            ui.horizontal(|ui| {
+                ui.label(format!("fps: {}", self.fps));
+                ui.label(format!("dt: {}", self.dt));
+            });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -72,10 +84,10 @@ impl App for MyApp {
 
             ui.input(|i| {
                 if i.key_pressed(egui::Key::ArrowRight) {
-                    self.translation += Vec2::new(10., 0.);
+                    self.translation += Vec2::new(-10., 0.);
                 }
                 if i.key_pressed(egui::Key::ArrowLeft) {
-                    self.translation += Vec2::new(-10., 0.);
+                    self.translation += Vec2::new(10., 0.);
                 }
                 if i.key_pressed(egui::Key::ArrowDown) {
                     self.translation += Vec2::new(0., -10.);
@@ -102,7 +114,7 @@ impl App for MyApp {
             }
 
             // Update the node positions based on the force-directed algorithm
-            self.simulation.update(0.05);
+            self.simulation.update(self.dt);
 
             // Get the node positions
             let positions = self
@@ -125,11 +137,11 @@ impl App for MyApp {
                 })
                 .collect::<Vec<_>>();
 
-            let mut zoomed_edge_width = 2. * self.zoom;
+            let mut zoomed_edge_width = EDGE_WIDTH * self.zoom;
             if zoomed_edge_width < 1. {
                 zoomed_edge_width = 1.
             }
-            let mut zoomed_node_radius = 5.0 * self.zoom;
+            let mut zoomed_node_radius = NODE_RADIUS * self.zoom;
             if zoomed_node_radius < 2. {
                 zoomed_node_radius = 2.
             }
@@ -142,17 +154,13 @@ impl App for MyApp {
                         pos2(nodes[start.index()].0, nodes[start.index()].1),
                         pos2(nodes[end.index()].0, nodes[end.index()].1),
                     ],
-                    Stroke::new(zoomed_edge_width, Color32::from_rgb(128, 128, 128)),
+                    Stroke::new(zoomed_edge_width, EDGE_COLOR),
                 );
             });
 
             // Draw nodes
             for (x, y) in &nodes {
-                painter.circle_filled(
-                    pos2(*x, *y),
-                    zoomed_node_radius,
-                    Color32::from_rgb(255, 255, 255),
-                );
+                painter.circle_filled(pos2(*x, *y), zoomed_node_radius, NODE_COLOR);
             }
         });
 
@@ -160,6 +168,8 @@ impl App for MyApp {
 
         if self.last_fps_point.elapsed().as_secs_f32() > 1.0 {
             self.fps = self.fps_accumulator;
+            self.dt = 1. / self.fps as f32;
+
             self.fps_accumulator = 0;
             self.last_fps_point = Instant::now();
         } else {
