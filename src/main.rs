@@ -6,19 +6,29 @@ use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::{stable_graph::IndexType, Graph};
 use rand::seq::SliceRandom;
 
+const CNT: usize = 10000;
+
+const STD_FPS: usize = 60;
+const STD_DT: f32 = 1. / STD_FPS as f32;
+const MAX_FACTOR: f32 = 2.;
+
 const NODE_RADIUS: f32 = 5.;
 const EDGE_WIDTH: f32 = 2.;
 const NODE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
 const EDGE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
-const STD_FPS: usize = 60;
-const CNT: usize = 100;
+
+const STEP_TRANSLATION: f32 = NODE_RADIUS * 2.;
+const STEP_SCALE: f32 = 0.1;
 
 pub struct MyApp {
     simulation: Simulation<(), ()>,
-    fps: usize,
+
     dt: f32,
+    speed_correction: f32,
+    fps: usize,
     fps_accumulator: usize,
     last_fps_point: Instant,
+
     zoom: f32,
     translation: Vec2,
 }
@@ -59,7 +69,8 @@ impl MyApp {
         Self {
             simulation,
             fps: 0,
-            dt: 1. / STD_FPS as f32,
+            speed_correction: 1.,
+            dt: STD_DT,
             fps_accumulator: 0,
             last_fps_point: Instant::now(),
             zoom: 1.,
@@ -73,6 +84,7 @@ impl App for MyApp {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label(format!("fps: {}", self.fps));
+                ui.label(format!("speed correction: {}", self.speed_correction));
                 ui.label(format!("dt: {}", self.dt));
             });
         });
@@ -84,24 +96,25 @@ impl App for MyApp {
 
             ui.input(|i| {
                 if i.key_pressed(egui::Key::ArrowRight) {
-                    self.translation += Vec2::new(-10., 0.);
+                    self.translation += Vec2::new(-STEP_TRANSLATION * self.speed_correction, 0.);
                 }
                 if i.key_pressed(egui::Key::ArrowLeft) {
-                    self.translation += Vec2::new(10., 0.);
+                    self.translation += Vec2::new(STEP_TRANSLATION * self.speed_correction, 0.);
                 }
                 if i.key_pressed(egui::Key::ArrowDown) {
-                    self.translation += Vec2::new(0., -10.);
+                    self.translation += Vec2::new(0., -STEP_TRANSLATION * self.speed_correction);
                 }
                 if i.key_pressed(egui::Key::ArrowUp) {
-                    self.translation += Vec2::new(0., 10.);
+                    self.translation += Vec2::new(0., STEP_TRANSLATION * self.speed_correction);
                 }
 
                 if i.key_pressed(egui::Key::PlusEquals) {
-                    self.zoom *= 1.1;
+                    self.zoom *= 1. + (STEP_SCALE * self.speed_correction);
                 }
                 if i.key_pressed(egui::Key::Minus) {
-                    self.zoom *= 0.9;
+                    self.zoom *= 1. - (STEP_SCALE * self.speed_correction);
                 }
+
                 let zd = i.zoom_delta();
                 if zd != 0.0 {
                     self.zoom *= zd;
@@ -131,9 +144,10 @@ impl App for MyApp {
             let nodes = positions
                 .into_iter()
                 .map(|pos| {
-                    let mut pos = Vec2::new(pos.x, pos.y) * self.zoom;
+                    let mut pos = Vec2::new(pos.x, pos.y) + center;
+                    pos *= self.zoom;
                     pos += self.translation;
-                    (pos.x + center.x, pos.y + center.y)
+                    pos2(pos.x, pos.y)
                 })
                 .collect::<Vec<_>>();
 
@@ -149,18 +163,22 @@ impl App for MyApp {
             // draw edges
             self.simulation.get_graph().edge_indices().for_each(|edge| {
                 let (start, end) = self.simulation.get_graph().edge_endpoints(edge).unwrap();
+
+                let idx_start = start.index();
+                let idx_end = end.index();
+
+                let pos_start = nodes[idx_start];
+                let pos_end = nodes[idx_end];
+
                 painter.line_segment(
-                    [
-                        pos2(nodes[start.index()].0, nodes[start.index()].1),
-                        pos2(nodes[end.index()].0, nodes[end.index()].1),
-                    ],
+                    [pos_start, pos_end],
                     Stroke::new(zoomed_edge_width, EDGE_COLOR),
                 );
             });
 
             // Draw nodes
-            for (x, y) in &nodes {
-                painter.circle_filled(pos2(*x, *y), zoomed_node_radius, NODE_COLOR);
+            for pos in &nodes {
+                painter.circle_filled(*pos, zoomed_node_radius, NODE_COLOR);
             }
         });
 
@@ -168,7 +186,18 @@ impl App for MyApp {
 
         if self.last_fps_point.elapsed().as_secs_f32() > 1.0 {
             self.fps = self.fps_accumulator;
-            self.dt = 1. / self.fps as f32;
+
+            let mut dt = 1. / self.fps as f32;
+            if dt / STD_DT > MAX_FACTOR {
+                dt = STD_DT * MAX_FACTOR;
+            }
+            self.dt = dt;
+
+            let mut actions_speed = STD_FPS as f32 / self.fps as f32;
+            if actions_speed > MAX_FACTOR {
+                actions_speed = MAX_FACTOR;
+            }
+            self.speed_correction = actions_speed;
 
             self.fps_accumulator = 0;
             self.last_fps_point = Instant::now();
