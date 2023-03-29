@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use eframe::{run_native, App, CreationContext};
-use egui::{pos2, Color32, Context, Stroke};
+use egui::{pos2, Color32, Context, Stroke, Vec2};
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::{stable_graph::IndexType, Graph};
 use rand::seq::SliceRandom;
@@ -11,6 +11,8 @@ pub struct MyApp {
     fps: usize,
     fps_accumulator: usize,
     last_fps_point: Instant,
+    zoom: f32,
+    translation: Vec2,
 }
 
 impl MyApp {
@@ -51,6 +53,8 @@ impl MyApp {
             fps: 0,
             fps_accumulator: 0,
             last_fps_point: Instant::now(),
+            zoom: 1.,
+            translation: Vec2::ZERO,
         }
     }
 }
@@ -63,7 +67,39 @@ impl App for MyApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let available_size = ui.available_size();
-            let (response, painter) = ui.allocate_painter(available_size, egui::Sense::hover());
+            let (response, painter) =
+                ui.allocate_painter(available_size, egui::Sense::click_and_drag());
+
+            ui.input(|i| {
+                if i.key_pressed(egui::Key::ArrowRight) {
+                    self.translation += Vec2::new(10., 0.);
+                }
+                if i.key_pressed(egui::Key::ArrowLeft) {
+                    self.translation += Vec2::new(-10., 0.);
+                }
+                if i.key_pressed(egui::Key::ArrowDown) {
+                    self.translation += Vec2::new(0., -10.);
+                }
+                if i.key_pressed(egui::Key::ArrowUp) {
+                    self.translation += Vec2::new(0., 10.);
+                }
+
+                if i.key_pressed(egui::Key::PlusEquals) {
+                    self.zoom *= 1.1;
+                }
+                if i.key_pressed(egui::Key::Minus) {
+                    self.zoom *= 0.9;
+                }
+                let zd = i.zoom_delta();
+                if zd != 0.0 {
+                    self.zoom *= zd;
+                }
+            });
+
+            // Handle mouse drag events for panning
+            if response.dragged() {
+                self.translation += response.drag_delta();
+            }
 
             // Update the node positions based on the force-directed algorithm
             self.simulation.update(0.05);
@@ -82,8 +118,21 @@ impl App for MyApp {
             // Convert positions to f32 for use with egui
             let nodes = positions
                 .into_iter()
-                .map(|pos| (pos.x + center.x, pos.y + center.y))
+                .map(|pos| {
+                    let mut pos = Vec2::new(pos.x, pos.y) * self.zoom;
+                    pos += self.translation;
+                    (pos.x + center.x, pos.y + center.y)
+                })
                 .collect::<Vec<_>>();
+
+            let mut zoomed_edge_width = 2. * self.zoom;
+            if zoomed_edge_width < 1. {
+                zoomed_edge_width = 1.
+            }
+            let mut zoomed_node_radius = 5.0 * self.zoom;
+            if zoomed_node_radius < 2. {
+                zoomed_node_radius = 2.
+            }
 
             // draw edges
             self.simulation.get_graph().edge_indices().for_each(|edge| {
@@ -93,13 +142,17 @@ impl App for MyApp {
                         pos2(nodes[start.index()].0, nodes[start.index()].1),
                         pos2(nodes[end.index()].0, nodes[end.index()].1),
                     ],
-                    Stroke::new(2.0, Color32::from_rgb(128, 128, 128)),
+                    Stroke::new(zoomed_edge_width, Color32::from_rgb(128, 128, 128)),
                 );
             });
 
             // Draw nodes
             for (x, y) in &nodes {
-                painter.circle_filled(pos2(*x, *y), 5.0, Color32::from_rgb(255, 255, 255));
+                painter.circle_filled(
+                    pos2(*x, *y),
+                    zoomed_node_radius,
+                    Color32::from_rgb(255, 255, 255),
+                );
             }
         });
 
