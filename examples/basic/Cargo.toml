@@ -5,7 +5,7 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-egui_graph = { path = "../../egui_graph" }
+egui_graph = { path = "../../" }
 egui = "0.21.0"
 eframe = "0.21.3"
 petgraph = "0.6"
