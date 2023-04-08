@@ -1,0 +1,13 @@
+[package]
+name = "example"
+version = "0.1.0"
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+egui_graph = { path = "../../egui_graph" }
+egui = "0.21.0"
+eframe = "0.21.3"
+petgraph = "0.6"
+fdg-sim = "0.9.1"
+rand = "0.8.4"
