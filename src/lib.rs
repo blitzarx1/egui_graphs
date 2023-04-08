@@ -101,13 +101,13 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             let zoomed_node_radius_vec = Vec2::new(node_radius, node_radius) * dir;
             let tip = pos_start + vec - zoomed_node_radius_vec;
 
-            let rot = eframe::emath::Rot2::from_angle(std::f32::consts::TAU / 50.);
+            let angle = std::f32::consts::TAU / 50.;
             let tip_length = node_radius * 3.;
 
             let stroke = Stroke::new(edge_width, EDGE_COLOR);
             p.line_segment([pos_start, tip], stroke);
-            p.line_segment([tip, tip - tip_length * (rot * dir)], stroke);
-            p.line_segment([tip, tip - tip_length * (rot.inverse() * dir)], stroke);
+            p.line_segment([tip, tip - tip_length * rotate_vector(dir, angle)], stroke);
+            p.line_segment([tip, tip - tip_length * rotate_vector(dir, -angle)], stroke);
         });
 
         // Draw nodes
@@ -133,4 +133,10 @@ impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
 
         response
     }
+}
+
+fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
+    let cos = angle.cos();
+    let sin = angle.sin();
+    Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
 }
