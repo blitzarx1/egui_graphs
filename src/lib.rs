@@ -6,9 +6,11 @@ const NODE_RADIUS: f32 = 5.;
 const EDGE_WIDTH: f32 = 2.;
 const NODE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
 const EDGE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
+const MAX_ITERATIONS: u32 = 500;
 
 pub struct Graph<N: Clone, E: Clone> {
     simulation: Simulation<N, E>,
+    iterations: u32,
 
     zoom: f32,
     translation: Vec2,
@@ -23,6 +25,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         );
         Self {
             simulation,
+            iterations: 0,
 
             zoom: 1.,
             translation: Vec2::ZERO,
@@ -115,21 +118,28 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             p.circle_filled(pos.to_pos2(), node_radius, NODE_COLOR);
         }
     }
+
+    fn update_simulation(&mut self, ui: &Ui) {
+        // TODO: better use some kind of graph stability measure
+        // instead of a fixed number of iterations
+        if self.iterations > MAX_ITERATIONS {
+            return;
+        }
+
+        self.simulation.update(0.035);
+        ui.ctx().request_repaint();
+        self.iterations += 1;
+    }
 }
 
 impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
     fn ui(self, ui: &mut Ui) -> Response {
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
-        self.simulation.update(0.035);
-
+        self.update_simulation(ui);
         self.handle_size_change(&response);
-
         self.draw_nodes_and_edges(painter, &self.compute_positions());
-
         self.handle_interactions(ui, &response);
-
-        ui.ctx().request_repaint();
 
         response
     }
