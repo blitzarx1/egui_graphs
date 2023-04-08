@@ -12,5 +12,4 @@ petgraph = "0.6"
 fdg-sim = "0.9.1"
 
 [workspace]
-resolver = "2"
 members = ["examples/*"]
