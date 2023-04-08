@@ -345,6 +345,7 @@ dependencies = [
  "egui",
  "egui_graph",
  "petgraph",
+ "rand",
 ]
 
 [[package]]
