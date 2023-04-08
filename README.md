@@ -6,8 +6,6 @@ Grpah visualization implementation using [egui](https://github.com/emilk/egui)
 ## Status
 The project is under active development.
 
-For the moment this is just a simple example of how to visualize directed graph with egui.
-
 The goal is to create an external crate that expands egui's visualization capabilities and offers an easy-to-integrate, customizable graph widget.
 
 ## Examples
