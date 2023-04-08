@@ -1,4 +1,4 @@
-use egui::{Color32, Response, Sense, Stroke, Ui, Vec2, Widget};
+use egui::{Color32, Painter, Response, Sense, Stroke, Ui, Vec2, Widget};
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::visit::IntoNodeReferences;
 
@@ -12,6 +12,7 @@ pub struct Graph<N: Clone, E: Clone> {
 
     zoom: f32,
     translation: Vec2,
+    last_canvas_size: Vec2,
 }
 
 impl<N: Clone, E: Clone> Graph<N, E> {
@@ -25,6 +26,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
 
             zoom: 1.,
             translation: Vec2::ZERO,
+            last_canvas_size: Vec2::ZERO,
         }
     }
 
@@ -55,31 +57,32 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         if response.dragged() {
             self.translation += response.drag_delta();
         }
+
+        self.last_canvas_size = response.rect.size();
     }
 
     fn update_node_position(&self, original_pos: Vec2) -> Vec2 {
         original_pos * self.zoom + self.translation
     }
-}
 
-impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+    fn handle_size_change(&mut self, response: &Response) {
+        if self.last_canvas_size != response.rect.size() {
+            let diff = self.last_canvas_size - response.rect.size();
+            self.translation -= diff / 2.;
+        }
+    }
 
-        self.handle_interactions(ui, &response);
-
-        // Update the node positions based on the force-directed algorithm
-        self.simulation.update(0.035);
-
-        let positions = &self
-            .simulation
+    fn compute_positions(&self) -> Vec<Vec2> {
+        self.simulation
             .get_graph()
             .node_weights()
             .map(|node| self.update_node_position(Vec2::new(node.location.x, node.location.y)))
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
 
-        let zoomed_edge_width = EDGE_WIDTH * self.zoom;
-        let zoomed_node_radius = NODE_RADIUS * self.zoom;
+    fn draw_nodes_and_edges(&self, p: Painter, positions: &Vec<Vec2>) {
+        let edge_width = EDGE_WIDTH * self.zoom;
+        let node_radius = NODE_RADIUS * self.zoom;
 
         // draw edges
         self.simulation.get_graph().edge_indices().for_each(|edge| {
@@ -95,22 +98,36 @@ impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
             let l = vec.length();
             let dir = vec / l;
 
-            let zoomed_node_radius_vec = Vec2::new(zoomed_node_radius, zoomed_node_radius) * dir;
+            let zoomed_node_radius_vec = Vec2::new(node_radius, node_radius) * dir;
             let tip = pos_start + vec - zoomed_node_radius_vec;
 
             let rot = eframe::emath::Rot2::from_angle(std::f32::consts::TAU / 50.);
-            let tip_length = zoomed_node_radius * 3.;
+            let tip_length = node_radius * 3.;
 
-            let stroke = Stroke::new(zoomed_edge_width, EDGE_COLOR);
-            painter.line_segment([pos_start, tip], stroke);
-            painter.line_segment([tip, tip - tip_length * (rot * dir)], stroke);
-            painter.line_segment([tip, tip - tip_length * (rot.inverse() * dir)], stroke);
+            let stroke = Stroke::new(edge_width, EDGE_COLOR);
+            p.line_segment([pos_start, tip], stroke);
+            p.line_segment([tip, tip - tip_length * (rot * dir)], stroke);
+            p.line_segment([tip, tip - tip_length * (rot.inverse() * dir)], stroke);
         });
 
         // Draw nodes
         for pos in positions {
-            painter.circle_filled(pos.to_pos2(), zoomed_node_radius, NODE_COLOR);
+            p.circle_filled(pos.to_pos2(), node_radius, NODE_COLOR);
         }
+    }
+}
+
+impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+
+        self.simulation.update(0.035);
+
+        self.handle_size_change(&response);
+
+        self.draw_nodes_and_edges(painter, &self.compute_positions());
+
+        self.handle_interactions(ui, &response);
 
         ui.ctx().request_repaint();
 
