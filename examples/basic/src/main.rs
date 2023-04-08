@@ -1,3 +1,5 @@
+use std::collections::hash_map::HashMap;
+
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
 use egui_graph::Graph;
@@ -6,6 +8,7 @@ use rand::Rng;
 
 const NODE_COUNT: usize = 50;
 const EDGE_COUNT: usize = 100;
+const MAX_RANK: usize = 4;
 
 pub struct MyApp {
     graph: Graph<(), ()>,
@@ -30,6 +33,7 @@ impl App for MyApp {
 fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Graph<(), ()> {
     let mut rng = rand::thread_rng();
     let mut graph = petgraph::Graph::<_, ()>::new();
+    let mut rank_map = HashMap::<usize, usize>::new();
 
     // Add nodes
     for _ in 0..node_count {
@@ -38,13 +42,19 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Grap
 
     // Add random edges
     for _ in 0..edge_count {
-        let source = NodeIndex::new(rng.gen_range(0..node_count));
-        let target = NodeIndex::new(rng.gen_range(0..node_count));
+        let source = rng.gen_range(0..node_count);
+        let target = rng.gen_range(0..node_count);
 
-        // Prevent self-loops
-        if source != target {
-            graph.add_edge(source, target, ());
+        let source_allowed = rank_map.get(&source).unwrap_or(&0) < &MAX_RANK;
+        let target_allowed = rank_map.get(&target).unwrap_or(&0) < &MAX_RANK;
+
+        if source == target || !source_allowed || !target_allowed {
+            continue;
         }
+
+        graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
+        *rank_map.entry(source).or_insert(0) += 1;
+        *rank_map.entry(target).or_insert(0) += 1;
     }
 
     graph
