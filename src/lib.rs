@@ -1,4 +1,4 @@
-use egui::{Color32, InputState, Painter, Response, Sense, Stroke, Ui, Vec2, Widget};
+use egui::{Color32, Painter, Response, Sense, Stroke, Ui, Vec2, Widget};
 use fdg_sim::{glam::Vec3, ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::{stable_graph::NodeIndex, visit::IntoNodeReferences};
 
