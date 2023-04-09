@@ -728,7 +728,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui_graph"
+name = "egui_graphs"
 version = "0.0.1"
 dependencies = [
  "egui",
@@ -825,7 +825,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui_graph",
+ "egui_graphs",
  "petgraph",
  "rand",
 ]

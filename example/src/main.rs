@@ -2,7 +2,7 @@ use std::collections::hash_map::HashMap;
 
 use eframe::{run_native, App, CreationContext};
 use egui::{Context, Ui};
-use egui_graph::Graph;
+use egui_graphs::Graph;
 use petgraph::stable_graph::NodeIndex;
 use rand::Rng;
 
