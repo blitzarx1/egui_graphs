@@ -2,7 +2,7 @@ use std::collections::hash_map::HashMap;
 
 use eframe::{run_native, App, CreationContext};
 use egui::{Context, Ui};
-use egui_graphs::Graph;
+use egui_graphs::{settings::Settings, Graph};
 use petgraph::stable_graph::NodeIndex;
 use rand::Rng;
 
@@ -12,16 +12,17 @@ const MAX_RANK: usize = 6;
 
 pub struct ExampleApp {
     graph: Graph<(), ()>,
-    simulation_autofit: bool,
-    simulation_drag: bool,
+    settings: Settings,
 }
 
 impl ExampleApp {
     fn new(_: &CreationContext<'_>) -> Self {
         Self {
-            graph: Graph::new(generate_random_graph(NODE_COUNT, EDGE_COUNT), false, true),
-            simulation_autofit: false,
-            simulation_drag: true,
+            graph: Graph::new(
+                generate_random_graph(NODE_COUNT, EDGE_COUNT),
+                Settings::default(),
+            ),
+            settings: Settings::default(),
         }
     }
 
@@ -42,25 +43,33 @@ impl App for ExampleApp {
                 ui.label("* Use Left Mouse Button to pan the graph and drag nodes");
                 ui.label("* Ctrl + Mouse Wheel to zoom");
                 ui.label("* Press space to fit the graph to the screen");
+                
                 ui.separator();
+                if ui
+                    .checkbox(&mut self.settings.simulation_autofit, "simulation autofit")
+                    .clicked()
+                {
+                    self.graph
+                        .set_simulation_autofit(self.settings.simulation_autofit);
+                }
+                ui.label("simulation autofit disables all other interactions with the graph and fits the graph to the screen on every simulation fram update");
+                ui.add_space(10.);
+                
+                if ui
+                    .checkbox(&mut self.settings.simulation_drag, "simulation drag")
+                    .clicked()
+                {
+                    self.graph
+                        .set_simulation_drag(self.settings.simulation_drag);
+                }
+                ui.label("simulation drag starts the simulation when a node is dragged");
+                ui.add_space(10.);
+
                 if ui.button("Randomize").clicked() {
                     self.graph = Graph::new(
                         generate_random_graph(NODE_COUNT, EDGE_COUNT),
-                        self.simulation_autofit,
-                        self.simulation_drag,
+                        self.settings.clone(),
                     );
-                }
-                if ui
-                    .checkbox(&mut self.simulation_autofit, "simulation autofit")
-                    .clicked()
-                {
-                    self.graph.set_simulation_autofit(self.simulation_autofit);
-                }
-                if ui
-                    .checkbox(&mut self.simulation_drag, "simulation drag")
-                    .clicked()
-                {
-                    self.graph.set_simulation_drag(self.simulation_drag);
                 }
             });
         egui::CentralPanel::default().show(ctx, |ui| {

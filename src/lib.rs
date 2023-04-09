@@ -1,6 +1,9 @@
 use egui::{Color32, Painter, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use fdg_sim::{glam::Vec3, ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::{stable_graph::NodeIndex, visit::IntoNodeReferences};
+use settings::Settings;
+
+pub mod settings;
 
 const NODE_RADIUS: f32 = 5.;
 const EDGE_WIDTH: f32 = 2.;
@@ -43,11 +46,7 @@ pub struct Graph<N: Clone, E: Clone> {
 }
 
 impl<N: Clone, E: Clone> Graph<N, E> {
-    pub fn new(
-        input_graph: petgraph::graph::Graph<N, E>,
-        simulation_autofit: bool,
-        simulation_drag: bool,
-    ) -> Self {
+    pub fn new(input_graph: petgraph::graph::Graph<N, E>, settings: Settings) -> Self {
         let simulation = Simulation::from_graph(
             Graph::build_force_graph(input_graph),
             SimulationParameters::default(),
@@ -61,8 +60,8 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             pan: Default::default(),
             canvas: Rect::from_min_max(Pos2::default(), Pos2::default()),
 
-            simulation_autofit,
-            simulation_drag,
+            simulation_autofit: settings.simulation_autofit,
+            simulation_drag: settings.simulation_drag,
             first_fit: false,
 
             elements_sizes: ElementsSizes {
