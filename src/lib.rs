@@ -1,4 +1,4 @@
-use egui::{Color32, Painter, Response, Sense, Stroke, Ui, Vec2, Widget};
+use egui::{Color32, Painter, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget};
 use fdg_sim::{glam::Vec3, ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::{stable_graph::NodeIndex, visit::IntoNodeReferences};
 
@@ -6,9 +6,11 @@ const NODE_RADIUS: f32 = 5.;
 const EDGE_WIDTH: f32 = 2.;
 const NODE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
 const EDGE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
+const SCREEN_PADDING: f32 = 0.5;
 const MAX_ITERATIONS: u32 = 500;
+const ZOOM_STEP: f32 = 0.1;
 
-pub struct Dimensions {
+pub struct ElementsSizes {
     pub node_radius: f32,
     pub edge_width: f32,
 }
@@ -25,8 +27,10 @@ pub struct Graph<N: Clone, E: Clone> {
 
     node_dragged: Option<usize>,
 
-    dimensions: Dimensions,
+    elements_sizes: ElementsSizes,
     positions: Vec<Vec2>,
+    top_left_pos: Vec2,
+    down_right_pos: Vec2,
 }
 
 impl<N: Clone, E: Clone> Graph<N, E> {
@@ -43,13 +47,44 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             pan: Default::default(),
             canvas_size: Default::default(),
 
-            dimensions: Dimensions {
+            elements_sizes: ElementsSizes {
                 node_radius: NODE_RADIUS,
                 edge_width: EDGE_WIDTH,
             },
             node_dragged: Default::default(),
             positions: Default::default(),
+            top_left_pos: Default::default(),
+            down_right_pos: Default::default(),
         }
+    }
+
+    /// Pans and zooms the graph to fit the screen
+    pub fn fit_screen(&mut self, response: &Response) {
+        // calculate graph dimensions with decorative padding
+        let graph_size = (self.down_right_pos - self.top_left_pos) * (1. + SCREEN_PADDING);
+        let (width, height) = (graph_size.x, graph_size.y);
+
+        // calculate canvas dimensions
+        let canvas_size = response.rect.size();
+        let (canvas_width, canvas_height) = (canvas_size.x, canvas_size.y);
+
+        // calculate zoom factors for x and y to fit the graph inside the canvas
+        let zoom_x = canvas_width / width;
+        let zoom_y = canvas_height / height;
+
+        // choose the minimum of the two zoom factors to avoid distortion
+        let new_zoom = zoom_x.min(zoom_y);
+
+        // calculate the zoom delta and call handle_zoom to adjust the zoom factor
+        let zoom_delta = new_zoom / self.zoom - 1.0;
+        self.handle_zoom(zoom_delta, None, response);
+
+        // calculate the center of the graph and the canvas
+        let graph_center = (self.top_left_pos + self.down_right_pos) / 2.0;
+        let canvas_center = canvas_size / 2.0;
+
+        // adjust the pan value to align the centers of the graph and the canvas
+        self.pan = canvas_center - graph_center * self.zoom;
     }
 
     fn build_force_graph(input_graph: petgraph::graph::Graph<N, E>) -> ForceGraph<N, E> {
@@ -69,33 +104,43 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     }
 
     fn handle_all_interactions(&mut self, ui: &mut Ui, response: &Response) {
-        self.handle_zoom(ui, response);
-        self.handle_drags(response);
-        self.canvas_size = response.rect.size();
-    }
-
-    fn handle_zoom(&mut self, ui: &mut Ui, response: &Response) {
         ui.input(|i| {
-            let zoom_delta = i.zoom_delta();
-            if zoom_delta == 1. {
+            let delta = i.zoom_delta();
+            if delta == 1. {
                 return;
             }
+            let step = ZOOM_STEP * (1. - delta).signum();
+            self.handle_zoom(step, i.pointer.hover_pos(), response);
+        });
 
-            let mouse_pos = match i.pointer.hover_pos() {
-                Some(mouse_pos) => mouse_pos - response.rect.min,
-                None => Vec2::ZERO,
-            };
-            let graph_mouse_pos = (mouse_pos - self.pan) / self.zoom;
-            let new_zoom = self.zoom * zoom_delta;
-            let zoom_ratio = new_zoom / self.zoom;
+        self.handle_drags(response);
+        self.handle_keys(ui, response);
+        self.handle_size_change(response)
+    }
 
-            self.pan += (1. - zoom_ratio) * graph_mouse_pos * new_zoom;
-            self.zoom = new_zoom;
-            self.dimensions = Dimensions {
-                node_radius: NODE_RADIUS * new_zoom,
-                edge_width: EDGE_WIDTH * new_zoom,
+    fn handle_keys(&mut self, ui: &mut Ui, response: &Response) {
+        ui.input(|i| {
+            if i.key_pressed(egui::Key::Space) {
+                self.fit_screen(response)
             }
         });
+    }
+
+    fn handle_zoom(&mut self, delta: f32, zoom_center: Option<Pos2>, response: &Response) {
+        let center_pos = match zoom_center {
+            Some(center_pos) => center_pos - response.rect.min,
+            None => Vec2::ZERO,
+        };
+        let graph_center_pos = (center_pos - self.pan) / self.zoom;
+        let factor = 1. + delta;
+        let new_zoom = self.zoom * factor;
+
+        self.pan += (1. - factor) * graph_center_pos * new_zoom;
+        self.elements_sizes = ElementsSizes {
+            node_radius: NODE_RADIUS * new_zoom,
+            edge_width: EDGE_WIDTH * new_zoom,
+        };
+        self.zoom = new_zoom;
     }
 
     fn handle_drags(&mut self, response: &Response) {
@@ -140,29 +185,51 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         }
     }
 
-    fn update_node_position(&self, original_pos: Vec2) -> Vec2 {
-        original_pos * self.zoom + self.pan
+    // applies current pan and zoom to the graph coordinates
+    fn to_screen_coords(&self, pos_in_graph_coords: Vec2) -> Vec2 {
+        pos_in_graph_coords * self.zoom + self.pan
     }
 
     fn handle_size_change(&mut self, response: &Response) {
         if self.canvas_size != response.rect.size() {
-            let diff = self.canvas_size - response.rect.size();
-            self.pan -= diff / 2.;
+            self.fit_screen(response);
         }
+        self.canvas_size = response.rect.size();
     }
 
     fn compute_positions(&mut self) {
+        let (mut min_x, mut min_y) = (self.top_left_pos.x, self.top_left_pos.y);
+        let (mut max_x, mut max_y) = (self.down_right_pos.x, self.down_right_pos.y);
+
         self.positions = self
             .simulation
             .get_graph()
             .node_weights()
-            .map(|node| self.update_node_position(Vec2::new(node.location.x, node.location.y)))
+            .map(|n| {
+                if n.location.x < min_x {
+                    min_x = n.location.x;
+                };
+                if n.location.y < min_y {
+                    min_y = n.location.y;
+                };
+                if n.location.x > max_x {
+                    max_x = n.location.x;
+                };
+                if n.location.y > max_y {
+                    max_y = n.location.y;
+                };
+
+                self.to_screen_coords(Vec2::new(n.location.x, n.location.y))
+            })
             .collect::<Vec<_>>();
+
+        self.top_left_pos = Vec2::new(min_x, min_y);
+        self.down_right_pos = Vec2::new(max_x, max_y);
     }
 
     fn draw_nodes_and_edges(&self, p: Painter) {
-        let node_radius = self.dimensions.node_radius;
-        let edge_width = self.dimensions.edge_width;
+        let node_radius = self.elements_sizes.node_radius;
+        let edge_width = self.elements_sizes.edge_width;
 
         // draw edges
         self.simulation.get_graph().edge_indices().for_each(|edge| {
@@ -217,7 +284,6 @@ impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
         self.draw_nodes_and_edges(painter);
 
         self.update_simulation(ui);
-        self.handle_size_change(&response);
         self.handle_all_interactions(ui, &response);
 
         response
