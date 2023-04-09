@@ -8,5 +8,18 @@ The project is under active development.
 
 The goal is to create an external crate that expands egui's visualization capabilities and offers an easy-to-integrate, customizable graph widget.
 
+## Features
+<pre>
+feature                status
+----------------------+-------
+force directed layout | [x]
+zoom                  | [x]
+pan                   | [x]
+drag                  | [x]
+add node              | [ ]
+delete node           | [ ]
+style customizations  | [ ]
+</pre>
+
 ## Examples
 You can also check the [examples folder](https://github.com/blitzarx1/egui_graph/tree/master/examples) for usage references.
