@@ -1,5 +1,5 @@
 # example
-Demonstrates basic usage and settings of the egui_graph widget.
+Demonstrates basic usage and settings of the egui_graphs widget.
 
 ## run
 ```
