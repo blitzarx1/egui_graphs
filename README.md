@@ -23,4 +23,4 @@ style customizations  | [ ]
 </pre>
 
 ## Example
-You can also check the [example](https://github.com/blitzarx1/egui_graph/tree/master/examples) for usage references and settings description.
+You can also check the [example](https://github.com/blitzarx1/egui_graph/tree/master/example) for usage references and settings description.
