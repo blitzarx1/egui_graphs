@@ -23,8 +23,7 @@ pub struct Graph<N: Clone, E: Clone> {
     pan: Vec2,
     canvas_size: Vec2,
 
-    node_dragging: bool,
-    node_dragging_id: NodeIndex,
+    node_dragged: Option<usize>,
 
     dimensions: Dimensions,
     positions: Vec<Vec2>,
@@ -48,8 +47,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
                 node_radius: NODE_RADIUS,
                 edge_width: EDGE_WIDTH,
             },
-            node_dragging: false,
-            node_dragging_id: Default::default(),
+            node_dragged: Default::default(),
             positions: Default::default(),
         }
     }
@@ -107,15 +105,14 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             });
             if let Some(node_idx) = node_idx {
                 self.iterations = 0;
-                self.node_dragging = true;
-                self.node_dragging_id = NodeIndex::new(node_idx);
+                self.node_dragged = Some(node_idx);
             }
         }
 
         if response.dragged() {
-            match self.node_dragging {
-                true => {
-                    let node_pos = self.positions[self.node_dragging_id.index()];
+            match self.node_dragged {
+                Some(node_dragged) => {
+                    let node_pos = self.positions[node_dragged];
 
                     // here we should update position in the graph coordinates
                     // because on every tick we recalculate node positions assuming
@@ -129,18 +126,17 @@ impl<N: Clone, E: Clone> Graph<N, E> {
 
                     self.simulation
                         .get_graph_mut()
-                        .node_weight_mut(self.node_dragging_id)
+                        .node_weight_mut(NodeIndex::new(node_dragged))
                         .unwrap()
                         .location = Vec3::new(graph_dragged_pos.x, graph_dragged_pos.y, 0.);
                     self.iterations = 0;
                 }
-                false => self.pan += response.drag_delta(),
+                None => self.pan += response.drag_delta(),
             };
         }
 
         if response.drag_released() {
-            self.node_dragging = false;
-            self.node_dragging_id = Default::default();
+            self.node_dragged = Default::default();
         }
     }
 
