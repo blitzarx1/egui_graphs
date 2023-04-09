@@ -1,4 +1,4 @@
-use egui::{Color32, Painter, Response, Sense, Stroke, Ui, Vec2, Widget};
+use egui::{Color32, InputState, Painter, Response, Sense, Stroke, Ui, Vec2, Widget};
 use fdg_sim::{glam::Vec3, ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::{stable_graph::NodeIndex, visit::IntoNodeReferences};
 
@@ -17,7 +17,9 @@ pub struct Graph<N: Clone, E: Clone> {
     simulation: Simulation<N, E>,
     iterations: u32,
 
+    /// current zoom factor
     zoom: f32,
+    /// current pan offset
     pan: Vec2,
     canvas_size: Vec2,
 
@@ -68,27 +70,37 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         force_graph
     }
 
-    fn handle_interactions(&mut self, ui: &mut Ui, response: &Response) {
+    fn handle_all_interactions(&mut self, ui: &mut Ui, response: &Response) {
+        self.handle_zoom(ui, response);
+        self.handle_drags(response);
+        self.canvas_size = response.rect.size();
+    }
+
+    fn handle_zoom(&mut self, ui: &mut Ui, response: &Response) {
         ui.input(|i| {
             let zoom_delta = i.zoom_delta();
-            if zoom_delta != 1. {
-                let mouse_pos = match i.pointer.hover_pos() {
-                    Some(mouse_pos) => mouse_pos - response.rect.min,
-                    None => Vec2::ZERO,
-                };
-                let graph_mouse_pos = (mouse_pos - self.pan) / self.zoom;
-                let new_zoom = self.zoom * zoom_delta;
-                let zoom_ratio = new_zoom / self.zoom;
+            if zoom_delta == 1. {
+                return;
+            }
 
-                self.pan += (1. - zoom_ratio) * graph_mouse_pos * new_zoom;
-                self.zoom = new_zoom;
-                self.dimensions = Dimensions {
-                    node_radius: NODE_RADIUS * new_zoom,
-                    edge_width: EDGE_WIDTH * new_zoom,
-                }
+            let mouse_pos = match i.pointer.hover_pos() {
+                Some(mouse_pos) => mouse_pos - response.rect.min,
+                None => Vec2::ZERO,
+            };
+            let graph_mouse_pos = (mouse_pos - self.pan) / self.zoom;
+            let new_zoom = self.zoom * zoom_delta;
+            let zoom_ratio = new_zoom / self.zoom;
+
+            self.pan += (1. - zoom_ratio) * graph_mouse_pos * new_zoom;
+            self.zoom = new_zoom;
+            self.dimensions = Dimensions {
+                node_radius: NODE_RADIUS * new_zoom,
+                edge_width: EDGE_WIDTH * new_zoom,
             }
         });
+    }
 
+    fn handle_drags(&mut self, response: &Response) {
         if response.drag_started() {
             let node_idx = self.positions.iter().position(|pos| {
                 (*pos - response.hover_pos().unwrap().to_vec2()).length() <= NODE_RADIUS * self.zoom
@@ -104,7 +116,15 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             match self.node_dragging {
                 true => {
                     let node_pos = self.positions[self.node_dragging_id.index()];
+
+                    // here we should update position in the graph coordinates
+                    // because on every tick we recalculate node positions assuming
+                    // that they are in graph coordinates
+
+                    // convert node position from screen to graph coordinates
                     let graph_node_pos = (node_pos - self.pan) / self.zoom;
+
+                    // apply scaled drag translation
                     let graph_dragged_pos = graph_node_pos + response.drag_delta() / self.zoom;
 
                     self.simulation
@@ -122,8 +142,6 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             self.node_dragging = false;
             self.node_dragging_id = Default::default();
         }
-
-        self.canvas_size = response.rect.size();
     }
 
     fn update_node_position(&self, original_pos: Vec2) -> Vec2 {
@@ -204,7 +222,7 @@ impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
 
         self.update_simulation(ui);
         self.handle_size_change(&response);
-        self.handle_interactions(ui, &response);
+        self.handle_all_interactions(ui, &response);
 
         response
     }
