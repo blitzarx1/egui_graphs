@@ -18,6 +18,7 @@ pan                   | [x]
 drag                  | [x]
 add node              | [ ]
 delete node           | [ ]
+layout customizations | [ ]
 style customizations  | [ ]
 </pre>
 
