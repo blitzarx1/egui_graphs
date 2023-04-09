@@ -50,19 +50,33 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     }
 
     fn handle_interactions(&mut self, ui: &mut Ui, response: &Response) {
-        ui.input(|i| {
-            let zoom_delta = i.zoom_delta();
-            if zoom_delta != 1. {
-                self.zoom *= zoom_delta;
+        let mouse_pos = ui.input(|i|{
+            if let Some(mouse_pos) = i.pointer.hover_pos() {
+                mouse_pos - response.rect.min
+            } else {
+                Vec2::ZERO
             }
         });
 
+        let graph_mouse_pos = (mouse_pos - self.translation) / self.zoom;
+    
+        ui.input(|i| {
+            let zoom_delta = i.zoom_delta();
+            if zoom_delta != 1. {
+                let new_zoom = (self.zoom * zoom_delta).max(0.1);
+                let zoom_ratio = new_zoom / self.zoom;
+                self.zoom = new_zoom;
+                self.translation += (1. - zoom_ratio) * graph_mouse_pos * self.zoom;
+            }
+        });
+    
         if response.dragged() {
             self.translation += response.drag_delta();
         }
-
+    
         self.last_canvas_size = response.rect.size();
     }
+    
 
     fn update_node_position(&self, original_pos: Vec2) -> Vec2 {
         original_pos * self.zoom + self.translation

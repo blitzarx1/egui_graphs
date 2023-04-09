@@ -32,7 +32,7 @@ impl App for MyApp {
 
 fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Graph<(), ()> {
     let mut rng = rand::thread_rng();
-    let mut graph = petgraph::Graph::<_, ()>::new();
+    let mut graph = petgraph::Graph::<_, _>::new();
     let mut rank_map = HashMap::<usize, usize>::new();
 
     // Add nodes
