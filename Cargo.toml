@@ -13,4 +13,4 @@ petgraph = "0.6"
 fdg-sim = "0.9.1"
 
 [workspace]
-members = ["examples/*"]
+members = ["example"]

@@ -1,4 +1,4 @@
-use egui::{Color32, Painter, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget};
+use egui::{Color32, Painter, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use fdg_sim::{glam::Vec3, ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::{stable_graph::NodeIndex, visit::IntoNodeReferences};
 
@@ -6,7 +6,7 @@ const NODE_RADIUS: f32 = 5.;
 const EDGE_WIDTH: f32 = 2.;
 const NODE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
 const EDGE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
-const SCREEN_PADDING: f32 = 0.5;
+const SCREEN_PADDING: f32 = 0.3;
 const MAX_ITERATIONS: u32 = 500;
 const ZOOM_STEP: f32 = 0.1;
 
@@ -23,9 +23,18 @@ pub struct Graph<N: Clone, E: Clone> {
     zoom: f32,
     /// current pan offset
     pan: Vec2,
-    canvas_size: Vec2,
+    /// current canvas dimensions
+    canvas: Rect,
 
     node_dragged: Option<usize>,
+
+    // TODO: combine next block into settings datastructure with default values
+    // and use in the constructor
+    simulation_autofit: bool,
+    simulation_drag: bool,
+
+    /// indicates if the graph was fitted to the screen on the first iteration
+    first_fit: bool,
 
     elements_sizes: ElementsSizes,
     positions: Vec<Vec2>,
@@ -34,18 +43,27 @@ pub struct Graph<N: Clone, E: Clone> {
 }
 
 impl<N: Clone, E: Clone> Graph<N, E> {
-    pub fn new(input_graph: petgraph::graph::Graph<N, E>) -> Self {
+    pub fn new(
+        input_graph: petgraph::graph::Graph<N, E>,
+        simulation_autofit: bool,
+        simulation_drag: bool,
+    ) -> Self {
         let simulation = Simulation::from_graph(
             Graph::build_force_graph(input_graph),
             SimulationParameters::default(),
         );
-        Self {
+
+        let mut graph = Self {
             simulation,
             iterations: Default::default(),
 
             zoom: 1.,
             pan: Default::default(),
-            canvas_size: Default::default(),
+            canvas: Rect::from_min_max(Pos2::default(), Pos2::default()),
+
+            simulation_autofit,
+            simulation_drag,
+            first_fit: false,
 
             elements_sizes: ElementsSizes {
                 node_radius: NODE_RADIUS,
@@ -55,17 +73,21 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             positions: Default::default(),
             top_left_pos: Default::default(),
             down_right_pos: Default::default(),
-        }
+        };
+
+        graph.compute_positions();
+
+        graph
     }
 
     /// Pans and zooms the graph to fit the screen
-    pub fn fit_screen(&mut self, response: &Response) {
+    pub fn fit_screen(&mut self) {
         // calculate graph dimensions with decorative padding
         let graph_size = (self.down_right_pos - self.top_left_pos) * (1. + SCREEN_PADDING);
         let (width, height) = (graph_size.x, graph_size.y);
 
         // calculate canvas dimensions
-        let canvas_size = response.rect.size();
+        let canvas_size = self.canvas.size();
         let (canvas_width, canvas_height) = (canvas_size.x, canvas_size.y);
 
         // calculate zoom factors for x and y to fit the graph inside the canvas
@@ -77,14 +99,13 @@ impl<N: Clone, E: Clone> Graph<N, E> {
 
         // calculate the zoom delta and call handle_zoom to adjust the zoom factor
         let zoom_delta = new_zoom / self.zoom - 1.0;
-        self.handle_zoom(zoom_delta, None, response);
+        self.handle_zoom(zoom_delta, None);
 
         // calculate the center of the graph and the canvas
         let graph_center = (self.top_left_pos + self.down_right_pos) / 2.0;
-        let canvas_center = canvas_size / 2.0;
 
         // adjust the pan value to align the centers of the graph and the canvas
-        self.pan = canvas_center - graph_center * self.zoom;
+        self.pan = self.canvas.center().to_vec2() - graph_center * self.zoom;
     }
 
     fn build_force_graph(input_graph: petgraph::graph::Graph<N, E>) -> ForceGraph<N, E> {
@@ -104,31 +125,29 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     }
 
     fn handle_all_interactions(&mut self, ui: &mut Ui, response: &Response) {
+        if !self.interactions_allowed() {
+            return;
+        }
+
         ui.input(|i| {
             let delta = i.zoom_delta();
             if delta == 1. {
                 return;
             }
             let step = ZOOM_STEP * (1. - delta).signum();
-            self.handle_zoom(step, i.pointer.hover_pos(), response);
+            self.handle_zoom(step, i.pointer.hover_pos());
         });
 
         self.handle_drags(response);
-        self.handle_keys(ui, response);
-        self.handle_size_change(response)
     }
 
-    fn handle_keys(&mut self, ui: &mut Ui, response: &Response) {
-        ui.input(|i| {
-            if i.key_pressed(egui::Key::Space) {
-                self.fit_screen(response)
-            }
-        });
+    fn start_simulation(&mut self) {
+        self.iterations = 0;
     }
 
-    fn handle_zoom(&mut self, delta: f32, zoom_center: Option<Pos2>, response: &Response) {
+    fn handle_zoom(&mut self, delta: f32, zoom_center: Option<Pos2>) {
         let center_pos = match zoom_center {
-            Some(center_pos) => center_pos - response.rect.min,
+            Some(center_pos) => center_pos - self.canvas.min,
             None => Vec2::ZERO,
         };
         let graph_center_pos = (center_pos - self.pan) / self.zoom;
@@ -149,13 +168,13 @@ impl<N: Clone, E: Clone> Graph<N, E> {
                 (*pos - response.hover_pos().unwrap().to_vec2()).length() <= NODE_RADIUS * self.zoom
             });
             if let Some(node_idx) = node_idx {
-                self.iterations = 0;
                 self.node_dragged = Some(node_idx);
             }
         }
 
         if response.dragged() {
             match self.node_dragged {
+                // if we are dragging a node, we should update its position in the graph
                 Some(node_dragged) => {
                     let node_pos = self.positions[node_dragged];
 
@@ -174,8 +193,12 @@ impl<N: Clone, E: Clone> Graph<N, E> {
                         .node_weight_mut(NodeIndex::new(node_dragged))
                         .unwrap()
                         .location = Vec3::new(graph_dragged_pos.x, graph_dragged_pos.y, 0.);
-                    self.iterations = 0;
+
+                    if self.simulation_drag {
+                        self.start_simulation();
+                    }
                 }
+                // if we are not dragging a node, we should pan the graph
                 None => self.pan += response.drag_delta(),
             };
         }
@@ -190,16 +213,9 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         pos_in_graph_coords * self.zoom + self.pan
     }
 
-    fn handle_size_change(&mut self, response: &Response) {
-        if self.canvas_size != response.rect.size() {
-            self.fit_screen(response);
-        }
-        self.canvas_size = response.rect.size();
-    }
-
     fn compute_positions(&mut self) {
-        let (mut min_x, mut min_y) = (self.top_left_pos.x, self.top_left_pos.y);
-        let (mut max_x, mut max_y) = (self.down_right_pos.x, self.down_right_pos.y);
+        let (mut min_x, mut min_y) = (0., 0.);
+        let (mut max_x, mut max_y) = (0., 0.);
 
         self.positions = self
             .simulation
@@ -263,28 +279,57 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         });
     }
 
-    fn update_simulation(&mut self, ui: &Ui) {
+    fn simulation_finished(&self) -> bool {
+        self.iterations > MAX_ITERATIONS
+    }
+
+    fn update_simulation(&mut self) -> bool {
         // TODO: better use some kind of graph stability measure
         // instead of a fixed number of iterations
-        if self.iterations > MAX_ITERATIONS {
-            return;
+        if self.simulation_finished() {
+            return false;
         }
 
         self.simulation.update(0.035);
-        ui.ctx().request_repaint();
         self.iterations += 1;
+
+        true
+    }
+
+    fn interactions_allowed(&self) -> bool {
+        !self.simulation_autofit
+    }
+
+    pub fn set_simulation_autofit(&mut self, simulation_autofit: bool) {
+        self.simulation_autofit = simulation_autofit;
+    }
+
+    pub fn set_simulation_drag(&mut self, simulation_drag: bool) {
+        self.simulation_drag = simulation_drag;
     }
 }
 
 impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
     fn ui(self, ui: &mut Ui) -> Response {
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+        self.canvas = response.rect;
 
+        if !self.first_fit {
+            self.fit_screen();
+            self.first_fit = true;
+        }
+
+        self.handle_all_interactions(ui, &response);
         self.compute_positions();
         self.draw_nodes_and_edges(painter);
 
-        self.update_simulation(ui);
-        self.handle_all_interactions(ui, &response);
+        if self.simulation_autofit && !self.simulation_finished() {
+            self.fit_screen()
+        }
+
+        if self.update_simulation() {
+            ui.ctx().request_repaint();
+        };
 
         response
     }

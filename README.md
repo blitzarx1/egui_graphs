@@ -22,5 +22,5 @@ layout customizations | [ ]
 style customizations  | [ ]
 </pre>
 
-## Examples
-You can also check the [examples folder](https://github.com/blitzarx1/egui_graph/tree/master/examples) for usage references.
+## Example
+You can also check the [example](https://github.com/blitzarx1/egui_graph/tree/master/examples) for usage references and settings description.
