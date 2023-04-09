@@ -18,7 +18,7 @@ pub struct Graph<N: Clone, E: Clone> {
     iterations: u32,
 
     zoom: f32,
-    translation: Vec2,
+    pan: Vec2,
     canvas_size: Vec2,
 
     node_dragging: bool,
@@ -39,7 +39,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             iterations: Default::default(),
 
             zoom: 1.,
-            translation: Default::default(),
+            pan: Default::default(),
             canvas_size: Default::default(),
 
             dimensions: Dimensions {
@@ -76,11 +76,11 @@ impl<N: Clone, E: Clone> Graph<N, E> {
                     Some(mouse_pos) => mouse_pos - response.rect.min,
                     None => Vec2::ZERO,
                 };
-                let graph_mouse_pos = (mouse_pos - self.translation) / self.zoom;
+                let graph_mouse_pos = (mouse_pos - self.pan) / self.zoom;
                 let new_zoom = self.zoom * zoom_delta;
                 let zoom_ratio = new_zoom / self.zoom;
 
-                self.translation += (1. - zoom_ratio) * graph_mouse_pos * new_zoom;
+                self.pan += (1. - zoom_ratio) * graph_mouse_pos * new_zoom;
                 self.zoom = new_zoom;
                 self.dimensions = Dimensions {
                     node_radius: NODE_RADIUS * new_zoom,
@@ -104,7 +104,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             match self.node_dragging {
                 true => {
                     let node_pos = self.positions[self.node_dragging_id.index()];
-                    let graph_node_pos = (node_pos - self.translation) / self.zoom;
+                    let graph_node_pos = (node_pos - self.pan) / self.zoom;
                     let graph_dragged_pos = graph_node_pos + response.drag_delta() / self.zoom;
 
                     self.simulation
@@ -114,7 +114,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
                         .location = Vec3::new(graph_dragged_pos.x, graph_dragged_pos.y, 0.);
                     self.iterations = 0;
                 }
-                false => self.translation += response.drag_delta(),
+                false => self.pan += response.drag_delta(),
             };
         }
 
@@ -127,13 +127,13 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     }
 
     fn update_node_position(&self, original_pos: Vec2) -> Vec2 {
-        original_pos * self.zoom + self.translation
+        original_pos * self.zoom + self.pan
     }
 
     fn handle_size_change(&mut self, response: &Response) {
         if self.canvas_size != response.rect.size() {
             let diff = self.canvas_size - response.rect.size();
-            self.translation -= diff / 2.;
+            self.pan -= diff / 2.;
         }
     }
 
