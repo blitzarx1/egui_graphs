@@ -1,6 +1,6 @@
 use egui::{Color32, Painter, Response, Sense, Stroke, Ui, Vec2, Widget};
-use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
-use petgraph::visit::IntoNodeReferences;
+use fdg_sim::{glam::Vec3, ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
+use petgraph::{stable_graph::NodeIndex, visit::IntoNodeReferences};
 
 const NODE_RADIUS: f32 = 5.;
 const EDGE_WIDTH: f32 = 2.;
@@ -8,13 +8,24 @@ const NODE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
 const EDGE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
 const MAX_ITERATIONS: u32 = 500;
 
+pub struct Dimensions {
+    pub node_radius: f32,
+    pub edge_width: f32,
+}
+
 pub struct Graph<N: Clone, E: Clone> {
     simulation: Simulation<N, E>,
     iterations: u32,
 
     zoom: f32,
     translation: Vec2,
-    last_canvas_size: Vec2,
+    canvas_size: Vec2,
+
+    node_dragging: bool,
+    node_dragging_id: NodeIndex,
+
+    dimensions: Dimensions,
+    positions: Vec<Vec2>,
 }
 
 impl<N: Clone, E: Clone> Graph<N, E> {
@@ -25,11 +36,19 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         );
         Self {
             simulation,
-            iterations: 0,
+            iterations: Default::default(),
 
             zoom: 1.,
-            translation: Vec2::ZERO,
-            last_canvas_size: Vec2::ZERO,
+            translation: Default::default(),
+            canvas_size: Default::default(),
+
+            dimensions: Dimensions {
+                node_radius: NODE_RADIUS,
+                edge_width: EDGE_WIDTH,
+            },
+            node_dragging: false,
+            node_dragging_id: Default::default(),
+            positions: Default::default(),
         }
     }
 
@@ -60,16 +79,51 @@ impl<N: Clone, E: Clone> Graph<N, E> {
                 let graph_mouse_pos = (mouse_pos - self.translation) / self.zoom;
                 let new_zoom = self.zoom * zoom_delta;
                 let zoom_ratio = new_zoom / self.zoom;
+
+                self.translation += (1. - zoom_ratio) * graph_mouse_pos * new_zoom;
                 self.zoom = new_zoom;
-                self.translation += (1. - zoom_ratio) * graph_mouse_pos * self.zoom;
+                self.dimensions = Dimensions {
+                    node_radius: NODE_RADIUS * new_zoom,
+                    edge_width: EDGE_WIDTH * new_zoom,
+                }
             }
         });
 
-        if response.dragged() {
-            self.translation += response.drag_delta();
+        if response.drag_started() {
+            let node_idx = self.positions.iter().position(|pos| {
+                (*pos - response.hover_pos().unwrap().to_vec2()).length() <= NODE_RADIUS * self.zoom
+            });
+            if let Some(node_idx) = node_idx {
+                self.iterations = 0;
+                self.node_dragging = true;
+                self.node_dragging_id = NodeIndex::new(node_idx);
+            }
         }
 
-        self.last_canvas_size = response.rect.size();
+        if response.dragged() {
+            match self.node_dragging {
+                true => {
+                    let node_pos = self.positions[self.node_dragging_id.index()];
+                    let graph_node_pos = (node_pos - self.translation) / self.zoom;
+                    let graph_dragged_pos = graph_node_pos + response.drag_delta() / self.zoom;
+
+                    self.simulation
+                        .get_graph_mut()
+                        .node_weight_mut(self.node_dragging_id)
+                        .unwrap()
+                        .location = Vec3::new(graph_dragged_pos.x, graph_dragged_pos.y, 0.);
+                    self.iterations = 0;
+                }
+                false => self.translation += response.drag_delta(),
+            };
+        }
+
+        if response.drag_released() {
+            self.node_dragging = false;
+            self.node_dragging_id = Default::default();
+        }
+
+        self.canvas_size = response.rect.size();
     }
 
     fn update_node_position(&self, original_pos: Vec2) -> Vec2 {
@@ -77,23 +131,24 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     }
 
     fn handle_size_change(&mut self, response: &Response) {
-        if self.last_canvas_size != response.rect.size() {
-            let diff = self.last_canvas_size - response.rect.size();
+        if self.canvas_size != response.rect.size() {
+            let diff = self.canvas_size - response.rect.size();
             self.translation -= diff / 2.;
         }
     }
 
-    fn compute_positions(&self) -> Vec<Vec2> {
-        self.simulation
+    fn compute_positions(&mut self) {
+        self.positions = self
+            .simulation
             .get_graph()
             .node_weights()
             .map(|node| self.update_node_position(Vec2::new(node.location.x, node.location.y)))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
     }
 
-    fn draw_nodes_and_edges(&self, p: Painter, positions: &Vec<Vec2>) {
-        let edge_width = EDGE_WIDTH * self.zoom;
-        let node_radius = NODE_RADIUS * self.zoom;
+    fn draw_nodes_and_edges(&self, p: Painter) {
+        let node_radius = self.dimensions.node_radius;
+        let edge_width = self.dimensions.edge_width;
 
         // draw edges
         self.simulation.get_graph().edge_indices().for_each(|edge| {
@@ -102,15 +157,15 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             let idx_start = start.index();
             let idx_end = end.index();
 
-            let pos_start = positions[idx_start].to_pos2();
-            let pos_end = positions[idx_end].to_pos2();
+            let pos_start = self.positions[idx_start].to_pos2();
+            let pos_end = self.positions[idx_end].to_pos2();
 
             let vec = pos_end - pos_start;
             let l = vec.length();
             let dir = vec / l;
 
-            let zoomed_node_radius_vec = Vec2::new(node_radius, node_radius) * dir;
-            let tip = pos_start + vec - zoomed_node_radius_vec;
+            let node_radius_vec = Vec2::new(node_radius, node_radius) * dir;
+            let tip = pos_start + vec - node_radius_vec;
 
             let angle = std::f32::consts::TAU / 50.;
             let tip_length = node_radius * 3.;
@@ -122,9 +177,9 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         });
 
         // Draw nodes
-        for pos in positions {
+        self.positions.iter().for_each(|pos| {
             p.circle_filled(pos.to_pos2(), node_radius, NODE_COLOR);
-        }
+        });
     }
 
     fn update_simulation(&mut self, ui: &Ui) {
@@ -144,9 +199,11 @@ impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
     fn ui(self, ui: &mut Ui) -> Response {
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
+        self.compute_positions();
+        self.draw_nodes_and_edges(painter);
+
         self.update_simulation(ui);
         self.handle_size_change(&response);
-        self.draw_nodes_and_edges(painter, &self.compute_positions());
         self.handle_interactions(ui, &response);
 
         response
