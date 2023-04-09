@@ -2,7 +2,7 @@ use std::collections::hash_map::HashMap;
 
 use eframe::{run_native, App, CreationContext};
 use egui::{Context, Ui};
-use egui_graphs::{settings::Settings, Graph};
+use egui_graphs::{settings::{Settings, self}, Graph};
 use petgraph::stable_graph::NodeIndex;
 use rand::Rng;
 
@@ -17,12 +17,13 @@ pub struct ExampleApp {
 
 impl ExampleApp {
     fn new(_: &CreationContext<'_>) -> Self {
+        let settings = Settings::default();
         Self {
             graph: Graph::new(
                 generate_random_graph(NODE_COUNT, EDGE_COUNT),
-                Settings::default(),
+                settings.clone(),
             ),
-            settings: Settings::default(),
+            settings,
         }
     }
 
