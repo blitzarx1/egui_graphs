@@ -1,6 +1,6 @@
 [package]
 name = "egui_graph"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 homepage = "https://github.com/blitzarx1/egui_graph"
