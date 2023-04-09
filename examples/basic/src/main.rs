@@ -8,7 +8,7 @@ use rand::Rng;
 
 const NODE_COUNT: usize = 50;
 const EDGE_COUNT: usize = 100;
-const MAX_RANK: usize = 4;
+const MAX_RANK: usize = 6;
 
 pub struct MyApp {
     graph: Graph<(), ()>,
@@ -42,14 +42,17 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Grap
 
     // Add random edges
     for _ in 0..edge_count {
-        let source = rng.gen_range(0..node_count);
-        let target = rng.gen_range(0..node_count);
+        let mut edge_valid = false;
+        let mut source = 0;
+        let mut target = 0;
+        while !edge_valid {
+            source = rng.gen_range(0..node_count);
+            target = rng.gen_range(0..node_count);
 
-        let source_allowed = rank_map.get(&source).unwrap_or(&0) < &MAX_RANK;
-        let target_allowed = rank_map.get(&target).unwrap_or(&0) < &MAX_RANK;
+            let source_allowed = rank_map.get(&source).unwrap_or(&0) < &MAX_RANK;
+            let target_allowed = rank_map.get(&target).unwrap_or(&0) < &MAX_RANK;
 
-        if source == target || !source_allowed || !target_allowed {
-            continue;
+            edge_valid = source != target && source_allowed && target_allowed
         }
 
         graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
