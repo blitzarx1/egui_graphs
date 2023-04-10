@@ -310,6 +310,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
 
 impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
     fn ui(self, ui: &mut Ui) -> Response {
+        // TODO: dont store state in the widget, instead store in Ui
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         self.canvas = response.rect;
 
