@@ -1,3 +1,6 @@
+[![Crates.io](https://img.shields.io/crates/v/egui_graphs)](https://crates.io/crates/egui_graphs)
+[![docs.rs](https://img.shields.io/docsrs/egui_graphs)](https://docs.rs/egui_graphs)
+
 # egui_graphs
 Grpah visualization implementation using [egui](https://github.com/emilk/egui)
 
