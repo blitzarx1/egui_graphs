@@ -2,7 +2,7 @@ use std::collections::hash_map::HashMap;
 
 use eframe::{run_native, App, CreationContext};
 use egui::{Context, Ui};
-use egui_graphs::{settings::Settings, Graph};
+use egui_graphs::{Settings, Graph};
 use petgraph::stable_graph::NodeIndex;
 use rand::Rng;
 
@@ -43,7 +43,7 @@ impl App for ExampleApp {
             .show(ctx, |ui| {
                 ui.label("* Use Left Mouse Button to pan the graph and drag nodes");
                 ui.label("* Ctrl + Mouse Wheel to zoom");
-                ui.label("* Press space to fit the graph to the screen");
+                ui.label("* Press Space to fit the graph to the screen");
                 
                 ui.separator();
                 if ui
