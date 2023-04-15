@@ -10,8 +10,8 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            autofit: false,
-            simulation_drag: true,
+            autofit: true,
+            simulation_drag: false,
         }
     }
 }

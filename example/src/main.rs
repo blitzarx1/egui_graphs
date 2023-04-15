@@ -2,7 +2,7 @@ use std::collections::hash_map::HashMap;
 
 use eframe::{run_native, App, CreationContext};
 use egui::{Context, Ui};
-use egui_graphs::{Settings, Graph};
+use egui_graphs::{Graph, Settings};
 use petgraph::stable_graph::NodeIndex;
 use rand::Rng;
 
@@ -44,7 +44,7 @@ impl App for ExampleApp {
                 ui.label("* Use Left Mouse Button to pan the graph and drag nodes");
                 ui.label("* Ctrl + Mouse Wheel to zoom");
                 ui.label("* Press Space to fit the graph to the screen");
-                
+
                 ui.separator();
                 if ui
                     .checkbox(&mut self.settings.autofit, "autofit")
@@ -55,15 +55,17 @@ impl App for ExampleApp {
                 }
                 ui.label("autofit disables all other interactions with the graph and fits the graph to the screen on every simulation fram update");
                 ui.add_space(10.);
-                
-                if ui
-                    .checkbox(&mut self.settings.simulation_drag, "simulation drag")
-                    .clicked()
-                {
-                    self.graph
-                        .set_simulation_drag(self.settings.simulation_drag);
-                }
-                ui.label("simulation drag starts the simulation when a node is dragged");
+
+                ui.add_enabled_ui(!self.settings.autofit, |ui| {
+                    if ui
+                        .checkbox(&mut self.settings.simulation_drag, "simulation drag")
+                        .clicked()
+                    {
+                        self.graph
+                            .set_simulation_drag(self.settings.simulation_drag);
+                    }
+                    ui.label("simulation drag starts the simulation when a node is dragged");
+                });
                 ui.add_space(10.);
 
                 if ui.button("Randomize").clicked() {
