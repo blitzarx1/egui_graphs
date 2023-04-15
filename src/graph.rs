@@ -14,6 +14,37 @@ const ZOOM_STEP: f32 = 0.1;
 const SIMULATION_DT: f32 = 0.035;
 const EDGE_SCALE_WEIGHT: f32 = 1.;
 
+/// A struct representing a graph with customizable node and edge properties.
+///
+/// This struct takes a petgraph graph, a set of settings, and creates an
+/// interactive graph visualization in the given UI. It uses the `egui` library
+/// for rendering and user interactions.
+///
+/// # Examples
+///
+/// ```
+/// use petgraph::graph::Graph;
+/// use crate::graph::{Graph, Settings};
+///
+/// // Create a petgraph graph
+/// let mut input_graph = Graph::new();
+/// let a = input_graph.add_node("A");
+/// let b = input_graph.add_node("B");
+/// let c = input_graph.add_node("C");
+///
+/// input_graph.add_edge(a, b, 1);
+/// input_graph.add_edge(b, c, 1);
+/// input_graph.add_edge(c, a, 1);
+///
+/// // Create a Graph with default settings
+/// let graph = Graph::new(input_graph, Settings::default());
+/// ```
+///
+/// # Customization
+///
+/// The `Graph` struct allows customization of node and edge properties,
+/// such as color, size, and edge width. The struct also provides methods
+/// to enable or disable autofitting and simulation dragging.
 pub struct Graph<N: Clone, E: Clone> {
     simulation: Simulation<N, E>,
     iterations: u32,
