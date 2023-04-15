@@ -303,11 +303,9 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     fn draw_edges(&self, p: &Painter) {
         let angle = std::f32::consts::TAU / 50.;
 
-        self.simulation.get_graph().edge_indices().for_each(|edge| {
-            let (start, end) = self.simulation.get_graph().edge_endpoints(edge).unwrap();
-
-            let idx_start = start.index();
-            let idx_end = end.index();
+        self.edges_props.iter().for_each(|(start_end, props)| {
+            let idx_start = start_end[0];
+            let idx_end = start_end[1];
 
             let start_node_props = self.nodes_props.get(&idx_start).unwrap();
             let end_node_props = self.nodes_props.get(&idx_end).unwrap();
@@ -326,21 +324,19 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             let tip_point = pos_start + vec - end_node_radius_vec;
             let start_point = pos_start + start_node_radius_vec;
 
-            let edge_props = self.edges_props.get(&[idx_start, idx_end]).unwrap();
-
-            let stroke = Stroke::new(edge_props.width, edge_props.color);
+            let stroke = Stroke::new(props.width, props.color);
             p.line_segment([start_point, tip_point], stroke);
             p.line_segment(
                 [
                     tip_point,
-                    tip_point - edge_props.tip_size * rotate_vector(dir, angle),
+                    tip_point - props.tip_size * rotate_vector(dir, angle),
                 ],
                 stroke,
             );
             p.line_segment(
                 [
                     tip_point,
-                    tip_point - edge_props.tip_size * rotate_vector(dir, -angle),
+                    tip_point - props.tip_size * rotate_vector(dir, -angle),
                 ],
                 stroke,
             );
