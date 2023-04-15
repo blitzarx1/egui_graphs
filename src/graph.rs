@@ -12,6 +12,7 @@ const SCREEN_PADDING: f32 = 0.3;
 const MAX_ITERATIONS: u32 = 500;
 const ZOOM_STEP: f32 = 0.1;
 const SIMULATION_DT: f32 = 0.035;
+const EDGE_SCALE_WEIGHT: f32 = 1.;
 
 pub struct Graph<N: Clone, E: Clone> {
     simulation: Simulation<N, E>,
@@ -60,6 +61,9 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             let (source, target) = input_graph.edge_endpoints(e).unwrap();
             edges_props.insert([source.index(), target.index()], EdgeProps::default());
             force_graph.add_edge(source, target, input_graph.edge_weight(e).unwrap().clone());
+
+            nodes_props.get_mut(&source.index()).unwrap().radius += EDGE_SCALE_WEIGHT;
+            nodes_props.get_mut(&target.index()).unwrap().radius += EDGE_SCALE_WEIGHT;
         });
 
         let simulation = Simulation::from_graph(force_graph, SimulationParameters::default());
@@ -164,9 +168,10 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         self.nodes_props
             .iter_mut()
             .for_each(|(_, node_props)| node_props.radius *= factor);
-        self.edges_props
-            .iter_mut()
-            .for_each(|(_, edge_props)| edge_props.width *= factor);
+        self.edges_props.iter_mut().for_each(|(_, edge_props)| {
+            edge_props.width *= factor;
+            edge_props.tip_size *= factor;
+        });
         self.pan += (1. - factor) * graph_center_pos * new_zoom;
         self.zoom = new_zoom;
     }
@@ -283,17 +288,24 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             let l = vec.length();
             let dir = vec / l;
 
-            let node_radius_vec = Vec2::new(end_node_props.radius, end_node_props.radius) * dir;
-            let tip = pos_start + vec - node_radius_vec;
+            let end_node_radius_vec = Vec2::new(end_node_props.radius, end_node_props.radius) * dir;
+            let tip_point = pos_start + vec - end_node_radius_vec;
+
+            let start_node_radius_vec = Vec2::new(start_node_props.radius, start_node_props.radius) * dir;
+            let start_point = pos_start + start_node_radius_vec;
 
             let angle = std::f32::consts::TAU / 50.;
-            let tip_length = end_node_props.radius * 3.;
-
             let edge_props = self.edges_props.get(&[idx_start, idx_end]).unwrap();
             let stroke = Stroke::new(edge_props.width, edge_props.color);
-            p.line_segment([pos_start, tip], stroke);
-            p.line_segment([tip, tip - tip_length * rotate_vector(dir, angle)], stroke);
-            p.line_segment([tip, tip - tip_length * rotate_vector(dir, -angle)], stroke);
+            p.line_segment([start_point, tip_point], stroke);
+            p.line_segment(
+                [tip_point, tip_point - edge_props.tip_size * rotate_vector(dir, angle)],
+                stroke,
+            );
+            p.line_segment(
+                [tip_point, tip_point - edge_props.tip_size * rotate_vector(dir, -angle)],
+                stroke,
+            );
         });
 
         // Draw nodes

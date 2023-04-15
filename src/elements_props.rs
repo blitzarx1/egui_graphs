@@ -19,6 +19,7 @@ impl Default for NodeProps {
 pub struct EdgeProps {
     pub color: Color32,
     pub width: f32,
+    pub tip_size: f32,
 }
 
 impl Default for EdgeProps {
@@ -26,6 +27,7 @@ impl Default for EdgeProps {
         Self {
             color: Color32::from_rgb(128, 128, 128),
             width: 2.,
+            tip_size: 15.,
         }
     }
 }
