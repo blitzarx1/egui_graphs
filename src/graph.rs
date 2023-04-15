@@ -38,7 +38,6 @@ pub struct Graph<N: Clone, E: Clone> {
     /// indicates if the graph was fitted to the screen on the first iteration
     first_fit: bool,
 
-    positions: Vec<Vec2>,
     top_left_pos: Vec2,
     down_right_pos: Vec2,
 }
@@ -83,7 +82,6 @@ impl<N: Clone, E: Clone> Graph<N, E> {
 
             first_fit: false,
 
-            positions: Default::default(),
             top_left_pos: Default::default(),
             down_right_pos: Default::default(),
         };
@@ -174,13 +172,15 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     }
 
     fn handle_drags(&mut self, response: &Response) {
+        // FIXME: Theres is a way to optimize this by having a separate smaller hashmap for nodes batches and checking for batch position first
+        // and only after checking for node position inside the batch. Not to iterate over all nodes every time.
         if response.drag_started() {
-            let node_idx = self.positions.iter().enumerate().position(|(idx, pos)| {
-                (*pos - response.hover_pos().unwrap().to_vec2()).length()
-                    <= self.nodes_props.get(&idx).unwrap().radius
+            let node_props = self.nodes_props.iter().find(|(_, props)| {
+                (props.position - response.hover_pos().unwrap().to_vec2()).length() <= props.radius
             });
-            if let Some(node_idx) = node_idx {
-                self.node_dragged = Some(node_idx);
+
+            if let Some((idx, _)) = node_props {
+                self.node_dragged = Some(*idx);
             }
         }
 
@@ -188,7 +188,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             match self.node_dragged {
                 // if we are dragging a node, we should update its position in the graph
                 Some(node_dragged) => {
-                    let node_pos = self.positions[node_dragged];
+                    let node_pos = self.nodes_props.get(&node_dragged).unwrap().position;
 
                     // here we should update position in the graph coordinates
                     // because on every tick we recalculate node positions assuming
@@ -229,11 +229,12 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         let (mut min_x, mut min_y) = (0., 0.);
         let (mut max_x, mut max_y) = (0., 0.);
 
-        self.positions = self
-            .simulation
+        let mut new_nodes_props = HashMap::with_capacity(self.nodes_props.len());
+
+        self.simulation
             .get_graph()
-            .node_weights()
-            .map(|n| {
+            .node_references()
+            .for_each(|(idx, n)| {
                 if n.location.x < min_x {
                     min_x = n.location.x;
                 };
@@ -247,10 +248,19 @@ impl<N: Clone, E: Clone> Graph<N, E> {
                     max_y = n.location.y;
                 };
 
-                self.to_screen_coords(Vec2::new(n.location.x, n.location.y))
-            })
-            .collect::<Vec<_>>();
+                let old_props = self.nodes_props.get(&idx.index()).unwrap();
+                let new_position = self.to_screen_coords(Vec2::new(n.location.x, n.location.y));
+                new_nodes_props.insert(
+                    idx.index(),
+                    NodeProps {
+                        position: new_position,
+                        radius: old_props.radius,
+                        color: old_props.color,
+                    },
+                );
+            });
 
+        self.nodes_props = new_nodes_props;
         self.top_left_pos = Vec2::new(min_x, min_y);
         self.down_right_pos = Vec2::new(max_x, max_y);
     }
@@ -263,14 +273,16 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             let idx_start = start.index();
             let idx_end = end.index();
 
-            let pos_start = self.positions[idx_start].to_pos2();
-            let pos_end = self.positions[idx_end].to_pos2();
+            let start_node_props = self.nodes_props.get(&idx_start).unwrap();
+            let end_node_props = self.nodes_props.get(&idx_end).unwrap();
+
+            let pos_start = start_node_props.position.to_pos2();
+            let pos_end = end_node_props.position.to_pos2();
 
             let vec = pos_end - pos_start;
             let l = vec.length();
             let dir = vec / l;
 
-            let end_node_props = self.nodes_props.get(&idx_end).unwrap();
             let node_radius_vec = Vec2::new(end_node_props.radius, end_node_props.radius) * dir;
             let tip = pos_start + vec - node_radius_vec;
 
@@ -285,9 +297,8 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         });
 
         // Draw nodes
-        self.positions.iter().enumerate().for_each(|(idx, pos)| {
-            let node_props = self.nodes_props.get(&idx).unwrap();
-            p.circle_filled(pos.to_pos2(), node_props.radius, node_props.color);
+        self.nodes_props.iter().for_each(|(_, props)| {
+            p.circle_filled(props.position.to_pos2(), props.radius, props.color);
         });
     }
 
@@ -317,6 +328,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
 impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
     fn ui(self, ui: &mut Ui) -> Response {
         // TODO: dont store state in the widget, instead store in Ui
+        // TODO: pass mutable reference to the graph to the widget
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         self.canvas = response.rect;
 
