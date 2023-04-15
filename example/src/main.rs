@@ -47,13 +47,13 @@ impl App for ExampleApp {
                 
                 ui.separator();
                 if ui
-                    .checkbox(&mut self.settings.simulation_autofit, "simulation autofit")
+                    .checkbox(&mut self.settings.autofit, "autofit")
                     .clicked()
                 {
                     self.graph
-                        .set_simulation_autofit(self.settings.simulation_autofit);
+                        .set_autofit(self.settings.autofit);
                 }
-                ui.label("simulation autofit disables all other interactions with the graph and fits the graph to the screen on every simulation fram update");
+                ui.label("autofit disables all other interactions with the graph and fits the graph to the screen on every simulation fram update");
                 ui.add_space(10.);
                 
                 if ui

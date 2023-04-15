@@ -33,7 +33,7 @@ pub struct Graph<N: Clone, E: Clone> {
 
     // TODO: combine next block into settings datastructure with default values
     // and use in the constructor
-    simulation_autofit: bool,
+    autofit: bool,
     simulation_drag: bool,
 
     /// indicates if the graph was fitted to the screen on the first iteration
@@ -81,7 +81,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             nodes_props,
             edges_props,
 
-            simulation_autofit: settings.simulation_autofit,
+            autofit: settings.autofit,
             simulation_drag: settings.simulation_drag,
 
             first_fit: false,
@@ -95,10 +95,10 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         graph
     }
 
-    /// Enables or disables the simulation autofit. If enabled, the graph will be fitted to the screen
+    /// Enables or disables the autofit. If enabled, the graph will be fitted to the screen
     /// on every simulation frame update.
-    pub fn set_simulation_autofit(&mut self, simulation_autofit: bool) {
-        self.simulation_autofit = simulation_autofit;
+    pub fn set_autofit(&mut self, autofit: bool) {
+        self.autofit = autofit;
     }
 
     /// Enables or disables the simulation drag. If enabled, the graph will start simulation on every
@@ -270,8 +270,9 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         self.down_right_pos = Vec2::new(max_x, max_y);
     }
 
-    fn draw_nodes_and_edges(&self, p: Painter) {
-        // draw edges
+    fn draw_edges(&self, p: &Painter) {
+        let angle = std::f32::consts::TAU / 50.;
+
         self.simulation.get_graph().edge_indices().for_each(|edge| {
             let (start, end) = self.simulation.get_graph().edge_endpoints(edge).unwrap();
 
@@ -289,26 +290,34 @@ impl<N: Clone, E: Clone> Graph<N, E> {
             let dir = vec / l;
 
             let end_node_radius_vec = Vec2::new(end_node_props.radius, end_node_props.radius) * dir;
-            let tip_point = pos_start + vec - end_node_radius_vec;
+            let start_node_radius_vec =
+                Vec2::new(start_node_props.radius, start_node_props.radius) * dir;
 
-            let start_node_radius_vec = Vec2::new(start_node_props.radius, start_node_props.radius) * dir;
+            let tip_point = pos_start + vec - end_node_radius_vec;
             let start_point = pos_start + start_node_radius_vec;
 
-            let angle = std::f32::consts::TAU / 50.;
             let edge_props = self.edges_props.get(&[idx_start, idx_end]).unwrap();
+
             let stroke = Stroke::new(edge_props.width, edge_props.color);
             p.line_segment([start_point, tip_point], stroke);
             p.line_segment(
-                [tip_point, tip_point - edge_props.tip_size * rotate_vector(dir, angle)],
+                [
+                    tip_point,
+                    tip_point - edge_props.tip_size * rotate_vector(dir, angle),
+                ],
                 stroke,
             );
             p.line_segment(
-                [tip_point, tip_point - edge_props.tip_size * rotate_vector(dir, -angle)],
+                [
+                    tip_point,
+                    tip_point - edge_props.tip_size * rotate_vector(dir, -angle),
+                ],
                 stroke,
             );
         });
+    }
 
-        // Draw nodes
+    fn draw_nodes(&self, p: &Painter) {
         self.nodes_props.iter().for_each(|(_, props)| {
             p.circle_filled(props.position.to_pos2(), props.radius, props.color);
         });
@@ -333,7 +342,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     }
 
     fn interactions_allowed(&self) -> bool {
-        !self.simulation_autofit
+        !self.autofit
     }
 }
 
@@ -351,9 +360,10 @@ impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
 
         self.handle_all_interactions(ui, &response);
         self.compute_positions();
-        self.draw_nodes_and_edges(painter);
+        self.draw_edges(&painter);
+        self.draw_nodes(&painter);
 
-        if self.simulation_autofit && !self.simulation_finished() {
+        if self.autofit {
             self.fit_screen()
         }
 
