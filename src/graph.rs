@@ -208,8 +208,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     }
 
     fn handle_drags(&mut self, response: &Response) {
-        // FIXME: Theres is a way to optimize this by having a separate smaller hashmap for nodes batches and checking for batch position first
-        // and only after checking for node position inside the batch. Not to iterate over all nodes every time.
+        // FIXME: use k-d tree to find the closest node, check if distance is less than radius
         if response.drag_started() {
             let node_props = self.nodes_props.iter().find(|(_, props)| {
                 (props.position - response.hover_pos().unwrap().to_vec2()).length() <= props.radius
