@@ -1,4 +1,4 @@
-use std::collections::hash_map::HashMap;
+use std::time::Instant;
 
 use eframe::{run_native, App, CreationContext};
 use egui::{Context, Ui};
@@ -6,13 +6,15 @@ use egui_graphs::{Graph, Settings};
 use petgraph::stable_graph::NodeIndex;
 use rand::Rng;
 
-const NODE_COUNT: usize = 50;
-const EDGE_COUNT: usize = 100;
-const MAX_RANK: usize = 6;
+const NODE_COUNT: usize = 300;
+const EDGE_COUNT: usize = 400;
 
 pub struct ExampleApp {
     graph: Graph<(), ()>,
     settings: Settings,
+    last_update_time: Instant,
+    frames_last_time_span: usize,
+    fps: f32,
 }
 
 impl ExampleApp {
@@ -24,6 +26,9 @@ impl ExampleApp {
                 settings.clone(),
             ),
             settings,
+            last_update_time: Instant::now(),
+            frames_last_time_span: 0,
+            fps: 0.,
         }
     }
 
@@ -34,10 +39,23 @@ impl ExampleApp {
             }
         });
     }
+
+    fn update_fps(&mut self) {
+        self.frames_last_time_span += 1;
+        let now = Instant::now();
+        let elapsed = now.duration_since(self.last_update_time);
+        if elapsed.as_secs() >= 1 {
+            self.last_update_time = now;
+            self.fps = self.frames_last_time_span as f32 / elapsed.as_secs_f32();
+            self.frames_last_time_span = 0;
+        }
+    }
 }
 
 impl App for ExampleApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
+        self.update_fps();
+
         egui::SidePanel::right("right_panel")
             .default_width(300.)
             .show(ctx, |ui| {
@@ -74,6 +92,9 @@ impl App for ExampleApp {
                         self.settings.clone(),
                     );
                 }
+                egui::TopBottomPanel::bottom("bottom_panel").show_inside( ui, |ui| {
+                    ui.label(format!("fps: {:.1}", self.fps));
+                });
             });
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(&mut self.graph);
@@ -85,7 +106,6 @@ impl App for ExampleApp {
 fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Graph<(), ()> {
     let mut rng = rand::thread_rng();
     let mut graph = petgraph::Graph::<_, _>::new();
-    let mut rank_map = HashMap::<usize, usize>::new();
 
     // Add nodes
     for _ in 0..node_count {
@@ -94,22 +114,10 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Grap
 
     // Add random edges
     for _ in 0..edge_count {
-        let mut edge_valid = false;
-        let mut source = 0;
-        let mut target = 0;
-        while !edge_valid {
-            source = rng.gen_range(0..node_count);
-            target = rng.gen_range(0..node_count);
-
-            let source_allowed = rank_map.get(&source).unwrap_or(&0) < &MAX_RANK;
-            let target_allowed = rank_map.get(&target).unwrap_or(&0) < &MAX_RANK;
-
-            edge_valid = source_allowed && target_allowed
-        }
+        let source = rng.gen_range(0..node_count);
+        let target = rng.gen_range(0..node_count);
 
         graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
-        *rank_map.entry(source).or_insert(0) += 1;
-        *rank_map.entry(target).or_insert(0) += 1;
     }
 
     graph
