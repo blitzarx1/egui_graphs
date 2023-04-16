@@ -4,7 +4,7 @@
 # egui_graphs
 Grpah visualization implementation using [egui](https://github.com/emilk/egui)
 
-![Screenshot 2023-04-09 at 23 43 15](https://user-images.githubusercontent.com/32969427/230793313-feadae20-828f-4b97-ab1c-337a21d28b83.png)
+![Screenshot 2023-04-17 at 00 06 54](https://user-images.githubusercontent.com/32969427/232339275-b13979d4-fc98-43ef-88be-5e8bc02af707.png)
 
 ## Status
 The project is under active development.
