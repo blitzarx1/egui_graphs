@@ -1,10 +1,13 @@
-use std::collections::HashMap;
+use std::{borrow::BorrowMut, collections::HashMap, ops::DerefMut, rc::Rc};
 
 use crate::{
     elements_props::{EdgeProps, NodeProps},
     settings::Settings,
 };
-use egui::{Painter, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
+use egui::{
+    epaint::{CubicBezierShape, QuadraticBezierShape},
+    Color32, Painter, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget,
+};
 use fdg_sim::{glam::Vec3, ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::{stable_graph::NodeIndex, visit::IntoNodeReferences};
 
@@ -60,10 +63,10 @@ pub struct Graph<N: Clone, E: Clone> {
     node_dragged: Option<usize>,
 
     nodes_props: HashMap<usize, NodeProps>,
-    edges_props: HashMap<[usize; 2], EdgeProps>,
+    /// key is ordered pair of node indices;
+    /// value stores all edges between the two nodes (in case of multiple edges)
+    edges_props: HashMap<[usize; 2], Vec<EdgeProps>>,
 
-    // TODO: combine next block into settings datastructure with default values
-    // and use in the constructor
     autofit: bool,
     simulation_drag: bool,
 
@@ -90,8 +93,16 @@ impl<N: Clone, E: Clone> Graph<N, E> {
 
         input_graph.edge_indices().for_each(|e| {
             let (source, target) = input_graph.edge_endpoints(e).unwrap();
-            edges_props.insert([source.index(), target.index()], EdgeProps::default());
+
             force_graph.add_edge(source, target, input_graph.edge_weight(e).unwrap().clone());
+
+            let mut pair = [source.index(), target.index()];
+            pair.sort();
+            edges_props.entry(pair).or_insert_with(Vec::new);
+            edges_props
+                .get_mut(&pair)
+                .unwrap()
+                .push(EdgeProps::new(source.index(), target.index()));
 
             nodes_props.get_mut(&source.index()).unwrap().radius += EDGE_SCALE_WEIGHT;
             nodes_props.get_mut(&target.index()).unwrap().radius += EDGE_SCALE_WEIGHT;
@@ -166,11 +177,7 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         self.pan = self.canvas.center().to_vec2() - graph_center * self.zoom;
     }
 
-    fn handle_all_interactions(&mut self, ui: &mut Ui, response: &Response) {
-        if !self.interactions_allowed() {
-            return;
-        }
-
+    fn handle_all_interactions(&mut self, ui: &Ui, response: &Response) {
         ui.input(|i| {
             let delta = i.zoom_delta();
             if delta == 1. {
@@ -199,10 +206,15 @@ impl<N: Clone, E: Clone> Graph<N, E> {
         self.nodes_props
             .iter_mut()
             .for_each(|(_, node_props)| node_props.radius *= factor);
-        self.edges_props.iter_mut().for_each(|(_, edge_props)| {
-            edge_props.width *= factor;
-            edge_props.tip_size *= factor;
-        });
+        self.edges_props
+            .iter_mut()
+            .for_each(|(_, edge_props_list)| {
+                edge_props_list.iter_mut().for_each(|edge_props| {
+                    edge_props.width *= factor;
+                    edge_props.tip_size *= factor;
+                    edge_props.curve_size *= factor;
+                });
+            });
         self.pan += (1. - factor) * graph_center_pos * new_zoom;
         self.zoom = new_zoom;
     }
@@ -303,43 +315,102 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     fn draw_edges(&self, p: &Painter) {
         let angle = std::f32::consts::TAU / 50.;
 
-        self.edges_props.iter().for_each(|(start_end, props)| {
-            let idx_start = start_end[0];
-            let idx_end = start_end[1];
+        self.edges_props.iter().for_each(|(_, props_list)| {
+            let edges_count = props_list.len();
+            let mut sames = HashMap::with_capacity(edges_count);
 
-            let start_node_props = self.nodes_props.get(&idx_start).unwrap();
-            let end_node_props = self.nodes_props.get(&idx_end).unwrap();
+            props_list.iter().for_each(|props| {
+                let start_node_props = self.nodes_props.get(&props.start).unwrap();
+                let end_node_props = self.nodes_props.get(&props.end).unwrap();
 
-            let pos_start = start_node_props.position.to_pos2();
-            let pos_end = end_node_props.position.to_pos2();
+                let pos_start = start_node_props.position.to_pos2();
+                let pos_end = end_node_props.position.to_pos2();
 
-            let vec = pos_end - pos_start;
-            let l = vec.length();
-            let dir = vec / l;
+                let stroke = Stroke::new(props.width, props.color);
 
-            let end_node_radius_vec = Vec2::new(end_node_props.radius, end_node_props.radius) * dir;
-            let start_node_radius_vec =
-                Vec2::new(start_node_props.radius, start_node_props.radius) * dir;
+                if props.start == props.end {
+                    // CubicBezierShape for self-loop
+                    let control_point1 = Pos2::new(
+                        pos_start.x + start_node_props.radius * 4.,
+                        pos_start.y - start_node_props.radius * 4.,
+                    );
+                    let control_point2 = Pos2::new(
+                        pos_start.x - start_node_props.radius * 4.,
+                        pos_start.y - start_node_props.radius * 4.,
+                    );
 
-            let tip_point = pos_start + vec - end_node_radius_vec;
-            let start_point = pos_start + start_node_radius_vec;
+                    p.add(CubicBezierShape::from_points_stroke(
+                        [pos_start, control_point1, control_point2, pos_end],
+                        true,
+                        Color32::TRANSPARENT,
+                        stroke,
+                    ));
+                    return;
+                }
 
-            let stroke = Stroke::new(props.width, props.color);
-            p.line_segment([start_point, tip_point], stroke);
-            p.line_segment(
-                [
-                    tip_point,
-                    tip_point - props.tip_size * rotate_vector(dir, angle),
-                ],
-                stroke,
-            );
-            p.line_segment(
-                [
-                    tip_point,
-                    tip_point - props.tip_size * rotate_vector(dir, -angle),
-                ],
-                stroke,
-            );
+                let vec = pos_end - pos_start;
+                let l = vec.length();
+                let dir = vec / l;
+
+                let end_node_radius_vec =
+                    Vec2::new(end_node_props.radius, end_node_props.radius) * dir;
+                let start_node_radius_vec =
+                    Vec2::new(start_node_props.radius, start_node_props.radius) * dir;
+
+                let tip_point = pos_start + vec - end_node_radius_vec;
+                let start_point = pos_start + start_node_radius_vec;
+                match edges_count > 1 {
+                    true => {
+                        let pair = [props.start, props.end];
+                        sames.entry(pair).or_insert_with(|| 0);
+                        let curve_scale = sames.get_mut(&pair).unwrap();
+                        *curve_scale += 1;
+
+                        let dir_perpendicular = Vec2::new(-dir.y, dir.x);
+                        let center_point = (start_point + tip_point.to_vec2()).to_vec2() / 2.0;
+                        let control_point = (center_point
+                            + dir_perpendicular * props.curve_size * *curve_scale as f32)
+                            .to_pos2();
+
+                        p.add(QuadraticBezierShape::from_points_stroke(
+                            [start_point, control_point, tip_point],
+                            false,
+                            Color32::TRANSPARENT,
+                            stroke,
+                        ));
+
+                        let tip_vec = control_point - tip_point;
+                        let tip_dir = tip_vec / tip_vec.length();
+                        let tip_size = props.tip_size;
+
+                        let arrow_tip_dir1 = rotate_vector(tip_dir, angle) * tip_size;
+                        let arrow_tip_dir2 = rotate_vector(tip_dir, -angle) * tip_size;
+
+                        let arrow_tip_point1 = tip_point + arrow_tip_dir1;
+                        let arrow_tip_point2 = tip_point + arrow_tip_dir2;
+
+                        p.line_segment([tip_point, arrow_tip_point1], stroke);
+                        p.line_segment([tip_point, arrow_tip_point2], stroke);
+                    }
+                    false => {
+                        p.line_segment([start_point, tip_point], stroke);
+                        p.line_segment(
+                            [
+                                tip_point,
+                                tip_point - props.tip_size * rotate_vector(dir, angle),
+                            ],
+                            stroke,
+                        );
+                        p.line_segment(
+                            [
+                                tip_point,
+                                tip_point - props.tip_size * rotate_vector(dir, -angle),
+                            ],
+                            stroke,
+                        );
+                    }
+                }
+            });
         });
     }
 
@@ -356,19 +427,67 @@ impl<N: Clone, E: Clone> Graph<N, E> {
     fn update_simulation(&mut self) -> bool {
         // TODO: better use some kind of graph stability measure
         // instead of a fixed number of iterations
-        match self.simulation_finished() {
-            true => false,
-            false => {
-                self.simulation.update(SIMULATION_DT);
-                self.iterations += 1;
-
-                true
-            }
+        if self.simulation_finished() {
+            return false;
         }
+
+        let looped_nodes = {
+            // remove looped edges
+            let graph = self.simulation.get_graph_mut();
+            let mut looped_nodes = vec![];
+            let mut looped_edges = vec![];
+            graph.edge_indices().for_each(|idx| {
+                let edge = graph.edge_endpoints(idx).unwrap();
+                let looped = edge.0 == edge.1;
+                if looped {
+                    let edge_weight = graph.edge_weight(idx).unwrap().clone();
+                    looped_nodes.push((edge.0, edge_weight));
+                    looped_edges.push(idx);
+                }
+            });
+
+            for idx in looped_edges {
+                graph.remove_edge(idx);
+            }
+
+            self.simulation.update(SIMULATION_DT);
+
+            looped_nodes
+        };
+
+        // restore looped edges
+        let graph = self.simulation.get_graph_mut();
+        for (idx, w) in looped_nodes.iter() {
+            graph.add_edge(*idx, *idx, w.clone());
+        }
+
+        self.iterations += 1;
+
+        true
     }
 
-    fn interactions_allowed(&self) -> bool {
-        !self.autofit
+    fn update(&mut self, ui: &Ui, response: &Response) {
+        self.canvas = response.rect;
+
+        if !self.first_fit {
+            self.fit_screen();
+            self.first_fit = true;
+        }
+
+        match self.autofit {
+            true => self.fit_screen(),
+            false => self.handle_all_interactions(ui, response),
+        }
+
+        self.compute_positions();
+        if self.update_simulation() {
+            ui.ctx().request_repaint();
+        };
+    }
+
+    fn draw(&self, p: &Painter) {
+        self.draw_edges(p);
+        self.draw_nodes(p);
     }
 }
 
@@ -377,25 +496,9 @@ impl<N: Clone, E: Clone> Widget for &mut Graph<N, E> {
         // TODO: dont store state in the widget, instead store in Ui
         // TODO: pass mutable reference to the graph to the widget
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
-        self.canvas = response.rect;
+        self.update(ui, &response);
 
-        if !self.first_fit {
-            self.fit_screen();
-            self.first_fit = true;
-        }
-
-        self.handle_all_interactions(ui, &response);
-        self.compute_positions();
-        self.draw_edges(&painter);
-        self.draw_nodes(&painter);
-
-        if self.autofit {
-            self.fit_screen()
-        }
-
-        if self.update_simulation() {
-            ui.ctx().request_repaint();
-        };
+        self.draw(&painter);
 
         response
     }

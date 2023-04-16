@@ -104,7 +104,7 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Grap
             let source_allowed = rank_map.get(&source).unwrap_or(&0) < &MAX_RANK;
             let target_allowed = rank_map.get(&target).unwrap_or(&0) < &MAX_RANK;
 
-            edge_valid = source != target && source_allowed && target_allowed
+            edge_valid = source_allowed && target_allowed
         }
 
         graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
