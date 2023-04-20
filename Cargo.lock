@@ -732,7 +732,6 @@ name = "egui_graphs"
 version = "0.0.8"
 dependencies = [
  "egui",
- "fdg-sim",
  "petgraph",
 ]
 
@@ -826,6 +825,7 @@ dependencies = [
  "eframe",
  "egui",
  "egui_graphs",
+ "fdg-sim",
  "petgraph",
  "rand",
 ]

@@ -1,22 +1,32 @@
+use std::collections::HashMap;
+
 use egui::{Color32, Vec2};
 
-pub struct NodeProps {
+pub struct Elements {
+    pub nodes: HashMap<usize, Node>,
+    pub edges: HashMap<(usize, usize), Vec<Edge>>,
+}
+
+#[derive(Clone)]
+pub struct Node {
     pub color: Color32,
-    pub position: Vec2,
+    pub location: Vec2,
     pub radius: f32,
 }
 
-impl Default for NodeProps {
-    fn default() -> Self {
+impl Node {
+    pub fn new(location: Vec2) -> Self {
         Self {
+            location,
+
             color: Color32::from_rgb(255, 255, 255),
-            position: Vec2::default(),
             radius: 5.,
         }
     }
 }
 
-pub struct EdgeProps {
+#[derive(Clone)]
+pub struct Edge {
     pub color: Color32,
     pub width: f32,
     pub tip_size: f32,
@@ -25,7 +35,7 @@ pub struct EdgeProps {
     pub curve_size: f32,
 }
 
-impl EdgeProps {
+impl Edge {
     pub fn new(start: usize, end: usize) -> Self {
         Self {
             start,
