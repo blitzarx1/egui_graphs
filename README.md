@@ -9,13 +9,14 @@ Grpah visualization implementation using [egui](https://github.com/emilk/egui)
 ## Status
 The project is close to the first stable version.
 
-Currently not optimized for big graphs.
+Currently not optimized for large graphs. The goal is to match egui drawing speed. Further optimizations are unnecessary.
 
 ## Concept
-The goal is to create a crate that expands eguis visualization capabilities and offers an easy-to-integrate, customizable graph visualization widget.
-* customization and interactivity;
-* possibility to draw arbitrary complex graph with self references, loops, etc...
-* widget does not modify provided graph and props, instead he generates changes in case of any interactions which client can apply;
+The goal is to create a crate that expands egui's visualization capabilities and offers an easy-to-integrate, customizable graph visualization widget.
+
+* Customization and interactivity;
+* Ability to draw arbitrarily complex graphs with self-references, loops, etc.;
+* Widget does not modify the provided graph and properties; instead, it generates changes in case of any interactions which the client can apply.
 
 ## Features
 <pre>
@@ -26,6 +27,7 @@ zoom                  | [x]
 pan                   | [x]
 drag                  | [x]
 simulation settings   | [x]
+select/deselect node  | [x]
 add/delete node       | [ ]
 fold/unfold node      | [ ]
 layout customizations | [ ]
