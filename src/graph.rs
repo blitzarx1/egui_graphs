@@ -281,17 +281,19 @@ fn fit_to_screen(state: &mut State, bounds: (Vec2, Vec2)) -> (f32, Vec2) {
     )
 }
 
-// FIXME: bug with zoom center
 fn handle_zoom(delta: f32, zoom_center: Option<Pos2>, state: &State) -> (f32, Vec2) {
     let center_pos = match zoom_center {
         Some(center_pos) => center_pos - state.canvas.min,
-        None => Vec2::ZERO,
+        None => state.canvas.center() - state.canvas.min,
     };
     let graph_center_pos = (center_pos - state.pan) / state.zoom;
     let factor = 1. + delta;
     let new_zoom = state.zoom * factor;
 
-    (new_zoom, (1. - factor) * graph_center_pos * new_zoom)
+    (
+        new_zoom,
+        state.pan + (graph_center_pos * state.zoom - graph_center_pos * new_zoom),
+    )
 }
 
 fn handle_zoom_and_pan(ui: &Ui, response: &Response, state: &State) -> (f32, Vec2) {
