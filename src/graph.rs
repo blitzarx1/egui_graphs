@@ -1,7 +1,7 @@
 use std::{
+    cell::RefCell,
     collections::HashMap,
     f32::{MAX, MIN},
-    sync::Mutex,
 };
 
 use crate::{
@@ -27,7 +27,7 @@ pub struct Graph<'a, N: Clone, E: Clone, Ty: EdgeType> {
     top_left_pos: Vec2,
     down_right_pos: Vec2,
 
-    changes: Mutex<Changes>,
+    changes: RefCell<Changes>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<'a, N, E, Ty> {
@@ -52,7 +52,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<'a, N, E, Ty> {
 
     /// returns changes from the last frame
     pub fn last_changes(&self) -> Changes {
-        self.changes.lock().unwrap().clone()
+        self.changes.borrow().clone()
     }
 
     pub fn reset_state(ui: &mut Ui) {
@@ -60,6 +60,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<'a, N, E, Ty> {
     }
 }
 
+// TODO: think of eliminating implementation of Widget without referene to Graph
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &Graph<'a, N, E, Ty> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut state = State::get(ui);
@@ -75,7 +76,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &Graph<'a, N, E, Ty> {
                 fit_to_screen(&mut state, (self.top_left_pos, self.down_right_pos));
         }
 
-        if self.settings.zoom_and_pan {
+        if self.settings.zoom_and_pan && !self.settings.fit_to_screen {
             (new_zoom, new_pan) = handle_zoom_and_pan(ui, &response, &state);
         }
 
@@ -83,14 +84,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &Graph<'a, N, E, Ty> {
             handle_drags(&response, self.elements, &mut state, &mut changes);
         }
 
-        apply_zoom_and_pan(&mut state, self.elements, &mut changes, new_zoom, new_pan);
+        draw(&painter, self.elements, new_zoom, new_pan);
 
-        draw(&painter, &state, self.elements);
+        state.zoom = new_zoom;
+        state.pan = new_pan;
 
         state.store(ui);
         ui.ctx().request_repaint();
 
-        *self.changes.lock().unwrap() = changes;
+        *self.changes.borrow_mut() = changes;
 
         response
     }
@@ -126,49 +128,34 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
     Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
 }
 
-fn apply_zoom_and_pan(
-    state: &mut State,
-    elements: &Elements,
-    changes: &mut Changes,
-    new_zoom: f32,
-    new_pan: Vec2,
-) {
-    let factor = new_zoom / state.zoom;
-    elements.nodes.iter().for_each(|(idx, n)| {
-        changes.scale_node(idx, n, factor);
-    });
-    elements.edges.iter().for_each(|(_, edges)| {
-        edges.iter().for_each(|e| {
-            changes.scale_edge(e, factor);
-        });
-    });
-
-    state.zoom = new_zoom;
-    state.pan = new_pan;
+fn draw(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
+    draw_edges(p, elements, zoom, pan);
+    draw_nodes(p, &elements.nodes, zoom, pan);
 }
 
-fn draw(p: &Painter, state: &State, elements: &Elements) {
-    draw_edges(p, state, elements);
-    draw_nodes(p, state, &elements.nodes);
-}
-
-fn draw_edges(p: &Painter, state: &State, elements: &Elements) {
+fn draw_edges(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
     let angle = std::f32::consts::TAU / 50.;
 
     elements.edges.iter().for_each(|(_, edges)| {
         let edges_count = edges.len();
         let mut sames = HashMap::with_capacity(edges_count);
 
-        edges.iter().for_each(|edge| {
-            let start_node = elements.nodes.get(&edge.start).unwrap();
-            let end_node = elements.nodes.get(&edge.end).unwrap();
+        edges.iter().for_each(|e| {
+            let edge = e.screen_transform(zoom);
 
-            let pos_start = start_node
-                .location_in_screen_coords(state.zoom, state.pan)
-                .to_pos2();
-            let pos_end = end_node
-                .location_in_screen_coords(state.zoom, state.pan)
-                .to_pos2();
+            let start_node = elements
+                .nodes
+                .get(&edge.start)
+                .unwrap()
+                .screen_transform(zoom, pan);
+            let end_node = elements
+                .nodes
+                .get(&edge.end)
+                .unwrap()
+                .screen_transform(zoom, pan);
+
+            let pos_start = start_node.location.to_pos2();
+            let pos_end = end_node.location.to_pos2();
 
             let stroke = Stroke::new(edge.width, edge.color);
 
@@ -256,13 +243,10 @@ fn draw_edges(p: &Painter, state: &State, elements: &Elements) {
     });
 }
 
-fn draw_nodes(p: &Painter, state: &State, nodes: &HashMap<usize, Node>) {
+fn draw_nodes(p: &Painter, nodes: &HashMap<usize, Node>, zoom: f32, pan: Vec2) {
     nodes.iter().for_each(|(_, n)| {
-        p.circle_filled(
-            n.location_in_screen_coords(state.zoom, state.pan).to_pos2(),
-            n.radius,
-            n.color,
-        );
+        let node = n.screen_transform(zoom, pan);
+        p.circle_filled(node.location.to_pos2(), node.radius, node.color);
     });
 }
 
@@ -336,11 +320,9 @@ fn handle_drags(
 ) {
     // FIXME: use k-d tree to find the closest node, check if distance is less than radius
     if response.drag_started() {
-        let node_props = elements.nodes.iter().find(|(_, node)| {
-            (node.location_in_screen_coords(state.zoom, state.pan)
-                - response.hover_pos().unwrap().to_vec2())
-            .length()
-                <= node.radius
+        let node_props = elements.nodes.iter().find(|(_, n)| {
+            let node = n.screen_transform(state.zoom, state.pan);
+            (node.location - response.hover_pos().unwrap().to_vec2()).length() <= node.radius
         });
 
         if let Some((idx, _)) = node_props {
@@ -348,16 +330,15 @@ fn handle_drags(
         }
     }
 
-    // FIXME: bug
     if response.dragged() && state.node_dragged.is_some() {
         let node_idx_dragged = state.node_dragged.unwrap();
         let node_dragged = elements.nodes.get(&node_idx_dragged).unwrap();
 
         let delta_in_graph_coords = response.drag_delta() / state.zoom;
         changes.move_node(&node_idx_dragged, node_dragged, delta_in_graph_coords);
+    }
 
-        if response.drag_released() {
-            state.node_dragged = Default::default();
-        }
+    if response.drag_released() {
+        state.node_dragged = Default::default();
     }
 }

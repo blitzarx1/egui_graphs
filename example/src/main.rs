@@ -110,6 +110,7 @@ impl ExampleApp {
                     .node_weight_mut(NodeIndex::new(*idx))
                     .unwrap();
                 node.location = Vec3::new(location_change.x, location_change.y, node.location.z);
+                node.velocity = node.location - node.old_location;
             }
 
             if let Some(radius_change) = change.radius {
@@ -156,7 +157,13 @@ impl App for ExampleApp {
                 ui.label("Graph Settings");
                 ui.separator();
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.settings.fit_to_screen, "autofit");
+                    if ui
+                        .checkbox(&mut self.settings.fit_to_screen, "autofit")
+                        .changed()
+                        && self.settings.fit_to_screen
+                    {
+                        self.settings.zoom_and_pan = false
+                    };
                     ui.add_enabled_ui(!self.settings.fit_to_screen, |ui| {
                         ui.checkbox(&mut self.settings.zoom_and_pan, "pan & zoom")
                             .on_disabled_hover_text("disabled autofit to enable pan & zoom");

@@ -44,8 +44,12 @@ impl Node {
         }
     }
 
-    pub fn location_in_screen_coords(&self, zoom: f32, pan: Vec2) -> Vec2 {
-        self.location * zoom + pan
+    pub fn screen_transform(&self, zoom: f32, pan: Vec2) -> Self {
+        Self {
+            color: self.color,
+            location: self.location * zoom + pan,
+            radius: self.radius * zoom,
+        }
     }
 }
 
@@ -76,5 +80,17 @@ impl Edge {
 
     pub fn id(&self) -> (usize, usize, usize) {
         (self.start, self.end, self.list_idx)
+    }
+
+    pub fn screen_transform(&self, zoom: f32) -> Self {
+        Self {
+            color: self.color,
+            width: self.width * zoom,
+            tip_size: self.tip_size * zoom,
+            start: self.start,
+            list_idx: self.list_idx,
+            end: self.end,
+            curve_size: self.curve_size * zoom,
+        }
     }
 }

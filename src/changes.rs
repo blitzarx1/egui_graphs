@@ -20,14 +20,9 @@ impl Changes {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.modify_location(n, delta),
             None => {
-                self.nodes.insert(
-                    *idx,
-                    ChangesNode {
-                        location: Some(delta),
-                        color: Default::default(),
-                        radius: Default::default(),
-                    },
-                );
+                let mut changes_node = ChangesNode::default();
+                changes_node.modify_location(n, delta);
+                self.nodes.insert(*idx, changes_node);
             }
         };
     }
@@ -36,9 +31,9 @@ impl Changes {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.scale(n, factor),
             None => {
-                let mut chages_node = ChangesNode::default();
-                chages_node.scale(n, factor);
-                self.nodes.insert(*idx, chages_node);
+                let mut changes_node = ChangesNode::default();
+                changes_node.scale(n, factor);
+                self.nodes.insert(*idx, changes_node);
             }
         };
     }
