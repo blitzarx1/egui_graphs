@@ -98,6 +98,10 @@ impl ExampleApp {
     }
 
     fn apply_changes(&mut self, changes: Changes) {
+        if !changes.is_some() {
+            return;
+        }
+
         changes.nodes.iter().for_each(|(idx, change)| {
             if let Some(location_change) = change.location {
                 let node = self

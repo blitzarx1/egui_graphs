@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     f32::{MAX, MIN},
+    sync::Mutex,
 };
 
 use crate::{
@@ -26,7 +27,7 @@ pub struct Graph<'a, N: Clone, E: Clone, Ty: EdgeType> {
     top_left_pos: Vec2,
     down_right_pos: Vec2,
 
-    changes: Changes,
+    changes: Mutex<Changes>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<'a, N, E, Ty> {
@@ -51,7 +52,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<'a, N, E, Ty> {
 
     /// returns changes from the last frame
     pub fn last_changes(&self) -> Changes {
-        self.changes.clone()
+        self.changes.lock().unwrap().clone()
     }
 
     pub fn reset_state(ui: &mut Ui) {
@@ -88,6 +89,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &Graph<'a, N, E, Ty> {
 
         state.store(ui);
         ui.ctx().request_repaint();
+
+        *self.changes.lock().unwrap() = changes;
 
         response
     }
