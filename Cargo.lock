@@ -729,10 +729,9 @@ dependencies = [
 
 [[package]]
 name = "egui_graphs"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "egui",
- "fdg-sim",
  "petgraph",
 ]
 
@@ -826,6 +825,7 @@ dependencies = [
  "eframe",
  "egui",
  "egui_graphs",
+ "fdg-sim",
  "petgraph",
  "rand",
 ]
