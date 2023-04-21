@@ -10,7 +10,7 @@ use petgraph::{visit::IntoNodeReferences, Directed};
 use rand::Rng;
 
 const NODE_COUNT: usize = 300;
-const EDGE_COUNT: usize = 400;
+const EDGE_COUNT: usize = 500;
 const SIMULATION_DT: f32 = 0.035;
 const EDGE_SCALE_WEIGHT: f32 = 1.;
 
