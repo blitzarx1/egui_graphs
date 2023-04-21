@@ -21,6 +21,7 @@ pub struct ExampleApp {
     last_update_time: Instant,
     frames_last_time_span: usize,
     fps: f32,
+    simulation_stopped: bool,
 }
 
 impl ExampleApp {
@@ -34,10 +35,15 @@ impl ExampleApp {
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
             fps: 0.,
+            simulation_stopped: false,
         }
     }
 
     fn update_simulation(&mut self) {
+        if self.simulation_stopped {
+            return;
+        }
+
         let looped_nodes = {
             // remove looped edges
             let graph = self.simulation.get_graph_mut();
@@ -68,23 +74,17 @@ impl ExampleApp {
             graph.add_edge(*idx, *idx, w.clone());
         }
 
+        // sync elements location with simulation
         self.simulation
             .get_graph()
             .node_references()
-            .for_each(|(idx, node)| {
-                let loc = node.location;
-                self.elements.get_node_mut(&idx.index()).unwrap().location =
-                    Vec2::new(loc.x, loc.y);
+            .for_each(|(idx, sim_node)| {
+                let el_node: &mut Node = self.elements.get_node_mut(&idx.index()).unwrap();
+                if Vec3::new(el_node.location.x, el_node.location.y, 0.) == sim_node.old_location {
+                    el_node.location = Vec2::new(sim_node.location.x, sim_node.location.y);
+                }
             });
     }
-
-    // fn handle_keys(&mut self, ui: &mut Ui) {
-    //     ui.input(|i| {
-    //         if i.key_pressed(egui::Key::Space) {
-    //             self.graph.fit_screen();
-    //         }
-    //     });
-    // }
 
     fn update_fps(&mut self) {
         self.frames_last_time_span += 1;
@@ -104,13 +104,16 @@ impl ExampleApp {
 
         changes.nodes.iter().for_each(|(idx, change)| {
             if let Some(location_change) = change.location {
-                let node = self
+                let sim_node = self
                     .simulation
                     .get_graph_mut()
                     .node_weight_mut(NodeIndex::new(*idx))
                     .unwrap();
-                node.location = Vec3::new(location_change.x, location_change.y, node.location.z);
-                node.velocity = node.location - node.old_location;
+                sim_node.location = Vec3::new(location_change.x, location_change.y, 0.);
+                sim_node.velocity = sim_node.location - sim_node.old_location;
+
+                let el_node = self.elements.get_node_mut(idx).unwrap();
+                el_node.location = location_change;
             }
 
             if let Some(radius_change) = change.radius {
@@ -154,8 +157,9 @@ impl App for ExampleApp {
                 }
 
                 ui.add_space(10.);
-                ui.label("Graph Settings");
+                ui.label("View");
                 ui.separator();
+
                 ui.horizontal(|ui| {
                     if ui
                         .checkbox(&mut self.settings.fit_to_screen, "autofit")
@@ -169,12 +173,21 @@ impl App for ExampleApp {
                             .on_disabled_hover_text("disabled autofit to enable pan & zoom");
                     });
                 });
-                ui.add_space(5.);
+                ui.add_space(10.);
+                ui.label("Graph");
+                ui.separator();
+
                 ui.checkbox(&mut self.settings.node_drag, "drag nodes");
                 egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
                     ui.add_space(5.);
                     ui.label(format!("fps: {:.1}", self.fps));
                 });
+
+                ui.add_space(10.);
+                ui.label("Simulation");
+                ui.separator();
+
+                ui.checkbox(&mut self.simulation_stopped, "stop");
             });
 
         let widget = &Graph::new(self.simulation.get_graph(), &self.elements, &self.settings);
