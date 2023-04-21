@@ -4,12 +4,16 @@
 # egui_graphs
 Grpah visualization implementation using [egui](https://github.com/emilk/egui)
 
-![Screenshot 2023-04-17 at 00 06 54](https://user-images.githubusercontent.com/32969427/232339275-b13979d4-fc98-43ef-88be-5e8bc02af707.png)
+<img width="798" alt="Screenshot 2023-04-21 at 19 16 34" src="https://user-images.githubusercontent.com/32969427/233673151-0072378d-25a4-4066-bbff-2042ddf6b3fe.png">
 
 ## Status
-The project is under active development.
+The project is close to the first stable version.
 
-The goal is to create an external crate that expands egui's visualization capabilities and offers an easy-to-integrate, customizable graph widget.
+The goal is to create a crate that expands eguis visualization capabilities and offers an easy-to-integrate, customizable graph visualization widget.
+
+## Concept
+* customization and interactivity;
+* widget does not modify provided graph and props, instead he generates changes in case of any interactions which client can apply;
 
 ## Features
 <pre>
