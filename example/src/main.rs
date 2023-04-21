@@ -2,9 +2,11 @@ use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
 use egui::{Context, Vec2};
-use egui_graphs::{Edge, Elements, Graph, Node, Settings};
+use egui_graphs::{Changes, Edge, Elements, Graph, Node, Settings};
+use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
-use petgraph::{stable_graph::NodeIndex, visit::IntoNodeReferences, Directed};
+use petgraph::stable_graph::NodeIndex;
+use petgraph::{visit::IntoNodeReferences, Directed};
 use rand::Rng;
 
 const NODE_COUNT: usize = 300;
@@ -71,7 +73,7 @@ impl ExampleApp {
             .node_references()
             .for_each(|(idx, node)| {
                 let loc = node.location;
-                self.elements.nodes.get_mut(&idx.index()).unwrap().location =
+                self.elements.get_node_mut(&idx.index()).unwrap().location =
                     Vec2::new(loc.x, loc.y);
             });
     }
@@ -93,6 +95,39 @@ impl ExampleApp {
             self.fps = self.frames_last_time_span as f32 / elapsed.as_secs_f32();
             self.frames_last_time_span = 0;
         }
+    }
+
+    fn apply_changes(&mut self, changes: Changes) {
+        changes.nodes.iter().for_each(|(idx, change)| {
+            if let Some(location_change) = change.location {
+                let node = self
+                    .simulation
+                    .get_graph_mut()
+                    .node_weight_mut(NodeIndex::new(*idx))
+                    .unwrap();
+                node.location = Vec3::new(location_change.x, location_change.y, node.location.z);
+            }
+
+            if let Some(radius_change) = change.radius {
+                let node = self.elements.get_node_mut(idx).unwrap();
+                node.radius = radius_change;
+            }
+        });
+
+        changes.edges.iter().for_each(|(idx, change)| {
+            if let Some(width_change) = change.width {
+                let edge = self.elements.get_edge_mut(idx).unwrap();
+                edge.width = width_change;
+            }
+            if let Some(curve_size_change) = change.curve_size {
+                let edge = self.elements.get_edge_mut(idx).unwrap();
+                edge.curve_size = curve_size_change;
+            }
+            if let Some(tip_size_change) = change.tip_size {
+                let edge = self.elements.get_edge_mut(idx).unwrap();
+                edge.tip_size = tip_size_change;
+            }
+        });
     }
 }
 
@@ -130,14 +165,12 @@ impl App for ExampleApp {
                     ui.label(format!("fps: {:.1}", self.fps));
                 });
             });
+
+        let widget = &Graph::new(self.simulation.get_graph(), &self.elements, &self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(Graph::new(
-                self.simulation.get_graph_mut(),
-                &mut self.elements,
-                &self.settings,
-            ));
-            // self.handle_keys(ui);
+            ui.add(widget);
         });
+        self.apply_changes(widget.last_changes());
     }
 }
 
@@ -169,20 +202,19 @@ fn construct_simulation(
     });
     simulation.get_graph().edge_indices().for_each(|idx| {
         let (source, target) = simulation.get_graph().edge_endpoints(idx).unwrap();
-        let mut pair = [source.index(), target.index()];
-        // keep sorted pairs of nodes to distinguish between directed edges
-        pair.sort();
-        let key = (pair[0], pair[1]);
+
+        let key = (source.index(), target.index());
         edges.entry(key).or_insert_with(Vec::new);
-        edges
-            .get_mut(&key)
-            .unwrap()
-            .push(Edge::new(source.index(), target.index()));
+
+        let edges_list = edges.get_mut(&key).unwrap();
+        let list_idx = edges_list.len();
+
+        edges_list.push(Edge::new(source.index(), target.index(), list_idx));
 
         nodes.get_mut(&source.index()).unwrap().radius += EDGE_SCALE_WEIGHT;
         nodes.get_mut(&target.index()).unwrap().radius += EDGE_SCALE_WEIGHT;
     });
-    let elements = Elements { nodes, edges };
+    let elements = Elements::new(nodes, edges);
 
     (simulation, elements)
 }

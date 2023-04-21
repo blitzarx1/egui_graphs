@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::{
+    changes::Changes,
     elements::{Elements, Node},
     settings::Settings,
     state::State,
@@ -18,18 +19,20 @@ const SCREEN_PADDING: f32 = 0.3;
 const ZOOM_STEP: f32 = 0.1;
 
 pub struct Graph<'a, N: Clone, E: Clone, Ty: EdgeType> {
-    g: &'a mut petgraph::stable_graph::StableGraph<N, E, Ty>,
-    elements: &'a mut Elements,
+    g: &'a petgraph::stable_graph::StableGraph<N, E, Ty>,
+    elements: &'a Elements,
     settings: &'a Settings,
 
     top_left_pos: Vec2,
     down_right_pos: Vec2,
+
+    changes: Changes,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<'a, N, E, Ty> {
     pub fn new(
-        g: &'a mut petgraph::stable_graph::StableGraph<N, E, Ty>,
-        elements: &'a mut Elements,
+        g: &'a petgraph::stable_graph::StableGraph<N, E, Ty>,
+        elements: &'a Elements,
         settings: &'a Settings,
     ) -> Self {
         let (top_left_pos, down_right_pos) = get_bounds(elements);
@@ -41,86 +44,49 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<'a, N, E, Ty> {
 
             top_left_pos,
             down_right_pos,
+
+            changes: Default::default(),
         }
+    }
+
+    /// returns changes from the last frame
+    pub fn last_changes(&self) -> Changes {
+        self.changes.clone()
     }
 
     pub fn reset_state(ui: &mut Ui) {
         State::default().store(ui);
     }
-
-    // fn handle_all_interactions(&mut self, ui: &Ui, response: &Response) {
-    //     ui.input(|i| {
-    //         let delta = i.zoom_delta();
-    //         if delta == 1. {
-    //             return;
-    //         }
-    //         let step = ZOOM_STEP * (1. - delta).signum();
-    //         self.handle_zoom(step, i.pointer.hover_pos());
-    //     });
-
-    //     self.handle_drags(response);
-    // }
-
-    // fn handle_drags(&mut self, response: &Response) {
-    //     // FIXME: use k-d tree to find the closest node, check if distance is less than radius
-    //     if response.drag_started() {
-    //         let node_props = self.nodes_props.iter().find(|(_, props)| {
-    //             (props.position - response.hover_pos().unwrap().to_vec2()).length() <= props.radius
-    //         });
-
-    //         if let Some((idx, _)) = node_props {
-    //             self.node_dragged = Some(*idx);
-    //         }
-    //     }
-
-    //     if response.dragged() {
-    //         match self.node_dragged {
-    //             // if we are dragging a node, we should update its position in the graph
-    //             Some(node_dragged) => {
-    //                 let node_pos = self.nodes_props.get(&node_dragged).unwrap().position;
-
-    //                 // here we should update position in the graph coordinates
-    //                 // because on every tick we recalculate node positions assuming
-    //                 // that they are in graph coordinates
-
-    //                 // convert node position from screen to graph coordinates
-    //                 let graph_node_pos = (node_pos - self.pan) / self.zoom;
-
-    //                 // apply scaled drag translation
-    //                 let graph_dragged_pos = graph_node_pos + response.drag_delta() / self.zoom;
-    //             }
-    //             // if we are not dragging a node, we should pan the graph
-    //             None => self.pan += response.drag_delta(),
-    //         };
-    //     }
-
-    //     if response.drag_released() {
-    //         self.node_dragged = Default::default();
-    //     }
-    // }
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for Graph<'a, N, E, Ty> {
+impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &Graph<'a, N, E, Ty> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut state = State::get(ui);
+        let mut changes = Changes::default();
 
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
         state.canvas = response.rect;
 
+        let (mut new_zoom, mut new_pan) = (state.zoom, state.pan);
         if self.settings.fit_to_screen {
-            fit_to_screen(
-                &mut state,
-                self.elements,
-                (self.top_left_pos, self.down_right_pos),
-            );
+            (new_zoom, new_pan) =
+                fit_to_screen(&mut state, (self.top_left_pos, self.down_right_pos));
         }
 
-        to_screen_coords(&state, &mut self.elements.nodes);
-        draw(&painter, self.elements);
+        if self.settings.zoom_and_pan {
+            (new_zoom, new_pan) = handle_zoom_and_pan(ui, &response, &state);
+        }
+
+        if self.settings.node_drag {
+            handle_drags(&response, self.elements, &mut state, &mut changes);
+        }
+
+        apply_zoom_and_pan(&mut state, self.elements, &mut changes, new_zoom, new_pan);
+
+        draw(&painter, &state, self.elements);
 
         state.store(ui);
-
         ui.ctx().request_repaint();
 
         response
@@ -157,18 +123,33 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
     Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
 }
 
-fn to_screen_coords(state: &State, nodes: &mut HashMap<usize, Node>) {
-    nodes.iter_mut().for_each(|(_, n)| {
-        n.location = n.location * state.zoom + state.pan;
+fn apply_zoom_and_pan(
+    state: &mut State,
+    elements: &Elements,
+    changes: &mut Changes,
+    new_zoom: f32,
+    new_pan: Vec2,
+) {
+    let factor = new_zoom / state.zoom;
+    elements.nodes.iter().for_each(|(idx, n)| {
+        changes.scale_node(idx, n, factor);
     });
+    elements.edges.iter().for_each(|(_, edges)| {
+        edges.iter().for_each(|e| {
+            changes.scale_edge(e, factor);
+        });
+    });
+
+    state.zoom = new_zoom;
+    state.pan = new_pan;
 }
 
-fn draw(p: &Painter, elements: &Elements) {
-    draw_edges(p, elements);
-    draw_nodes(p, &elements.nodes);
+fn draw(p: &Painter, state: &State, elements: &Elements) {
+    draw_edges(p, state, elements);
+    draw_nodes(p, state, &elements.nodes);
 }
 
-fn draw_edges(p: &Painter, elements: &Elements) {
+fn draw_edges(p: &Painter, state: &State, elements: &Elements) {
     let angle = std::f32::consts::TAU / 50.;
 
     elements.edges.iter().for_each(|(_, edges)| {
@@ -176,23 +157,27 @@ fn draw_edges(p: &Painter, elements: &Elements) {
         let mut sames = HashMap::with_capacity(edges_count);
 
         edges.iter().for_each(|edge| {
-            let start_node_props = elements.nodes.get(&edge.start).unwrap();
-            let end_node_props = elements.nodes.get(&edge.end).unwrap();
+            let start_node = elements.nodes.get(&edge.start).unwrap();
+            let end_node = elements.nodes.get(&edge.end).unwrap();
 
-            let pos_start = start_node_props.location.to_pos2();
-            let pos_end = end_node_props.location.to_pos2();
+            let pos_start = start_node
+                .location_in_screen_coords(state.zoom, state.pan)
+                .to_pos2();
+            let pos_end = end_node
+                .location_in_screen_coords(state.zoom, state.pan)
+                .to_pos2();
 
             let stroke = Stroke::new(edge.width, edge.color);
 
             if edge.start == edge.end {
                 // CubicBezierShape for self-loop
                 let control_point1 = Pos2::new(
-                    pos_start.x + start_node_props.radius * 4.,
-                    pos_start.y - start_node_props.radius * 4.,
+                    pos_start.x + start_node.radius * 4.,
+                    pos_start.y - start_node.radius * 4.,
                 );
                 let control_point2 = Pos2::new(
-                    pos_start.x - start_node_props.radius * 4.,
-                    pos_start.y - start_node_props.radius * 4.,
+                    pos_start.x - start_node.radius * 4.,
+                    pos_start.y - start_node.radius * 4.,
                 );
 
                 p.add(CubicBezierShape::from_points_stroke(
@@ -208,9 +193,8 @@ fn draw_edges(p: &Painter, elements: &Elements) {
             let l = vec.length();
             let dir = vec / l;
 
-            let end_node_radius_vec = Vec2::new(end_node_props.radius, end_node_props.radius) * dir;
-            let start_node_radius_vec =
-                Vec2::new(start_node_props.radius, start_node_props.radius) * dir;
+            let end_node_radius_vec = Vec2::new(end_node.radius, end_node.radius) * dir;
+            let start_node_radius_vec = Vec2::new(start_node.radius, start_node.radius) * dir;
 
             let tip_point = pos_start + vec - end_node_radius_vec;
             let start_point = pos_start + start_node_radius_vec;
@@ -269,13 +253,17 @@ fn draw_edges(p: &Painter, elements: &Elements) {
     });
 }
 
-fn draw_nodes(p: &Painter, nodes: &HashMap<usize, Node>) {
+fn draw_nodes(p: &Painter, state: &State, nodes: &HashMap<usize, Node>) {
     nodes.iter().for_each(|(_, n)| {
-        p.circle_filled(n.location.to_pos2(), n.radius, n.color);
+        p.circle_filled(
+            n.location_in_screen_coords(state.zoom, state.pan).to_pos2(),
+            n.radius,
+            n.color,
+        );
     });
 }
 
-fn fit_to_screen(state: &mut State, elements: &mut Elements, bounds: (Vec2, Vec2)) {
+fn fit_to_screen(state: &mut State, bounds: (Vec2, Vec2)) -> (f32, Vec2) {
     // calculate graph dimensions with decorative padding
     let diag = bounds.1 - bounds.0;
     let graph_size = diag * (1. + SCREEN_PADDING);
@@ -294,16 +282,20 @@ fn fit_to_screen(state: &mut State, elements: &mut Elements, bounds: (Vec2, Vec2
 
     // calculate the zoom delta and call handle_zoom to adjust the zoom factor
     let zoom_delta = new_zoom / state.zoom - 1.0;
-    handle_zoom(zoom_delta, None, state, elements);
+    let (new_zoom, _) = handle_zoom(zoom_delta, None, state);
 
     // calculate the center of the graph and the canvas
     let graph_center = (bounds.0 + bounds.1) / 2.0;
 
     // adjust the pan value to align the centers of the graph and the canvas
-    state.pan = state.canvas.center().to_vec2() - graph_center * state.zoom;
+    (
+        new_zoom,
+        state.canvas.center().to_vec2() - graph_center * new_zoom,
+    )
 }
 
-fn handle_zoom(delta: f32, zoom_center: Option<Pos2>, state: &mut State, elements: &mut Elements) {
+// FIXME: bug with zoom center
+fn handle_zoom(delta: f32, zoom_center: Option<Pos2>, state: &State) -> (f32, Vec2) {
     let center_pos = match zoom_center {
         Some(center_pos) => center_pos - state.canvas.min,
         None => Vec2::ZERO,
@@ -312,18 +304,57 @@ fn handle_zoom(delta: f32, zoom_center: Option<Pos2>, state: &mut State, element
     let factor = 1. + delta;
     let new_zoom = state.zoom * factor;
 
-    elements
-        .nodes
-        .iter_mut()
-        .for_each(|(_, n)| n.radius *= factor);
-    elements.edges.iter_mut().for_each(|(_, edges)| {
-        edges.iter_mut().for_each(|e| {
-            e.width *= factor;
-            e.tip_size *= factor;
-            e.curve_size *= factor;
-        });
+    (new_zoom, (1. - factor) * graph_center_pos * new_zoom)
+}
+
+fn handle_zoom_and_pan(ui: &Ui, response: &Response, state: &State) -> (f32, Vec2) {
+    let (mut new_zoom, mut new_pan) = (state.zoom, state.pan);
+    ui.input(|i| {
+        let delta = i.zoom_delta();
+        if delta == 1. {
+            return;
+        }
+        let step = ZOOM_STEP * (1. - delta).signum();
+        (new_zoom, new_pan) = handle_zoom(step, i.pointer.hover_pos(), state);
     });
 
-    state.pan = (1. - factor) * graph_center_pos * new_zoom;
-    state.zoom = new_zoom;
+    if response.dragged() && state.node_dragged.is_none() {
+        (new_zoom, new_pan) = (new_zoom, state.pan + response.drag_delta());
+    }
+
+    (new_zoom, new_pan)
+}
+
+fn handle_drags(
+    response: &Response,
+    elements: &Elements,
+    state: &mut State,
+    changes: &mut Changes,
+) {
+    // FIXME: use k-d tree to find the closest node, check if distance is less than radius
+    if response.drag_started() {
+        let node_props = elements.nodes.iter().find(|(_, node)| {
+            (node.location_in_screen_coords(state.zoom, state.pan)
+                - response.hover_pos().unwrap().to_vec2())
+            .length()
+                <= node.radius
+        });
+
+        if let Some((idx, _)) = node_props {
+            state.node_dragged = Some(*idx);
+        }
+    }
+
+    // FIXME: bug
+    if response.dragged() && state.node_dragged.is_some() {
+        let node_idx_dragged = state.node_dragged.unwrap();
+        let node_dragged = elements.nodes.get(&node_idx_dragged).unwrap();
+
+        let delta_in_graph_coords = response.drag_delta() / state.zoom;
+        changes.move_node(&node_idx_dragged, node_dragged, delta_in_graph_coords);
+
+        if response.drag_released() {
+            state.node_dragged = Default::default();
+        }
+    }
 }
