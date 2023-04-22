@@ -22,12 +22,9 @@ The goal is to create a crate that expands egui's visualization capabilities and
 <pre>
 feature                status
 ----------------------+-------
-force directed layout | [x]
-zoom                  | [x]
-pan                   | [x]
-drag                  | [x]
-simulation settings   | [x]
-select/deselect node  | [x]
+zoom & pan            | [x]
+drag node             | [x]
+select/deselect node  | [ ]
 style customizations  | [ ]
 </pre>
 
