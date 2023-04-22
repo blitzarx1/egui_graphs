@@ -18,6 +18,9 @@ pub struct ExampleApp {
     simulation: Simulation<usize, String>,
     elements: Elements,
     settings: Settings,
+
+    last_selection: Option<Node>,
+
     last_update_time: Instant,
     frames_last_time_span: usize,
     fps: f32,
@@ -32,6 +35,9 @@ impl ExampleApp {
             simulation,
             settings,
             elements,
+
+            last_selection: None,
+
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
             fps: 0.,
@@ -39,11 +45,27 @@ impl ExampleApp {
         }
     }
 
+    fn sync(&mut self) {
+        // sync elements with simulation and state
+        self.last_selection = None;
+        self.simulation
+            .get_graph()
+            .node_references()
+            .for_each(|(idx, sim_node)| {
+                let el_node: &mut Node = self.elements.get_node_mut(&idx.index()).unwrap();
+                if el_node.selected {
+                    self.last_selection = Some(el_node.clone());
+                };
+                if Vec3::new(el_node.location.x, el_node.location.y, 0.) == sim_node.old_location {
+                    el_node.location = Vec2::new(sim_node.location.x, sim_node.location.y);
+                };
+            });
+    }
+
     fn update_simulation(&mut self) {
         if self.simulation_stopped {
             return;
         }
-
         let looped_nodes = {
             // remove looped edges
             let graph = self.simulation.get_graph_mut();
@@ -73,17 +95,6 @@ impl ExampleApp {
         for (idx, w) in looped_nodes.iter() {
             graph.add_edge(*idx, *idx, w.clone());
         }
-
-        // sync elements location with simulation
-        self.simulation
-            .get_graph()
-            .node_references()
-            .for_each(|(idx, sim_node)| {
-                let el_node: &mut Node = self.elements.get_node_mut(&idx.index()).unwrap();
-                if Vec3::new(el_node.location.x, el_node.location.y, 0.) == sim_node.old_location {
-                    el_node.location = Vec2::new(sim_node.location.x, sim_node.location.y);
-                }
-            });
     }
 
     fn update_fps(&mut self) {
@@ -152,6 +163,7 @@ impl ExampleApp {
 impl App for ExampleApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         self.update_simulation();
+        self.sync();
         self.update_fps();
 
         egui::SidePanel::right("right_panel")
@@ -184,7 +196,7 @@ impl App for ExampleApp {
                     });
                 });
                 ui.add_space(10.);
-                ui.label("Graph");
+                ui.label("Elements");
                 ui.separator();
 
                 ui.checkbox(&mut self.settings.node_drag, "drag nodes");
@@ -198,6 +210,14 @@ impl App for ExampleApp {
                 ui.separator();
 
                 ui.checkbox(&mut self.simulation_stopped, "stop");
+
+                ui.add_space(10.);
+                ui.label("Selection");
+                ui.separator();
+
+                if self.last_selection.is_some() {
+                    ui.label(format!("{:?}", self.last_selection.clone().unwrap()));
+                }
             });
 
         let widget = &GraphView::new(&self.elements, &self.settings);

@@ -21,7 +21,7 @@ impl Elements {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Node {
     pub color: Color32,
     pub location: Vec2,
@@ -51,7 +51,7 @@ impl Node {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Edge {
     pub color: Color32,
     pub width: f32,

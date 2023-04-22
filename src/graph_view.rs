@@ -250,11 +250,8 @@ fn draw_node(p: &Painter, node: &Node) {
         // draw a border around the selected node
         true => p.circle_stroke(
             loc,
-            node.radius,
-            Stroke::new(
-                node.radius,
-                Color32::from_rgba_unmultiplied(255, 255, 255, 128),
-            ),
+            node.radius * 1.5,
+            Stroke::new(node.radius, Color32::from_rgba_unmultiplied(255, 0, 255, 128)),
         ),
         false => (),
     };
