@@ -14,13 +14,11 @@ use egui::{
     epaint::{CubicBezierShape, QuadraticBezierShape},
     Color32, Painter, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget,
 };
-use petgraph::EdgeType;
 
 const SCREEN_PADDING: f32 = 0.3;
 const ZOOM_STEP: f32 = 0.1;
 
-pub struct Graph<'a, N: Clone, E: Clone, Ty: EdgeType> {
-    g: &'a petgraph::stable_graph::StableGraph<N, E, Ty>,
+pub struct GraphView<'a> {
     elements: &'a Elements,
     settings: &'a Settings,
 
@@ -30,16 +28,11 @@ pub struct Graph<'a, N: Clone, E: Clone, Ty: EdgeType> {
     changes: RefCell<Changes>,
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<'a, N, E, Ty> {
-    pub fn new(
-        g: &'a petgraph::stable_graph::StableGraph<N, E, Ty>,
-        elements: &'a Elements,
-        settings: &'a Settings,
-    ) -> Self {
+impl<'a> GraphView<'a> {
+    pub fn new(elements: &'a Elements, settings: &'a Settings) -> Self {
         let (top_left_pos, down_right_pos) = get_bounds(elements);
 
         Self {
-            g,
             elements,
             settings,
 
@@ -60,8 +53,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<'a, N, E, Ty> {
     }
 }
 
-// TODO: think of eliminating implementation of Widget without referene to Graph
-impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &Graph<'a, N, E, Ty> {
+impl<'a> Widget for &GraphView<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut state = State::get(ui);
         let mut changes = Changes::default();
@@ -84,7 +76,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &Graph<'a, N, E, Ty> {
             handle_drags(&response, self.elements, &mut state, &mut changes);
         }
 
-        draw(&painter, self.elements, new_zoom, new_pan);
+        draw(&painter, &state, self.elements, new_zoom, new_pan);
 
         state.zoom = new_zoom;
         state.pan = new_pan;
@@ -128,9 +120,9 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
     Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
 }
 
-fn draw(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
+fn draw(p: &Painter, state: &State, elements: &Elements, zoom: f32, pan: Vec2) {
     draw_edges(p, elements, zoom, pan);
-    draw_nodes(p, &elements.nodes, zoom, pan);
+    draw_nodes(p, state, &elements.nodes, zoom, pan);
 }
 
 fn draw_edges(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
@@ -243,11 +235,29 @@ fn draw_edges(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
     });
 }
 
-fn draw_nodes(p: &Painter, nodes: &HashMap<usize, Node>, zoom: f32, pan: Vec2) {
-    nodes.iter().for_each(|(_, n)| {
+fn draw_nodes(p: &Painter, state: &State, nodes: &HashMap<usize, Node>, zoom: f32, pan: Vec2) {
+    nodes.iter().for_each(|(idx, n)| {
         let node = n.screen_transform(zoom, pan);
-        p.circle_filled(node.location.to_pos2(), node.radius, node.color);
+        draw_node(p, state, idx, &node)
     });
+}
+
+fn draw_node(p: &Painter, state: &State, idx: &usize, node: &Node) {
+    let loc = node.location.to_pos2();
+    p.circle_filled(loc, node.radius, node.color);
+
+    match state.nodes_selected.contains(idx) {
+        // draw a border around the selected node
+        true => p.circle_stroke(
+            loc,
+            node.radius,
+            Stroke::new(
+                node.radius,
+                Color32::from_rgba_unmultiplied(255, 255, 255, 128),
+            ),
+        ),
+        false => (),
+    };
 }
 
 fn fit_to_screen(state: &mut State, bounds: (Vec2, Vec2)) -> (f32, Vec2) {
@@ -307,7 +317,7 @@ fn handle_zoom_and_pan(ui: &Ui, response: &Response, state: &State) -> (f32, Vec
         (new_zoom, new_pan) = handle_zoom(step, i.pointer.hover_pos(), state);
     });
 
-    if response.dragged() && state.node_dragged.is_none() {
+    if response.dragged() && state.get_dragged_node().is_none() {
         (new_zoom, new_pan) = (new_zoom, state.pan + response.drag_delta());
     }
 
@@ -320,27 +330,27 @@ fn handle_drags(
     state: &mut State,
     changes: &mut Changes,
 ) {
-    // FIXME: use k-d tree to find the closest node, check if distance is less than radius
     if response.drag_started() {
+        // TODO: optimize this full scan run
         let node_props = elements.nodes.iter().find(|(_, n)| {
             let node = n.screen_transform(state.zoom, state.pan);
             (node.location - response.hover_pos().unwrap().to_vec2()).length() <= node.radius
         });
 
         if let Some((idx, _)) = node_props {
-            state.node_dragged = Some(*idx);
+            state.set_dragged_node(*idx);
         }
     }
 
-    if response.dragged() && state.node_dragged.is_some() {
-        let node_idx_dragged = state.node_dragged.unwrap();
+    if response.dragged() && state.get_dragged_node().is_some() {
+        let node_idx_dragged = state.get_dragged_node().unwrap();
         let node_dragged = elements.nodes.get(&node_idx_dragged).unwrap();
 
         let delta_in_graph_coords = response.drag_delta() / state.zoom;
         changes.move_node(&node_idx_dragged, node_dragged, delta_in_graph_coords);
     }
 
-    if response.drag_released() {
-        state.node_dragged = Default::default();
+    if response.drag_released() && state.get_dragged_node().is_some() {
+        state.unset_dragged_node();
     }
 }
