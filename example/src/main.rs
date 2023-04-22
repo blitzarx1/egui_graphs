@@ -2,11 +2,11 @@ use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
 use egui::{Context, Vec2};
-use egui_graphs::{Changes, Edge, Elements, Graph, Node, Settings};
+use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::NodeIndex;
-use petgraph::{visit::IntoNodeReferences, Directed};
+use petgraph::visit::IntoNodeReferences;
 use rand::Rng;
 
 const NODE_COUNT: usize = 300;
@@ -120,6 +120,11 @@ impl ExampleApp {
                 let node = self.elements.get_node_mut(idx).unwrap();
                 node.radius = radius_change;
             }
+
+            if let Some(color_change) = change.color {
+                let node = self.elements.get_node_mut(idx).unwrap();
+                node.color = color_change;
+            }
         });
 
         changes.edges.iter().for_each(|(idx, change)| {
@@ -153,7 +158,7 @@ impl App for ExampleApp {
                     self.simulation = simulation;
                     self.elements = elements;
 
-                    Graph::<usize, String, Directed>::reset_state(ui);
+                    GraphView::reset_state(ui);
                 }
 
                 ui.add_space(10.);
@@ -190,7 +195,7 @@ impl App for ExampleApp {
                 ui.checkbox(&mut self.simulation_stopped, "stop");
             });
 
-        let widget = &Graph::new(self.simulation.get_graph(), &self.elements, &self.settings);
+        let widget = &GraphView::new(&self.elements, &self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(widget);
         });
