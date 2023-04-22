@@ -1,6 +1,7 @@
 use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
+use egui::plot::{Line, Plot, PlotPoints};
 use egui::{Context, ScrollArea, Vec2};
 use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
 use fdg_sim::glam::Vec3;
@@ -21,10 +22,12 @@ pub struct ExampleApp {
 
     selected: Vec<Node>,
 
+    simulation_stopped: bool,
+
+    fps: f64,
+    fps_history: Vec<f64>,
     last_update_time: Instant,
     frames_last_time_span: usize,
-    fps: f32,
-    simulation_stopped: bool,
 }
 
 impl ExampleApp {
@@ -38,10 +41,12 @@ impl ExampleApp {
 
             selected: Default::default(),
 
+            simulation_stopped: false,
+
+            fps: 0.,
+            fps_history: Default::default(),
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
-            fps: 0.,
-            simulation_stopped: false,
         }
     }
 
@@ -103,8 +108,13 @@ impl ExampleApp {
         let elapsed = now.duration_since(self.last_update_time);
         if elapsed.as_secs() >= 1 {
             self.last_update_time = now;
-            self.fps = self.frames_last_time_span as f32 / elapsed.as_secs_f32();
+            self.fps = self.frames_last_time_span as f64 / elapsed.as_secs_f64();
             self.frames_last_time_span = 0;
+
+            self.fps_history.push(self.fps);
+            if self.fps_history.len() > 100 {
+                self.fps_history.remove(0);
+            }
         }
     }
 
@@ -218,6 +228,26 @@ impl App for ExampleApp {
                 egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
                     ui.add_space(5.);
                     ui.label(format!("fps: {:.1}", self.fps));
+
+                    let sin: PlotPoints = self
+                        .fps_history
+                        .iter()
+                        .enumerate()
+                        .map(|(i, val)| [i as f64, *val])
+                        .collect();
+                    let line = Line::new(sin);
+                    Plot::new("my_plot")
+                        .height(100.)
+                        .show_x(false)
+                        .show_y(false)
+                        .show_background(false)
+                        .show_axes([false, true])
+                        .allow_boxed_zoom(false)
+                        .allow_double_click_reset(false)
+                        .allow_drag(false)
+                        .allow_scroll(false)
+                        .allow_zoom(false)
+                        .show(ui, |plot_ui| plot_ui.line(line));
                 });
             });
 
