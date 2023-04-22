@@ -16,7 +16,7 @@ The goal is to create a crate that expands egui's visualization capabilities and
 
 * Customization and interactivity;
 * Ability to draw arbitrarily complex graphs with self-references, loops, etc.;
-* Widget does not modify the provided graph and properties; instead, it generates changes in case of any interactions which the client can apply.
+* Widget does not modify the provided graph and properties; instead, it generates changes, in case of any interactions, which the client can apply.
 
 ## Features
 <pre>
@@ -27,10 +27,7 @@ zoom                  | [x]
 pan                   | [x]
 drag                  | [x]
 simulation settings   | [x]
-select/deselect node  | [ ]
-add/delete node       | [ ]
-fold/unfold node      | [ ]
-layout customizations | [ ]
+select/deselect node  | [x]
 style customizations  | [ ]
 </pre>
 
