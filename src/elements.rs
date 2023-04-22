@@ -2,14 +2,43 @@ use std::collections::HashMap;
 
 use egui::{Color32, Vec2};
 
+/// Elements represents the collection of all nodes and edges in a graph.
+/// It is passed to the GraphView widget and is used to draw the graph.
 pub struct Elements {
-    pub(crate) nodes: HashMap<usize, Node>,
-    pub(crate) edges: HashMap<(usize, usize), Vec<Edge>>,
+    nodes: HashMap<usize, Node>,
+    edges: HashMap<(usize, usize), Vec<Edge>>,
 }
 
 impl Elements {
     pub fn new(nodes: HashMap<usize, Node>, edges: HashMap<(usize, usize), Vec<Edge>>) -> Self {
         Self { nodes, edges }
+    }
+
+    pub fn get_node(&self, idx: &usize) -> Option<&Node> {
+        self.nodes.get(idx)
+    }
+
+    pub fn get_nodes(&self) -> &HashMap<usize, Node> {
+        &self.nodes
+    }
+
+    pub fn get_edges(&self) -> &HashMap<(usize, usize), Vec<Edge>> {
+        &self.edges
+    }
+
+    pub fn get_edge(&self, idx: &(usize, usize, usize)) -> Option<&Edge> {
+        self.edges.get(&(idx.0, idx.1))?.get(idx.2)
+    }
+
+    /// deletes node and all edges connected to it
+    pub fn delete_node(&mut self, idx: &usize) {
+        self.nodes.remove(idx);
+        self.edges.retain(|k, _| k.0 != *idx && k.1 != *idx);
+    }
+
+    /// deletes edge
+    pub fn delete_edge(&mut self, idx: &(usize, usize, usize)) {
+        self.edges.get_mut(&(idx.0, idx.1)).unwrap().remove(idx.2);
     }
 
     pub fn get_node_mut(&mut self, idx: &usize) -> Option<&mut Node> {

@@ -48,6 +48,9 @@ impl<'a> GraphView<'a> {
         self.changes.borrow().clone()
     }
 
+    /// should be called to clear cached graph metadata, for example
+    /// in case when you want to show completely different graph from the one
+    /// in the last frame
     pub fn reset_state(ui: &mut Ui) {
         State::default().store(ui);
     }
@@ -96,7 +99,7 @@ fn get_bounds(elements: &Elements) -> (Vec2, Vec2) {
     let mut max_x = MIN;
     let mut max_y = MIN;
 
-    elements.nodes.iter().for_each(|(_, n)| {
+    elements.get_nodes().iter().for_each(|(_, n)| {
         if n.location.x < min_x {
             min_x = n.location.x;
         };
@@ -122,13 +125,13 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
 
 fn draw(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
     draw_edges(p, elements, zoom, pan);
-    draw_nodes(p, &elements.nodes, zoom, pan);
+    draw_nodes(p, elements, zoom, pan);
 }
 
 fn draw_edges(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
     let angle = std::f32::consts::TAU / 50.;
 
-    elements.edges.iter().for_each(|(_, edges)| {
+    elements.get_edges().iter().for_each(|(_, edges)| {
         let edges_count = edges.len();
         let mut sames = HashMap::with_capacity(edges_count);
 
@@ -136,13 +139,11 @@ fn draw_edges(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
             let edge = e.screen_transform(zoom);
 
             let start_node = elements
-                .nodes
-                .get(&edge.start)
+                .get_node(&edge.start)
                 .unwrap()
                 .screen_transform(zoom, pan);
             let end_node = elements
-                .nodes
-                .get(&edge.end)
+                .get_node(&edge.end)
                 .unwrap()
                 .screen_transform(zoom, pan);
 
@@ -235,8 +236,8 @@ fn draw_edges(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
     });
 }
 
-fn draw_nodes(p: &Painter, nodes: &HashMap<usize, Node>, zoom: f32, pan: Vec2) {
-    nodes.iter().for_each(|(_, n)| {
+fn draw_nodes(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
+    elements.get_nodes().iter().for_each(|(_, n)| {
         let node = n.screen_transform(zoom, pan);
         draw_node(p, &node)
     });
@@ -324,9 +325,10 @@ fn handle_zoom_and_pan(ui: &Ui, response: &Response, state: &State) -> (f32, Vec
     (new_zoom, new_pan)
 }
 
-// TODO: optimize this full scan run
+// TODO: optimize this full scan run with quadtree or similar
+// need to modify `crate::elements::Elements` to store nodes in a quadtree
 fn node_by_pos<'a>(elements: &'a Elements, state: &State, pos: Pos2) -> Option<(usize, &'a Node)> {
-    let node_props = elements.nodes.iter().find(|(_, n)| {
+    let node_props = elements.get_nodes().iter().find(|(_, n)| {
         let node = n.screen_transform(state.zoom, state.pan);
         (node.location - pos.to_vec2()).length() <= node.radius
     });
@@ -346,14 +348,14 @@ fn handle_drags(
 ) {
     if response.drag_started() {
         if let Some((idx, _)) = node_by_pos(elements, state, response.hover_pos().unwrap()) {
-            changes.select_node(&idx, elements.nodes.get(&idx).unwrap());
+            changes.select_node(&idx, elements.get_node(&idx).unwrap());
             state.set_dragged_node(idx);
         }
     }
 
     if response.dragged() && state.get_dragged_node().is_some() {
         let node_idx_dragged = state.get_dragged_node().unwrap();
-        let node_dragged = elements.nodes.get(&node_idx_dragged).unwrap();
+        let node_dragged = elements.get_node(&node_idx_dragged).unwrap();
 
         let delta_in_graph_coords = response.drag_delta() / state.zoom;
         changes.move_node(&node_idx_dragged, node_dragged, delta_in_graph_coords);
@@ -361,7 +363,7 @@ fn handle_drags(
 
     if response.drag_released() && state.get_dragged_node().is_some() {
         let idx = &state.get_dragged_node().unwrap();
-        changes.deselect_node(idx, elements.nodes.get(idx).unwrap());
+        changes.deselect_node(idx, elements.get_node(idx).unwrap());
         state.unset_dragged_node();
     }
 }
@@ -378,16 +380,17 @@ fn handle_clicks(
 
     let node = node_by_pos(elements, state, response.hover_pos().unwrap());
     if node.is_none() {
-        elements.nodes.iter().for_each(|(idx, n)| {
+        // TODO: optimize this. keep selected nodes in state to quickly manage them
+        elements.get_nodes().iter().for_each(|(idx, n)| {
             if !n.selected {
                 return;
             }
 
-            changes.deselect_node(idx, elements.nodes.get(idx).unwrap());
+            changes.deselect_node(idx, n);
         });
         return;
     }
 
-    let (idx, _) = node.unwrap();
-    changes.select_node(&idx, elements.nodes.get(&idx).unwrap());
+    let (idx, n) = node.unwrap();
+    changes.select_node(&idx, n);
 }

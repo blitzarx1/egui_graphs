@@ -73,7 +73,7 @@ impl Changes {
     }
 }
 
-/// stores deltas to the nodes properties
+/// stores changes to the node properties
 #[derive(Default, Clone)]
 pub struct ChangesNode {
     pub location: Option<Vec2>,
@@ -104,7 +104,7 @@ impl ChangesNode {
     }
 }
 
-/// stores deltas to the edges properties
+/// stores changes to the edge properties
 #[derive(Default, Clone)]
 pub struct ChangesEdge {
     pub color: Option<Color32>,
