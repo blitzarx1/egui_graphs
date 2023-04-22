@@ -5,6 +5,7 @@
 Grpah visualization implementation using [egui](https://github.com/emilk/egui)
 
 <img width="798" alt="Screenshot 2023-04-21 at 19 16 34" src="https://user-images.githubusercontent.com/32969427/233673151-0072378d-25a4-4066-bbff-2042ddf6b3fe.png">
+<img width="798" src="https://user-images.githubusercontent.com/32969427/233801083-160cb9dd-e2a5-4292-8c59-f2143f31588c.png">
 
 ## Status
 The project is close to the first stable version.
