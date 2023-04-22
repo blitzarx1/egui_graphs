@@ -24,7 +24,7 @@ feature                status
 ----------------------+-------
 zoom & pan            | [x]
 drag node             | [x]
-select/deselect node  | [ ]
+select/deselect node  | [x]
 style customizations  | [ ]
 </pre>
 

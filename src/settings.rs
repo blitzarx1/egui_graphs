@@ -6,6 +6,9 @@ pub struct Settings {
     /// enables/disables node dragging
     pub node_drag: bool,
 
+    /// enables/disables node selection
+    pub node_select: bool,
+
     /// enables/disables zoom and pan
     pub zoom_and_pan: bool,
 }
@@ -16,6 +19,7 @@ impl Default for Settings {
             fit_to_screen: true,
             node_drag: false,
             zoom_and_pan: false,
+            node_select: false,
         }
     }
 }

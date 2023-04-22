@@ -57,23 +57,23 @@ impl<'a> Widget for &GraphView<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut state = State::get(ui);
         let mut changes = Changes::default();
+        let (mut new_zoom, mut new_pan) = (state.zoom, state.pan);
 
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
-
         state.canvas = response.rect;
 
-        let (mut new_zoom, mut new_pan) = (state.zoom, state.pan);
         if self.settings.fit_to_screen {
             (new_zoom, new_pan) =
                 fit_to_screen(&mut state, (self.top_left_pos, self.down_right_pos));
         }
-
         if self.settings.zoom_and_pan && !self.settings.fit_to_screen {
             (new_zoom, new_pan) = handle_zoom_and_pan(ui, &response, &state);
         }
-
         if self.settings.node_drag {
             handle_drags(&response, self.elements, &mut state, &mut changes);
+        }
+        if self.settings.node_select {
+            handle_clicks(&response, self.elements, &mut state, &mut changes);
         }
 
         draw(&painter, self.elements, new_zoom, new_pan);
@@ -250,10 +250,10 @@ fn draw_node(p: &Painter, node: &Node) {
         // draw a border around the selected node
         true => p.circle_stroke(
             loc,
-            node.radius,
+            node.radius * 1.5,
             Stroke::new(
                 node.radius,
-                Color32::from_rgba_unmultiplied(255, 255, 255, 128),
+                Color32::from_rgba_unmultiplied(255, 0, 255, 128),
             ),
         ),
         false => (),
@@ -324,6 +324,20 @@ fn handle_zoom_and_pan(ui: &Ui, response: &Response, state: &State) -> (f32, Vec
     (new_zoom, new_pan)
 }
 
+// TODO: optimize this full scan run
+fn node_by_pos<'a>(elements: &'a Elements, state: &State, pos: Pos2) -> Option<(usize, &'a Node)> {
+    let node_props = elements.nodes.iter().find(|(_, n)| {
+        let node = n.screen_transform(state.zoom, state.pan);
+        (node.location - pos.to_vec2()).length() <= node.radius
+    });
+
+    if let Some((idx, node)) = node_props {
+        Some((*idx, node))
+    } else {
+        None
+    }
+}
+
 fn handle_drags(
     response: &Response,
     elements: &Elements,
@@ -331,15 +345,9 @@ fn handle_drags(
     changes: &mut Changes,
 ) {
     if response.drag_started() {
-        // TODO: optimize this full scan run
-        let node_props = elements.nodes.iter().find(|(_, n)| {
-            let node = n.screen_transform(state.zoom, state.pan);
-            (node.location - response.hover_pos().unwrap().to_vec2()).length() <= node.radius
-        });
-
-        if let Some((idx, _)) = node_props {
-            changes.select_node(idx, elements.nodes.get(idx).unwrap());
-            state.set_dragged_node(*idx);
+        if let Some((idx, _)) = node_by_pos(elements, state, response.hover_pos().unwrap()) {
+            changes.select_node(&idx, elements.nodes.get(&idx).unwrap());
+            state.set_dragged_node(idx);
         }
     }
 
@@ -356,4 +364,30 @@ fn handle_drags(
         changes.deselect_node(idx, elements.nodes.get(idx).unwrap());
         state.unset_dragged_node();
     }
+}
+
+fn handle_clicks(
+    response: &Response,
+    elements: &Elements,
+    state: &mut State,
+    changes: &mut Changes,
+) {
+    if !response.clicked() {
+        return;
+    }
+
+    let node = node_by_pos(elements, state, response.hover_pos().unwrap());
+    if node.is_none() {
+        elements.nodes.iter().for_each(|(idx, n)| {
+            if !n.selected {
+                return;
+            }
+
+            changes.deselect_node(idx, elements.nodes.get(idx).unwrap());
+        });
+        return;
+    }
+
+    let (idx, _) = node.unwrap();
+    changes.select_node(&idx, elements.nodes.get(&idx).unwrap());
 }

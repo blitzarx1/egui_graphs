@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
-use egui::{Context, Vec2};
+use egui::{Context, ScrollArea, Vec2};
 use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -18,6 +18,9 @@ pub struct ExampleApp {
     simulation: Simulation<usize, String>,
     elements: Elements,
     settings: Settings,
+
+    selected: Vec<Node>,
+
     last_update_time: Instant,
     frames_last_time_span: usize,
     fps: f32,
@@ -32,6 +35,9 @@ impl ExampleApp {
             simulation,
             settings,
             elements,
+
+            selected: Default::default(),
+
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
             fps: 0.,
@@ -39,11 +45,27 @@ impl ExampleApp {
         }
     }
 
+    fn sync(&mut self) {
+        // sync elements with simulation and state
+        self.selected = Default::default();
+        self.simulation
+            .get_graph()
+            .node_references()
+            .for_each(|(idx, sim_node)| {
+                let el_node: &mut Node = self.elements.get_node_mut(&idx.index()).unwrap();
+                if el_node.selected {
+                    self.selected.push(el_node.clone());
+                };
+                if Vec3::new(el_node.location.x, el_node.location.y, 0.) == sim_node.old_location {
+                    el_node.location = Vec2::new(sim_node.location.x, sim_node.location.y);
+                };
+            });
+    }
+
     fn update_simulation(&mut self) {
         if self.simulation_stopped {
             return;
         }
-
         let looped_nodes = {
             // remove looped edges
             let graph = self.simulation.get_graph_mut();
@@ -73,17 +95,6 @@ impl ExampleApp {
         for (idx, w) in looped_nodes.iter() {
             graph.add_edge(*idx, *idx, w.clone());
         }
-
-        // sync elements location with simulation
-        self.simulation
-            .get_graph()
-            .node_references()
-            .for_each(|(idx, sim_node)| {
-                let el_node: &mut Node = self.elements.get_node_mut(&idx.index()).unwrap();
-                if Vec3::new(el_node.location.x, el_node.location.y, 0.) == sim_node.old_location {
-                    el_node.location = Vec2::new(sim_node.location.x, sim_node.location.y);
-                }
-            });
     }
 
     fn update_fps(&mut self) {
@@ -152,6 +163,7 @@ impl ExampleApp {
 impl App for ExampleApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         self.update_simulation();
+        self.sync();
         self.update_fps();
 
         egui::SidePanel::right("right_panel")
@@ -169,7 +181,6 @@ impl App for ExampleApp {
                 ui.add_space(10.);
                 ui.label("View");
                 ui.separator();
-
                 ui.horizontal(|ui| {
                     if ui
                         .checkbox(&mut self.settings.fit_to_screen, "autofit")
@@ -183,21 +194,31 @@ impl App for ExampleApp {
                             .on_disabled_hover_text("disabled autofit to enable pan & zoom");
                     });
                 });
-                ui.add_space(10.);
-                ui.label("Graph");
-                ui.separator();
 
-                ui.checkbox(&mut self.settings.node_drag, "drag nodes");
-                egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
-                    ui.add_space(5.);
-                    ui.label(format!("fps: {:.1}", self.fps));
+                ui.add_space(10.);
+                ui.label("Elements");
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.settings.node_drag, "drag");
+                    ui.checkbox(&mut self.settings.node_select, "select");
+                });
+                ui.collapsing("Selection", |ui| {
+                    ScrollArea::vertical().show(ui, |ui| {
+                        self.selected.iter().for_each(|node| {
+                            ui.label(format!("{:?}", node));
+                        });
+                    });
                 });
 
                 ui.add_space(10.);
                 ui.label("Simulation");
                 ui.separator();
-
                 ui.checkbox(&mut self.simulation_stopped, "stop");
+
+                egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
+                    ui.add_space(5.);
+                    ui.label(format!("fps: {:.1}", self.fps));
+                });
             });
 
         let widget = &GraphView::new(&self.elements, &self.settings);
