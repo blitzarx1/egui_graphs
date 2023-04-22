@@ -38,6 +38,28 @@ impl Changes {
         };
     }
 
+    pub fn select_node(&mut self, idx: &usize, n: &Node) {
+        match self.nodes.get_mut(idx) {
+            Some(changes_node) => changes_node.select(n),
+            None => {
+                let mut changes_node = ChangesNode::default();
+                changes_node.select(n);
+                self.nodes.insert(*idx, changes_node);
+            }
+        };
+    }
+
+    pub fn deselect_node(&mut self, idx: &usize, n: &Node) {
+        match self.nodes.get_mut(idx) {
+            Some(changes_node) => changes_node.deselect(n),
+            None => {
+                let mut changes_node = ChangesNode::default();
+                changes_node.deselect(n);
+                self.nodes.insert(*idx, changes_node);
+            }
+        };
+    }
+
     pub fn scale_edge(&mut self, e: &Edge, factor: f32) {
         let key = e.id();
         match self.edges.get_mut(&key) {
@@ -57,6 +79,7 @@ pub struct ChangesNode {
     pub location: Option<Vec2>,
     pub color: Option<Color32>,
     pub radius: Option<f32>,
+    pub selected: Option<bool>,
 }
 
 impl ChangesNode {
@@ -68,6 +91,16 @@ impl ChangesNode {
     pub fn scale(&mut self, n: &Node, factor: f32) {
         let radius = self.radius.get_or_insert(n.radius);
         *radius *= factor;
+    }
+
+    fn select(&mut self, n: &Node) {
+        let selected = self.selected.get_or_insert(n.selected);
+        *selected = true;
+    }
+
+    fn deselect(&mut self, n: &Node) {
+        let selected = self.selected.get_or_insert(n.selected);
+        *selected = false;
     }
 }
 

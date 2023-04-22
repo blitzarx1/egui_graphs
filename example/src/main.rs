@@ -125,6 +125,11 @@ impl ExampleApp {
                 let node = self.elements.get_node_mut(idx).unwrap();
                 node.color = color_change;
             }
+
+            if let Some(selected_change) = change.selected {
+                let node = self.elements.get_node_mut(idx).unwrap();
+                node.selected = selected_change;
+            }
         });
 
         changes.edges.iter().for_each(|(idx, change)| {

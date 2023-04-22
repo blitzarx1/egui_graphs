@@ -5,17 +5,11 @@ use egui::{Color32, Vec2};
 pub struct Elements {
     pub(crate) nodes: HashMap<usize, Node>,
     pub(crate) edges: HashMap<(usize, usize), Vec<Edge>>,
-    /// stores the last location change in the form of a delta vector; to apply the change, add the delta to the current location;
-    pub location_changes: HashMap<usize, Vec2>,
 }
 
 impl Elements {
     pub fn new(nodes: HashMap<usize, Node>, edges: HashMap<(usize, usize), Vec<Edge>>) -> Self {
-        Self {
-            nodes,
-            edges,
-            location_changes: Default::default(),
-        }
+        Self { nodes, edges }
     }
 
     pub fn get_node_mut(&mut self, idx: &usize) -> Option<&mut Node> {
@@ -32,6 +26,7 @@ pub struct Node {
     pub color: Color32,
     pub location: Vec2,
     pub radius: f32,
+    pub selected: bool,
 }
 
 impl Node {
@@ -41,14 +36,17 @@ impl Node {
 
             color: Color32::from_rgb(255, 255, 255),
             radius: 5.,
+            selected: false,
         }
     }
 
     pub fn screen_transform(&self, zoom: f32, pan: Vec2) -> Self {
         Self {
-            color: self.color,
             location: self.location * zoom + pan,
             radius: self.radius * zoom,
+
+            color: self.color,
+            selected: self.selected,
         }
     }
 }
@@ -84,13 +82,14 @@ impl Edge {
 
     pub fn screen_transform(&self, zoom: f32) -> Self {
         Self {
-            color: self.color,
             width: self.width * zoom,
             tip_size: self.tip_size * zoom,
+            curve_size: self.curve_size * zoom,
+
+            color: self.color,
             start: self.start,
             list_idx: self.list_idx,
             end: self.end,
-            curve_size: self.curve_size * zoom,
         }
     }
 }

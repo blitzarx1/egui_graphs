@@ -76,7 +76,7 @@ impl<'a> Widget for &GraphView<'a> {
             handle_drags(&response, self.elements, &mut state, &mut changes);
         }
 
-        draw(&painter, &state, self.elements, new_zoom, new_pan);
+        draw(&painter, self.elements, new_zoom, new_pan);
 
         state.zoom = new_zoom;
         state.pan = new_pan;
@@ -120,9 +120,9 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
     Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
 }
 
-fn draw(p: &Painter, state: &State, elements: &Elements, zoom: f32, pan: Vec2) {
+fn draw(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
     draw_edges(p, elements, zoom, pan);
-    draw_nodes(p, state, &elements.nodes, zoom, pan);
+    draw_nodes(p, &elements.nodes, zoom, pan);
 }
 
 fn draw_edges(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
@@ -235,18 +235,18 @@ fn draw_edges(p: &Painter, elements: &Elements, zoom: f32, pan: Vec2) {
     });
 }
 
-fn draw_nodes(p: &Painter, state: &State, nodes: &HashMap<usize, Node>, zoom: f32, pan: Vec2) {
-    nodes.iter().for_each(|(idx, n)| {
+fn draw_nodes(p: &Painter, nodes: &HashMap<usize, Node>, zoom: f32, pan: Vec2) {
+    nodes.iter().for_each(|(_, n)| {
         let node = n.screen_transform(zoom, pan);
-        draw_node(p, state, idx, &node)
+        draw_node(p, &node)
     });
 }
 
-fn draw_node(p: &Painter, state: &State, idx: &usize, node: &Node) {
+fn draw_node(p: &Painter, node: &Node) {
     let loc = node.location.to_pos2();
     p.circle_filled(loc, node.radius, node.color);
 
-    match state.nodes_selected.contains(idx) {
+    match node.selected {
         // draw a border around the selected node
         true => p.circle_stroke(
             loc,
@@ -338,6 +338,7 @@ fn handle_drags(
         });
 
         if let Some((idx, _)) = node_props {
+            changes.select_node(idx, elements.nodes.get(idx).unwrap());
             state.set_dragged_node(*idx);
         }
     }
@@ -351,6 +352,8 @@ fn handle_drags(
     }
 
     if response.drag_released() && state.get_dragged_node().is_some() {
+        let idx = &state.get_dragged_node().unwrap();
+        changes.deselect_node(idx, elements.nodes.get(idx).unwrap());
         state.unset_dragged_node();
     }
 }
