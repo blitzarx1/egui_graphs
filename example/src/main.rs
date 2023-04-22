@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
-use egui::{Context, Vec2};
+use egui::{Context, ScrollArea, Vec2};
 use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -19,7 +19,7 @@ pub struct ExampleApp {
     elements: Elements,
     settings: Settings,
 
-    last_selection: Option<Node>,
+    selected: Vec<Node>,
 
     last_update_time: Instant,
     frames_last_time_span: usize,
@@ -36,7 +36,7 @@ impl ExampleApp {
             settings,
             elements,
 
-            last_selection: None,
+            selected: Default::default(),
 
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
@@ -47,14 +47,14 @@ impl ExampleApp {
 
     fn sync(&mut self) {
         // sync elements with simulation and state
-        self.last_selection = None;
+        self.selected = Default::default();
         self.simulation
             .get_graph()
             .node_references()
             .for_each(|(idx, sim_node)| {
                 let el_node: &mut Node = self.elements.get_node_mut(&idx.index()).unwrap();
                 if el_node.selected {
-                    self.last_selection = Some(el_node.clone());
+                    self.selected.push(el_node.clone());
                 };
                 if Vec3::new(el_node.location.x, el_node.location.y, 0.) == sim_node.old_location {
                     el_node.location = Vec2::new(sim_node.location.x, sim_node.location.y);
@@ -181,7 +181,6 @@ impl App for ExampleApp {
                 ui.add_space(10.);
                 ui.label("View");
                 ui.separator();
-
                 ui.horizontal(|ui| {
                     if ui
                         .checkbox(&mut self.settings.fit_to_screen, "autofit")
@@ -195,29 +194,31 @@ impl App for ExampleApp {
                             .on_disabled_hover_text("disabled autofit to enable pan & zoom");
                     });
                 });
+
                 ui.add_space(10.);
                 ui.label("Elements");
                 ui.separator();
-
-                ui.checkbox(&mut self.settings.node_drag, "drag nodes");
-                egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
-                    ui.add_space(5.);
-                    ui.label(format!("fps: {:.1}", self.fps));
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.settings.node_drag, "drag");
+                    ui.checkbox(&mut self.settings.node_select, "select");
+                });
+                ui.collapsing("Selection", |ui| {
+                    ScrollArea::vertical().show(ui, |ui| {
+                        self.selected.iter().for_each(|node| {
+                            ui.label(format!("{:?}", node));
+                        });
+                    });
                 });
 
                 ui.add_space(10.);
                 ui.label("Simulation");
                 ui.separator();
-
                 ui.checkbox(&mut self.simulation_stopped, "stop");
 
-                ui.add_space(10.);
-                ui.label("Selection");
-                ui.separator();
-
-                if self.last_selection.is_some() {
-                    ui.label(format!("{:?}", self.last_selection.clone().unwrap()));
-                }
+                egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
+                    ui.add_space(5.);
+                    ui.label(format!("fps: {:.1}", self.fps));
+                });
             });
 
         let widget = &GraphView::new(&self.elements, &self.settings);
