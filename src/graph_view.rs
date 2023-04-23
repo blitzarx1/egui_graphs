@@ -81,27 +81,36 @@ impl<'a> GraphView<'a> {
 
         let node = self.node_by_pos(state, response.hover_pos().unwrap());
         if node.is_none() {
-            self.deselect_all_nodes(changes);
+            self.deselect_all_nodes(state, changes);
             return;
         }
 
         let (idx, n) = node.unwrap();
         if n.selected {
-            changes.deselect_node(&idx, n);
+            self.deselect_node(&idx, state, changes);
             return;
         }
-        changes.select_node(&idx, n);
+        self.select_node(&idx, state, changes);
     }
 
-    // TODO: optimize this. keep selected nodes in state to quickly manage them
-    fn deselect_all_nodes(&self, changes: &mut Changes) {
-        self.elements.get_nodes().iter().for_each(|(idx, n)| {
-            if !n.selected {
-                return;
-            }
+    fn select_node(&self, idx: &usize, state: &mut State, changes: &mut Changes) {
+        let n = self.elements.get_node(idx).unwrap();
+        changes.select_node(idx, n);
+        state.select_node(*idx);
+    }
 
+    fn deselect_node(&self, idx: &usize, state: &mut State, changes: &mut Changes) {
+        let n = self.elements.get_node(idx).unwrap();
+        changes.deselect_node(idx, n);
+        state.deselect_node(*idx);
+    }
+
+    fn deselect_all_nodes(&self, state: &mut State, changes: &mut Changes) {
+        state.selected_nodes().iter().for_each(|idx| {
+            let n = self.elements.get_node(idx).unwrap();
             changes.deselect_node(idx, n);
         });
+        state.deselect_all_nodes();
     }
 
     fn handle_drags(&self, response: &Response, state: &mut State, changes: &mut Changes) {
@@ -128,7 +137,7 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    fn fit_to_screen(&self, state: &mut State, bounds: (Vec2, Vec2)) -> (f32, Vec2) {
+    fn fit_to_screen(&self, state: &mut State, bounds: (Vec2, Vec2)) {
         // calculate graph dimensions with decorative padding
         let diag = bounds.1 - bounds.0;
         let graph_size = diag * (1. + SCREEN_PADDING);
@@ -153,18 +162,18 @@ impl<'a> GraphView<'a> {
         let graph_center = (bounds.0 + bounds.1) / 2.0;
 
         // adjust the pan value to align the centers of the graph and the canvas
-        (
+        (state.zoom, state.pan) = (
             new_zoom,
             state.canvas.center().to_vec2() - graph_center * new_zoom,
         )
     }
 
-    fn handle_navigation(&self, ui: &Ui, response: &Response, state: &mut State) -> (f32, Vec2) {
+    fn handle_navigation(&self, ui: &Ui, response: &Response, state: &mut State) {
         if self.settings.fit_to_screen {
             return self.fit_to_screen(state, (self.top_left_pos, self.down_right_pos));
         }
         if !self.settings.zoom_and_pan {
-            return (state.zoom, state.pan);
+            return;
         }
 
         let (mut new_zoom, mut new_pan) = (state.zoom, state.pan);
@@ -181,7 +190,7 @@ impl<'a> GraphView<'a> {
             (new_zoom, new_pan) = (new_zoom, state.pan + response.drag_delta());
         }
 
-        (new_zoom, new_pan)
+        (state.zoom, state.pan) = (new_zoom, new_pan);
     }
 
     fn handle_zoom(&self, delta: f32, zoom_center: Option<Pos2>, state: &State) -> (f32, Vec2) {
@@ -199,12 +208,12 @@ impl<'a> GraphView<'a> {
         )
     }
 
-    fn draw(&self, p: &Painter, zoom: f32, pan: Vec2, state: &State) {
-        self.draw_edges(p, zoom, pan);
-        self.draw_nodes(p, zoom, pan, state);
+    fn draw(&self, p: &Painter, state: &State) {
+        self.draw_edges(p, state);
+        self.draw_nodes(p, state);
     }
 
-    fn draw_edges(&self, p: &Painter, zoom: f32, pan: Vec2) {
+    fn draw_edges(&self, p: &Painter, state: &State) {
         let angle = std::f32::consts::TAU / 50.;
 
         self.elements.get_edges().iter().for_each(|(_, edges)| {
@@ -212,18 +221,18 @@ impl<'a> GraphView<'a> {
             let mut sames = HashMap::with_capacity(edges_count);
 
             edges.iter().for_each(|e| {
-                let edge = e.screen_transform(zoom);
+                let edge = e.screen_transform(state.zoom);
 
                 let start_node = self
                     .elements
                     .get_node(&edge.start)
                     .unwrap()
-                    .screen_transform(zoom, pan);
+                    .screen_transform(state.zoom, state.pan);
                 let end_node = self
                     .elements
                     .get_node(&edge.end)
                     .unwrap()
-                    .screen_transform(zoom, pan);
+                    .screen_transform(state.zoom, state.pan);
 
                 let pos_start = start_node.location.to_pos2();
                 let pos_end = end_node.location.to_pos2();
@@ -314,9 +323,9 @@ impl<'a> GraphView<'a> {
         });
     }
 
-    fn draw_nodes(&self, p: &Painter, zoom: f32, pan: Vec2, state: &State) {
+    fn draw_nodes(&self, p: &Painter, state: &State) {
         self.elements.get_nodes().iter().for_each(|(idx, n)| {
-            let node = n.screen_transform(zoom, pan);
+            let node = n.screen_transform(state.zoom, state.pan);
             GraphView::draw_node(p, idx, &node, state)
         });
     }
@@ -365,10 +374,8 @@ impl<'a> Widget for &GraphView<'a> {
         self.handle_drags(&response, &mut state, &mut changes);
         self.handle_clicks(&response, &mut state, &mut changes);
 
-        let (new_zoom, new_pan) = self.handle_navigation(ui, &response, &mut state);
-        self.draw(&painter, new_zoom, new_pan, &state);
-
-        (state.zoom, state.pan) = (new_zoom, new_pan);
+        self.handle_navigation(ui, &response, &mut state);
+        self.draw(&painter, &state);
 
         state.store(ui);
         ui.ctx().request_repaint();
