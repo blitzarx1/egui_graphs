@@ -50,7 +50,7 @@ impl<'a> GraphView<'a> {
     }
 
     /// Should be called to clear cached graph metadata, for example
-    /// in case when you want to show completely different graph from the one
+    /// in case when you provide completely different `Elements` from the one
     /// in the last frame
     pub fn reset_state(ui: &mut Ui) {
         State::default().store(ui);
@@ -97,6 +97,11 @@ impl<'a> GraphView<'a> {
 
     fn select_node(&self, idx: &usize, state: &mut State, changes: &mut Changes) {
         let n = self.elements.get_node(idx).unwrap();
+
+        if !self.settings.node_multiselect && !state.selected_nodes().is_empty() {
+            self.deselect_all_nodes(state, changes);
+        }
+
         changes.select_node(idx, n);
         state.select_node(*idx);
     }

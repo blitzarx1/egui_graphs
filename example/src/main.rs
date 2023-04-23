@@ -221,6 +221,17 @@ impl App for ExampleApp {
 
                         ui.checkbox(&mut self.settings.node_select, "select");
                         ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
+
+                        ui.add_space(5.);
+
+                        ui.add_enabled_ui(self.settings.node_select, |ui| {
+                            ui.checkbox(&mut self.settings.node_multiselect, "multiselect")
+                                .on_disabled_hover_text("enable select to enable multiselect");
+                            ui.label("Enable multiselect to select multiple nodes.");
+                        });
+
+                        ui.add_space(5.);
+                        
                         ui.collapsing("Selected", |ui| {
                             ScrollArea::vertical().max_height(200.).show(ui, |ui| {
                                 self.selected.iter().for_each(|node| {
