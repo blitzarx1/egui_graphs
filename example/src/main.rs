@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
-use egui::{Context, ScrollArea, Vec2};
+use egui::{Color32, Context, ScrollArea, Vec2};
 use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -14,6 +14,7 @@ const NODE_COUNT: usize = 300;
 const EDGE_COUNT: usize = 500;
 const SIMULATION_DT: f32 = 0.035;
 const EDGE_SCALE_WEIGHT: f32 = 1.;
+const FPS_LINE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
 
 pub struct ExampleApp {
     simulation: Simulation<usize, String>,
@@ -235,7 +236,7 @@ impl App for ExampleApp {
                         .enumerate()
                         .map(|(i, val)| [i as f64, *val])
                         .collect();
-                    let line = Line::new(sin);
+                    let line = Line::new(sin).color(FPS_LINE_COLOR);
                     Plot::new("my_plot")
                         .height(100.)
                         .show_x(false)

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use egui::{Color32, Vec2};
 
-/// Elements represents the collection of all nodes and edges in a graph.
+/// `Elements` represents the collection of all nodes and edges in a graph.
 /// It is passed to the GraphView widget and is used to draw the graph.
 pub struct Elements {
     nodes: HashMap<usize, Node>,
@@ -52,9 +52,11 @@ impl Elements {
 
 #[derive(Clone, Debug)]
 pub struct Node {
-    pub color: Color32,
     pub location: Vec2,
+
+    pub color: Color32,
     pub radius: f32,
+
     pub selected: bool,
 }
 
@@ -65,6 +67,7 @@ impl Node {
 
             color: Color32::from_rgb(255, 255, 255),
             radius: 5.,
+
             selected: false,
         }
     }
@@ -82,13 +85,16 @@ impl Node {
 
 #[derive(Clone, Debug)]
 pub struct Edge {
-    pub color: Color32,
+    pub start: usize,
+    pub end: usize,
+    pub list_idx: usize,
+
     pub width: f32,
     pub tip_size: f32,
-    pub start: usize,
-    pub list_idx: usize,
-    pub end: usize,
     pub curve_size: f32,
+
+    pub color: Color32,
+    pub selected: bool,
 }
 
 impl Edge {
@@ -98,10 +104,12 @@ impl Edge {
             end,
             list_idx,
 
-            color: Color32::from_rgb(128, 128, 128),
             width: 2.,
             tip_size: 15.,
             curve_size: 20.,
+
+            color: Color32::from_rgb(128, 128, 128),
+            selected: false,
         }
     }
 
@@ -115,10 +123,11 @@ impl Edge {
             tip_size: self.tip_size * zoom,
             curve_size: self.curve_size * zoom,
 
-            color: self.color,
             start: self.start,
-            list_idx: self.list_idx,
             end: self.end,
+            list_idx: self.list_idx,
+            color: self.color,
+            selected: self.selected,
         }
     }
 }
