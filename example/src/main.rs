@@ -420,7 +420,7 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Grap
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui-graph",
+        "egui_graphs_demo",
         native_options,
         Box::new(|cc| Box::new(ExampleApp::new(cc))),
     )
