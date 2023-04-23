@@ -206,7 +206,7 @@ impl App for ExampleApp {
                         ui.add_enabled_ui(!self.settings.fit_to_screen, |ui| {
                             ui.checkbox(&mut self.settings.zoom_and_pan, "pan & zoom")
                                 .on_disabled_hover_text("disabled autofit to enable pan & zoom");
-                            ui.label("Enable pan and zoom to move and zoom the graph.");
+                            ui.label("Enable pan and zoom. To pan use LMB + drag and to zoom use Ctrl + Mouse Wheel.");
                         });
 
                         ui.add_space(10.);
@@ -215,12 +215,12 @@ impl App for ExampleApp {
                         ui.separator();
 
                         ui.checkbox(&mut self.settings.node_drag, "drag");
-                        ui.label("Enable drag to drag nodes around.");
+                        ui.label("Enable drag. To drag use LMB + drag on a node.");
 
                         ui.add_space(5.);
 
                         ui.checkbox(&mut self.settings.node_select, "select");
-                        ui.label("Enable select to select nodes with click. If node is selected clicking on it again will deselect it.");
+                        ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
                         ui.collapsing("Selected", |ui| {
                             ScrollArea::vertical().max_height(200.).show(ui, |ui| {
                                 self.selected.iter().for_each(|node| {
