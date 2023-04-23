@@ -35,4 +35,7 @@ documentation, tests, example        | [ ]
 </pre>
 
 ## Example
+
+![egui_graph_demo_optimized](https://user-images.githubusercontent.com/32969427/233858907-c8e35e79-e632-4e70-af3b-b1f7cbff1f10.gif)
+
 You can also check the [example](https://github.com/blitzarx1/egui_graph/tree/master/example) for usage references and settings description.
