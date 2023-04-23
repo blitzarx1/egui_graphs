@@ -335,6 +335,10 @@ impl<'a> GraphView<'a> {
         let pos_end = end_node.location.to_pos2();
 
         let stroke = Stroke::new(edge.width, edge.color);
+        let highlighted_stroke = Stroke::new(
+            edge.width * 2.,
+            Color32::from_rgba_unmultiplied(255, 0, 255, 128),
+        );
 
         // draw self-loop
         if edge.start == edge.end {
@@ -356,11 +360,6 @@ impl<'a> GraphView<'a> {
             ));
 
             if edge.selected {
-                let highlighted_stroke = Stroke::new(
-                    edge.width * 2.,
-                    Color32::from_rgba_unmultiplied(255, 0, 255, 128),
-                );
-
                 p.add(CubicBezierShape::from_points_stroke(
                     [pos_start, control_point1, control_point2, pos_end],
                     true,
@@ -398,10 +397,6 @@ impl<'a> GraphView<'a> {
         );
 
         if edge.selected {
-            let highlighted_stroke = Stroke::new(
-                edge.width * 2.,
-                Color32::from_rgba_unmultiplied(255, 0, 255, 128),
-            );
             p.line_segment([start_point, tip_point], highlighted_stroke);
             p.line_segment(
                 [

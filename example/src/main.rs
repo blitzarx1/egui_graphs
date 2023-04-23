@@ -165,7 +165,7 @@ impl ExampleApp {
                             self.elements.get_edges_between_mut(idx, &neighbour.index())
                         {
                             edges_from.iter_mut().for_each(|edge| {
-                                edge.selected = true;
+                                edge.selected = selected_change;
                             });
                         }
 
@@ -173,7 +173,7 @@ impl ExampleApp {
                             self.elements.get_edges_between_mut(&neighbour.index(), idx)
                         {
                             edges_to.iter_mut().for_each(|edge| {
-                                edge.selected = true;
+                                edge.selected = selected_change;
                             });
                         }
                     });
