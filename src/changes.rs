@@ -49,6 +49,28 @@ impl Changes {
         };
     }
 
+    pub fn set_dragged_node(&mut self, idx: &usize, n: &Node) {
+        match self.nodes.get_mut(idx) {
+            Some(changes_node) => changes_node.set_drag(n),
+            None => {
+                let mut changes_node = ChangesNode::default();
+                changes_node.set_drag(n);
+                self.nodes.insert(*idx, changes_node);
+            }
+        };
+    }
+
+    pub fn unset_dragged_node(&mut self, idx: &usize, n: &Node) {
+        match self.nodes.get_mut(idx) {
+            Some(changes_node) => changes_node.unset_drag(n),
+            None => {
+                let mut changes_node = ChangesNode::default();
+                changes_node.unset_drag(n);
+                self.nodes.insert(*idx, changes_node);
+            }
+        };
+    }
+
     pub fn deselect_node(&mut self, idx: &usize, n: &Node) {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.deselect(n),
@@ -56,6 +78,28 @@ impl Changes {
                 let mut changes_node = ChangesNode::default();
                 changes_node.deselect(n);
                 self.nodes.insert(*idx, changes_node);
+            }
+        };
+    }
+
+    pub fn select_edge(&mut self, idx: &(usize, usize, usize), e: &Edge) {
+        match self.edges.get_mut(idx) {
+            Some(changes_edge) => changes_edge.select(e),
+            None => {
+                let mut changes_edge = ChangesEdge::default();
+                changes_edge.select(e);
+                self.edges.insert(*idx, changes_edge);
+            }
+        };
+    }
+
+    pub fn deselect_edge(&mut self, idx: &(usize, usize, usize), e: &Edge) {
+        match self.edges.get_mut(idx) {
+            Some(changes_edge) => changes_edge.deselect(e),
+            None => {
+                let mut changes_edge = ChangesEdge::default();
+                changes_edge.deselect(e);
+                self.edges.insert(*idx, changes_edge);
             }
         };
     }
@@ -80,6 +124,7 @@ pub struct ChangesNode {
     pub color: Option<Color32>,
     pub radius: Option<f32>,
     pub selected: Option<bool>,
+    pub dragged: Option<bool>,
 }
 
 impl ChangesNode {
@@ -102,6 +147,16 @@ impl ChangesNode {
         let selected = self.selected.get_or_insert(n.selected);
         *selected = false;
     }
+
+    fn set_drag(&mut self, n: &Node) {
+        let dragged = self.dragged.get_or_insert(n.dragged);
+        *dragged = true;
+    }
+
+    fn unset_drag(&mut self, n: &Node) {
+        let dragged = self.dragged.get_or_insert(n.dragged);
+        *dragged = false;
+    }
 }
 
 /// stores changes to the edge properties
@@ -111,6 +166,7 @@ pub struct ChangesEdge {
     pub width: Option<f32>,
     pub tip_size: Option<f32>,
     pub curve_size: Option<f32>,
+    pub selected: Option<bool>,
 }
 
 impl ChangesEdge {
@@ -123,5 +179,15 @@ impl ChangesEdge {
 
         let curve_size = self.curve_size.get_or_insert(n.curve_size);
         *curve_size *= factor;
+    }
+
+    fn select(&mut self, n: &Edge) {
+        let selected = self.selected.get_or_insert(n.selected);
+        *selected = true;
+    }
+
+    fn deselect(&mut self, n: &Edge) {
+        let selected = self.selected.get_or_insert(n.selected);
+        *selected = false;
     }
 }

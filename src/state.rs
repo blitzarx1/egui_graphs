@@ -1,49 +1,34 @@
-use egui::{Id, Pos2, Rect, Vec2};
+use std::collections::HashSet;
 
-#[derive(Clone)]
+#[derive(Default)]
 pub struct State {
-    /// current zoom factor
-    pub zoom: f32,
-    /// current pan offset
-    pub pan: Vec2,
-    /// index of the node that is currently being dragged
-    node_dragged: Option<usize>,
-
-    /// current canvas dimensions
-    pub canvas: Rect,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            zoom: 1.,
-            pan: Default::default(),
-            node_dragged: Default::default(),
-            canvas: Rect::from_min_max(Pos2::default(), Pos2::default()),
-        }
-    }
+    dragged_node: Option<usize>,
+    selected_nodes: HashSet<usize>,
+    selected_edges: HashSet<(usize, usize, usize)>,
 }
 
 impl State {
-    pub fn get(ui: &mut egui::Ui) -> Self {
-        ui.data_mut(|data| data.get_persisted::<State>(Id::null()).unwrap_or_default())
-    }
-
-    pub fn store(self, ui: &mut egui::Ui) {
-        ui.data_mut(|data| {
-            data.insert_persisted(Id::null(), self);
-        });
-    }
-
     pub fn get_dragged_node(&self) -> Option<usize> {
-        self.node_dragged
+        self.dragged_node
     }
 
     pub fn set_dragged_node(&mut self, idx: usize) {
-        self.node_dragged = Some(idx);
+        self.dragged_node = Some(idx);
     }
 
-    pub fn unset_dragged_node(&mut self) {
-        self.node_dragged = None;
+    pub fn selected_nodes(&self) -> &HashSet<usize> {
+        &self.selected_nodes
+    }
+
+    pub fn selected_edges(&self) -> &HashSet<(usize, usize, usize)> {
+        &self.selected_edges
+    }
+
+    pub fn select_node(&mut self, idx: usize) {
+        self.selected_nodes.insert(idx);
+    }
+
+    pub fn select_edge(&mut self, idx: (usize, usize, usize)) {
+        self.selected_edges.insert(idx);
     }
 }

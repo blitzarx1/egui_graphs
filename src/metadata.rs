@@ -1,0 +1,39 @@
+use egui::{Id, Vec2};
+
+#[derive(Clone)]
+pub struct Metadata {
+    /// Current zoom factor
+    pub zoom: f32,
+    /// Current pan offset
+    pub pan: Vec2,
+    /// Top left node position in the graph
+    pub top_left_pos: Vec2,
+    /// Bottom right node position in the graph
+    pub down_right_pos: Vec2,
+}
+
+impl Default for Metadata {
+    fn default() -> Self {
+        Self {
+            zoom: 1.,
+            pan: Default::default(),
+            top_left_pos: Default::default(),
+            down_right_pos: Default::default(),
+        }
+    }
+}
+
+impl Metadata {
+    pub fn get(ui: &mut egui::Ui) -> Self {
+        ui.data_mut(|data| {
+            data.get_persisted::<Metadata>(Id::null())
+                .unwrap_or_default()
+        })
+    }
+
+    pub fn store(self, ui: &mut egui::Ui) {
+        ui.data_mut(|data| {
+            data.insert_persisted(Id::null(), self);
+        });
+    }
+}

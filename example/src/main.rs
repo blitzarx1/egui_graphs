@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
-use egui::{Context, ScrollArea, Vec2};
+use egui::{CollapsingHeader, Color32, Context, ScrollArea, Vec2};
 use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -14,13 +14,15 @@ const NODE_COUNT: usize = 300;
 const EDGE_COUNT: usize = 500;
 const SIMULATION_DT: f32 = 0.035;
 const EDGE_SCALE_WEIGHT: f32 = 1.;
+const FPS_LINE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
 
 pub struct ExampleApp {
     simulation: Simulation<usize, String>,
     elements: Elements,
     settings: Settings,
 
-    selected: Vec<Node>,
+    selected_nodes: Vec<Node>,
+    selected_edges: Vec<Edge>,
 
     simulation_stopped: bool,
 
@@ -39,7 +41,8 @@ impl ExampleApp {
             settings,
             elements,
 
-            selected: Default::default(),
+            selected_nodes: Default::default(),
+            selected_edges: Default::default(),
 
             simulation_stopped: false,
 
@@ -50,21 +53,34 @@ impl ExampleApp {
         }
     }
 
+    /// sync elements with simulation and state
     fn sync(&mut self) {
-        // sync elements with simulation and state
-        self.selected = Default::default();
+        self.selected_nodes = Default::default();
+        self.selected_edges = Default::default();
+
         self.simulation
             .get_graph()
             .node_references()
             .for_each(|(idx, sim_node)| {
                 let el_node: &mut Node = self.elements.get_node_mut(&idx.index()).unwrap();
-                if el_node.selected {
-                    self.selected.push(el_node.clone());
-                };
+
+                // sync location only if it was not dragged
                 if Vec3::new(el_node.location.x, el_node.location.y, 0.) == sim_node.old_location {
                     el_node.location = Vec2::new(sim_node.location.x, sim_node.location.y);
                 };
+
+                if el_node.selected {
+                    self.selected_nodes.push(el_node.clone());
+                };
             });
+
+        self.elements.get_edges().iter().for_each(|(_, edges)| {
+            edges.iter().for_each(|e| {
+                if e.selected {
+                    self.selected_edges.push(e.clone());
+                }
+            });
+        });
     }
 
     fn update_simulation(&mut self) {
@@ -136,20 +152,46 @@ impl ExampleApp {
                 let el_node = self.elements.get_node_mut(idx).unwrap();
                 el_node.location = location_change;
             }
-
             if let Some(radius_change) = change.radius {
                 let node = self.elements.get_node_mut(idx).unwrap();
                 node.radius = radius_change;
             }
-
             if let Some(color_change) = change.color {
                 let node = self.elements.get_node_mut(idx).unwrap();
                 node.color = color_change;
             }
-
+            if let Some(dragged_change) = change.dragged {
+                let node = self.elements.get_node_mut(idx).unwrap();
+                node.dragged = dragged_change;
+            }
             if let Some(selected_change) = change.selected {
                 let node = self.elements.get_node_mut(idx).unwrap();
                 node.selected = selected_change;
+
+                // select all connected nodes and edges
+                self.simulation
+                    .get_graph()
+                    .neighbors(NodeIndex::new(*idx))
+                    .for_each(|neighbour| {
+                        let node = self.elements.get_node_mut(&neighbour.index()).unwrap();
+                        node.selected = selected_change;
+
+                        if let Some(edges_from) =
+                            self.elements.get_edges_between_mut(idx, &neighbour.index())
+                        {
+                            edges_from.iter_mut().for_each(|edge| {
+                                edge.selected = selected_change;
+                            });
+                        }
+
+                        if let Some(edges_to) =
+                            self.elements.get_edges_between_mut(&neighbour.index(), idx)
+                        {
+                            edges_to.iter_mut().for_each(|edge| {
+                                edge.selected = selected_change;
+                            });
+                        }
+                    });
             }
         });
 
@@ -166,6 +208,10 @@ impl ExampleApp {
                 let edge = self.elements.get_edge_mut(idx).unwrap();
                 edge.tip_size = tip_size_change;
             }
+            if let Some(selected_change) = change.selected {
+                let edge = self.elements.get_edge_mut(idx).unwrap();
+                edge.selected = selected_change;
+            }
         });
     }
 }
@@ -179,51 +225,93 @@ impl App for ExampleApp {
         egui::SidePanel::right("right_panel")
             .default_width(300.)
             .show(ctx, |ui| {
-                ui.add_space(5.);
-                if ui.button("randomize").clicked() {
-                    let (simulation, elements) = construct_simulation(NODE_COUNT, EDGE_COUNT);
-                    self.simulation = simulation;
-                    self.elements = elements;
+                ScrollArea::vertical().show(ui, |ui|{
+                    CollapsingHeader::new("WIDGET SETTINGS")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        ui.add_space(10.);
 
-                    GraphView::reset_state(ui);
-                }
+                        ui.label("Navigation");
+                        ui.separator();
 
-                ui.add_space(10.);
-                ui.label("View");
-                ui.separator();
-                ui.horizontal(|ui| {
-                    if ui
-                        .checkbox(&mut self.settings.fit_to_screen, "autofit")
-                        .changed()
-                        && self.settings.fit_to_screen
-                    {
-                        self.settings.zoom_and_pan = false
-                    };
-                    ui.add_enabled_ui(!self.settings.fit_to_screen, |ui| {
-                        ui.checkbox(&mut self.settings.zoom_and_pan, "pan & zoom")
-                            .on_disabled_hover_text("disabled autofit to enable pan & zoom");
-                    });
-                });
+                        if ui
+                            .checkbox(&mut self.settings.fit_to_screen, "autofit")
+                            .changed()
+                            && self.settings.fit_to_screen
+                        {
+                            self.settings.zoom_and_pan = false
+                        };
+                        ui.label("Enable autofit to fit the graph to the screen on every frame.");
 
-                ui.add_space(10.);
-                ui.label("Elements");
-                ui.separator();
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.settings.node_drag, "drag");
-                    ui.checkbox(&mut self.settings.node_select, "select");
-                });
-                ui.collapsing("Selection", |ui| {
-                    ScrollArea::vertical().show(ui, |ui| {
-                        self.selected.iter().for_each(|node| {
-                            ui.label(format!("{:?}", node));
+                        ui.add_space(5.);
+
+                        ui.add_enabled_ui(!self.settings.fit_to_screen, |ui| {
+                            ui.checkbox(&mut self.settings.zoom_and_pan, "pan & zoom")
+                                .on_disabled_hover_text("disabled autofit to enable pan & zoom");
+                            ui.label("Enable pan and zoom. To pan use LMB + drag and to zoom use Ctrl + Mouse Wheel.");
+                        });
+
+                        ui.add_space(10.);
+
+                        ui.label("Interactions");
+                        ui.separator();
+
+                        ui.checkbox(&mut self.settings.node_drag, "drag");
+                        ui.label("Enable drag. To drag use LMB + drag on a node.");
+
+                        ui.add_space(5.);
+
+                        ui.checkbox(&mut self.settings.node_select, "select");
+                        ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
+
+                        ui.add_space(5.);
+
+                        ui.add_enabled_ui(self.settings.node_select, |ui| {
+                            ui.checkbox(&mut self.settings.node_multiselect, "multiselect")
+                                .on_disabled_hover_text("enable select to enable multiselect");
+                            ui.label("Enable multiselect to select multiple nodes.");
+                        });
+
+                        ui.add_space(5.);
+
+                        ui.collapsing("Selected", |ui| {
+                            ScrollArea::vertical().max_height(200.).show(ui, |ui| {
+                                self.selected_nodes.iter().for_each(|node| {
+                                    ui.label(format!("{:?}", node));
+                                });
+                                self.selected_edges.iter().for_each(|edge| {
+                                    ui.label(format!("{:?}", edge));
+                                });
+                            });
                         });
                     });
-                });
 
-                ui.add_space(10.);
-                ui.label("Simulation");
-                ui.separator();
-                ui.checkbox(&mut self.simulation_stopped, "stop");
+
+                ui.add_space(20.);
+
+                CollapsingHeader::new("APP SETTINGS")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        ui.add_space(10.);
+
+                        ui.label("Simulation");
+                        ui.separator();
+
+                        if ui.button("randomize").clicked() {
+                            let (simulation, elements) =
+                                construct_simulation(NODE_COUNT, EDGE_COUNT);
+                            self.simulation = simulation;
+                            self.elements = elements;
+
+                            GraphView::reset_metadata(ui);
+                        }
+                        ui.label("Randomize the graph.");
+
+                        ui.add_space(5.);
+
+                        ui.checkbox(&mut self.simulation_stopped, "stop");
+                        ui.label("Stop the simulation.");
+                    });
 
                 egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
                     ui.add_space(5.);
@@ -235,7 +323,7 @@ impl App for ExampleApp {
                         .enumerate()
                         .map(|(i, val)| [i as f64, *val])
                         .collect();
-                    let line = Line::new(sin);
+                    let line = Line::new(sin).color(FPS_LINE_COLOR);
                     Plot::new("my_plot")
                         .height(100.)
                         .show_x(false)
@@ -250,11 +338,12 @@ impl App for ExampleApp {
                         .show(ui, |plot_ui| plot_ui.line(line));
                 });
             });
-
+        });
         let widget = &GraphView::new(&self.elements, &self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(widget);
         });
+
         self.apply_changes(widget.last_changes());
     }
 }

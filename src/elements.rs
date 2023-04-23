@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use egui::{Color32, Vec2};
 
-/// Elements represents the collection of all nodes and edges in a graph.
+/// Struct `Elements` represents the collection of all nodes and edges in a graph.
 /// It is passed to the GraphView widget and is used to draw the graph.
 pub struct Elements {
     nodes: HashMap<usize, Node>,
@@ -26,25 +26,38 @@ impl Elements {
         &self.edges
     }
 
+    /// Returns all directed edges between two nodes as mutable
+    pub fn get_edges_between_mut(&mut self, from: &usize, to: &usize) -> Option<&mut Vec<Edge>> {
+        self.edges.get_mut(&(*from, *to))
+    }
+
+    /// Returns all directed edges between two nodes
+    pub fn get_edges_between(&self, from: &usize, to: &usize) -> Option<&Vec<Edge>> {
+        self.edges.get(&(*from, *to))
+    }
+
+    /// Returns edge at index (from, to, edge_index)
     pub fn get_edge(&self, idx: &(usize, usize, usize)) -> Option<&Edge> {
         self.edges.get(&(idx.0, idx.1))?.get(idx.2)
     }
 
-    /// deletes node and all edges connected to it
+    /// Deletes node and all edges connected to it
     pub fn delete_node(&mut self, idx: &usize) {
         self.nodes.remove(idx);
         self.edges.retain(|k, _| k.0 != *idx && k.1 != *idx);
     }
 
-    /// deletes edge
+    /// Deletes edge
     pub fn delete_edge(&mut self, idx: &(usize, usize, usize)) {
         self.edges.get_mut(&(idx.0, idx.1)).unwrap().remove(idx.2);
     }
 
+    /// Should be used to modify node, mostly when applying changes from the GraphView widget
     pub fn get_node_mut(&mut self, idx: &usize) -> Option<&mut Node> {
         self.nodes.get_mut(idx)
     }
 
+    /// Should be used to modify edge, mostly when applying changes from the GraphView widget
     pub fn get_edge_mut(&mut self, idx: &(usize, usize, usize)) -> Option<&mut Edge> {
         self.edges.get_mut(&(idx.0, idx.1))?.get_mut(idx.2)
     }
@@ -52,10 +65,13 @@ impl Elements {
 
 #[derive(Clone, Debug)]
 pub struct Node {
-    pub color: Color32,
     pub location: Vec2,
+
+    pub color: Color32,
     pub radius: f32,
+
     pub selected: bool,
+    pub dragged: bool,
 }
 
 impl Node {
@@ -65,7 +81,9 @@ impl Node {
 
             color: Color32::from_rgb(255, 255, 255),
             radius: 5.,
+
             selected: false,
+            dragged: false,
         }
     }
 
@@ -76,19 +94,23 @@ impl Node {
 
             color: self.color,
             selected: self.selected,
+            dragged: self.dragged,
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Edge {
-    pub color: Color32,
+    pub start: usize,
+    pub end: usize,
+    pub list_idx: usize,
+
     pub width: f32,
     pub tip_size: f32,
-    pub start: usize,
-    pub list_idx: usize,
-    pub end: usize,
     pub curve_size: f32,
+
+    pub color: Color32,
+    pub selected: bool,
 }
 
 impl Edge {
@@ -98,10 +120,12 @@ impl Edge {
             end,
             list_idx,
 
-            color: Color32::from_rgb(128, 128, 128),
             width: 2.,
             tip_size: 15.,
             curve_size: 20.,
+
+            color: Color32::from_rgb(128, 128, 128),
+            selected: false,
         }
     }
 
@@ -115,10 +139,11 @@ impl Edge {
             tip_size: self.tip_size * zoom,
             curve_size: self.curve_size * zoom,
 
-            color: self.color,
             start: self.start,
-            list_idx: self.list_idx,
             end: self.end,
+            list_idx: self.list_idx,
+            color: self.color,
+            selected: self.selected,
         }
     }
 }

@@ -19,14 +19,20 @@ The goal is to create a crate that expands egui's visualization capabilities and
 * Ability to draw arbitrarily complex graphs with self-references, loops, etc.;
 * Widget does not modify the provided graph and properties; instead, it generates changes, in case of any interactions, which the client can apply.
 
-## Features
+## Roadmap for v0.1.0 - first stable release
 <pre>
-feature                status
-----------------------+-------
-zoom & pan            | [x]
-drag node             | [x]
-select/deselect node  | [x]
-style customizations  | [ ]
+                               done
+------------------------------+-----------
+basic graph drawing                  | [x]
+self-references, multi-connections   | [x]
+zoom & pan, fit-to-screen            | [x]
+drag node                            | [x]
+select/deselect                      | [x]
+select/multi-select                  | [x]
+style customizations                 | [ ]
+support egui dark/light theme        | [ ]
+interactions vs egui draw benchmarks | [ ]
+documentation, tests, example        | [ ]
 </pre>
 
 ## Example

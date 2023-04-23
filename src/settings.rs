@@ -1,25 +1,29 @@
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Settings {
-    /// fits graph to the screen
+    /// Fit graph to the screen
     pub fit_to_screen: bool,
 
-    /// enables/disables node dragging
+    /// Zoom and pan
+    pub zoom_and_pan: bool,
+
+    /// Node dragging
     pub node_drag: bool,
 
-    /// enables/disables node selection
+    /// Node selection
     pub node_select: bool,
 
-    /// enables/disables zoom and pan
-    pub zoom_and_pan: bool,
+    /// Multiselection for nodes
+    pub node_multiselect: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             fit_to_screen: true,
-            node_drag: false,
             zoom_and_pan: false,
+            node_drag: false,
             node_select: false,
+            node_multiselect: false,
         }
     }
 }
