@@ -21,7 +21,7 @@ The goal is to create a crate that expands egui's visualization capabilities and
 ## Roadmap for v0.1.0 - first stable release
 <pre>
                                       done
--------------------------------------+-----------
+-------------------------------------+----
 basic graph drawing                  | [x]
 self-references, multi-connections   | [x]
 zoom & pan, fit-to-screen            | [x]
