@@ -10,8 +10,8 @@ use petgraph::stable_graph::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
 use rand::Rng;
 
-const NODE_COUNT: usize = 300;
-const EDGE_COUNT: usize = 500;
+const NODE_COUNT: usize = 3;
+const EDGE_COUNT: usize = 5;
 const SIMULATION_DT: f32 = 0.035;
 const EDGE_SCALE_WEIGHT: f32 = 1.;
 const FPS_LINE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
@@ -21,7 +21,8 @@ pub struct ExampleApp {
     elements: Elements,
     settings: Settings,
 
-    selected: Vec<Node>,
+    selected_nodes: Vec<Node>,
+    selected_edges: Vec<Edge>,
 
     simulation_stopped: bool,
 
@@ -40,7 +41,8 @@ impl ExampleApp {
             settings,
             elements,
 
-            selected: Default::default(),
+            selected_nodes: Default::default(),
+            selected_edges: Default::default(),
 
             simulation_stopped: false,
 
@@ -51,21 +53,34 @@ impl ExampleApp {
         }
     }
 
+    /// sync elements with simulation and state
     fn sync(&mut self) {
-        // sync elements with simulation and state
-        self.selected = Default::default();
+        self.selected_nodes = Default::default();
+        self.selected_edges = Default::default();
+
         self.simulation
             .get_graph()
             .node_references()
             .for_each(|(idx, sim_node)| {
                 let el_node: &mut Node = self.elements.get_node_mut(&idx.index()).unwrap();
-                if el_node.selected {
-                    self.selected.push(el_node.clone());
-                };
+
+                // sync location only if it was not dragged
                 if Vec3::new(el_node.location.x, el_node.location.y, 0.) == sim_node.old_location {
                     el_node.location = Vec2::new(sim_node.location.x, sim_node.location.y);
                 };
+
+                if el_node.selected {
+                    self.selected_nodes.push(el_node.clone());
+                };
             });
+
+        self.elements.get_edges().iter().for_each(|(_, edges)| {
+            edges.iter().for_each(|e| {
+                if e.selected {
+                    self.selected_edges.push(e.clone());
+                }
+            });
+        });
     }
 
     fn update_simulation(&mut self) {
@@ -261,8 +276,11 @@ impl App for ExampleApp {
 
                         ui.collapsing("Selected", |ui| {
                             ScrollArea::vertical().max_height(200.).show(ui, |ui| {
-                                self.selected.iter().for_each(|node| {
+                                self.selected_nodes.iter().for_each(|node| {
                                     ui.label(format!("{:?}", node));
+                                });
+                                self.selected_edges.iter().for_each(|edge| {
+                                    ui.label(format!("{:?}", edge));
                                 });
                             });
                         });

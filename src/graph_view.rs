@@ -450,7 +450,7 @@ impl<'a> GraphView<'a> {
         self.elements.get_nodes().iter().for_each(|(idx, n)| {
             let node = n.screen_transform(metadata.zoom, metadata.pan);
             GraphView::sync_node(self, idx, state, &node);
-            GraphView::draw_node(p, idx, &node)
+            GraphView::draw_node(p, &node)
         });
     }
 
@@ -463,35 +463,37 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    fn draw_node(p: &Painter, idx: &usize, node: &Node) {
+    fn draw_node(p: &Painter, node: &Node) {
         let loc = node.location.to_pos2();
-        p.circle_filled(loc, node.radius, node.color);
 
-        let (highlight_radius, highlight_stroke_width) = (node.radius * 1.5, node.radius);
+        GraphView::draw_node_basic(loc, p, node);
+        GraphView::draw_node_interacted(loc, p, node);
+    }
+
+    fn draw_node_basic(loc: Pos2, p: &Painter, node: &Node) {
+        p.circle_filled(loc, node.radius, node.color);
+    }
+
+    fn draw_node_interacted(loc: Pos2, p: &Painter, node: &Node) {
+        let stroke_highlight = Stroke::new(
+            node.radius,
+            Color32::from_rgba_unmultiplied(255, 255, 255, 128),
+        );
+        let stroke_dragged = Stroke::new(
+            node.radius,
+            Color32::from_rgba_unmultiplied(255, 0, 255, 128),
+        );
+        let highlight_radius = node.radius * 1.5;
 
         // draw a border around the dragged node
         if node.dragged {
-            p.circle_stroke(
-                loc,
-                highlight_radius,
-                Stroke::new(
-                    highlight_stroke_width,
-                    Color32::from_rgba_unmultiplied(255, 255, 255, 128),
-                ),
-            );
+            p.circle_stroke(loc, highlight_radius, stroke_highlight);
             return;
         }
 
         // draw a border around the selected node
         if node.selected {
-            p.circle_stroke(
-                loc,
-                highlight_radius,
-                Stroke::new(
-                    highlight_stroke_width,
-                    Color32::from_rgba_unmultiplied(255, 0, 255, 128),
-                ),
-            )
+            p.circle_stroke(loc, highlight_radius, stroke_dragged)
         };
     }
 }
