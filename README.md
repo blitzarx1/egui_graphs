@@ -36,6 +36,6 @@ documentation, tests, example        | [ ]
 
 ## Example
 
-![egui_graph_demo_optimized](https://user-images.githubusercontent.com/32969427/233858907-c8e35e79-e632-4e70-af3b-b1f7cbff1f10.gif)
+![ezgif-4-3e4e4469e6](https://user-images.githubusercontent.com/32969427/233863786-11459176-b741-4343-8b42-7d9b3a8239ee.gif)
 
 You can also check the [example](https://github.com/blitzarx1/egui_graph/tree/master/example) for usage references and settings description.
