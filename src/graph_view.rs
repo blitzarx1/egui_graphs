@@ -18,6 +18,7 @@ use egui::{
 const SCREEN_PADDING: f32 = 0.3;
 const ZOOM_STEP: f32 = 0.1;
 
+#[derive(Clone)]
 pub struct GraphView<'a> {
     elements: &'a Elements,
     settings: &'a Settings,
@@ -45,7 +46,7 @@ impl<'a> GraphView<'a> {
 
     /// Returns changes from the last frame
     pub fn last_changes(&self) -> Changes {
-        self.changes.borrow().clone()
+        self.changes.borrow().to_owned()
     }
 
     /// Should be called to clear cached graph metadata, for example
@@ -82,6 +83,7 @@ impl<'a> GraphView<'a> {
         let node = self.node_by_pos(state, response.hover_pos().unwrap());
         if node.is_none() {
             self.deselect_all_nodes(state, changes);
+            self.deselect_all_edges(state, changes);
             return;
         }
 
@@ -111,6 +113,14 @@ impl<'a> GraphView<'a> {
             changes.deselect_node(idx, n);
         });
         state.deselect_all_nodes();
+    }
+
+    fn deselect_all_edges(&self, state: &mut State, changes: &mut Changes) {
+        state.selected_edges().iter().for_each(|idx| {
+            let e = self.elements.get_edge(idx).unwrap();
+            changes.deselect_edge(idx, e);
+        });
+        state.deselect_all_edges();
     }
 
     fn handle_drags(&self, response: &Response, state: &mut State, changes: &mut Changes) {
@@ -380,6 +390,8 @@ impl<'a> Widget for &GraphView<'a> {
         state.store(ui);
         ui.ctx().request_repaint();
 
+        // TODO: pass to response or similar to avoid mutability and usage of refcell and implementing
+        // widget for pointer
         *self.changes.borrow_mut() = changes;
 
         response
