@@ -49,6 +49,28 @@ impl Changes {
         };
     }
 
+    pub fn set_dragged_node(&mut self, idx: &usize, n: &Node) {
+        match self.nodes.get_mut(idx) {
+            Some(changes_node) => changes_node.set_drag(n),
+            None => {
+                let mut changes_node = ChangesNode::default();
+                changes_node.set_drag(n);
+                self.nodes.insert(*idx, changes_node);
+            }
+        };
+    }
+
+    pub fn unset_dragged_node(&mut self, idx: &usize, n: &Node) {
+        match self.nodes.get_mut(idx) {
+            Some(changes_node) => changes_node.unset_drag(n),
+            None => {
+                let mut changes_node = ChangesNode::default();
+                changes_node.unset_drag(n);
+                self.nodes.insert(*idx, changes_node);
+            }
+        };
+    }
+
     pub fn deselect_node(&mut self, idx: &usize, n: &Node) {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.deselect(n),
@@ -102,6 +124,7 @@ pub struct ChangesNode {
     pub color: Option<Color32>,
     pub radius: Option<f32>,
     pub selected: Option<bool>,
+    pub dragged: Option<bool>,
 }
 
 impl ChangesNode {
@@ -123,6 +146,16 @@ impl ChangesNode {
     fn deselect(&mut self, n: &Node) {
         let selected = self.selected.get_or_insert(n.selected);
         *selected = false;
+    }
+
+    fn set_drag(&mut self, n: &Node) {
+        let dragged = self.dragged.get_or_insert(n.dragged);
+        *dragged = true;
+    }
+
+    fn unset_drag(&mut self, n: &Node) {
+        let dragged = self.dragged.get_or_insert(n.dragged);
+        *dragged = false;
     }
 }
 

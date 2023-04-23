@@ -13,7 +13,7 @@ use crate::{
 };
 use egui::{
     epaint::{CubicBezierShape, QuadraticBezierShape},
-    Color32, Painter, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget,
+    Color32, Painter, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget,
 };
 
 const SCREEN_PADDING: f32 = 0.3;
@@ -130,6 +130,20 @@ impl<'a> GraphView<'a> {
         state.deselect_all_edges();
     }
 
+    fn set_dragged_node(&self, idx: &usize, state: &mut State, changes: &mut Changes) {
+        let n = self.elements.get_node(idx).unwrap();
+        changes.set_dragged_node(idx, n);
+        state.set_dragged_node(*idx);
+    }
+
+    fn unset_dragged_node(&self, state: &mut State, changes: &mut Changes) {
+        if let Some(idx) = state.get_dragged_node() {
+            let n = self.elements.get_node(&idx).unwrap();
+            changes.unset_dragged_node(&idx, n);
+            state.unset_dragged_node();
+        }
+    }
+
     fn handle_drags(&self, response: &Response, state: &mut State, changes: &mut Changes) {
         if !self.settings.node_drag {
             return;
@@ -137,7 +151,7 @@ impl<'a> GraphView<'a> {
 
         if response.drag_started() {
             if let Some((idx, _)) = self.node_by_pos(state, response.hover_pos().unwrap()) {
-                state.set_dragged_node(idx);
+                self.set_dragged_node(&idx, state, changes)
             }
         }
 
@@ -150,18 +164,18 @@ impl<'a> GraphView<'a> {
         }
 
         if response.drag_released() && state.get_dragged_node().is_some() {
-            state.unset_dragged_node();
+            self.unset_dragged_node(state, changes)
         }
     }
 
-    fn fit_to_screen(&self, state: &mut State, bounds: (Vec2, Vec2)) {
+    fn fit_to_screen(&self, rect: &Rect, state: &mut State, graph_bounds: (Vec2, Vec2)) {
         // calculate graph dimensions with decorative padding
-        let diag = bounds.1 - bounds.0;
+        let diag = graph_bounds.1 - graph_bounds.0;
         let graph_size = diag * (1. + SCREEN_PADDING);
         let (width, height) = (graph_size.x, graph_size.y);
 
         // calculate canvas dimensions
-        let canvas_size = state.canvas.size();
+        let canvas_size = rect.size();
         let (canvas_width, canvas_height) = (canvas_size.x, canvas_size.y);
 
         // calculate zoom factors for x and y to fit the graph inside the canvas
@@ -173,21 +187,18 @@ impl<'a> GraphView<'a> {
 
         // calculate the zoom delta and call handle_zoom to adjust the zoom factor
         let zoom_delta = new_zoom / state.zoom - 1.0;
-        let (new_zoom, _) = self.handle_zoom(zoom_delta, None, state);
+        let (new_zoom, _) = self.handle_zoom(rect, zoom_delta, None, state);
 
         // calculate the center of the graph and the canvas
-        let graph_center = (bounds.0 + bounds.1) / 2.0;
+        let graph_center = (graph_bounds.0 + graph_bounds.1) / 2.0;
 
         // adjust the pan value to align the centers of the graph and the canvas
-        (state.zoom, state.pan) = (
-            new_zoom,
-            state.canvas.center().to_vec2() - graph_center * new_zoom,
-        )
+        (state.zoom, state.pan) = (new_zoom, rect.center().to_vec2() - graph_center * new_zoom)
     }
 
-    fn handle_navigation(&self, ui: &Ui, response: &Response, state: &mut State) {
+    fn handle_navigation(&self, rect: &Rect, ui: &Ui, response: &Response, state: &mut State) {
         if self.settings.fit_to_screen {
-            return self.fit_to_screen(state, (self.top_left_pos, self.down_right_pos));
+            return self.fit_to_screen(rect, state, (self.top_left_pos, self.down_right_pos));
         }
         if !self.settings.zoom_and_pan {
             return;
@@ -200,7 +211,7 @@ impl<'a> GraphView<'a> {
                 return;
             }
             let step = ZOOM_STEP * (1. - delta).signum();
-            (new_zoom, new_pan) = self.handle_zoom(step, i.pointer.hover_pos(), state);
+            (new_zoom, new_pan) = self.handle_zoom(rect, step, i.pointer.hover_pos(), state);
         });
 
         if response.dragged() && state.get_dragged_node().is_none() {
@@ -210,10 +221,16 @@ impl<'a> GraphView<'a> {
         (state.zoom, state.pan) = (new_zoom, new_pan);
     }
 
-    fn handle_zoom(&self, delta: f32, zoom_center: Option<Pos2>, state: &State) -> (f32, Vec2) {
+    fn handle_zoom(
+        &self,
+        rect: &Rect,
+        delta: f32,
+        zoom_center: Option<Pos2>,
+        state: &State,
+    ) -> (f32, Vec2) {
         let center_pos = match zoom_center {
-            Some(center_pos) => center_pos - state.canvas.min,
-            None => state.canvas.center() - state.canvas.min,
+            Some(center_pos) => center_pos - rect.min,
+            None => rect.center() - rect.min,
         };
         let graph_center_pos = (center_pos - state.pan) / state.zoom;
         let factor = 1. + delta;
@@ -413,13 +430,13 @@ impl<'a> Widget for &GraphView<'a> {
         let mut changes = Changes::default();
 
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
-        state.canvas = response.rect;
+
+        self.draw(&painter, &state);
 
         self.handle_drags(&response, &mut state, &mut changes);
         self.handle_clicks(&response, &mut state, &mut changes);
 
-        self.handle_navigation(ui, &response, &mut state);
-        self.draw(&painter, &state);
+        self.handle_navigation(&response.rect, ui, &response, &mut state);
 
         state.store(ui);
         ui.ctx().request_repaint();

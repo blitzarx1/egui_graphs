@@ -7,8 +7,7 @@ use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::NodeIndex;
-use petgraph::visit::{IntoEdgesDirected, IntoNodeReferences};
-use petgraph::Direction;
+use petgraph::visit::IntoNodeReferences;
 use rand::Rng;
 
 const NODE_COUNT: usize = 300;
@@ -145,6 +144,10 @@ impl ExampleApp {
             if let Some(color_change) = change.color {
                 let node = self.elements.get_node_mut(idx).unwrap();
                 node.color = color_change;
+            }
+            if let Some(dragged_change) = change.dragged {
+                let node = self.elements.get_node_mut(idx).unwrap();
+                node.dragged = dragged_change;
             }
             if let Some(selected_change) = change.selected {
                 let node = self.elements.get_node_mut(idx).unwrap();

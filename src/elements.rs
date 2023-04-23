@@ -71,6 +71,7 @@ pub struct Node {
     pub radius: f32,
 
     pub selected: bool,
+    pub dragged: bool,
 }
 
 impl Node {
@@ -82,6 +83,7 @@ impl Node {
             radius: 5.,
 
             selected: false,
+            dragged: false,
         }
     }
 
@@ -92,6 +94,7 @@ impl Node {
 
             color: self.color,
             selected: self.selected,
+            dragged: self.dragged,
         }
     }
 }

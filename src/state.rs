@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use egui::{Id, Pos2, Rect, Vec2};
+use egui::{Id, Vec2};
 
 #[derive(Clone)]
 pub struct State {
@@ -8,11 +8,9 @@ pub struct State {
     pub zoom: f32,
     /// Current pan offset
     pub pan: Vec2,
+
     /// Index of the node that is currently being dragged
     node_dragged: Option<usize>,
-
-    /// Current canvas dimensions
-    pub canvas: Rect,
 
     /// Indices of the selected nodes
     selected_nodes: HashSet<usize>,
@@ -27,7 +25,6 @@ impl Default for State {
             zoom: 1.,
             pan: Default::default(),
             node_dragged: Default::default(),
-            canvas: Rect::from_min_max(Pos2::default(), Pos2::default()),
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
         }
