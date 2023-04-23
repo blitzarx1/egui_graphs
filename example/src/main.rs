@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
-use egui::{Color32, Context, ScrollArea, Vec2};
+use egui::{CollapsingHeader, Color32, Context, ScrollArea, Vec2};
 use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -184,52 +184,78 @@ impl App for ExampleApp {
         egui::SidePanel::right("right_panel")
             .default_width(300.)
             .show(ctx, |ui| {
-                ui.add_space(5.);
-                if ui.button("randomize").clicked() {
-                    let (simulation, elements) = construct_simulation(NODE_COUNT, EDGE_COUNT);
-                    self.simulation = simulation;
-                    self.elements = elements;
+                CollapsingHeader::new("WIDGET SETTINGS")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        ui.add_space(10.);
 
-                    GraphView::reset_state(ui);
-                }
+                        ui.label("Navigation");
+                        ui.separator();
 
-                ui.add_space(10.);
-                ui.label("View");
-                ui.separator();
-                ui.horizontal(|ui| {
-                    if ui
-                        .checkbox(&mut self.settings.fit_to_screen, "autofit")
-                        .changed()
-                        && self.settings.fit_to_screen
-                    {
-                        self.settings.zoom_and_pan = false
-                    };
-                    ui.add_enabled_ui(!self.settings.fit_to_screen, |ui| {
-                        ui.checkbox(&mut self.settings.zoom_and_pan, "pan & zoom")
-                            .on_disabled_hover_text("disabled autofit to enable pan & zoom");
-                    });
-                });
+                        if ui
+                            .checkbox(&mut self.settings.fit_to_screen, "autofit")
+                            .changed()
+                            && self.settings.fit_to_screen
+                        {
+                            self.settings.zoom_and_pan = false
+                        };
+                        ui.label("Enable autofit to fit the graph to the screen on every frame.");
 
-                ui.add_space(10.);
-                ui.label("Elements");
-                ui.separator();
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.settings.node_drag, "drag");
-                    ui.checkbox(&mut self.settings.node_select, "select");
-                });
-                ui.collapsing("Selection", |ui| {
-                    ScrollArea::vertical().show(ui, |ui| {
-                        self.selected.iter().for_each(|node| {
-                            ui.label(format!("{:?}", node));
+                        ui.add_space(5.);
+
+                        ui.add_enabled_ui(!self.settings.fit_to_screen, |ui| {
+                            ui.checkbox(&mut self.settings.zoom_and_pan, "pan & zoom")
+                                .on_disabled_hover_text("disabled autofit to enable pan & zoom");
+                            ui.label("Enable pan and zoom to move and zoom the graph.");
+                        });
+
+                        ui.add_space(10.);
+
+                        ui.label("Interactions");
+                        ui.separator();
+
+                        ui.checkbox(&mut self.settings.node_drag, "drag");
+                        ui.label("Enable drag to drag nodes around.");
+
+                        ui.add_space(5.);
+
+                        ui.checkbox(&mut self.settings.node_select, "select");
+                        ui.label("Enable select to select nodes with click. If node is selected clicking on it again will deselect it.");
+                        ui.collapsing("Selected", |ui| {
+                            ScrollArea::vertical().max_height(200.).show(ui, |ui| {
+                                self.selected.iter().for_each(|node| {
+                                    ui.label(format!("{:?}", node));
+                                });
+                            });
                         });
                     });
-                });
 
-                ui.add_space(10.);
-                ui.label("Simulation");
-                ui.separator();
-                ui.checkbox(&mut self.simulation_stopped, "stop");
 
+                ui.add_space(20.);
+
+                CollapsingHeader::new("APP SETTINGS")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        ui.add_space(10.);
+
+                        ui.label("Simulation");
+                        ui.separator();
+
+                        if ui.button("randomize").clicked() {
+                            let (simulation, elements) =
+                                construct_simulation(NODE_COUNT, EDGE_COUNT);
+                            self.simulation = simulation;
+                            self.elements = elements;
+
+                            GraphView::reset_state(ui);
+                        }
+                        ui.label("Randomize the graph.");
+
+                        ui.add_space(5.);
+
+                        ui.checkbox(&mut self.simulation_stopped, "stop");
+                        ui.label("Stop the simulation.");
+                    });
                 egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
                     ui.add_space(5.);
                     ui.label(format!("fps: {:.1}", self.fps));
