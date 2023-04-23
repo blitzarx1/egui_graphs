@@ -1,57 +1,19 @@
 use std::collections::HashSet;
 
-use egui::{Id, Vec2};
-
-#[derive(Clone)]
+#[derive(Default)]
 pub struct State {
-    /// Current zoom factor
-    pub zoom: f32,
-    /// Current pan offset
-    pub pan: Vec2,
-
-    /// Index of the node that is currently being dragged
-    node_dragged: Option<usize>,
-
-    /// Indices of the selected nodes
+    dragged_node: Option<usize>,
     selected_nodes: HashSet<usize>,
-
-    /// Ids of the selected edges
     selected_edges: HashSet<(usize, usize, usize)>,
 }
 
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            zoom: 1.,
-            pan: Default::default(),
-            node_dragged: Default::default(),
-            selected_nodes: Default::default(),
-            selected_edges: Default::default(),
-        }
-    }
-}
-
 impl State {
-    pub fn get(ui: &mut egui::Ui) -> Self {
-        ui.data_mut(|data| data.get_persisted::<State>(Id::null()).unwrap_or_default())
-    }
-
-    pub fn store(self, ui: &mut egui::Ui) {
-        ui.data_mut(|data| {
-            data.insert_persisted(Id::null(), self);
-        });
-    }
-
     pub fn get_dragged_node(&self) -> Option<usize> {
-        self.node_dragged
+        self.dragged_node
     }
 
     pub fn set_dragged_node(&mut self, idx: usize) {
-        self.node_dragged = Some(idx);
-    }
-
-    pub fn unset_dragged_node(&mut self) {
-        self.node_dragged = None;
+        self.dragged_node = Some(idx);
     }
 
     pub fn selected_nodes(&self) -> &HashSet<usize> {
@@ -70,19 +32,7 @@ impl State {
         self.selected_nodes.remove(&idx);
     }
 
-    pub fn deselect_all_nodes(&mut self) {
-        self.selected_nodes.clear();
-    }
-
     pub fn select_edge(&mut self, idx: (usize, usize, usize)) {
         self.selected_edges.insert(idx);
-    }
-
-    pub fn deselect_edge(&mut self, idx: (usize, usize, usize)) {
-        self.selected_edges.remove(&idx);
-    }
-
-    pub fn deselect_all_edges(&mut self) {
-        self.selected_edges.clear();
     }
 }

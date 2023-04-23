@@ -285,7 +285,7 @@ impl App for ExampleApp {
                             self.simulation = simulation;
                             self.elements = elements;
 
-                            GraphView::reset_state(ui);
+                            GraphView::reset_metadata(ui);
                         }
                         ui.label("Randomize the graph.");
 

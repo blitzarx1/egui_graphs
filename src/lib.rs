@@ -1,6 +1,7 @@
 mod changes;
 mod elements;
 mod graph_view;
+mod metadata;
 mod settings;
 mod state;
 

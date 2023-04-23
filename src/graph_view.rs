@@ -7,6 +7,7 @@ use std::{
 use crate::{
     changes::Changes,
     elements::{Elements, Node},
+    metadata::Metadata,
     settings::Settings,
     state::State,
     Edge,
@@ -31,6 +32,30 @@ pub struct GraphView<'a> {
     changes: RefCell<Changes>,
 }
 
+impl<'a> Widget for &GraphView<'a> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let mut metadata = Metadata::get(ui);
+        let mut changes = Changes::default();
+
+        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+
+        let state = self.draw_and_sync(&painter, &metadata);
+
+        self.handle_drags(&response, &state, &mut metadata, &mut changes);
+        self.handle_clicks(&response, &state, &mut metadata, &mut changes);
+        self.handle_navigation(ui, &response, &state, &mut metadata);
+
+        metadata.store(ui);
+        ui.ctx().request_repaint();
+
+        // TODO: pass to response or similar to avoid mutability and usage of refcell and implementing
+        // widget for pointer
+        *self.changes.borrow_mut() = changes;
+
+        response
+    }
+}
+
 impl<'a> GraphView<'a> {
     pub fn new(elements: &'a Elements, settings: &'a Settings) -> Self {
         let (top_left_pos, down_right_pos) = get_bounds(elements);
@@ -51,19 +76,17 @@ impl<'a> GraphView<'a> {
         self.changes.borrow().to_owned()
     }
 
-    /// Should be called to clear cached graph metadata, for example
-    /// in case when you provide completely different `Elements` from the one
-    /// in the last frame
-    pub fn reset_state(ui: &mut Ui) {
-        State::default().store(ui);
+    /// Resets navigation metadata
+    pub fn reset_metadata(ui: &mut Ui) {
+        Metadata::default().store(ui);
     }
 
     // TODO: optimize this full scan run with quadtree or similar.
     // need to modify `crate::elements::Elements` to store nodes in a quadtree
     // Is it really necessary?
-    fn node_by_pos(&self, state: &State, pos: Pos2) -> Option<(usize, &'a Node)> {
+    fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<(usize, &'a Node)> {
         let node_props = self.elements.get_nodes().iter().find(|(_, n)| {
-            let node = n.screen_transform(state.zoom, state.pan);
+            let node = n.screen_transform(metadata.zoom, metadata.pan);
             (node.location - pos.to_vec2()).length() <= node.radius
         });
 
@@ -74,7 +97,13 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    fn handle_clicks(&self, response: &Response, state: &mut State, changes: &mut Changes) {
+    fn handle_clicks(
+        &self,
+        response: &Response,
+        state: &State,
+        metadata: &mut Metadata,
+        changes: &mut Changes,
+    ) {
         if !self.settings.node_select {
             return;
         }
@@ -82,7 +111,7 @@ impl<'a> GraphView<'a> {
             return;
         }
 
-        let node = self.node_by_pos(state, response.hover_pos().unwrap());
+        let node = self.node_by_pos(metadata, response.hover_pos().unwrap());
         if node.is_none() {
             self.deselect_all_nodes(state, changes);
             self.deselect_all_edges(state, changes);
@@ -91,13 +120,13 @@ impl<'a> GraphView<'a> {
 
         let (idx, n) = node.unwrap();
         if n.selected {
-            self.deselect_node(&idx, state, changes);
+            self.deselect_node(&idx, changes);
             return;
         }
         self.select_node(&idx, state, changes);
     }
 
-    fn select_node(&self, idx: &usize, state: &mut State, changes: &mut Changes) {
+    fn select_node(&self, idx: &usize, state: &State, changes: &mut Changes) {
         let n = self.elements.get_node(idx).unwrap();
 
         if !self.settings.node_multiselect && !state.selected_nodes().is_empty() {
@@ -105,53 +134,53 @@ impl<'a> GraphView<'a> {
         }
 
         changes.select_node(idx, n);
-        state.select_node(*idx);
     }
 
-    fn deselect_node(&self, idx: &usize, state: &mut State, changes: &mut Changes) {
+    fn deselect_node(&self, idx: &usize, changes: &mut Changes) {
         let n = self.elements.get_node(idx).unwrap();
         changes.deselect_node(idx, n);
-        state.deselect_node(*idx);
     }
 
-    fn deselect_all_nodes(&self, state: &mut State, changes: &mut Changes) {
+    fn deselect_all_nodes(&self, state: &State, changes: &mut Changes) {
         state.selected_nodes().iter().for_each(|idx| {
             let n = self.elements.get_node(idx).unwrap();
             changes.deselect_node(idx, n);
         });
-        state.deselect_all_nodes();
     }
 
-    fn deselect_all_edges(&self, state: &mut State, changes: &mut Changes) {
+    fn deselect_all_edges(&self, state: &State, changes: &mut Changes) {
         state.selected_edges().iter().for_each(|idx| {
             let e = self.elements.get_edge(idx).unwrap();
             changes.deselect_edge(idx, e);
         });
-        state.deselect_all_edges();
     }
 
-    fn set_dragged_node(&self, idx: &usize, state: &mut State, changes: &mut Changes) {
+    fn set_dragged_node(&self, idx: &usize, changes: &mut Changes) {
         let n = self.elements.get_node(idx).unwrap();
         changes.set_dragged_node(idx, n);
-        state.set_dragged_node(*idx);
     }
 
-    fn unset_dragged_node(&self, state: &mut State, changes: &mut Changes) {
+    fn unset_dragged_node(&self, state: &State, changes: &mut Changes) {
         if let Some(idx) = state.get_dragged_node() {
             let n = self.elements.get_node(&idx).unwrap();
             changes.unset_dragged_node(&idx, n);
-            state.unset_dragged_node();
         }
     }
 
-    fn handle_drags(&self, response: &Response, state: &mut State, changes: &mut Changes) {
+    fn handle_drags(
+        &self,
+        response: &Response,
+        state: &State,
+        metadata: &mut Metadata,
+        changes: &mut Changes,
+    ) {
         if !self.settings.node_drag {
             return;
         }
 
         if response.drag_started() {
-            if let Some((idx, _)) = self.node_by_pos(state, response.hover_pos().unwrap()) {
-                self.set_dragged_node(&idx, state, changes)
+            if let Some((idx, _)) = self.node_by_pos(metadata, response.hover_pos().unwrap()) {
+                self.set_dragged_node(&idx, changes)
             }
         }
 
@@ -159,7 +188,7 @@ impl<'a> GraphView<'a> {
             let node_idx_dragged = state.get_dragged_node().unwrap();
             let node_dragged = self.elements.get_node(&node_idx_dragged).unwrap();
 
-            let delta_in_graph_coords = response.drag_delta() / state.zoom;
+            let delta_in_graph_coords = response.drag_delta() / metadata.zoom;
             changes.move_node(&node_idx_dragged, node_dragged, delta_in_graph_coords);
         }
 
@@ -168,7 +197,7 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, state: &mut State, graph_bounds: (Vec2, Vec2)) {
+    fn fit_to_screen(&self, rect: &Rect, state: &mut Metadata, graph_bounds: (Vec2, Vec2)) {
         // calculate graph dimensions with decorative padding
         let diag = graph_bounds.1 - graph_bounds.0;
         let graph_size = diag * (1. + SCREEN_PADDING);
@@ -196,29 +225,40 @@ impl<'a> GraphView<'a> {
         (state.zoom, state.pan) = (new_zoom, rect.center().to_vec2() - graph_center * new_zoom)
     }
 
-    fn handle_navigation(&self, rect: &Rect, ui: &Ui, response: &Response, state: &mut State) {
+    fn handle_navigation(
+        &self,
+        ui: &Ui,
+        response: &Response,
+        state: &State,
+        metadata: &mut Metadata,
+    ) {
         if self.settings.fit_to_screen {
-            return self.fit_to_screen(rect, state, (self.top_left_pos, self.down_right_pos));
+            return self.fit_to_screen(
+                &response.rect,
+                metadata,
+                (self.top_left_pos, self.down_right_pos),
+            );
         }
         if !self.settings.zoom_and_pan {
             return;
         }
 
-        let (mut new_zoom, mut new_pan) = (state.zoom, state.pan);
+        let (mut new_zoom, mut new_pan) = (metadata.zoom, metadata.pan);
         ui.input(|i| {
             let delta = i.zoom_delta();
             if delta == 1. {
                 return;
             }
             let step = ZOOM_STEP * (1. - delta).signum();
-            (new_zoom, new_pan) = self.handle_zoom(rect, step, i.pointer.hover_pos(), state);
+            (new_zoom, new_pan) =
+                self.handle_zoom(&response.rect, step, i.pointer.hover_pos(), metadata);
         });
 
         if response.dragged() && state.get_dragged_node().is_none() {
-            (new_zoom, new_pan) = (new_zoom, state.pan + response.drag_delta());
+            (new_zoom, new_pan) = (new_zoom, metadata.pan + response.drag_delta());
         }
 
-        (state.zoom, state.pan) = (new_zoom, new_pan);
+        (metadata.zoom, metadata.pan) = (new_zoom, new_pan);
     }
 
     fn handle_zoom(
@@ -226,7 +266,7 @@ impl<'a> GraphView<'a> {
         rect: &Rect,
         delta: f32,
         zoom_center: Option<Pos2>,
-        state: &State,
+        state: &Metadata,
     ) -> (f32, Vec2) {
         let center_pos = match zoom_center {
             Some(center_pos) => center_pos - rect.min,
@@ -242,42 +282,55 @@ impl<'a> GraphView<'a> {
         )
     }
 
-    fn draw(&self, p: &Painter, state: &State) {
-        self.draw_edges(p, state);
-        self.draw_nodes(p, state);
+    fn draw_and_sync(&self, p: &Painter, metadata: &Metadata) -> State {
+        let mut state = State::default();
+
+        self.draw_and_sync_edges(p, &mut state, metadata);
+        self.draw_and_sync_nodes(p, &mut state, metadata);
+
+        state
     }
 
-    fn draw_edges(&self, p: &Painter, state: &State) {
-        self.elements.get_edges().iter().for_each(|(_, edges)| {
+    fn draw_and_sync_edges(&self, p: &Painter, state: &mut State, metadata: &Metadata) {
+        self.elements.get_edges().iter().for_each(|(idx, edges)| {
             let count = edges.len();
             let mut edges_count = HashMap::with_capacity(count);
 
-            edges.iter().for_each(|e| {
-                let edge = e.screen_transform(state.zoom);
-
-                self.draw_edge(&edge, p, state, &mut edges_count)
+            edges.iter().enumerate().for_each(|(list_idx, e)| {
+                let edge = e.screen_transform(metadata.zoom);
+                let edge_idx = (idx.0, idx.1, list_idx);
+                let start_node = &self
+                    .elements
+                    .get_node(&edge.start)
+                    .unwrap()
+                    .screen_transform(metadata.zoom, metadata.pan);
+                let end_node = &self
+                    .elements
+                    .get_node(&edge.end)
+                    .unwrap()
+                    .screen_transform(metadata.zoom, metadata.pan);
+                GraphView::sync_edge(state, &edge_idx, e);
+                GraphView::draw_edge(&edge, p, start_node, end_node, &mut edges_count)
             });
         });
     }
 
+    fn sync_edge(state: &mut State, idx: &(usize, usize, usize), e: &Edge) {
+        if e.selected {
+            state.select_edge(*idx);
+        }
+    }
+
+    // TODO: refactor this function
+    // multiples self refernece edges are not drawn correctly
+    // multiple edges between the same nodes are not drawn correctly
     fn draw_edge(
-        &self,
         edge: &Edge,
         p: &Painter,
-        state: &State,
+        start_node: &Node,
+        end_node: &Node,
         edges_count: &mut HashMap<(usize, usize), usize>,
     ) {
-        let start_node = self
-            .elements
-            .get_node(&edge.start)
-            .unwrap()
-            .screen_transform(state.zoom, state.pan);
-        let end_node = self
-            .elements
-            .get_node(&edge.end)
-            .unwrap()
-            .screen_transform(state.zoom, state.pan);
-
         let pos_start = start_node.location.to_pos2();
         let pos_end = end_node.location.to_pos2();
 
@@ -301,6 +354,20 @@ impl<'a> GraphView<'a> {
                 Color32::TRANSPARENT,
                 stroke,
             ));
+
+            if edge.selected {
+                let highlighted_stroke = Stroke::new(
+                    edge.width * 2.,
+                    Color32::from_rgba_unmultiplied(255, 0, 255, 128),
+                );
+
+                p.add(CubicBezierShape::from_points_stroke(
+                    [pos_start, control_point1, control_point2, pos_end],
+                    true,
+                    Color32::TRANSPARENT,
+                    highlighted_stroke,
+                ));
+            }
             return;
         }
 
@@ -384,21 +451,31 @@ impl<'a> GraphView<'a> {
         //     p.line_segment([tip_point, arrow_tip_point2], stroke);
     }
 
-    fn draw_nodes(&self, p: &Painter, state: &State) {
+    fn draw_and_sync_nodes(&self, p: &Painter, state: &mut State, metadata: &Metadata) {
         self.elements.get_nodes().iter().for_each(|(idx, n)| {
-            let node = n.screen_transform(state.zoom, state.pan);
-            GraphView::draw_node(p, idx, &node, state)
+            let node = n.screen_transform(metadata.zoom, metadata.pan);
+            GraphView::sync_node(self, idx, state, &node);
+            GraphView::draw_node(p, idx, &node)
         });
     }
 
-    fn draw_node(p: &Painter, idx: &usize, node: &Node, state: &State) {
+    fn sync_node(&self, idx: &usize, state: &mut State, node: &Node) {
+        if node.dragged {
+            state.set_dragged_node(*idx);
+        }
+        if node.selected {
+            state.select_node(*idx);
+        }
+    }
+
+    fn draw_node(p: &Painter, idx: &usize, node: &Node) {
         let loc = node.location.to_pos2();
         p.circle_filled(loc, node.radius, node.color);
 
         let (highlight_radius, highlight_stroke_width) = (node.radius * 1.5, node.radius);
 
         // draw a border around the dragged node
-        if state.get_dragged_node().is_some() && state.get_dragged_node().unwrap() == *idx {
+        if node.dragged {
             p.circle_stroke(
                 loc,
                 highlight_radius,
@@ -421,31 +498,6 @@ impl<'a> GraphView<'a> {
                 ),
             )
         };
-    }
-}
-
-impl<'a> Widget for &GraphView<'a> {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let mut state = State::get(ui);
-        let mut changes = Changes::default();
-
-        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
-
-        self.draw(&painter, &state);
-
-        self.handle_drags(&response, &mut state, &mut changes);
-        self.handle_clicks(&response, &mut state, &mut changes);
-
-        self.handle_navigation(&response.rect, ui, &response, &mut state);
-
-        state.store(ui);
-        ui.ctx().request_repaint();
-
-        // TODO: pass to response or similar to avoid mutability and usage of refcell and implementing
-        // widget for pointer
-        *self.changes.borrow_mut() = changes;
-
-        response
     }
 }
 
