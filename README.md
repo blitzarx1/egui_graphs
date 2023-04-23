@@ -22,12 +22,12 @@ The goal is to create a crate that expands egui's visualization capabilities and
 ## Roadmap for v0.1.0 - first stable release
 <pre>
                                done
-------------------------------+-------
+------------------------------+-----------
 basic graph drawing                  | [x]
 self-references, multi-connections   | [x]
-zoom & pan                           | [x]
+zoom & pan, fit-to-screen            | [x]
 drag node                            | [x]
-select/deselect node                 | [x]
+select/deselect                      | [x]
 select/multi-select                  | [ ]
 style customizations                 | [ ]
 support egui dark/light theme        | [ ]
