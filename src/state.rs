@@ -28,10 +28,6 @@ impl State {
         self.selected_nodes.insert(idx);
     }
 
-    pub fn deselect_node(&mut self, idx: usize) {
-        self.selected_nodes.remove(&idx);
-    }
-
     pub fn select_edge(&mut self, idx: (usize, usize, usize)) {
         self.selected_edges.insert(idx);
     }

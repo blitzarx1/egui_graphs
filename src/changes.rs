@@ -1,10 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use egui::{Color32, Vec2};
 
 use crate::{Edge, Node};
-
-
 
 /// stores changes to the graph elements that are not yet applied
 #[derive(Default, Clone)]

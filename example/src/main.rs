@@ -10,8 +10,8 @@ use petgraph::stable_graph::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
 use rand::Rng;
 
-const NODE_COUNT: usize = 3;
-const EDGE_COUNT: usize = 5;
+const NODE_COUNT: usize = 300;
+const EDGE_COUNT: usize = 500;
 const SIMULATION_DT: f32 = 0.035;
 const EDGE_SCALE_WEIGHT: f32 = 1.;
 const FPS_LINE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
