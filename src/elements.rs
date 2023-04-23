@@ -26,6 +26,17 @@ impl Elements {
         &self.edges
     }
 
+    /// Returns all directed edges between two nodes as mutable
+    pub fn get_edges_between_mut(&mut self, from: &usize, to: &usize) -> Option<&mut Vec<Edge>> {
+        self.edges.get_mut(&(*from, *to))
+    }
+
+    /// Returns all directed edges between two nodes
+    pub fn get_edges_between(&self, from: &usize, to: &usize) -> Option<&Vec<Edge>> {
+        self.edges.get(&(*from, *to))
+    }
+
+    /// Returns edge at index (from, to, edge_index)
     pub fn get_edge(&self, idx: &(usize, usize, usize)) -> Option<&Edge> {
         self.edges.get(&(idx.0, idx.1))?.get(idx.2)
     }

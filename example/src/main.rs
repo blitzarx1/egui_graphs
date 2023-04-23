@@ -7,7 +7,8 @@ use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::NodeIndex;
-use petgraph::visit::IntoNodeReferences;
+use petgraph::visit::{IntoEdgesDirected, IntoNodeReferences};
+use petgraph::Direction;
 use rand::Rng;
 
 const NODE_COUNT: usize = 300;
@@ -137,20 +138,42 @@ impl ExampleApp {
                 let el_node = self.elements.get_node_mut(idx).unwrap();
                 el_node.location = location_change;
             }
-
             if let Some(radius_change) = change.radius {
                 let node = self.elements.get_node_mut(idx).unwrap();
                 node.radius = radius_change;
             }
-
             if let Some(color_change) = change.color {
                 let node = self.elements.get_node_mut(idx).unwrap();
                 node.color = color_change;
             }
-
             if let Some(selected_change) = change.selected {
                 let node = self.elements.get_node_mut(idx).unwrap();
                 node.selected = selected_change;
+
+                // select all connected nodes and edges
+                self.simulation
+                    .get_graph()
+                    .neighbors(NodeIndex::new(*idx))
+                    .for_each(|neighbour| {
+                        let node = self.elements.get_node_mut(&neighbour.index()).unwrap();
+                        node.selected = selected_change;
+
+                        if let Some(edges_from) =
+                            self.elements.get_edges_between_mut(idx, &neighbour.index())
+                        {
+                            edges_from.iter_mut().for_each(|edge| {
+                                edge.selected = true;
+                            });
+                        }
+
+                        if let Some(edges_to) =
+                            self.elements.get_edges_between_mut(&neighbour.index(), idx)
+                        {
+                            edges_to.iter_mut().for_each(|edge| {
+                                edge.selected = true;
+                            });
+                        }
+                    });
             }
         });
 
@@ -184,7 +207,8 @@ impl App for ExampleApp {
         egui::SidePanel::right("right_panel")
             .default_width(300.)
             .show(ctx, |ui| {
-                CollapsingHeader::new("WIDGET SETTINGS")
+                ScrollArea::vertical().show(ui, |ui|{
+                    CollapsingHeader::new("WIDGET SETTINGS")
                     .default_open(true)
                     .show(ui, |ui| {
                         ui.add_space(10.);
@@ -231,7 +255,7 @@ impl App for ExampleApp {
                         });
 
                         ui.add_space(5.);
-                        
+
                         ui.collapsing("Selected", |ui| {
                             ScrollArea::vertical().max_height(200.).show(ui, |ui| {
                                 self.selected.iter().for_each(|node| {
@@ -267,6 +291,7 @@ impl App for ExampleApp {
                         ui.checkbox(&mut self.simulation_stopped, "stop");
                         ui.label("Stop the simulation.");
                     });
+
                 egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
                     ui.add_space(5.);
                     ui.label(format!("fps: {:.1}", self.fps));
@@ -292,11 +317,12 @@ impl App for ExampleApp {
                         .show(ui, |plot_ui| plot_ui.line(line));
                 });
             });
-
+        });
         let widget = &GraphView::new(&self.elements, &self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(widget);
         });
+
         self.apply_changes(widget.last_changes());
     }
 }

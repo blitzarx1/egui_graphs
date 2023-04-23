@@ -9,6 +9,7 @@ use crate::{
     elements::{Elements, Node},
     settings::Settings,
     state::State,
+    Edge,
 };
 use egui::{
     epaint::{CubicBezierShape, QuadraticBezierShape},
@@ -17,6 +18,7 @@ use egui::{
 
 const SCREEN_PADDING: f32 = 0.3;
 const ZOOM_STEP: f32 = 0.1;
+const ARROW_ANGLE: f32 = std::f32::consts::TAU / 50.;
 
 #[derive(Clone)]
 pub struct GraphView<'a> {
@@ -229,113 +231,140 @@ impl<'a> GraphView<'a> {
     }
 
     fn draw_edges(&self, p: &Painter, state: &State) {
-        let angle = std::f32::consts::TAU / 50.;
-
         self.elements.get_edges().iter().for_each(|(_, edges)| {
-            let edges_count = edges.len();
-            let mut sames = HashMap::with_capacity(edges_count);
+            let count = edges.len();
+            let mut edges_count = HashMap::with_capacity(count);
 
             edges.iter().for_each(|e| {
                 let edge = e.screen_transform(state.zoom);
 
-                let start_node = self
-                    .elements
-                    .get_node(&edge.start)
-                    .unwrap()
-                    .screen_transform(state.zoom, state.pan);
-                let end_node = self
-                    .elements
-                    .get_node(&edge.end)
-                    .unwrap()
-                    .screen_transform(state.zoom, state.pan);
-
-                let pos_start = start_node.location.to_pos2();
-                let pos_end = end_node.location.to_pos2();
-
-                let stroke = Stroke::new(edge.width, edge.color);
-
-                if edge.start == edge.end {
-                    // CubicBezierShape for self-loop
-                    let control_point1 = Pos2::new(
-                        pos_start.x + start_node.radius * 4.,
-                        pos_start.y - start_node.radius * 4.,
-                    );
-                    let control_point2 = Pos2::new(
-                        pos_start.x - start_node.radius * 4.,
-                        pos_start.y - start_node.radius * 4.,
-                    );
-
-                    p.add(CubicBezierShape::from_points_stroke(
-                        [pos_start, control_point1, control_point2, pos_end],
-                        true,
-                        Color32::TRANSPARENT,
-                        stroke,
-                    ));
-                    return;
-                }
-
-                let vec = pos_end - pos_start;
-                let l = vec.length();
-                let dir = vec / l;
-
-                let end_node_radius_vec = Vec2::new(end_node.radius, end_node.radius) * dir;
-                let start_node_radius_vec = Vec2::new(start_node.radius, start_node.radius) * dir;
-
-                let tip_point = pos_start + vec - end_node_radius_vec;
-                let start_point = pos_start + start_node_radius_vec;
-                match edges_count > 1 {
-                    true => {
-                        let pair = [edge.start, edge.end];
-                        sames.entry(pair).or_insert_with(|| 0);
-                        let curve_scale = sames.get_mut(&pair).unwrap();
-                        *curve_scale += 1;
-
-                        let dir_perpendicular = Vec2::new(-dir.y, dir.x);
-                        let center_point = (start_point + tip_point.to_vec2()).to_vec2() / 2.0;
-                        let control_point = (center_point
-                            + dir_perpendicular * edge.curve_size * *curve_scale as f32)
-                            .to_pos2();
-
-                        p.add(QuadraticBezierShape::from_points_stroke(
-                            [start_point, control_point, tip_point],
-                            false,
-                            Color32::TRANSPARENT,
-                            stroke,
-                        ));
-
-                        let tip_vec = control_point - tip_point;
-                        let tip_dir = tip_vec / tip_vec.length();
-                        let tip_size = edge.tip_size;
-
-                        let arrow_tip_dir1 = rotate_vector(tip_dir, angle) * tip_size;
-                        let arrow_tip_dir2 = rotate_vector(tip_dir, -angle) * tip_size;
-
-                        let arrow_tip_point1 = tip_point + arrow_tip_dir1;
-                        let arrow_tip_point2 = tip_point + arrow_tip_dir2;
-
-                        p.line_segment([tip_point, arrow_tip_point1], stroke);
-                        p.line_segment([tip_point, arrow_tip_point2], stroke);
-                    }
-                    false => {
-                        p.line_segment([start_point, tip_point], stroke);
-                        p.line_segment(
-                            [
-                                tip_point,
-                                tip_point - edge.tip_size * rotate_vector(dir, angle),
-                            ],
-                            stroke,
-                        );
-                        p.line_segment(
-                            [
-                                tip_point,
-                                tip_point - edge.tip_size * rotate_vector(dir, -angle),
-                            ],
-                            stroke,
-                        );
-                    }
-                }
+                self.draw_edge(&edge, p, state, &mut edges_count)
             });
         });
+    }
+
+    fn draw_edge(
+        &self,
+        edge: &Edge,
+        p: &Painter,
+        state: &State,
+        edges_count: &mut HashMap<(usize, usize), usize>,
+    ) {
+        let start_node = self
+            .elements
+            .get_node(&edge.start)
+            .unwrap()
+            .screen_transform(state.zoom, state.pan);
+        let end_node = self
+            .elements
+            .get_node(&edge.end)
+            .unwrap()
+            .screen_transform(state.zoom, state.pan);
+
+        let pos_start = start_node.location.to_pos2();
+        let pos_end = end_node.location.to_pos2();
+
+        let stroke = Stroke::new(edge.width, edge.color);
+
+        // draw self-loop
+        if edge.start == edge.end {
+            // CubicBezierShape for self-loop
+            let control_point1 = Pos2::new(
+                pos_start.x + start_node.radius * 4.,
+                pos_start.y - start_node.radius * 4.,
+            );
+            let control_point2 = Pos2::new(
+                pos_start.x - start_node.radius * 4.,
+                pos_start.y - start_node.radius * 4.,
+            );
+
+            p.add(CubicBezierShape::from_points_stroke(
+                [pos_start, control_point1, control_point2, pos_end],
+                true,
+                Color32::TRANSPARENT,
+                stroke,
+            ));
+            return;
+        }
+
+        let vec = pos_end - pos_start;
+        let l = vec.length();
+        let dir = vec / l;
+
+        let end_node_radius_vec = Vec2::new(end_node.radius, end_node.radius) * dir;
+        let start_node_radius_vec = Vec2::new(start_node.radius, start_node.radius) * dir;
+
+        let tip_point = pos_start + vec - end_node_radius_vec;
+        let start_point = pos_start + start_node_radius_vec;
+
+        p.line_segment([start_point, tip_point], stroke);
+        p.line_segment(
+            [
+                tip_point,
+                tip_point - edge.tip_size * rotate_vector(dir, ARROW_ANGLE),
+            ],
+            stroke,
+        );
+        p.line_segment(
+            [
+                tip_point,
+                tip_point - edge.tip_size * rotate_vector(dir, -ARROW_ANGLE),
+            ],
+            stroke,
+        );
+
+        if edge.selected {
+            let highlighted_stroke = Stroke::new(
+                edge.width * 2.,
+                Color32::from_rgba_unmultiplied(255, 0, 255, 128),
+            );
+            p.line_segment([start_point, tip_point], highlighted_stroke);
+            p.line_segment(
+                [
+                    tip_point,
+                    tip_point - edge.tip_size * rotate_vector(dir, ARROW_ANGLE),
+                ],
+                highlighted_stroke,
+            );
+            p.line_segment(
+                [
+                    tip_point,
+                    tip_point - edge.tip_size * rotate_vector(dir, -ARROW_ANGLE),
+                ],
+                highlighted_stroke,
+            );
+        }
+
+        //     let key = (edge.start, edge.end);
+        //     edges_count.entry(key).or_insert_with(|| 0);
+        //     let curve_scale = edges_count.get_mut(&key).unwrap();
+        //     *curve_scale += 1;
+
+        //     let dir_perpendicular = Vec2::new(-dir.y, dir.x);
+        //     let center_point = (start_point + tip_point.to_vec2()).to_vec2() / 2.0;
+        //     let control_point = (center_point
+        //         + dir_perpendicular * edge.curve_size * *curve_scale as f32)
+        //         .to_pos2();
+
+        //     p.add(QuadraticBezierShape::from_points_stroke(
+        //         [start_point, control_point, tip_point],
+        //         false,
+        //         Color32::TRANSPARENT,
+        //         stroke,
+        //     ));
+
+        //     let tip_vec = control_point - tip_point;
+        //     let tip_dir = tip_vec / tip_vec.length();
+        //     let tip_size = edge.tip_size;
+
+        //     let arrow_tip_dir1 = rotate_vector(tip_dir, ARROW_ANGLE) * tip_size;
+        //     let arrow_tip_dir2 = rotate_vector(tip_dir, -ARROW_ANGLE) * tip_size;
+
+        //     let arrow_tip_point1 = tip_point + arrow_tip_dir1;
+        //     let arrow_tip_point2 = tip_point + arrow_tip_dir2;
+
+        //     p.line_segment([tip_point, arrow_tip_point1], stroke);
+        //     p.line_segment([tip_point, arrow_tip_point2], stroke);
     }
 
     fn draw_nodes(&self, p: &Painter, state: &State) {
