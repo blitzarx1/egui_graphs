@@ -72,7 +72,7 @@ impl<'a> GraphView<'a> {
     }
 
     fn handle_clicks(&self, response: &Response, state: &mut State, changes: &mut Changes) {
-        if self.settings.node_select {
+        if !self.settings.node_select {
             return;
         }
         if !response.clicked() {
@@ -81,29 +81,36 @@ impl<'a> GraphView<'a> {
 
         let node = self.node_by_pos(state, response.hover_pos().unwrap());
         if node.is_none() {
-            // TODO: optimize this. keep selected nodes in state to quickly manage them
-            self.elements.get_nodes().iter().for_each(|(idx, n)| {
-                if !n.selected {
-                    return;
-                }
-
-                changes.deselect_node(idx, n);
-            });
+            self.deselect_all_nodes(changes);
             return;
         }
 
         let (idx, n) = node.unwrap();
+        if n.selected {
+            changes.deselect_node(&idx, n);
+            return;
+        }
         changes.select_node(&idx, n);
     }
 
+    // TODO: optimize this. keep selected nodes in state to quickly manage them
+    fn deselect_all_nodes(&self, changes: &mut Changes) {
+        self.elements.get_nodes().iter().for_each(|(idx, n)| {
+            if !n.selected {
+                return;
+            }
+
+            changes.deselect_node(idx, n);
+        });
+    }
+
     fn handle_drags(&self, response: &Response, state: &mut State, changes: &mut Changes) {
-        if self.settings.node_drag {
+        if !self.settings.node_drag {
             return;
         }
 
         if response.drag_started() {
             if let Some((idx, _)) = self.node_by_pos(state, response.hover_pos().unwrap()) {
-                changes.select_node(&idx, self.elements.get_node(&idx).unwrap());
                 state.set_dragged_node(idx);
             }
         }
@@ -117,8 +124,6 @@ impl<'a> GraphView<'a> {
         }
 
         if response.drag_released() && state.get_dragged_node().is_some() {
-            let idx = &state.get_dragged_node().unwrap();
-            changes.deselect_node(idx, self.elements.get_node(idx).unwrap());
             state.unset_dragged_node();
         }
     }
@@ -194,9 +199,9 @@ impl<'a> GraphView<'a> {
         )
     }
 
-    fn draw(&self, p: &Painter, zoom: f32, pan: Vec2) {
+    fn draw(&self, p: &Painter, zoom: f32, pan: Vec2, state: &State) {
         self.draw_edges(p, zoom, pan);
-        self.draw_nodes(p, zoom, pan);
+        self.draw_nodes(p, zoom, pan, state);
     }
 
     fn draw_edges(&self, p: &Painter, zoom: f32, pan: Vec2) {
@@ -309,28 +314,42 @@ impl<'a> GraphView<'a> {
         });
     }
 
-    fn draw_nodes(&self, p: &Painter, zoom: f32, pan: Vec2) {
-        self.elements.get_nodes().iter().for_each(|(_, n)| {
+    fn draw_nodes(&self, p: &Painter, zoom: f32, pan: Vec2, state: &State) {
+        self.elements.get_nodes().iter().for_each(|(idx, n)| {
             let node = n.screen_transform(zoom, pan);
-            GraphView::draw_node(p, &node)
+            GraphView::draw_node(p, idx, &node, state)
         });
     }
 
-    fn draw_node(p: &Painter, node: &Node) {
+    fn draw_node(p: &Painter, idx: &usize, node: &Node, state: &State) {
         let loc = node.location.to_pos2();
         p.circle_filled(loc, node.radius, node.color);
 
-        match node.selected {
-            // draw a border around the selected node
-            true => p.circle_stroke(
+        let (highlight_radius, highlight_stroke_width) = (node.radius * 1.5, node.radius);
+
+        // draw a border around the dragged node
+        if state.get_dragged_node().is_some() && state.get_dragged_node().unwrap() == *idx {
+            p.circle_stroke(
                 loc,
-                node.radius * 1.5,
+                highlight_radius,
                 Stroke::new(
-                    node.radius,
+                    highlight_stroke_width,
+                    Color32::from_rgba_unmultiplied(255, 255, 255, 128),
+                ),
+            );
+            return;
+        }
+
+        // draw a border around the selected node
+        if node.selected {
+            p.circle_stroke(
+                loc,
+                highlight_radius,
+                Stroke::new(
+                    highlight_stroke_width,
                     Color32::from_rgba_unmultiplied(255, 0, 255, 128),
                 ),
-            ),
-            false => (),
+            )
         };
     }
 }
@@ -343,10 +362,11 @@ impl<'a> Widget for &GraphView<'a> {
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         state.canvas = response.rect;
 
-        let (new_zoom, new_pan) = self.handle_navigation(ui, &response, &mut state);
         self.handle_drags(&response, &mut state, &mut changes);
         self.handle_clicks(&response, &mut state, &mut changes);
-        self.draw(&painter, new_zoom, new_pan);
+
+        let (new_zoom, new_pan) = self.handle_navigation(ui, &response, &mut state);
+        self.draw(&painter, new_zoom, new_pan, &state);
 
         (state.zoom, state.pan) = (new_zoom, new_pan);
 

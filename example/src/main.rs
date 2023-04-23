@@ -167,6 +167,10 @@ impl ExampleApp {
                 let edge = self.elements.get_edge_mut(idx).unwrap();
                 edge.tip_size = tip_size_change;
             }
+            if let Some(selected_change) = change.selected {
+                let edge = self.elements.get_edge_mut(idx).unwrap();
+                edge.selected = selected_change;
+            }
         });
     }
 }

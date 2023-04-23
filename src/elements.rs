@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use egui::{Color32, Vec2};
 
-/// `Elements` represents the collection of all nodes and edges in a graph.
+/// Struct `Elements` represents the collection of all nodes and edges in a graph.
 /// It is passed to the GraphView widget and is used to draw the graph.
 pub struct Elements {
     nodes: HashMap<usize, Node>,
@@ -30,21 +30,23 @@ impl Elements {
         self.edges.get(&(idx.0, idx.1))?.get(idx.2)
     }
 
-    /// deletes node and all edges connected to it
+    /// Deletes node and all edges connected to it
     pub fn delete_node(&mut self, idx: &usize) {
         self.nodes.remove(idx);
         self.edges.retain(|k, _| k.0 != *idx && k.1 != *idx);
     }
 
-    /// deletes edge
+    /// Deletes edge
     pub fn delete_edge(&mut self, idx: &(usize, usize, usize)) {
         self.edges.get_mut(&(idx.0, idx.1)).unwrap().remove(idx.2);
     }
 
+    /// Should be used to modify node, mostly when applying changes from the GraphView widget
     pub fn get_node_mut(&mut self, idx: &usize) -> Option<&mut Node> {
         self.nodes.get_mut(idx)
     }
 
+    /// Should be used to modify edge, mostly when applying changes from the GraphView widget
     pub fn get_edge_mut(&mut self, idx: &(usize, usize, usize)) -> Option<&mut Edge> {
         self.edges.get_mut(&(idx.0, idx.1))?.get_mut(idx.2)
     }
