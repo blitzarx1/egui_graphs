@@ -4,12 +4,12 @@ use eframe::{run_native, App, CreationContext};
 use egui::Context;
 use egui_graphs::{Edge, Elements, GraphView, Node, Settings};
 
-pub struct ExampleApp {
+pub struct BasicApp {
     elements: Elements,
     settings: Settings,
 }
 
-impl ExampleApp {
+impl BasicApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let settings = Settings::default();
         let elements = generate_graph();
@@ -17,7 +17,7 @@ impl ExampleApp {
     }
 }
 
-impl App for ExampleApp {
+impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         let widget = &GraphView::new(&self.elements, &self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -45,7 +45,7 @@ fn main() {
     run_native(
         "egui_graphs_basic_demo",
         native_options,
-        Box::new(|cc| Box::new(ExampleApp::new(cc))),
+        Box::new(|cc| Box::new(BasicApp::new(cc))),
     )
     .unwrap();
 }
