@@ -21,26 +21,12 @@ impl ExampleApp {
             return;
         }
 
+        // Here we track only location changes. You can track other changes as well.
+
         changes.nodes.iter().for_each(|(idx, change)| {
             if let Some(location_change) = change.location {
                 let el_node = self.elements.get_node_mut(idx).unwrap();
                 el_node.location = location_change;
-            }
-            if let Some(radius_change) = change.radius {
-                let node = self.elements.get_node_mut(idx).unwrap();
-                node.radius = radius_change;
-            }
-            if let Some(color_change) = change.color {
-                let node = self.elements.get_node_mut(idx).unwrap();
-                node.color = color_change;
-            }
-            if let Some(dragged_change) = change.dragged {
-                let node = self.elements.get_node_mut(idx).unwrap();
-                node.dragged = dragged_change;
-            }
-            if let Some(selected_change) = change.selected {
-                let node = self.elements.get_node_mut(idx).unwrap();
-                node.selected = selected_change;
             }
         });
 
@@ -48,18 +34,6 @@ impl ExampleApp {
             if let Some(width_change) = change.width {
                 let edge = self.elements.get_edge_mut(idx).unwrap();
                 edge.width = width_change;
-            }
-            if let Some(curve_size_change) = change.curve_size {
-                let edge = self.elements.get_edge_mut(idx).unwrap();
-                edge.curve_size = curve_size_change;
-            }
-            if let Some(tip_size_change) = change.tip_size {
-                let edge = self.elements.get_edge_mut(idx).unwrap();
-                edge.tip_size = tip_size_change;
-            }
-            if let Some(selected_change) = change.selected {
-                let edge = self.elements.get_edge_mut(idx).unwrap();
-                edge.selected = selected_change;
             }
         });
     }
