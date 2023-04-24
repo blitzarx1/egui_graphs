@@ -732,7 +732,6 @@ name = "egui_graphs"
 version = "0.0.15"
 dependencies = [
  "egui",
- "petgraph",
 ]
 
 [[package]]
