@@ -104,6 +104,10 @@ fn main() {
     .unwrap();
 }
 ```
+
+![Screenshot 2023-04-24 at 22 04 49](https://user-images.githubusercontent.com/32969427/234086555-afdf5dfa-31be-46f2-b46e-1e9a45e1a50f.png)
+
+
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed. Don't forget to apply changes return from the widget.
 
 ---
