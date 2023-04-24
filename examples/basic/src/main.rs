@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
+use egui_graphs::{Edge, Elements, GraphView, Node, Settings};
 
 pub struct ExampleApp {
     elements: Elements,
@@ -15,28 +15,6 @@ impl ExampleApp {
         let elements = generate_graph();
         Self { settings, elements }
     }
-
-    fn apply_changes(&mut self, changes: Changes) {
-        if !changes.is_some() {
-            return;
-        }
-
-        // Here we track only location changes. You can track other changes as well.
-
-        changes.nodes.iter().for_each(|(idx, change)| {
-            if let Some(location_change) = change.location {
-                let el_node = self.elements.get_node_mut(idx).unwrap();
-                el_node.location = location_change;
-            }
-        });
-
-        changes.edges.iter().for_each(|(idx, change)| {
-            if let Some(width_change) = change.width {
-                let edge = self.elements.get_edge_mut(idx).unwrap();
-                edge.width = width_change;
-            }
-        });
-    }
 }
 
 impl App for ExampleApp {
@@ -45,8 +23,6 @@ impl App for ExampleApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(widget);
         });
-
-        self.apply_changes(widget.last_changes());
     }
 }
 
