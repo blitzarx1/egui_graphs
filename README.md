@@ -110,6 +110,6 @@ fn main() {
 
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed. Don't forget to apply changes return from the widget.
 
----
+### Interactive
 
 You can check more advanced [interactive example](https://github.com/blitzarx1/egui_graph/tree/master/examples/interactive) for usage references, settings description and changes apply demonstration.
