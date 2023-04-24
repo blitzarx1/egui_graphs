@@ -63,7 +63,26 @@ impl ExampleApp {
 }
 ```
 
-#### Step 3: Implementing the update() function. 
+#### Step 3: Generating the graph elements. 
+
+Create a helper function called generate_graph() that initializes the nodes and edges for the graph. In this example, we create three nodes with unique positions and three edges connecting them in a triangular pattern.
+```rust 
+fn generate_graph() -> Elements {
+    let mut nodes = HashMap::new();
+    nodes.insert(0, Node::new(egui::Vec2::new(0., 30.)));
+    nodes.insert(1, Node::new(egui::Vec2::new(-30., 0.)));
+    nodes.insert(2, Node::new(egui::Vec2::new(30., 0.)));
+    
+    let mut edges = HashMap::new();
+    edges.insert((0, 1), vec![Edge::new(0, 1, 0)]);
+    edges.insert((1, 2), vec![Edge::new(1, 2, 0)]);
+    edges.insert((2, 0), vec![Edge::new(2, 0, 0)]);   
+    
+    Elements::new(nodes, edges)
+}
+```
+
+#### Step 4: Implementing the update() function. 
 
 Now, implement the update() function for the ExampleApp. This function creates a GraphView widget with the elements and settings, and adds it to the central panel using the ui.add() function.
 ```rust 
@@ -74,20 +93,6 @@ impl App for ExampleApp {
             ui.add(widget);
         });
     }
-}
-```
-#### Step 4: Generating the graph elements. 
-
-Create a helper function called generate_graph() that initializes the nodes and edges for the graph. In this example, we create three nodes with unique positions and three edges connecting them in a triangular pattern.
-```rust 
-fn generate_graph() -> Elements {
-    let mut nodes = HashMap::new();
-    nodes.insert(0, Node::new(egui::Vec2::new(0., 30.)));
-    nodes.insert(1, Node::new(egui::Vec2::new(-30., 0.)));
-    nodes.insert(2, Node::new(egui::Vec2::new(30., 0.)));    let mut edges = HashMap::new();
-    edges.insert((0, 1), vec![Edge::new(0, 1, 0)]);
-    edges.insert((1, 2), vec![Edge::new(1, 2, 0)]);
-    edges.insert((2, 0), vec![Edge::new(2, 0, 0)]);    Elements::new(nodes, edges)
 }
 ```
 
