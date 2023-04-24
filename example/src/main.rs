@@ -87,6 +87,15 @@ impl ExampleApp {
         if self.simulation_stopped {
             return;
         }
+        
+        // the following manipulations is a hack to avoid having looped edges in the simulation
+        // because they cause the simulation to blow up; this is the issue of the fdg_sim engine
+        // we use for the simulation
+        // * remove loop edges
+        // * update simulation
+        // * restore loop edges
+
+
         let looped_nodes = {
             // remove looped edges
             let graph = self.simulation.get_graph_mut();
