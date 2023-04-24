@@ -4,7 +4,7 @@ use egui::{Color32, Vec2};
 
 use crate::{Edge, Node};
 
-/// stores changes to the graph elements that are not yet applied
+/// Stores changes to the graph elements that are not yet applied
 #[derive(Default, Clone)]
 pub struct Changes {
     pub nodes: HashMap<usize, ChangesNode>,
@@ -117,7 +117,7 @@ impl Changes {
     }
 }
 
-/// stores changes to the node properties
+/// Stores changes to the node properties
 #[derive(Default, Clone)]
 pub struct ChangesNode {
     pub location: Option<Vec2>,
@@ -159,7 +159,7 @@ impl ChangesNode {
     }
 }
 
-/// stores changes to the edge properties
+/// Stores changes to the edge properties
 #[derive(Default, Clone)]
 pub struct ChangesEdge {
     pub color: Option<Color32>,
