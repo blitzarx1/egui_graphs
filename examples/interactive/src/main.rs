@@ -16,7 +16,7 @@ const SIMULATION_DT: f32 = 0.035;
 const EDGE_SCALE_WEIGHT: f32 = 1.;
 const FPS_LINE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
 
-pub struct ExampleApp {
+pub struct InteractiveApp {
     simulation: Simulation<usize, String>,
     elements: Elements,
     settings: Settings,
@@ -32,7 +32,7 @@ pub struct ExampleApp {
     frames_last_time_span: usize,
 }
 
-impl ExampleApp {
+impl InteractiveApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let settings = Settings::default();
         let (simulation, elements) = construct_simulation(NODE_COUNT, EDGE_COUNT);
@@ -62,7 +62,7 @@ impl ExampleApp {
             .get_graph()
             .node_references()
             .for_each(|(idx, sim_node)| {
-                let el_node: &mut Node = self.elements.get_node_mut(&idx.index()).unwrap();
+                let el_node = self.elements.get_node_mut(&idx.index()).unwrap();
 
                 // sync location only if it was not dragged
                 if Vec3::new(el_node.location.x, el_node.location.y, 0.) == sim_node.old_location {
@@ -225,7 +225,7 @@ impl ExampleApp {
     }
 }
 
-impl App for ExampleApp {
+impl App for InteractiveApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         self.update_simulation();
         self.sync();
@@ -429,9 +429,9 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Grap
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui_graphs_demo",
+        "egui_graphs_interactive_demo",
         native_options,
-        Box::new(|cc| Box::new(ExampleApp::new(cc))),
+        Box::new(|cc| Box::new(InteractiveApp::new(cc))),
     )
     .unwrap();
 }

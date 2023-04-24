@@ -1,12 +1,12 @@
 [package]
-name = "example"
-version = "0.1.0"
+name = "interactive"
+version = "0.0.15"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 edition = "2021"
 
 [dependencies]
-egui_graphs = { path = "../" }
+egui_graphs = { path = "../../" }
 egui = "0.21.0"
 eframe = "0.21.3"
 petgraph = "0.6"

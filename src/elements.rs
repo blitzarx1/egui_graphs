@@ -22,8 +22,16 @@ impl Elements {
         &self.nodes
     }
 
+    pub fn get_nodes_mut(&mut self) -> &mut HashMap<usize, Node> {
+        &mut self.nodes
+    }
+
     pub fn get_edges(&self) -> &HashMap<(usize, usize), Vec<Edge>> {
         &self.edges
+    }
+
+    pub fn get_edges_mut(&mut self) -> &mut HashMap<(usize, usize), Vec<Edge>> {
+        &mut self.edges
     }
 
     /// Returns all directed edges between two nodes as mutable
