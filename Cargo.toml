@@ -1,11 +1,11 @@
 [package]
 name = "egui_graphs"
-version = "0.0.16"
+version = "0.0.17"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 homepage = "https://github.com/blitzarx1/egui_graphs"
 repository = "https://github.com/blitzarx1/egui_graphs"
-description = "Graph visualisation for egui"
+description = "Interactive graph visualization widget for rust powered by egui"
 edition = "2021"
 
 [dependencies]
