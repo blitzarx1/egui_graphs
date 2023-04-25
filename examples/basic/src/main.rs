@@ -4,6 +4,8 @@ use eframe::{run_native, App, CreationContext};
 use egui::Context;
 use egui_graphs::{Edge, Elements, GraphView, Node, Settings};
 
+const SIDE_SIZE: f32 = 50.;
+
 pub struct BasicApp {
     elements: Elements,
     settings: Settings,
@@ -28,9 +30,9 @@ impl App for BasicApp {
 
 fn generate_graph() -> Elements {
     let mut nodes = HashMap::new();
-    nodes.insert(0, Node::new(egui::Vec2::new(0., 30.)));
-    nodes.insert(1, Node::new(egui::Vec2::new(-30., 0.)));
-    nodes.insert(2, Node::new(egui::Vec2::new(30., 0.)));
+    nodes.insert(0, Node::new(egui::Vec2::new(0., SIDE_SIZE)));
+    nodes.insert(1, Node::new(egui::Vec2::new(-SIDE_SIZE, 0.)));
+    nodes.insert(2, Node::new(egui::Vec2::new(SIDE_SIZE, 0.)));
 
     let mut edges = HashMap::new();
     edges.insert((0, 1), vec![Edge::new(0, 1, 0)]);
