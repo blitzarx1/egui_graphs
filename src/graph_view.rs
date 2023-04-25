@@ -455,18 +455,30 @@ impl<'a> GraphView<'a> {
     fn draw_and_sync_nodes(&self, p: &Painter, state: &mut FrameState, metadata: &mut Metadata) {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
         self.elements.get_nodes().iter().for_each(|(idx, n)| {
-            if n.location.x < min_x {
-                min_x = n.location.x;
+            // update graph bounds
+            // we shall account for the node radius
+            // so that the node is fully visible
+
+            let x_minus_rad = n.location.x - n.radius;
+            if x_minus_rad < min_x {
+                min_x = x_minus_rad;
             };
-            if n.location.y < min_y {
-                min_y = n.location.y;
+
+            let y_minus_rad = n.location.y - n.radius;
+            if y_minus_rad < min_y {
+                min_y = y_minus_rad;
             };
-            if n.location.x > max_x {
-                max_x = n.location.x;
+
+            let x_plus_rad = n.location.x + n.radius;
+            if x_plus_rad > max_x {
+                max_x = x_plus_rad;
             };
-            if n.location.y > max_y {
-                max_y = n.location.y;
+
+            let y_plus_rad = n.location.y + n.radius;
+            if y_plus_rad > max_y {
+                max_y = y_plus_rad;
             };
+
             GraphView::sync_node(self, idx, state, n);
             GraphView::draw_node(p, n, metadata);
         });
@@ -520,23 +532,27 @@ impl<'a> GraphView<'a> {
 }
 
 fn compute_graph_bounds(elements: &Elements) -> Rect {
-    let mut min_x: f32 = MAX;
-    let mut min_y = MAX;
-    let mut max_x = MIN;
-    let mut max_y = MIN;
+    let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
 
     elements.get_nodes().iter().for_each(|(_, n)| {
-        if n.location.x < min_x {
-            min_x = n.location.x;
+        let x_minus_rad = n.location.x - n.radius;
+        if x_minus_rad < min_x {
+            min_x = x_minus_rad;
         };
-        if n.location.y < min_y {
-            min_y = n.location.y;
+
+        let y_minus_rad = n.location.y - n.radius;
+        if y_minus_rad < min_y {
+            min_y = y_minus_rad;
         };
-        if n.location.x > max_x {
-            max_x = n.location.x;
+
+        let x_plus_rad = n.location.x + n.radius;
+        if x_plus_rad > max_x {
+            max_x = x_plus_rad;
         };
-        if n.location.y > max_y {
-            max_y = n.location.y;
+
+        let y_plus_rad = n.location.y + n.radius;
+        if y_plus_rad > max_y {
+            max_y = y_plus_rad;
         };
     });
 
