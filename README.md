@@ -42,7 +42,7 @@ documentation, tests, example        | [ ]
 ### Basic
 #### Step 1: Setting up the ExampleApp struct. 
 
-First, let's define the ExampleApp struct that will hold the graph elements and settings. The struct contains two fields: elements and settings. The elements field stores the graph's nodes and edges, while settings contains the configuration options for the GraphView widget.
+First, let's define the `ExampleApp` struct that will hold the graph elements and settings. The struct contains two fields: `elements` and `settings`. The elements field stores the graph's nodes and edges, while settings contains the configuration options for the GraphView widget.
 ```rust 
 pub struct ExampleApp {
     elements: Elements,
@@ -52,7 +52,7 @@ pub struct ExampleApp {
 
 #### Step 2: Implementing the new() function. 
 
-Next, implement the new() function for the ExampleApp struct. This function initializes the graph settings with default values and generates the graph elements.
+Next, implement the `new()` function for the `ExampleApp` struct. This function initializes the graph settings with default values and generates the graph elements.
 ```rust
 impl ExampleApp {
     fn new(_: &CreationContext<'_>) -> Self {
@@ -65,7 +65,7 @@ impl ExampleApp {
 
 #### Step 3: Generating the graph elements. 
 
-Create a helper function called generate_graph() that initializes the nodes and edges for the graph. In this example, we create three nodes with unique positions and three edges connecting them in a triangular pattern.
+Create a helper function called `generate_graph()` that initializes the nodes and edges for the graph. In this example, we create three nodes with unique positions and three edges connecting them in a triangular pattern.
 ```rust 
 fn generate_graph() -> Elements {
     let mut nodes = HashMap::new();
@@ -84,7 +84,7 @@ fn generate_graph() -> Elements {
 
 #### Step 4: Implementing the update() function. 
 
-Now, implement the update() function for the ExampleApp. This function creates a GraphView widget with the elements and settings, and adds it to the central panel using the ui.add() function.
+Now, implement the `update()` function for the `ExampleApp`. This function creates a `GraphView` widget with the `elements` and `settings`, and adds it to the central panel using the `ui.add()` function.
 ```rust 
 impl App for ExampleApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
@@ -98,7 +98,7 @@ impl App for ExampleApp {
 
 #### Step 5: Running the application. 
 
-Finally, run the application using the run_native() function with the specified native options and the ExampleApp.
+Finally, run the application using the `run_native()` function with the specified native options and the `ExampleApp`.
 ```rust 
 fn main() {
     let native_options = eframe::NativeOptions::default();
