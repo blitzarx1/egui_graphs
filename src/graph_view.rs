@@ -8,7 +8,7 @@ use crate::{
     elements::{Elements, Node},
     metadata::Metadata,
     settings::Settings,
-    state::State,
+    state::FrameState,
     Edge,
 };
 use egui::{
@@ -103,7 +103,7 @@ impl<'a> GraphView<'a> {
     fn handle_clicks(
         &self,
         response: &Response,
-        state: &State,
+        state: &FrameState,
         metadata: &mut Metadata,
         changes: &mut Changes,
     ) {
@@ -129,7 +129,7 @@ impl<'a> GraphView<'a> {
         self.select_node(&idx, state, changes);
     }
 
-    fn select_node(&self, idx: &usize, state: &State, changes: &mut Changes) {
+    fn select_node(&self, idx: &usize, state: &FrameState, changes: &mut Changes) {
         let n = self.elements.get_node(idx).unwrap();
 
         if !self.settings.node_multiselect && !state.selected_nodes().is_empty() {
@@ -144,14 +144,14 @@ impl<'a> GraphView<'a> {
         changes.deselect_node(idx, n);
     }
 
-    fn deselect_all_nodes(&self, state: &State, changes: &mut Changes) {
+    fn deselect_all_nodes(&self, state: &FrameState, changes: &mut Changes) {
         state.selected_nodes().iter().for_each(|idx| {
             let n = self.elements.get_node(idx).unwrap();
             changes.deselect_node(idx, n);
         });
     }
 
-    fn deselect_all_edges(&self, state: &State, changes: &mut Changes) {
+    fn deselect_all_edges(&self, state: &FrameState, changes: &mut Changes) {
         state.selected_edges().iter().for_each(|idx| {
             let e = self.elements.get_edge(idx).unwrap();
             changes.deselect_edge(idx, e);
@@ -163,7 +163,7 @@ impl<'a> GraphView<'a> {
         changes.set_dragged_node(idx, n);
     }
 
-    fn unset_dragged_node(&self, state: &State, changes: &mut Changes) {
+    fn unset_dragged_node(&self, state: &FrameState, changes: &mut Changes) {
         if let Some(idx) = state.dragged_node() {
             let n = self.elements.get_node(&idx).unwrap();
             changes.unset_dragged_node(&idx, n);
@@ -173,7 +173,7 @@ impl<'a> GraphView<'a> {
     fn handle_drags(
         &self,
         response: &Response,
-        state: &State,
+        state: &FrameState,
         metadata: &mut Metadata,
         changes: &mut Changes,
     ) {
@@ -234,7 +234,7 @@ impl<'a> GraphView<'a> {
         &self,
         ui: &Ui,
         response: &Response,
-        state: &State,
+        state: &FrameState,
         metadata: &mut Metadata,
     ) {
         if self.settings.fit_to_screen {
@@ -283,8 +283,8 @@ impl<'a> GraphView<'a> {
         )
     }
 
-    fn draw_and_sync(&self, p: &Painter, metadata: &mut Metadata) -> State {
-        let mut state = State::default();
+    fn draw_and_sync(&self, p: &Painter, metadata: &mut Metadata) -> FrameState {
+        let mut state = FrameState::default();
 
         self.draw_and_sync_edges(p, &mut state, metadata);
         self.draw_and_sync_nodes(p, &mut state, metadata);
@@ -292,7 +292,7 @@ impl<'a> GraphView<'a> {
         state
     }
 
-    fn draw_and_sync_edges(&self, p: &Painter, state: &mut State, metadata: &Metadata) {
+    fn draw_and_sync_edges(&self, p: &Painter, state: &mut FrameState, metadata: &Metadata) {
         self.elements.get_edges().iter().for_each(|(idx, edges)| {
             let mut order = edges.len();
             edges.iter().enumerate().for_each(|(list_idx, e)| {
@@ -310,7 +310,7 @@ impl<'a> GraphView<'a> {
         });
     }
 
-    fn sync_edge(state: &mut State, idx: &(usize, usize, usize), e: &Edge) {
+    fn sync_edge(state: &mut FrameState, idx: &(usize, usize, usize), e: &Edge) {
         if e.selected {
             state.select_edge(*idx);
         }
@@ -451,7 +451,7 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    fn draw_and_sync_nodes(&self, p: &Painter, state: &mut State, metadata: &mut Metadata) {
+    fn draw_and_sync_nodes(&self, p: &Painter, state: &mut FrameState, metadata: &mut Metadata) {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
         self.elements.get_nodes().iter().for_each(|(idx, n)| {
             if n.location.x < min_x {
@@ -474,7 +474,7 @@ impl<'a> GraphView<'a> {
             Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
     }
 
-    fn sync_node(&self, idx: &usize, state: &mut State, node: &Node) {
+    fn sync_node(&self, idx: &usize, state: &mut FrameState, node: &Node) {
         if node.dragged {
             state.set_dragged_node(*idx);
         }

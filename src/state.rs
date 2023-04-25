@@ -1,13 +1,16 @@
 use std::collections::HashSet;
 
+/// FrameState stores the state of the graph elements
+/// in the current frame. It is created and destroyed by the widget
+/// on every frame.
 #[derive(Default)]
-pub struct State {
+pub struct FrameState {
     dragged_node: Option<usize>,
     selected_nodes: HashSet<usize>,
     selected_edges: HashSet<(usize, usize, usize)>,
 }
 
-impl State {
+impl FrameState {
     pub fn dragged_node(&self) -> Option<usize> {
         self.dragged_node
     }
