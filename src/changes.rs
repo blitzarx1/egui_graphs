@@ -7,16 +7,12 @@ use crate::{Edge, Node};
 /// Stores changes to the graph elements that are not yet applied
 #[derive(Default, Clone)]
 pub struct Changes {
-    pub nodes: HashMap<usize, ChangesNode>,
-    pub edges: HashMap<(usize, usize, usize), ChangesEdge>,
+    pub(crate) nodes: HashMap<usize, ChangesNode>,
+    pub(crate) edges: HashMap<(usize, usize, usize), ChangesEdge>,
 }
 
 impl Changes {
-    pub fn is_some(&self) -> bool {
-        !self.nodes.is_empty() || !self.edges.is_empty()
-    }
-
-    pub fn move_node(&mut self, idx: &usize, n: &Node, delta: Vec2) {
+    pub(crate) fn move_node(&mut self, idx: &usize, n: &Node, delta: Vec2) {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.modify_location(n, delta),
             None => {
@@ -27,7 +23,7 @@ impl Changes {
         };
     }
 
-    pub fn scale_node(&mut self, idx: &usize, n: &Node, factor: f32) {
+    pub(crate) fn scale_node(&mut self, idx: &usize, n: &Node, factor: f32) {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.scale(n, factor),
             None => {
@@ -38,7 +34,7 @@ impl Changes {
         };
     }
 
-    pub fn select_node(&mut self, idx: &usize, n: &Node) {
+    pub(crate) fn select_node(&mut self, idx: &usize, n: &Node) {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.select(n),
             None => {
@@ -49,7 +45,7 @@ impl Changes {
         };
     }
 
-    pub fn set_dragged_node(&mut self, idx: &usize, n: &Node) {
+    pub(crate) fn set_dragged_node(&mut self, idx: &usize, n: &Node) {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.set_drag(n),
             None => {
@@ -60,7 +56,7 @@ impl Changes {
         };
     }
 
-    pub fn unset_dragged_node(&mut self, idx: &usize, n: &Node) {
+    pub(crate) fn unset_dragged_node(&mut self, idx: &usize, n: &Node) {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.unset_drag(n),
             None => {
@@ -71,7 +67,7 @@ impl Changes {
         };
     }
 
-    pub fn deselect_node(&mut self, idx: &usize, n: &Node) {
+    pub(crate) fn deselect_node(&mut self, idx: &usize, n: &Node) {
         match self.nodes.get_mut(idx) {
             Some(changes_node) => changes_node.deselect(n),
             None => {
@@ -82,7 +78,7 @@ impl Changes {
         };
     }
 
-    pub fn select_edge(&mut self, idx: &(usize, usize, usize), e: &Edge) {
+    pub(crate) fn select_edge(&mut self, idx: &(usize, usize, usize), e: &Edge) {
         match self.edges.get_mut(idx) {
             Some(changes_edge) => changes_edge.select(e),
             None => {
@@ -93,7 +89,7 @@ impl Changes {
         };
     }
 
-    pub fn deselect_edge(&mut self, idx: &(usize, usize, usize), e: &Edge) {
+    pub(crate) fn deselect_edge(&mut self, idx: &(usize, usize, usize), e: &Edge) {
         match self.edges.get_mut(idx) {
             Some(changes_edge) => changes_edge.deselect(e),
             None => {
@@ -104,7 +100,7 @@ impl Changes {
         };
     }
 
-    pub fn scale_edge(&mut self, e: &Edge, factor: f32) {
+    pub(crate) fn scale_edge(&mut self, e: &Edge, factor: f32) {
         let key = e.id();
         match self.edges.get_mut(&key) {
             Some(changes_edge) => changes_edge.scale(e, factor),
@@ -128,12 +124,12 @@ pub struct ChangesNode {
 }
 
 impl ChangesNode {
-    pub fn modify_location(&mut self, n: &Node, delta: Vec2) {
+    fn modify_location(&mut self, n: &Node, delta: Vec2) {
         let location = self.location.get_or_insert(n.location);
         *location += delta;
     }
 
-    pub fn scale(&mut self, n: &Node, factor: f32) {
+    fn scale(&mut self, n: &Node, factor: f32) {
         let radius = self.radius.get_or_insert(n.radius);
         *radius *= factor;
     }
@@ -170,7 +166,7 @@ pub struct ChangesEdge {
 }
 
 impl ChangesEdge {
-    pub fn scale(&mut self, n: &Edge, factor: f32) {
+    fn scale(&mut self, n: &Edge, factor: f32) {
         let width = self.width.get_or_insert(n.width);
         *width *= factor;
 
