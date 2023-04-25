@@ -36,6 +36,25 @@ impl Elements {
         &mut self.edges
     }
 
+    /// Applies changes to the nodes and edges in the current graph.
+    ///
+    /// The function takes in a reference to a `Changes` struct, which contains
+    /// the changes to be made to the nodes and edges. The changes are applied
+    /// sequentially by iterating over the nodes and edges in the `Changes` struct.
+    /// Default changes are applied for the corresponding change, and the user-provided
+    /// callback functions are called only if there is a change for the corresponding node or edge.
+    /// The callback functions are applied after the default changes have been applied.
+    ///
+    /// # Arguments
+    ///
+    /// * `changes` - A reference to a `Changes` struct containing the changes to be applied
+    /// to the nodes and edges.
+    /// * `change_node_callback` - A mutable reference to a closure that takes a mutable
+    /// reference to a `Node` and a reference to a `ChangesNode`. This callback is called
+    /// after applying changes to each node, if there is a change for the corresponding node.
+    /// * `change_edge_callback` - A mutable reference to a closure that takes a mutable
+    /// reference to an `Edge` and a reference to a `ChangesEdge`. This callback is called
+    /// after applying changes to each edge, if there is a change for the corresponding edge.
     pub fn apply_changes<'a>(
         &mut self,
         changes: &'a Changes,
