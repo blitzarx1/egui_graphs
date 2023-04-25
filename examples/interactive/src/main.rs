@@ -38,8 +38,8 @@ impl InteractiveApp {
         let (simulation, elements) = construct_simulation(NODE_COUNT, EDGE_COUNT);
         Self {
             simulation,
-            settings,
             elements,
+            settings,
 
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
@@ -87,14 +87,13 @@ impl InteractiveApp {
         if self.simulation_stopped {
             return;
         }
-        
+
         // the following manipulations is a hack to avoid having looped edges in the simulation
         // because they cause the simulation to blow up; this is the issue of the fdg_sim engine
         // we use for the simulation
         // * remove loop edges
         // * update simulation
         // * restore loop edges
-
 
         let looped_nodes = {
             // remove looped edges
@@ -141,87 +140,6 @@ impl InteractiveApp {
                 self.fps_history.remove(0);
             }
         }
-    }
-
-    fn apply_changes(&mut self, changes: Changes) {
-        if !changes.is_some() {
-            return;
-        }
-
-        changes.nodes.iter().for_each(|(idx, change)| {
-            if let Some(location_change) = change.location {
-                let sim_node = self
-                    .simulation
-                    .get_graph_mut()
-                    .node_weight_mut(NodeIndex::new(*idx))
-                    .unwrap();
-                sim_node.location = Vec3::new(location_change.x, location_change.y, 0.);
-                sim_node.velocity = sim_node.location - sim_node.old_location;
-
-                let el_node = self.elements.get_node_mut(idx).unwrap();
-                el_node.location = location_change;
-            }
-            if let Some(radius_change) = change.radius {
-                let node = self.elements.get_node_mut(idx).unwrap();
-                node.radius = radius_change;
-            }
-            if let Some(color_change) = change.color {
-                let node = self.elements.get_node_mut(idx).unwrap();
-                node.color = color_change;
-            }
-            if let Some(dragged_change) = change.dragged {
-                let node = self.elements.get_node_mut(idx).unwrap();
-                node.dragged = dragged_change;
-            }
-            if let Some(selected_change) = change.selected {
-                let node = self.elements.get_node_mut(idx).unwrap();
-                node.selected = selected_change;
-
-                // select all connected nodes and edges
-                self.simulation
-                    .get_graph()
-                    .neighbors(NodeIndex::new(*idx))
-                    .for_each(|neighbour| {
-                        let node = self.elements.get_node_mut(&neighbour.index()).unwrap();
-                        node.selected = selected_change;
-
-                        if let Some(edges_from) =
-                            self.elements.get_edges_between_mut(idx, &neighbour.index())
-                        {
-                            edges_from.iter_mut().for_each(|edge| {
-                                edge.selected = selected_change;
-                            });
-                        }
-
-                        if let Some(edges_to) =
-                            self.elements.get_edges_between_mut(&neighbour.index(), idx)
-                        {
-                            edges_to.iter_mut().for_each(|edge| {
-                                edge.selected = selected_change;
-                            });
-                        }
-                    });
-            }
-        });
-
-        changes.edges.iter().for_each(|(idx, change)| {
-            if let Some(width_change) = change.width {
-                let edge = self.elements.get_edge_mut(idx).unwrap();
-                edge.width = width_change;
-            }
-            if let Some(curve_size_change) = change.curve_size {
-                let edge = self.elements.get_edge_mut(idx).unwrap();
-                edge.curve_size = curve_size_change;
-            }
-            if let Some(tip_size_change) = change.tip_size {
-                let edge = self.elements.get_edge_mut(idx).unwrap();
-                edge.tip_size = tip_size_change;
-            }
-            if let Some(selected_change) = change.selected {
-                let edge = self.elements.get_edge_mut(idx).unwrap();
-                edge.selected = selected_change;
-            }
-        });
     }
 }
 
@@ -353,7 +271,11 @@ impl App for InteractiveApp {
             ui.add(widget);
         });
 
-        self.apply_changes(widget.last_changes());
+        apply_changes(
+            &widget.last_changes(),
+            &mut self.simulation,
+            &mut self.elements,
+        );
     }
 }
 
@@ -381,7 +303,7 @@ fn construct_simulation(
     let mut edges = HashMap::with_capacity(edge_count);
     simulation.get_graph().node_indices().for_each(|idx| {
         let loc = simulation.get_graph().node_weight(idx).unwrap().location;
-        nodes.insert(idx.index(), Node::new(Vec2::new(loc.x, loc.y)));
+        nodes.insert(idx.index(), Node::new(idx.index(), Vec2::new(loc.x, loc.y)));
     });
     simulation.get_graph().edge_indices().for_each(|idx| {
         let (source, target) = simulation.get_graph().edge_endpoints(idx).unwrap();
@@ -424,6 +346,59 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> petgraph::Grap
     }
 
     graph
+}
+
+fn apply_changes(
+    changes: &Changes,
+    simulation: &mut Simulation<usize, String>,
+    elements: &mut Elements,
+) {
+    let mut selected = 0;
+    let mut selected_neighbours = HashMap::new();
+
+    elements.apply_changes(
+        changes,
+        &mut |node, change| {
+            if let Some(location_change) = change.location {
+                // sync new location caused by dragging with simulation
+                let sim_node = simulation
+                    .get_graph_mut()
+                    .node_weight_mut(NodeIndex::new(node.id))
+                    .unwrap();
+                sim_node.location = Vec3::new(location_change.x, location_change.y, 0.);
+                sim_node.velocity = sim_node.location - sim_node.old_location;
+            }
+
+            if let Some(selected_change) = change.selected {
+                // chose all connected nodes and edges
+                selected = node.id;
+                simulation
+                    .get_graph()
+                    .neighbors(NodeIndex::new(node.id))
+                    .for_each(|neighbour| {
+                        selected_neighbours.insert(neighbour.index(), selected_change);
+                    });
+            }
+        },
+        &mut |_, _| {},
+    );
+
+    // select all connected nodes and edges
+    selected_neighbours.iter().for_each(|(node, selection)| {
+        elements.get_node_mut(node).unwrap().selected = *selection;
+
+        if let Some(edges) = elements.get_edges_between_mut(&selected, node) {
+            edges.iter_mut().for_each(|edge| {
+                edge.selected = *selection;
+            });
+        }
+
+        if let Some(edges) = elements.get_edges_between_mut(node, &selected) {
+            edges.iter_mut().for_each(|edge| {
+                edge.selected = *selection;
+            });
+        }
+    });
 }
 
 fn main() {

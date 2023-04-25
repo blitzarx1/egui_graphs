@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use egui::{Color32, Vec2};
 
+use crate::{Changes, ChangesEdge, ChangesNode};
+
 /// Struct `Elements` represents the collection of all nodes and edges in a graph.
 /// It is passed to the GraphView widget and is used to draw the graph.
 pub struct Elements {
@@ -32,6 +34,73 @@ impl Elements {
 
     pub fn get_edges_mut(&mut self) -> &mut HashMap<(usize, usize), Vec<Edge>> {
         &mut self.edges
+    }
+
+    /// Applies changes to the nodes and edges in the current graph.
+    ///
+    /// The function takes in a reference to a `Changes` struct, which contains
+    /// the changes to be made to the nodes and edges. The changes are applied
+    /// sequentially by iterating over the nodes and edges in the `Changes` struct.
+    /// Default changes are applied for the corresponding change, and the user-provided
+    /// callback functions are called only if there is a change for the corresponding node or edge.
+    /// The callback functions are applied after the default changes have been applied.
+    ///
+    /// # Arguments
+    ///
+    /// * `changes` - A reference to a `Changes` struct containing the changes to be applied
+    /// to the nodes and edges.
+    /// * `change_node_callback` - A mutable reference to a closure that takes a mutable
+    /// reference to a `Node` and a reference to a `ChangesNode`. This callback is called
+    /// after applying changes to each node, if there is a change for the corresponding node.
+    /// * `change_edge_callback` - A mutable reference to a closure that takes a mutable
+    /// reference to an `Edge` and a reference to a `ChangesEdge`. This callback is called
+    /// after applying changes to each edge, if there is a change for the corresponding edge.
+    pub fn apply_changes<'a>(
+        &mut self,
+        changes: &'a Changes,
+        change_node_callback: &'a mut dyn FnMut(&mut Node, &ChangesNode),
+        change_edge_callback: &'a mut dyn FnMut(&mut Edge, &ChangesEdge),
+    ) {
+        for (idx, change) in changes.nodes.iter() {
+            if let Some(node) = self.get_node_mut(idx) {
+                if let Some(location_change) = change.location {
+                    node.location = location_change;
+                }
+                if let Some(radius_change) = change.radius {
+                    node.radius = radius_change;
+                }
+                if let Some(color_change) = change.color {
+                    node.color = color_change;
+                }
+                if let Some(dragged_change) = change.dragged {
+                    node.dragged = dragged_change;
+                }
+                if let Some(selected_change) = change.selected {
+                    node.selected = selected_change;
+                }
+
+                change_node_callback(node, change);
+            }
+        }
+
+        for (idx, change) in changes.edges.iter() {
+            if let Some(edge) = self.get_edge_mut(idx) {
+                if let Some(width_change) = change.width {
+                    edge.width = width_change;
+                }
+                if let Some(curve_size_change) = change.curve_size {
+                    edge.curve_size = curve_size_change;
+                }
+                if let Some(tip_size_change) = change.tip_size {
+                    edge.tip_size = tip_size_change;
+                }
+                if let Some(selected_change) = change.selected {
+                    edge.selected = selected_change;
+                }
+
+                change_edge_callback(edge, change);
+            }
+        }
     }
 
     /// Returns all directed edges between two nodes as mutable
@@ -73,6 +142,7 @@ impl Elements {
 
 #[derive(Clone, Debug)]
 pub struct Node {
+    pub id: usize,
     pub location: Vec2,
 
     pub color: Color32,
@@ -83,8 +153,9 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(location: Vec2) -> Self {
+    pub fn new(id: usize, location: Vec2) -> Self {
         Self {
+            id,
             location,
 
             color: Color32::from_rgb(255, 255, 255),
@@ -100,6 +171,7 @@ impl Node {
             location: self.location * zoom + pan,
             radius: self.radius * zoom,
 
+            id: self.id,
             color: self.color,
             selected: self.selected,
             dragged: self.dragged,
