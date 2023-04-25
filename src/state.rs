@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-/// FrameState stores the state of the graph elements
+/// `FrameState` stores the state of the graph elements
 /// in the current frame. It is created and destroyed by the widget
 /// on every frame.
 #[derive(Default)]
