@@ -25,9 +25,6 @@ pub struct GraphView<'a> {
     elements: &'a Elements,
     settings: &'a Settings,
 
-    top_left_pos: Vec2,
-    down_right_pos: Vec2,
-
     changes: RefCell<Changes>,
 }
 
@@ -38,7 +35,8 @@ impl<'a> Widget for &GraphView<'a> {
 
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
-        let state = self.draw_and_sync(&painter, &metadata);
+        self.fit_if_first(&response, &mut metadata);
+        let state = self.draw_and_sync(&painter, &mut metadata);
 
         self.handle_drags(&response, &state, &mut metadata, &mut changes);
         self.handle_clicks(&response, &state, &mut metadata, &mut changes);
@@ -57,14 +55,9 @@ impl<'a> Widget for &GraphView<'a> {
 
 impl<'a> GraphView<'a> {
     pub fn new(elements: &'a Elements, settings: &'a Settings) -> Self {
-        let (top_left_pos, down_right_pos) = get_bounds(elements);
-
         Self {
             elements,
             settings,
-
-            top_left_pos,
-            down_right_pos,
 
             changes: Default::default(),
         }
@@ -78,6 +71,17 @@ impl<'a> GraphView<'a> {
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
         Metadata::default().store(ui);
+    }
+
+    /// Fits the graph to the screen if it is the first frame
+    fn fit_if_first(&self, r: &Response, m: &mut Metadata) {
+        if !m.first_frame {
+            return;
+        }
+
+        m.graph_bounds = compute_graph_bounds(self.elements);
+        self.fit_to_screen(&r.rect, m);
+        m.first_frame = false;
     }
 
     // TODO: optimize this full scan run with quadtree or similar.
@@ -160,7 +164,7 @@ impl<'a> GraphView<'a> {
     }
 
     fn unset_dragged_node(&self, state: &State, changes: &mut Changes) {
-        if let Some(idx) = state.get_dragged_node() {
+        if let Some(idx) = state.dragged_node() {
             let n = self.elements.get_node(&idx).unwrap();
             changes.unset_dragged_node(&idx, n);
         }
@@ -183,22 +187,22 @@ impl<'a> GraphView<'a> {
             }
         }
 
-        if response.dragged() && state.get_dragged_node().is_some() {
-            let node_idx_dragged = state.get_dragged_node().unwrap();
+        if response.dragged() && state.dragged_node().is_some() {
+            let node_idx_dragged = state.dragged_node().unwrap();
             let node_dragged = self.elements.get_node(&node_idx_dragged).unwrap();
 
             let delta_in_graph_coords = response.drag_delta() / metadata.zoom;
             changes.move_node(&node_idx_dragged, node_dragged, delta_in_graph_coords);
         }
 
-        if response.drag_released() && state.get_dragged_node().is_some() {
+        if response.drag_released() && state.dragged_node().is_some() {
             self.unset_dragged_node(state, changes)
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, state: &mut Metadata, graph_bounds: (Vec2, Vec2)) {
+    fn fit_to_screen(&self, rect: &Rect, metadata: &mut Metadata) {
         // calculate graph dimensions with decorative padding
-        let diag = graph_bounds.1 - graph_bounds.0;
+        let diag = metadata.graph_bounds.max - metadata.graph_bounds.min;
         let graph_size = diag * (1. + SCREEN_PADDING);
         let (width, height) = (graph_size.x, graph_size.y);
 
@@ -214,14 +218,16 @@ impl<'a> GraphView<'a> {
         let new_zoom = zoom_x.min(zoom_y);
 
         // calculate the zoom delta and call handle_zoom to adjust the zoom factor
-        let zoom_delta = new_zoom / state.zoom - 1.0;
-        let (new_zoom, _) = self.handle_zoom(rect, zoom_delta, None, state);
+        let zoom_delta = new_zoom / metadata.zoom - 1.0;
+        let (new_zoom, _) = self.handle_zoom(rect, zoom_delta, None, metadata);
 
         // calculate the center of the graph and the canvas
-        let graph_center = (graph_bounds.0 + graph_bounds.1) / 2.0;
+        let graph_center =
+            (metadata.graph_bounds.min.to_vec2() + metadata.graph_bounds.max.to_vec2()) / 2.0;
 
         // adjust the pan value to align the centers of the graph and the canvas
-        (state.zoom, state.pan) = (new_zoom, rect.center().to_vec2() - graph_center * new_zoom)
+        (metadata.zoom, metadata.pan) =
+            (new_zoom, rect.center().to_vec2() - graph_center * new_zoom)
     }
 
     fn handle_navigation(
@@ -232,11 +238,7 @@ impl<'a> GraphView<'a> {
         metadata: &mut Metadata,
     ) {
         if self.settings.fit_to_screen {
-            return self.fit_to_screen(
-                &response.rect,
-                metadata,
-                (self.top_left_pos, self.down_right_pos),
-            );
+            return self.fit_to_screen(&response.rect, metadata);
         }
         if !self.settings.zoom_and_pan {
             return;
@@ -253,7 +255,7 @@ impl<'a> GraphView<'a> {
                 self.handle_zoom(&response.rect, step, i.pointer.hover_pos(), metadata);
         });
 
-        if response.dragged() && state.get_dragged_node().is_none() {
+        if response.dragged() && state.dragged_node().is_none() {
             (new_zoom, new_pan) = (new_zoom, metadata.pan + response.drag_delta());
         }
 
@@ -281,7 +283,7 @@ impl<'a> GraphView<'a> {
         )
     }
 
-    fn draw_and_sync(&self, p: &Painter, metadata: &Metadata) -> State {
+    fn draw_and_sync(&self, p: &Painter, metadata: &mut Metadata) -> State {
         let mut state = State::default();
 
         self.draw_and_sync_edges(p, &mut state, metadata);
@@ -449,12 +451,27 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    fn draw_and_sync_nodes(&self, p: &Painter, state: &mut State, metadata: &Metadata) {
+    fn draw_and_sync_nodes(&self, p: &Painter, state: &mut State, metadata: &mut Metadata) {
+        let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
         self.elements.get_nodes().iter().for_each(|(idx, n)| {
+            if n.location.x < min_x {
+                min_x = n.location.x;
+            };
+            if n.location.y < min_y {
+                min_y = n.location.y;
+            };
+            if n.location.x > max_x {
+                max_x = n.location.x;
+            };
+            if n.location.y > max_y {
+                max_y = n.location.y;
+            };
             GraphView::sync_node(self, idx, state, n);
-
             GraphView::draw_node(p, n, metadata);
         });
+
+        metadata.graph_bounds =
+            Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
     }
 
     fn sync_node(&self, idx: &usize, state: &mut State, node: &Node) {
@@ -502,7 +519,7 @@ impl<'a> GraphView<'a> {
     }
 }
 
-fn get_bounds(elements: &Elements) -> (Vec2, Vec2) {
+fn compute_graph_bounds(elements: &Elements) -> Rect {
     let mut min_x: f32 = MAX;
     let mut min_y = MAX;
     let mut max_x = MIN;
@@ -523,7 +540,7 @@ fn get_bounds(elements: &Elements) -> (Vec2, Vec2) {
         };
     });
 
-    (Vec2::new(min_x, min_y), Vec2::new(max_x, max_y))
+    Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y))
 }
 
 fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
