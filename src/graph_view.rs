@@ -497,24 +497,24 @@ impl<'a> GraphView<'a> {
     }
 
     fn draw_node_interacted(loc: Pos2, p: &Painter, node: &Node) {
-        let stroke_highlight = Stroke::new(
-            node.radius,
-            Color32::from_rgba_unmultiplied(255, 255, 255, 128),
-        );
-        let stroke_dragged = Stroke::new(
-            node.radius,
-            Color32::from_rgba_unmultiplied(255, 0, 255, 128),
-        );
         let highlight_radius = node.radius * 1.5;
 
         // draw a border around the dragged node
+        let stroke_dragged = Stroke::new(
+            node.radius,
+            Color32::from_rgba_unmultiplied(255, 255, 255, 128),
+        );
         if node.dragged {
-            p.circle_stroke(loc, highlight_radius, stroke_highlight);
+            p.circle_stroke(loc, highlight_radius, stroke_dragged);
         }
 
         // draw a border around the selected node
+        let stroke_highlight = Stroke::new(
+            node.radius,
+            Color32::from_rgba_unmultiplied(255, 0, 255, 128),
+        );
         if node.selected {
-            p.circle_stroke(loc, highlight_radius, stroke_dragged)
+            p.circle_stroke(loc, highlight_radius, stroke_highlight)
         };
     }
 }
