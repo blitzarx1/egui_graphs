@@ -69,9 +69,9 @@ Create a helper function called `generate_graph()` that initializes the nodes an
 ```rust 
 fn generate_graph() -> Elements {
     let mut nodes = HashMap::new();
-    nodes.insert(0, Node::new(egui::Vec2::new(0., 30.)));
-    nodes.insert(1, Node::new(egui::Vec2::new(-30., 0.)));
-    nodes.insert(2, Node::new(egui::Vec2::new(30., 0.)));
+    nodes.insert(0, Node::new(0, egui::Vec2::new(0., 30.)));
+    nodes.insert(1, Node::new(1,egui::Vec2::new(-30., 0.)));
+    nodes.insert(2, Node::new(2,egui::Vec2::new(30., 0.)));
     
     let mut edges = HashMap::new();
     edges.insert((0, 1), vec![Edge::new(0, 1, 0)]);
