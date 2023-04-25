@@ -42,12 +42,4 @@ impl Metadata {
             data.insert_persisted(Id::null(), self);
         });
     }
-
-    pub fn graph_bounds(&self) -> Rect {
-        self.graph_bounds
-    }
-
-    pub fn set_graph_bounds(&mut self, bounds: Rect) {
-        self.graph_bounds = bounds;
-    }
 }
