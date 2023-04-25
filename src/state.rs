@@ -1,14 +1,23 @@
 use std::collections::HashSet;
 
-#[derive(Default)]
 pub struct State {
     dragged_node: Option<usize>,
     selected_nodes: HashSet<usize>,
     selected_edges: HashSet<(usize, usize, usize)>,
 }
 
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            dragged_node: None,
+            selected_nodes: HashSet::new(),
+            selected_edges: HashSet::new(),
+        }
+    }
+}
+
 impl State {
-    pub fn get_dragged_node(&self) -> Option<usize> {
+    pub fn dragged_node(&self) -> Option<usize> {
         self.dragged_node
     }
 

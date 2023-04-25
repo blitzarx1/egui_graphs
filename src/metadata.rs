@@ -1,7 +1,9 @@
-use egui::{Id, Vec2};
+use egui::{Id, Rect, Vec2};
 
 #[derive(Clone)]
 pub struct Metadata {
+    /// If the frame is the first one
+    pub first_frame: bool,
     /// Current zoom factor
     pub zoom: f32,
     /// Current pan offset
@@ -10,15 +12,19 @@ pub struct Metadata {
     pub top_left_pos: Vec2,
     /// Bottom right node position in the graph
     pub down_right_pos: Vec2,
+    /// Stores the bounds of the graph
+    pub graph_bounds: Rect,
 }
 
 impl Default for Metadata {
     fn default() -> Self {
         Self {
+            first_frame: true,
             zoom: 1.,
             pan: Default::default(),
             top_left_pos: Default::default(),
             down_right_pos: Default::default(),
+            graph_bounds: Rect::from_two_pos(egui::Pos2::default(), egui::Pos2::default()),
         }
     }
 }
@@ -35,5 +41,13 @@ impl Metadata {
         ui.data_mut(|data| {
             data.insert_persisted(Id::null(), self);
         });
+    }
+
+    pub fn graph_bounds(&self) -> Rect {
+        self.graph_bounds
+    }
+
+    pub fn set_graph_bounds(&mut self, bounds: Rect) {
+        self.graph_bounds = bounds;
     }
 }
