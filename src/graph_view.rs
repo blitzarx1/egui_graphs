@@ -36,6 +36,7 @@ impl<'a> Widget for &GraphView<'a> {
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
         self.fit_if_first(&response, &mut metadata);
+
         let state = self.draw_and_sync(&painter, &mut metadata);
 
         self.handle_drags(&response, &state, &mut metadata, &mut changes);
@@ -509,7 +510,6 @@ impl<'a> GraphView<'a> {
         // draw a border around the dragged node
         if node.dragged {
             p.circle_stroke(loc, highlight_radius, stroke_highlight);
-            return;
         }
 
         // draw a border around the selected node
