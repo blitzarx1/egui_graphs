@@ -34,7 +34,42 @@ documentation, tests, example        | [ ]
 </pre>
 
 ---
+## Applying changes from GraphView widget
 
+The `GraphView` widget in the egui_graphs crate provides a way to visualize a graph and interact with it by dragging nodes, selecting nodes and edges, and more. However, in order to update the underlying graph data structure with these changes, we need to apply the changes returned by the widget after each frame.
+
+This is where the `Elements` struct comes in. The `Elements` struct contains the graph data that is used to render the `GraphView` widget, and provides methods to apply changes to this data.
+
+The simplest way to apply changes is to call the `apply_changes` method on the `Elements` struct. This method accepts a `Changes` struct which contains information about the changes that were made in the `GraphView` widget, and applies these changes to the `Elements` struct. For example:
+
+```rust
+let mut elements = construct_elements();
+let changes = graph_view.last_changes();
+elements.apply_changes(changes, &mut on_node_change, &mut on_edge_change);
+```
+
+In this example, `construct_elements()` is a function that creates an initial `Elements` struct, and `graph_view` is a reference to the `GraphView` widget. The `last_changes` method on the GraphView widget returns a `Changes` struct containing the changes made in the widget. Finally, the `apply_changes` method on the `Elements` struct applies these changes, calling the `on_node_change` and `on_edge_change` callbacks for each node and edge that was changed after default changes has been applied.
+
+The `apply_changes` method is flexible and allows for custom behavior when changes are applied. For example, if you want to update some external data structure when a node is moved in the `GraphView` widget, you can provide a callback function to the `apply_changes` method:
+
+```rust
+fn on_node_change(node: &mut Node, change: &NodeChange) {
+    if let Some(location_change) = change.location {
+        // update external data structure with new location
+        update_location(node.id, location_change.x, location_change.y);
+    }
+}
+
+let mut elements = construct_elements();
+let changes = graph_view.last_changes();
+elements.apply_changes(changes, &mut on_node_change, &mut on_edge_change);
+```
+
+In this example, the `on_node_change` function is called for each node that was changed in the `GraphView` widget. If the `location` field in the `NodeChange` struct is present, the function updates some external data structure with the new location of the node.
+
+By using the `apply_changes` method and providing custom callback functions, we can easily apply changes made in the `GraphView` widget to our graph data structure and perform any additional tasks we need to when changes are made.
+
+---
 ## Examples
 
 ![ezgif-4-3e4e4469e6](https://user-images.githubusercontent.com/32969427/233863786-11459176-b741-4343-8b42-7d9b3a8239ee.gif)
