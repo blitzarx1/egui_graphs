@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Settings {
+pub struct InteractionsSettings {
     /// Fit graph to the screen
     pub fit_to_screen: bool,
 
@@ -16,7 +16,7 @@ pub struct Settings {
     pub node_multiselect: bool,
 }
 
-impl Default for Settings {
+impl Default for InteractionsSettings {
     fn default() -> Self {
         Self {
             fit_to_screen: true,
