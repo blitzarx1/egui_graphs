@@ -115,6 +115,7 @@ impl<'a> GraphView<'a> {
             return;
         }
 
+        // click on empty space
         let node = self.node_by_pos(metadata, response.hover_pos().unwrap());
         if node.is_none() {
             self.deselect_all_nodes(state, changes);
@@ -122,27 +123,19 @@ impl<'a> GraphView<'a> {
             return;
         }
 
-        let (idx, n) = node.unwrap();
-        if n.selected {
-            self.deselect_node(&idx, changes);
-            return;
-        }
-        self.select_node(&idx, state, changes);
+
+        let (idx, _) = node.unwrap();
+        self.handle_node_click(&idx, state, changes);
     }
 
-    fn select_node(&self, idx: &usize, state: &FrameState, changes: &mut Changes) {
-        let n = self.elements.get_node(idx).unwrap();
-
-        if !self.settings.node_multiselect && !state.selected_nodes().is_empty() {
+    fn handle_node_click(&self, idx: &usize, state: &FrameState, changes: &mut Changes) {
+        if !self.settings.node_multiselect {
             self.deselect_all_nodes(state, changes);
+            self.deselect_all_edges(state, changes);
         }
 
-        changes.select_node(idx, n);
-    }
-
-    fn deselect_node(&self, idx: &usize, changes: &mut Changes) {
         let n = self.elements.get_node(idx).unwrap();
-        changes.deselect_node(idx, n);
+        changes.select_node(idx, n);
     }
 
     fn deselect_all_nodes(&self, state: &FrameState, changes: &mut Changes) {
