@@ -7,23 +7,22 @@ use crate::{
     changes::Changes,
     elements::{Elements, Node},
     metadata::Metadata,
-    settings::InteractionsSettings,
+    settings::SettingsInteraction,
     state::FrameState,
-    Edge,
+    Edge, SettingsNavigation,
 };
 use egui::{
     epaint::{CircleShape, CubicBezierShape, QuadraticBezierShape},
     Color32, Painter, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, Widget,
 };
 
-const SCREEN_PADDING: f32 = 0.3;
-const ZOOM_STEP: f32 = 0.1;
 const ARROW_ANGLE: f32 = std::f32::consts::TAU / 50.;
 
 #[derive(Clone)]
 pub struct GraphView<'a> {
     elements: &'a Elements,
-    interactions_settings: InteractionsSettings,
+    setings_interaction: SettingsInteraction,
+    setings_navigation: SettingsNavigation,
     changes_sender: Option<&'a Sender<Changes>>,
 }
 
@@ -53,19 +52,26 @@ impl<'a> GraphView<'a> {
         Self {
             elements,
 
-            interactions_settings: Default::default(),
+            setings_interaction: Default::default(),
+            setings_navigation: Default::default(),
             changes_sender: Default::default(),
         }
     }
 
     /// Makes widget interactive
-    pub fn interactive(
+    pub fn with_interactions(
         mut self,
-        interaction_settings: &InteractionsSettings,
+        settings_interaction: &SettingsInteraction,
         changes_sender: &'a Sender<Changes>,
     ) -> Self {
         self.changes_sender = Some(changes_sender);
-        self.interactions_settings = interaction_settings.clone();
+        self.setings_interaction = settings_interaction.clone();
+        self
+    }
+
+    /// Set navigation settings
+    pub fn with_navigations(mut self, settings_navigation: &SettingsNavigation) -> Self {
+        self.setings_navigation = settings_navigation.clone();
         self
     }
 
@@ -108,7 +114,7 @@ impl<'a> GraphView<'a> {
     }
 
     fn handle_clicks(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
-        if !self.interactions_settings.node_select {
+        if !self.setings_interaction.node_select {
             return;
         }
         if !response.clicked() {
@@ -134,7 +140,7 @@ impl<'a> GraphView<'a> {
             return;
         }
 
-        if !self.interactions_settings.node_multiselect {
+        if !self.setings_interaction.node_multiselect {
             self.deselect_all_nodes(state);
             self.deselect_all_edges(state);
         }
@@ -196,7 +202,7 @@ impl<'a> GraphView<'a> {
     }
 
     fn handle_drags(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
-        if !self.interactions_settings.node_drag {
+        if !self.setings_interaction.node_drag {
             return;
         }
 
@@ -220,7 +226,7 @@ impl<'a> GraphView<'a> {
     fn fit_to_screen(&self, rect: &Rect, metadata: &mut Metadata) {
         // calculate graph dimensions with decorative padding
         let diag = metadata.graph_bounds.max - metadata.graph_bounds.min;
-        let graph_size = diag * (1. + SCREEN_PADDING);
+        let graph_size = diag * (1. + self.setings_navigation.screen_padding);
         let (width, height) = (graph_size.x, graph_size.y);
 
         // calculate canvas dimensions
@@ -254,10 +260,10 @@ impl<'a> GraphView<'a> {
         state: &FrameState,
         metadata: &mut Metadata,
     ) {
-        if self.interactions_settings.fit_to_screen {
+        if self.setings_navigation.fit_to_screen {
             return self.fit_to_screen(&response.rect, metadata);
         }
-        if !self.interactions_settings.zoom_and_pan {
+        if !self.setings_navigation.zoom_and_pan {
             return;
         }
 
@@ -267,7 +273,7 @@ impl<'a> GraphView<'a> {
             if delta == 1. {
                 return;
             }
-            let step = ZOOM_STEP * (1. - delta).signum();
+            let step = self.setings_navigation.zoom_step * (1. - delta).signum();
             (new_zoom, new_pan) =
                 self.handle_zoom(&response.rect, step, i.pointer.hover_pos(), metadata);
         });
@@ -636,7 +642,7 @@ impl<'a> GraphView<'a> {
 
         GraphView::draw_node_basic(loc, p, node)
             .into_iter()
-            .chain(GraphView::shapes_interacted(loc, node).into_iter())
+            .chain(GraphView::draw_node_interacted(loc, node).into_iter())
             .collect()
     }
 
@@ -654,7 +660,7 @@ impl<'a> GraphView<'a> {
         }]
     }
 
-    fn shapes_interacted(loc: Pos2, node: &Node) -> Vec<CircleShape> {
+    fn draw_node_interacted(loc: Pos2, node: &Node) -> Vec<CircleShape> {
         if !(node.selected || node.dragged) {
             return vec![];
         }
