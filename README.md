@@ -75,25 +75,23 @@ By using the `apply_changes` method and providing custom callback functions, we 
 ![ezgif-4-3e4e4469e6](https://user-images.githubusercontent.com/32969427/233863786-11459176-b741-4343-8b42-7d9b3a8239ee.gif)
 
 ### Basic
-#### Step 1: Setting up the ExampleApp struct. 
+#### Step 1: Setting up the BasicApp struct. 
 
-First, let's define the `ExampleApp` struct that will hold the graph elements and settings. The struct contains two fields: `elements` and `settings`. The elements field stores the graph's nodes and edges, while settings contains the configuration options for the GraphView widget.
+First, let's define the `BasicApp` struct that will hold the graph elements and settings. The struct contains two fields: `elements` and `settings`. The elements field stores the graph's nodes and edges, while settings contains the configuration options for the GraphView widget.
 ```rust 
-pub struct ExampleApp {
+pub struct BasicApp {
     elements: Elements,
-    settings: Settings,
 }
 ```
 
 #### Step 2: Implementing the new() function. 
 
-Next, implement the `new()` function for the `ExampleApp` struct. This function initializes the graph settings with default values and generates the graph elements.
+Next, implement the `new()` function for the `BasicApp` struct. This function initializes the graph settings with default values and generates the graph elements.
 ```rust
-impl ExampleApp {
+impl BasicApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let settings = Settings::default();
         let elements = generate_graph();
-        Self { settings, elements }
+        Self { elements }
     }
 }
 ```
@@ -104,28 +102,27 @@ Create a helper function called `generate_graph()` that initializes the nodes an
 ```rust 
 fn generate_graph() -> Elements {
     let mut nodes = HashMap::new();
-    nodes.insert(0, Node::new(0, egui::Vec2::new(0., 30.)));
-    nodes.insert(1, Node::new(1,egui::Vec2::new(-30., 0.)));
-    nodes.insert(2, Node::new(2,egui::Vec2::new(30., 0.)));
-    
+    nodes.insert(0, Node::new(0, egui::Vec2::new(0., SIDE_SIZE)));
+    nodes.insert(1, Node::new(1, egui::Vec2::new(-SIDE_SIZE, 0.)));
+    nodes.insert(2, Node::new(2, egui::Vec2::new(SIDE_SIZE, 0.)));
+
     let mut edges = HashMap::new();
     edges.insert((0, 1), vec![Edge::new(0, 1, 0)]);
     edges.insert((1, 2), vec![Edge::new(1, 2, 0)]);
-    edges.insert((2, 0), vec![Edge::new(2, 0, 0)]);   
-    
+    edges.insert((2, 0), vec![Edge::new(2, 0, 0)]);
+
     Elements::new(nodes, edges)
 }
 ```
 
 #### Step 4: Implementing the update() function. 
 
-Now, implement the `update()` function for the `ExampleApp`. This function creates a `GraphView` widget with the `elements` and `settings`, and adds it to the central panel using the `ui.add()` function.
+Now, implement the `update()` function for the `BasicApp`. This function creates a `GraphView` widget with the `elements`, and adds it to the central panel using the `ui.add()` function.
 ```rust 
-impl App for ExampleApp {
+impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        let widget = &GraphView::new(&self.elements, &self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(widget);
+            ui.add(GraphView::new(&self.elements));
         });
     }
 }
@@ -133,14 +130,14 @@ impl App for ExampleApp {
 
 #### Step 5: Running the application. 
 
-Finally, run the application using the `run_native()` function with the specified native options and the `ExampleApp`.
+Finally, run the application using the `run_native()` function with the specified native options and the `BasicApp`.
 ```rust 
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
         "egui_graphs_basic_demo",
         native_options,
-        Box::new(|cc| Box::new(ExampleApp::new(cc))),
+        Box::new(|cc| Box::new(BasicApp::new(cc))),
     )
     .unwrap();
 }
