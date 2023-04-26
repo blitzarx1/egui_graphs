@@ -12,8 +12,8 @@ use crate::{
     Edge,
 };
 use egui::{
-    epaint::{CubicBezierShape, QuadraticBezierShape},
-    Color32, Painter, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget,
+    epaint::{CircleShape, CubicBezierShape, QuadraticBezierShape},
+    Color32, Painter, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, Widget,
 };
 
 const SCREEN_PADDING: f32 = 0.3;
@@ -287,13 +287,44 @@ impl<'a> GraphView<'a> {
     fn draw_and_sync(&self, p: &Painter, metadata: &mut Metadata) -> FrameState {
         let mut state = FrameState::default();
 
-        self.draw_and_sync_edges(p, &mut state, metadata);
-        self.draw_and_sync_nodes(p, &mut state, metadata);
+        let edges_shapes = self.draw_and_sync_edges(p, &mut state, metadata);
+        let nodes_shapes = self.draw_and_sync_nodes(p, &mut state, metadata);
+
+        self.draw_edges_shapes(p, edges_shapes);
+        self.draw_nodes_shapes(p, nodes_shapes);
 
         state
     }
 
-    fn draw_and_sync_edges(&self, p: &Painter, state: &mut FrameState, metadata: &Metadata) {
+    fn draw_edges_shapes(
+        &self,
+        p: &Painter,
+        shapes: (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>),
+    ) {
+        shapes.0.into_iter().for_each(|shape| {
+            p.add(shape);
+        });
+        shapes.1.into_iter().for_each(|shape| {
+            p.add(shape);
+        });
+        shapes.2.into_iter().for_each(|shape| {
+            p.add(shape);
+        });
+    }
+
+    fn draw_nodes_shapes(&self, p: &Painter, shapes: Vec<CircleShape>) {
+        shapes.into_iter().for_each(|shape| {
+            p.add(shape);
+        });
+    }
+
+    fn draw_and_sync_edges(
+        &self,
+        p: &Painter,
+        state: &mut FrameState,
+        metadata: &Metadata,
+    ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
+        let mut shapes = (Vec::new(), Vec::new(), Vec::new());
         self.elements.get_edges().iter().for_each(|(idx, edges)| {
             let mut order = edges.len();
             edges.iter().enumerate().for_each(|(list_idx, e)| {
@@ -306,9 +337,20 @@ impl<'a> GraphView<'a> {
 
                 let start_node = self.elements.get_node(&edge.start).unwrap();
                 let end_node = self.elements.get_node(&edge.end).unwrap();
-                GraphView::draw_edge(&edge, p, start_node, end_node, metadata, order);
+                let selected =
+                    GraphView::draw_edge(&edge, p, start_node, end_node, metadata, order);
+                selected.0.into_iter().for_each(|shape| {
+                    shapes.0.push(shape);
+                });
+                selected.1.into_iter().for_each(|shape| {
+                    shapes.1.push(shape);
+                });
+                selected.2.into_iter().for_each(|shape| {
+                    shapes.2.push(shape);
+                });
             });
         });
+        shapes
     }
 
     fn sync_edge(state: &mut FrameState, idx: &(usize, usize, usize), e: &Edge) {
@@ -324,18 +366,36 @@ impl<'a> GraphView<'a> {
         n_end: &Node,
         metadata: &Metadata,
         order: usize,
-    ) {
+    ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
         let start_node = n_start.screen_transform(metadata.zoom, metadata.pan);
         let end_node = n_end.screen_transform(metadata.zoom, metadata.pan);
 
+        let mut selected_shapes = vec![];
+        let mut selected_quadratic = vec![];
+        let mut selected_cubic = vec![];
+
         if edge.start == edge.end {
-            GraphView::draw_edge_looped(p, &start_node, edge, order);
+            GraphView::draw_edge_looped(p, &start_node, edge, order)
+                .into_iter()
+                .for_each(|c| {
+                    selected_cubic.push(c);
+                });
         }
 
-        GraphView::draw_edge_basic(p, &start_node, &end_node, edge, order);
+        let shapes = GraphView::draw_edge_basic(p, &start_node, &end_node, edge, order);
+        shapes
+            .0
+            .into_iter()
+            .for_each(|shape| selected_shapes.push(shape));
+        shapes
+            .1
+            .into_iter()
+            .for_each(|shape| selected_quadratic.push(shape));
+
+        (selected_shapes, selected_cubic, selected_quadratic)
     }
 
-    fn draw_edge_looped(p: &Painter, n: &Node, e: &Edge, order: usize) {
+    fn draw_edge_looped(p: &Painter, n: &Node, e: &Edge, order: usize) -> Vec<CubicBezierShape> {
         let pos_start_and_end = n.location.to_pos2();
         let loop_size = n.radius * (4. + 1. + order as f32);
 
@@ -349,7 +409,7 @@ impl<'a> GraphView<'a> {
         );
 
         let stroke = Stroke::new(e.width, e.color);
-        p.add(CubicBezierShape::from_points_stroke(
+        let shape_basic = CubicBezierShape::from_points_stroke(
             [
                 pos_start_and_end,
                 control_point1,
@@ -359,28 +419,40 @@ impl<'a> GraphView<'a> {
             true,
             Color32::TRANSPARENT,
             stroke,
+        );
+
+        if !e.selected {
+            p.add(shape_basic);
+            return vec![];
+        }
+
+        let mut shapes = vec![shape_basic];
+        let highlighted_stroke = Stroke::new(
+            e.width * 2.,
+            Color32::from_rgba_unmultiplied(255, 0, 255, 128),
+        );
+        shapes.push(CubicBezierShape::from_points_stroke(
+            [
+                pos_start_and_end,
+                control_point1,
+                control_point2,
+                pos_start_and_end,
+            ],
+            true,
+            Color32::TRANSPARENT,
+            highlighted_stroke,
         ));
 
-        if e.selected {
-            let highlighted_stroke = Stroke::new(
-                e.width * 2.,
-                Color32::from_rgba_unmultiplied(255, 0, 255, 128),
-            );
-            p.add(CubicBezierShape::from_points_stroke(
-                [
-                    pos_start_and_end,
-                    control_point1,
-                    control_point2,
-                    pos_start_and_end,
-                ],
-                true,
-                Color32::TRANSPARENT,
-                highlighted_stroke,
-            ));
-        }
+        shapes
     }
 
-    fn draw_edge_basic(p: &Painter, n_start: &Node, n_end: &Node, e: &Edge, order: usize) {
+    fn draw_edge_basic(
+        p: &Painter,
+        n_start: &Node,
+        n_end: &Node,
+        e: &Edge,
+        order: usize,
+    ) -> (Vec<Shape>, Vec<QuadraticBezierShape>) {
         let pos_start = n_start.location.to_pos2();
         let pos_end = n_end.location.to_pos2();
 
@@ -402,57 +474,97 @@ impl<'a> GraphView<'a> {
 
         // draw straight edge
         if order == 0 {
+            let mut shapes = vec![];
             let head_point_1 = tip_point - e.tip_size * rotate_vector(dir, ARROW_ANGLE);
             let head_point_2 = tip_point - e.tip_size * rotate_vector(dir, -ARROW_ANGLE);
 
-            p.line_segment([start_point, tip_point], stroke);
-            p.line_segment([tip_point, head_point_1], stroke);
-            p.line_segment([tip_point, head_point_2], stroke);
+            shapes.push(Shape::line_segment([start_point, tip_point], stroke));
+            shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
+            shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
 
-            if e.selected {
-                p.line_segment([start_point, tip_point], highlighted_stroke);
-                p.line_segment([tip_point, head_point_1], highlighted_stroke);
-                p.line_segment([tip_point, head_point_2], highlighted_stroke);
+            if !e.selected {
+                shapes.into_iter().for_each(|shape| {
+                    p.add(shape);
+                });
+
+                return (vec![], vec![]);
             }
-        } else {
-            let dir_perpendicular = Vec2::new(-dir.y, dir.x);
-            let center_point = (start_point + tip_point.to_vec2()).to_vec2() / 2.0;
-            let control_point =
-                (center_point + dir_perpendicular * e.curve_size * order as f32).to_pos2();
 
-            let tip_vec = control_point - tip_point;
-            let tip_dir = tip_vec / tip_vec.length();
-            let tip_size = e.tip_size;
-
-            let arrow_tip_dir_1 = rotate_vector(tip_dir, ARROW_ANGLE) * tip_size;
-            let arrow_tip_dir_2 = rotate_vector(tip_dir, -ARROW_ANGLE) * tip_size;
-
-            let head_point_1 = tip_point + arrow_tip_dir_1;
-            let head_point_2 = tip_point + arrow_tip_dir_2;
-
-            p.add(QuadraticBezierShape::from_points_stroke(
-                [start_point, control_point, tip_point],
-                false,
-                Color32::TRANSPARENT,
-                stroke,
+            shapes.push(Shape::line_segment(
+                [start_point, tip_point],
+                highlighted_stroke,
             ));
-            p.line_segment([tip_point, head_point_1], stroke);
-            p.line_segment([tip_point, head_point_2], stroke);
+            shapes.push(Shape::line_segment(
+                [tip_point, head_point_1],
+                highlighted_stroke,
+            ));
+            shapes.push(Shape::line_segment(
+                [tip_point, head_point_2],
+                highlighted_stroke,
+            ));
 
-            if e.selected {
-                p.add(QuadraticBezierShape::from_points_stroke(
-                    [start_point, control_point, tip_point],
-                    false,
-                    Color32::TRANSPARENT,
-                    highlighted_stroke,
-                ));
-                p.line_segment([tip_point, head_point_1], highlighted_stroke);
-                p.line_segment([tip_point, head_point_2], highlighted_stroke);
-            }
+            return (shapes, vec![]);
         }
+
+        let mut shapes = vec![];
+        let mut quadratic_shapes = vec![];
+        let dir_perpendicular = Vec2::new(-dir.y, dir.x);
+        let center_point = (start_point + tip_point.to_vec2()).to_vec2() / 2.0;
+        let control_point =
+            (center_point + dir_perpendicular * e.curve_size * order as f32).to_pos2();
+
+        let tip_vec = control_point - tip_point;
+        let tip_dir = tip_vec / tip_vec.length();
+        let tip_size = e.tip_size;
+
+        let arrow_tip_dir_1 = rotate_vector(tip_dir, ARROW_ANGLE) * tip_size;
+        let arrow_tip_dir_2 = rotate_vector(tip_dir, -ARROW_ANGLE) * tip_size;
+
+        let head_point_1 = tip_point + arrow_tip_dir_1;
+        let head_point_2 = tip_point + arrow_tip_dir_2;
+
+        quadratic_shapes.push(QuadraticBezierShape::from_points_stroke(
+            [start_point, control_point, tip_point],
+            false,
+            Color32::TRANSPARENT,
+            stroke,
+        ));
+        shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
+        shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
+
+        if !e.selected {
+            shapes.into_iter().for_each(|shape| {
+                p.add(shape);
+            });
+
+            return (vec![], vec![]);
+        }
+
+        quadratic_shapes.push(QuadraticBezierShape::from_points_stroke(
+            [start_point, control_point, tip_point],
+            false,
+            Color32::TRANSPARENT,
+            highlighted_stroke,
+        ));
+        shapes.push(Shape::line_segment(
+            [tip_point, head_point_1],
+            highlighted_stroke,
+        ));
+        shapes.push(Shape::line_segment(
+            [tip_point, head_point_2],
+            highlighted_stroke,
+        ));
+
+        (shapes, quadratic_shapes)
     }
 
-    fn draw_and_sync_nodes(&self, p: &Painter, state: &mut FrameState, metadata: &mut Metadata) {
+    fn draw_and_sync_nodes(
+        &self,
+        p: &Painter,
+        state: &mut FrameState,
+        metadata: &mut Metadata,
+    ) -> Vec<CircleShape> {
+        let mut shapes = vec![];
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
         self.elements.get_nodes().iter().for_each(|(idx, n)| {
             // update graph bounds
@@ -480,11 +592,17 @@ impl<'a> GraphView<'a> {
             };
 
             GraphView::sync_node(self, idx, state, n);
-            GraphView::draw_node(p, n, metadata);
+            GraphView::draw_node(p, n, metadata)
+                .into_iter()
+                .for_each(|shape| {
+                    shapes.push(shape);
+                });
         });
 
         metadata.graph_bounds =
             Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
+
+        shapes
     }
 
     fn sync_node(&self, idx: &usize, state: &mut FrameState, node: &Node) {
@@ -496,38 +614,60 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    fn draw_node(p: &Painter, n: &Node, metadata: &Metadata) {
+    fn draw_node(p: &Painter, n: &Node, metadata: &Metadata) -> Vec<CircleShape> {
         let node = &n.screen_transform(metadata.zoom, metadata.pan);
         let loc = node.location.to_pos2();
 
-        GraphView::draw_node_basic(loc, p, node);
-        GraphView::draw_node_interacted(loc, p, node);
+        GraphView::draw_node_basic(loc, p, node)
+            .into_iter()
+            .chain(GraphView::shapes_interacted(loc, node).into_iter())
+            .collect()
     }
 
-    fn draw_node_basic(loc: Pos2, p: &Painter, node: &Node) {
-        p.circle_filled(loc, node.radius, node.color);
-    }
-
-    fn draw_node_interacted(loc: Pos2, p: &Painter, node: &Node) {
-        let highlight_radius = node.radius * 1.5;
-
-        // draw a border around the dragged node
-        let stroke_dragged = Stroke::new(
-            node.radius,
-            Color32::from_rgba_unmultiplied(255, 255, 255, 128),
-        );
-        if node.dragged {
-            p.circle_stroke(loc, highlight_radius, stroke_dragged);
+    fn draw_node_basic(loc: Pos2, p: &Painter, node: &Node) -> Vec<CircleShape> {
+        if !(node.selected || node.dragged) {
+            p.circle_filled(loc, node.radius, node.color);
+            return vec![];
         }
 
+        vec![CircleShape {
+            center: loc,
+            radius: node.radius,
+            fill: node.color,
+            stroke: Stroke::new(1., node.color),
+        }]
+    }
+
+    fn shapes_interacted(loc: Pos2, node: &Node) -> Vec<CircleShape> {
+        if !(node.selected || node.dragged) {
+            return vec![];
+        }
+
+        let mut shapes = vec![];
+        let highlight_radius = node.radius * 1.5;
+
         // draw a border around the selected node
-        let stroke_highlight = Stroke::new(
-            node.radius,
-            Color32::from_rgba_unmultiplied(255, 0, 255, 128),
-        );
+        let highlight_color = Color32::from_rgba_unmultiplied(255, 0, 255, 128);
         if node.selected {
-            p.circle_stroke(loc, highlight_radius, stroke_highlight)
+            shapes.push(CircleShape {
+                center: loc,
+                radius: highlight_radius,
+                fill: Color32::TRANSPARENT,
+                stroke: Stroke::new(node.radius, highlight_color),
+            });
         };
+
+        // draw a border around the dragged node
+        let dragged_color = Color32::from_rgba_unmultiplied(255, 255, 255, 128);
+        if node.dragged {
+            shapes.push(CircleShape {
+                center: loc,
+                radius: highlight_radius,
+                fill: Color32::TRANSPARENT,
+                stroke: Stroke::new(node.radius, dragged_color),
+            });
+        }
+        shapes
     }
 }
 
