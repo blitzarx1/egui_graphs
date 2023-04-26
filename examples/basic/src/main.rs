@@ -2,28 +2,25 @@ use std::collections::HashMap;
 
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Edge, Elements, GraphView, Node, Settings};
+use egui_graphs::{Edge, Elements, GraphView, Node};
 
 const SIDE_SIZE: f32 = 50.;
 
 pub struct BasicApp {
     elements: Elements,
-    settings: Settings,
 }
 
 impl BasicApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let settings = Settings::default();
         let elements = generate_graph();
-        Self { settings, elements }
+        Self { elements }
     }
 }
 
 impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        let widget = &GraphView::new(&self.elements, &self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(widget);
+            ui.add(GraphView::new(&self.elements));
         });
     }
 }

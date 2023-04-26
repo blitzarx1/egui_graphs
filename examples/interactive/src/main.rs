@@ -1,9 +1,10 @@
+use std::sync::mpsc::{Receiver, Sender};
 use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Vec2};
-use egui_graphs::{Changes, Edge, Elements, GraphView, Node, Settings};
+use egui_graphs::{Changes, Edge, Elements, GraphView, InteractionsSettings, Node};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::NodeIndex;
@@ -19,7 +20,7 @@ const FPS_LINE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
 pub struct InteractiveApp {
     simulation: Simulation<usize, String>,
     elements: Elements,
-    settings: Settings,
+    interaction_settings: InteractionsSettings,
 
     selected_nodes: Vec<Node>,
     selected_edges: Vec<Edge>,
@@ -30,16 +31,23 @@ pub struct InteractiveApp {
     fps_history: Vec<f64>,
     last_update_time: Instant,
     frames_last_time_span: usize,
+
+    changes_receiver: Receiver<Changes>,
+    changes_sender: Sender<Changes>,
 }
 
 impl InteractiveApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let settings = Settings::default();
+        let settings = InteractionsSettings::default();
         let (simulation, elements) = construct_simulation(NODE_COUNT, EDGE_COUNT);
+        let (changes_sender, changes_receiver) = std::sync::mpsc::channel();
         Self {
             simulation,
             elements,
-            settings,
+            interaction_settings: settings,
+
+            changes_receiver,
+            changes_sender,
 
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
@@ -162,18 +170,18 @@ impl App for InteractiveApp {
                         ui.separator();
 
                         if ui
-                            .checkbox(&mut self.settings.fit_to_screen, "autofit")
+                            .checkbox(&mut self.interaction_settings.fit_to_screen, "autofit")
                             .changed()
-                            && self.settings.fit_to_screen
+                            && self.interaction_settings.fit_to_screen
                         {
-                            self.settings.zoom_and_pan = false
+                            self.interaction_settings.zoom_and_pan = false
                         };
                         ui.label("Enable autofit to fit the graph to the screen on every frame.");
 
                         ui.add_space(5.);
 
-                        ui.add_enabled_ui(!self.settings.fit_to_screen, |ui| {
-                            ui.checkbox(&mut self.settings.zoom_and_pan, "pan & zoom")
+                        ui.add_enabled_ui(!self.interaction_settings.fit_to_screen, |ui| {
+                            ui.checkbox(&mut self.interaction_settings.zoom_and_pan, "pan & zoom")
                                 .on_disabled_hover_text("disabled autofit to enable pan & zoom");
                             ui.label("Enable pan and zoom. To pan use LMB + drag and to zoom use Ctrl + Mouse Wheel.");
                         });
@@ -183,18 +191,18 @@ impl App for InteractiveApp {
                         ui.label("Interactions");
                         ui.separator();
 
-                        ui.checkbox(&mut self.settings.node_drag, "drag");
+                        ui.checkbox(&mut self.interaction_settings.node_drag, "drag");
                         ui.label("Enable drag. To drag use LMB + drag on a node.");
 
                         ui.add_space(5.);
 
-                        ui.checkbox(&mut self.settings.node_select, "select");
+                        ui.checkbox(&mut self.interaction_settings.node_select, "select");
                         ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
 
                         ui.add_space(5.);
 
-                        ui.add_enabled_ui(self.settings.node_select, |ui| {
-                            ui.checkbox(&mut self.settings.node_multiselect, "multiselect")
+                        ui.add_enabled_ui(self.interaction_settings.node_select, |ui| {
+                            ui.checkbox(&mut self.interaction_settings.node_multiselect, "multiselect")
                                 .on_disabled_hover_text("enable select to enable multiselect");
                             ui.label("Enable multiselect to select multiple nodes.");
                         });
@@ -266,16 +274,16 @@ impl App for InteractiveApp {
                 });
             });
         });
-        let widget = &GraphView::new(&self.elements, &self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(widget);
+            ui.add(
+                GraphView::new(&self.elements)
+                    .interactive(&self.interaction_settings, &self.changes_sender),
+            );
         });
 
-        apply_changes(
-            &widget.last_changes(),
-            &mut self.simulation,
-            &mut self.elements,
-        );
+        self.changes_receiver.try_iter().for_each(|changes| {
+            apply_changes(&changes, &mut self.simulation, &mut self.elements);
+        });
     }
 }
 

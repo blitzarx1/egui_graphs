@@ -1,13 +1,13 @@
 use std::{
-    cell::RefCell,
     f32::{MAX, MIN},
+    sync::mpsc::Sender,
 };
 
 use crate::{
     changes::Changes,
     elements::{Elements, Node},
     metadata::Metadata,
-    settings::Settings,
+    settings::InteractionsSettings,
     state::FrameState,
     Edge,
 };
@@ -23,15 +23,13 @@ const ARROW_ANGLE: f32 = std::f32::consts::TAU / 50.;
 #[derive(Clone)]
 pub struct GraphView<'a> {
     elements: &'a Elements,
-    settings: &'a Settings,
-
-    changes: RefCell<Changes>,
+    interactions_settings: InteractionsSettings,
+    changes_sender: Option<&'a Sender<Changes>>,
 }
 
-impl<'a> Widget for &GraphView<'a> {
+impl<'a> Widget for GraphView<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut metadata = Metadata::get(ui);
-        let mut changes = Changes::default();
 
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
@@ -39,34 +37,36 @@ impl<'a> Widget for &GraphView<'a> {
 
         let state = self.draw_and_sync(&painter, &mut metadata);
 
-        self.handle_drags(&response, &state, &mut metadata, &mut changes);
-        self.handle_clicks(&response, &state, &mut metadata, &mut changes);
+        self.handle_drags(&response, &state, &mut metadata);
+        self.handle_clicks(&response, &state, &mut metadata);
         self.handle_navigation(ui, &response, &state, &mut metadata);
 
         metadata.store(ui);
         ui.ctx().request_repaint();
-
-        // TODO: pass to response or similar to avoid mutability and usage of refcell and implementing
-        // widget for pointer
-        *self.changes.borrow_mut() = changes;
 
         response
     }
 }
 
 impl<'a> GraphView<'a> {
-    pub fn new(elements: &'a Elements, settings: &'a Settings) -> Self {
+    pub fn new(elements: &'a Elements) -> Self {
         Self {
             elements,
-            settings,
 
-            changes: Default::default(),
+            interactions_settings: Default::default(),
+            changes_sender: Default::default(),
         }
     }
 
-    /// Returns changes from the last frame
-    pub fn last_changes(&self) -> Changes {
-        self.changes.borrow().to_owned()
+    /// Makes widget interactive
+    pub fn interactive(
+        mut self,
+        interaction_settings: &InteractionsSettings,
+        changes_sender: &'a Sender<Changes>,
+    ) -> Self {
+        self.changes_sender = Some(changes_sender);
+        self.interactions_settings = interaction_settings.clone();
+        self
     }
 
     /// Resets navigation metadata
@@ -101,14 +101,14 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    fn handle_clicks(
-        &self,
-        response: &Response,
-        state: &FrameState,
-        metadata: &mut Metadata,
-        changes: &mut Changes,
-    ) {
-        if !self.settings.node_select {
+    fn send_changes(&self, changes: Changes) {
+        if let Some(sender) = self.changes_sender {
+            sender.send(changes).unwrap();
+        }
+    }
+
+    fn handle_clicks(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
+        if !self.interactions_settings.node_select {
             return;
         }
         if !response.clicked() {
@@ -118,79 +118,87 @@ impl<'a> GraphView<'a> {
         // click on empty space
         let node = self.node_by_pos(metadata, response.hover_pos().unwrap());
         if node.is_none() {
-            self.deselect_all_nodes(state, changes);
-            self.deselect_all_edges(state, changes);
+            self.deselect_all_nodes(state);
+            self.deselect_all_edges(state);
             return;
         }
 
-
         let (idx, _) = node.unwrap();
-        self.handle_node_click(&idx, state, changes);
+        self.handle_node_click(&idx, state);
     }
 
-    fn handle_node_click(&self, idx: &usize, state: &FrameState, changes: &mut Changes) {
-        if !self.settings.node_multiselect {
-            self.deselect_all_nodes(state, changes);
-            self.deselect_all_edges(state, changes);
+    fn handle_node_click(&self, idx: &usize, state: &FrameState) {
+        if !self.interactions_settings.node_multiselect {
+            self.deselect_all_nodes(state);
+            self.deselect_all_edges(state);
         }
 
         let n = self.elements.get_node(idx).unwrap();
+        let mut changes = Changes::default();
         changes.select_node(idx, n);
+        self.send_changes(changes);
     }
 
-    fn deselect_all_nodes(&self, state: &FrameState, changes: &mut Changes) {
+    fn deselect_all_nodes(&self, state: &FrameState) {
+        let mut changes = Changes::default();
         state.selected_nodes().iter().for_each(|idx| {
             let n = self.elements.get_node(idx).unwrap();
             changes.deselect_node(idx, n);
         });
+        self.send_changes(changes);
     }
 
-    fn deselect_all_edges(&self, state: &FrameState, changes: &mut Changes) {
+    fn deselect_all_edges(&self, state: &FrameState) {
+        let mut changes = Changes::default();
         state.selected_edges().iter().for_each(|idx| {
             let e = self.elements.get_edge(idx).unwrap();
             changes.deselect_edge(idx, e);
         });
+        self.send_changes(changes);
     }
 
-    fn set_dragged_node(&self, idx: &usize, changes: &mut Changes) {
+    fn set_dragged_node(&self, idx: &usize) {
         let n = self.elements.get_node(idx).unwrap();
+        let mut changes = Changes::default();
         changes.set_dragged_node(idx, n);
+        self.send_changes(changes);
     }
 
-    fn unset_dragged_node(&self, state: &FrameState, changes: &mut Changes) {
+    fn unset_dragged_node(&self, state: &FrameState) {
         if let Some(idx) = state.dragged_node() {
             let n = self.elements.get_node(&idx).unwrap();
+            let mut changes = Changes::default();
             changes.unset_dragged_node(&idx, n);
+            self.send_changes(changes);
         }
     }
 
-    fn handle_drags(
-        &self,
-        response: &Response,
-        state: &FrameState,
-        metadata: &mut Metadata,
-        changes: &mut Changes,
-    ) {
-        if !self.settings.node_drag {
+    fn move_node(&self, idx: &usize, delta: Vec2) {
+        let n = self.elements.get_node(idx).unwrap();
+        let mut changes = Changes::default();
+        changes.move_node(idx, n, delta);
+        self.send_changes(changes);
+    }
+
+    fn handle_drags(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
+        if !self.interactions_settings.node_drag {
             return;
         }
 
         if response.drag_started() {
             if let Some((idx, _)) = self.node_by_pos(metadata, response.hover_pos().unwrap()) {
-                self.set_dragged_node(&idx, changes)
+                self.set_dragged_node(&idx);
             }
         }
 
         if response.dragged() && state.dragged_node().is_some() {
             let node_idx_dragged = state.dragged_node().unwrap();
-            let node_dragged = self.elements.get_node(&node_idx_dragged).unwrap();
-
             let delta_in_graph_coords = response.drag_delta() / metadata.zoom;
-            changes.move_node(&node_idx_dragged, node_dragged, delta_in_graph_coords);
+            self.move_node(&node_idx_dragged, delta_in_graph_coords);
         }
 
         if response.drag_released() && state.dragged_node().is_some() {
-            self.unset_dragged_node(state, changes)
+            self.unset_dragged_node(state);
         }
     }
 
@@ -231,10 +239,10 @@ impl<'a> GraphView<'a> {
         state: &FrameState,
         metadata: &mut Metadata,
     ) {
-        if self.settings.fit_to_screen {
+        if self.interactions_settings.fit_to_screen {
             return self.fit_to_screen(&response.rect, metadata);
         }
-        if !self.settings.zoom_and_pan {
+        if !self.interactions_settings.zoom_and_pan {
             return;
         }
 
