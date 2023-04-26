@@ -36,7 +36,7 @@ documentation, tests, example        | [ ]
 ---
 ## Applying changes from GraphView widget
 
-The `GraphView` widget in the egui_graphs crate provides a way to visualize a graph and interact with it by dragging nodes, selecting nodes and edges, and more. However, in order to update the underlying graph data structure with these changes, we need to apply the changes returned by the widget after each frame.
+The `GraphView` widget in the egui_graphs crate provides a way to visualize a graph and interact with it by dragging nodes, selecting nodes and edges, and more. However, in order to update the underlying graph data structure with these changes, we need to apply the changes returned by the widget.
 
 This is where the `Elements` struct comes in. The `Elements` struct contains the graph data that is used to render the `GraphView` widget, and provides methods to apply changes to this data.
 
