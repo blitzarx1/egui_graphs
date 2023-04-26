@@ -128,14 +128,29 @@ impl<'a> GraphView<'a> {
     }
 
     fn handle_node_click(&self, idx: &usize, state: &FrameState) {
+        let n = self.elements.get_node(idx).unwrap();
+        if n.selected {
+            self.deselect_node(idx, n);
+            return;
+        }
+
         if !self.interactions_settings.node_multiselect {
             self.deselect_all_nodes(state);
             self.deselect_all_edges(state);
         }
 
-        let n = self.elements.get_node(idx).unwrap();
+        self.select_node(idx, n);
+    }
+
+    fn select_node(&self, idx: &usize, node: &Node) {
         let mut changes = Changes::default();
-        changes.select_node(idx, n);
+        changes.select_node(idx, node);
+        self.send_changes(changes);
+    }
+
+    fn deselect_node(&self, idx: &usize, node: &Node) {
+        let mut changes = Changes::default();
+        changes.deselect_node(idx, node);
         self.send_changes(changes);
     }
 
