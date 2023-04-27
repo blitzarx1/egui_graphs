@@ -1,23 +1,16 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
     /// Node dragging
     pub node_drag: bool,
 
-    /// Node selection
+    /// Allows clicking on nodes
+    pub node_click: bool,
+
+    /// Selects clicked node, enables node_click
     pub node_select: bool,
 
-    /// Multiselection for nodes
+    /// Multiselection for nodes, enables node_click
     pub node_multiselect: bool,
-}
-
-impl Default for SettingsInteraction {
-    fn default() -> Self {
-        Self {
-            node_drag: false,
-            node_select: false,
-            node_multiselect: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

@@ -23,12 +23,12 @@ impl Changes {
         };
     }
 
-    pub(crate) fn scale_node(&mut self, idx: &usize, n: &Node, factor: f32) {
+    pub(crate) fn click_node(&mut self, idx: &usize) {
         match self.nodes.get_mut(idx) {
-            Some(changes_node) => changes_node.scale(n, factor),
+            Some(changes_node) => changes_node.click(),
             None => {
                 let mut changes_node = ChangesNode::default();
-                changes_node.scale(n, factor);
+                changes_node.click();
                 self.nodes.insert(*idx, changes_node);
             }
         };
@@ -99,18 +99,6 @@ impl Changes {
             }
         };
     }
-
-    pub(crate) fn scale_edge(&mut self, e: &Edge, factor: f32) {
-        let key = e.id();
-        match self.edges.get_mut(&key) {
-            Some(changes_edge) => changes_edge.scale(e, factor),
-            None => {
-                let mut changes_edge = ChangesEdge::default();
-                changes_edge.scale(e, factor);
-                self.edges.insert(key, changes_edge);
-            }
-        };
-    }
 }
 
 /// Stores changes to the node properties
@@ -121,6 +109,7 @@ pub struct ChangesNode {
     pub radius: Option<f32>,
     pub selected: Option<bool>,
     pub dragged: Option<bool>,
+    pub clicked: Option<bool>,
 }
 
 impl ChangesNode {
@@ -153,6 +142,11 @@ impl ChangesNode {
         let dragged = self.dragged.get_or_insert(n.dragged);
         *dragged = false;
     }
+
+    fn click(&mut self) {
+        let clicked = self.clicked.get_or_insert(true);
+        *clicked = true;
+    }
 }
 
 /// Stores changes to the edge properties
@@ -166,17 +160,6 @@ pub struct ChangesEdge {
 }
 
 impl ChangesEdge {
-    fn scale(&mut self, n: &Edge, factor: f32) {
-        let width = self.width.get_or_insert(n.width);
-        *width *= factor;
-
-        let tip_size = self.tip_size.get_or_insert(n.tip_size);
-        *tip_size *= factor;
-
-        let curve_size = self.curve_size.get_or_insert(n.curve_size);
-        *curve_size *= factor;
-    }
-
     fn select(&mut self, n: &Edge) {
         let selected = self.selected.get_or_insert(n.selected);
         *selected = true;
