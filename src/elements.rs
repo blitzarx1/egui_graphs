@@ -71,9 +71,6 @@ impl Elements {
                 if let Some(radius_change) = change.radius {
                     node.radius = radius_change;
                 }
-                if let Some(color_change) = change.color {
-                    node.color = color_change;
-                }
                 if let Some(dragged_change) = change.dragged {
                     node.dragged = dragged_change;
                 }
@@ -87,15 +84,6 @@ impl Elements {
 
         for (idx, change) in changes.edges.iter() {
             if let Some(edge) = self.get_edge_mut(idx) {
-                if let Some(width_change) = change.width {
-                    edge.width = width_change;
-                }
-                if let Some(curve_size_change) = change.curve_size {
-                    edge.curve_size = curve_size_change;
-                }
-                if let Some(tip_size_change) = change.tip_size {
-                    edge.tip_size = tip_size_change;
-                }
                 if let Some(selected_change) = change.selected {
                     edge.selected = selected_change;
                 }
@@ -147,7 +135,7 @@ pub struct Node {
     pub id: usize,
     pub location: Vec2,
 
-    pub color: Color32,
+    pub color: Option<Color32>,
     pub radius: f32,
 
     pub selected: bool,
@@ -160,7 +148,7 @@ impl Node {
             id,
             location,
 
-            color: Color32::from_rgb(255, 255, 255),
+            color: None,
             radius: 5.,
 
             selected: false,
@@ -189,9 +177,10 @@ pub struct Edge {
 
     pub width: f32,
     pub tip_size: f32,
+    pub tip_angle: f32,
     pub curve_size: f32,
 
-    pub color: Color32,
+    pub color: Option<Color32>,
     pub selected: bool,
 }
 
@@ -204,9 +193,10 @@ impl Edge {
 
             width: 2.,
             tip_size: 15.,
+            tip_angle: std::f32::consts::TAU / 50.,
             curve_size: 20.,
 
-            color: Color32::from_rgb(128, 128, 128),
+            color: None,
             selected: false,
         }
     }
@@ -225,6 +215,7 @@ impl Edge {
             end: self.end,
             list_idx: self.list_idx,
             color: self.color,
+            tip_angle: self.tip_angle,
             selected: self.selected,
         }
     }

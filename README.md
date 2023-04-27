@@ -26,10 +26,8 @@ basic graph drawing                  | [x]
 self-references, multi-connections   | [x]
 zoom & pan, fit-to-screen            | [x]
 drag node                            | [x]
-select, multiselect.                 | [x]
-style customizations                 | [x]
-support egui dark/light theme        | [ ]
-interactions vs egui draw benchmarks | [ ]
+select, multiselect                 | [x]
+support egui dark/light theme        | [x]
 documentation, tests, example        | [ ]
 </pre>
 

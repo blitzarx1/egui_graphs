@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use egui::{Color32, Vec2};
+use egui::Vec2;
 
 use crate::{Edge, Node};
 
@@ -105,7 +105,6 @@ impl Changes {
 #[derive(Default, Clone)]
 pub struct ChangesNode {
     pub location: Option<Vec2>,
-    pub color: Option<Color32>,
     pub radius: Option<f32>,
     pub selected: Option<bool>,
     pub dragged: Option<bool>,
@@ -116,11 +115,6 @@ impl ChangesNode {
     fn modify_location(&mut self, n: &Node, delta: Vec2) {
         let location = self.location.get_or_insert(n.location);
         *location += delta;
-    }
-
-    fn scale(&mut self, n: &Node, factor: f32) {
-        let radius = self.radius.get_or_insert(n.radius);
-        *radius *= factor;
     }
 
     fn select(&mut self, n: &Node) {
@@ -152,10 +146,6 @@ impl ChangesNode {
 /// Stores changes to the edge properties
 #[derive(Default, Clone)]
 pub struct ChangesEdge {
-    pub color: Option<Color32>,
-    pub width: Option<f32>,
-    pub tip_size: Option<f32>,
-    pub curve_size: Option<f32>,
     pub selected: Option<bool>,
 }
 
