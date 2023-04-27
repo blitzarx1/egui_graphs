@@ -91,7 +91,8 @@ impl<'a> GraphView<'a> {
         m.first_frame = false;
     }
 
-    // TODO: optimize this full scan run with quadtree or similar.
+    // TODO: optimize this full scan run with quadtree or similar. Quadtree can be constructed
+    // on draw_and_sync run and used for operations like node_by_pos and similar.
     // need to modify `crate::elements::Elements` to store nodes in a quadtree
     // Is it really necessary?
     fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<(usize, &'a Node)> {
