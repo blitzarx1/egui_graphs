@@ -131,7 +131,7 @@ impl<'a> GraphView<'a> {
         }
 
         let (idx, _) = node.unwrap();
-        self.handle_node_click(&idx, state);
+        self.handle_node_click(idx, state);
     }
 
     fn handle_node_click(&self, idx: &usize, state: &FrameState) {
@@ -220,7 +220,7 @@ impl<'a> GraphView<'a> {
 
         if response.drag_started() {
             if let Some((idx, _)) = self.node_by_pos(metadata, response.hover_pos().unwrap()) {
-                self.set_dragged_node(&idx);
+                self.set_dragged_node(idx);
             }
         }
 
