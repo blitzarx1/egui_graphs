@@ -3,7 +3,7 @@ use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
-use egui::{CollapsingHeader, Color32, Context, ScrollArea, Vec2};
+use egui::{CollapsingHeader, Color32, Context, ScrollArea, Vec2, Visuals, Ui};
 use egui_graphs::{
     Changes, Edge, Elements, GraphView, Node, SettingsInteraction, SettingsNavigation,
 };
@@ -17,7 +17,9 @@ const NODE_COUNT: usize = 300;
 const EDGE_COUNT: usize = 500;
 const SIMULATION_DT: f32 = 0.035;
 const EDGE_SCALE_WEIGHT: f32 = 1.;
-const FPS_LINE_COLOR: Color32 = Color32::from_rgb(255, 255, 255);
+const FPS_LINE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
+const LIGHT_MODE_SYMBOL: &str = "🔆";
+const DARK_MODE_SYMBOL: &str = "🌙";
 
 pub struct InteractiveApp {
     simulation: Simulation<usize, String>,
@@ -30,6 +32,7 @@ pub struct InteractiveApp {
     selected_edges: Vec<Edge>,
 
     simulation_stopped: bool,
+    dark_mode: bool,
 
     fps: f64,
     fps_history: Vec<f64>,
@@ -58,6 +61,7 @@ impl InteractiveApp {
             selected_edges: Default::default(),
             
             simulation_stopped: false,
+            dark_mode: true,
             
             fps: 0.,
             fps_history: Default::default(),
@@ -154,6 +158,23 @@ impl InteractiveApp {
             }
         }
     }
+
+    fn draw_dark_mode(&mut self, ui: &mut Ui) {
+        if self.dark_mode {
+            ui.ctx().set_visuals(Visuals::dark())
+        } else {
+            ui.ctx().set_visuals(Visuals::light())
+        }
+
+        if ui.button({
+            match self.dark_mode {
+                true => format!("{} Light", LIGHT_MODE_SYMBOL),
+                false => format!("{} Dark", DARK_MODE_SYMBOL),
+            }
+        }).clicked() {
+            self.dark_mode = !self.dark_mode
+        };
+    }
 }
 
 impl App for InteractiveApp {
@@ -236,6 +257,13 @@ impl App for InteractiveApp {
                 CollapsingHeader::new("APP SETTINGS")
                     .default_open(true)
                     .show(ui, |ui| {
+                        ui.add_space(10.);
+
+                        ui.label("Theme");
+                        ui.separator();
+
+                        self.draw_dark_mode(ui);
+
                         ui.add_space(10.);
 
                         ui.label("Simulation");

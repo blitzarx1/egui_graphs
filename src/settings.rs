@@ -1,3 +1,5 @@
+use egui::Color32;
+
 #[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
     /// Node dragging
@@ -36,5 +38,41 @@ impl Default for SettingsNavigation {
             fit_to_screen: true,
             zoom_and_pan: false,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct SettingsStyle {
+    color_node: Color32,
+    color_edge: Color32,
+    pub color_highlight: Color32,
+    pub color_drag: Color32,
+}
+
+impl Default for SettingsStyle {
+    fn default() -> Self {
+        Self {
+            color_node: Color32::from_rgb(200, 200, 200), // Light Gray
+            color_edge: Color32::from_rgb(128, 128, 128), // Gray
+            color_highlight: Color32::from_rgba_unmultiplied(100, 149, 237, 153), // Cornflower Blue
+            color_drag: Color32::from_rgba_unmultiplied(240, 128, 128, 153), // Light Coral
+        }
+    }
+}
+
+impl SettingsStyle {
+    pub fn color_node(&self, ctx: &egui::Context) -> Color32 {
+        if ctx.style().visuals.dark_mode {
+            return self.color_node;
+        }
+
+        self.color_edge
+    }
+
+    pub fn color_edge(&self, ctx: &egui::Context) -> Color32 {
+        if ctx.style().visuals.dark_mode {
+            return self.color_edge;
+        }
+        self.color_node
     }
 }
