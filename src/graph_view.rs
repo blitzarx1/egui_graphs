@@ -37,7 +37,7 @@ impl<'a> Widget for GraphView<'a> {
         let state = self.draw_and_sync(&painter, &mut metadata);
 
         self.handle_drags(&response, &state, &mut metadata);
-        self.handle_clicks(&response, &state, &mut metadata);
+        self.handle_click(&response, &state, &mut metadata);
         self.handle_navigation(ui, &response, &state, &mut metadata);
 
         metadata.store(ui);
@@ -113,17 +113,21 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    fn handle_clicks(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
-        if !self.setings_interaction.node_select {
+    fn handle_click(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
+        if !response.clicked() {
             return;
         }
-        if !response.clicked() {
+
+        if !(self.setings_interaction.node_click
+            || self.setings_interaction.node_select
+            || self.setings_interaction.node_multiselect)
+        {
             return;
         }
 
         // click on empty space
         let node = self.node_by_pos(metadata, response.hover_pos().unwrap());
-        if node.is_none() {
+        if node.is_none() && self.setings_interaction.node_select {
             self.deselect_all_nodes(state);
             self.deselect_all_edges(state);
             return;
@@ -134,6 +138,11 @@ impl<'a> GraphView<'a> {
     }
 
     fn handle_node_click(&self, idx: &usize, state: &FrameState) {
+        if !self.setings_interaction.node_select {
+            self.click_node(idx);
+            return;
+        }
+
         let n = self.elements.get_node(idx).unwrap();
         if n.selected {
             self.deselect_node(idx, n);
@@ -146,6 +155,12 @@ impl<'a> GraphView<'a> {
         }
 
         self.select_node(idx, n);
+    }
+
+    fn click_node(&self, idx: &usize) {
+        let mut changes = Changes::default();
+        changes.click_node(idx);
+        self.send_changes(changes);
     }
 
     fn select_node(&self, idx: &usize, node: &Node) {

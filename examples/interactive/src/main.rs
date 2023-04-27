@@ -48,17 +48,17 @@ impl InteractiveApp {
             simulation,
             elements,
 
-            settings_interaction: Default::default(),
-            settings_navigation: Default::default(),
-
             changes_receiver,
             changes_sender,
 
+            settings_interaction: Default::default(),
+            settings_navigation: Default::default(),
+
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
-
+            
             simulation_stopped: false,
-
+            
             fps: 0.,
             fps_history: Default::default(),
             last_update_time: Instant::now(),
@@ -186,9 +186,10 @@ impl App for InteractiveApp {
                         ui.add_space(5.);
 
                         ui.add_enabled_ui(!self.settings_navigation.fit_to_screen, |ui| {
-                            ui.checkbox(&mut self.settings_navigation.zoom_and_pan, "pan & zoom")
-                                .on_disabled_hover_text("disabled autofit to enable pan & zoom");
-                            ui.label("Enable pan and zoom. To pan use LMB + drag and to zoom use Ctrl + Mouse Wheel.");
+                            ui.vertical(|ui| {
+                                ui.checkbox(&mut self.settings_navigation.zoom_and_pan, "pan & zoom");
+                                ui.label("Enable pan and zoom. To pan use LMB + drag and to zoom use Ctrl + Mouse Wheel.");
+                            }).response.on_disabled_hover_text("disabled autofit to enable pan & zoom");
                         });
 
                         ui.add_space(10.);
@@ -200,19 +201,20 @@ impl App for InteractiveApp {
                         ui.label("Enable drag. To drag use LMB + drag on a node.");
 
                         ui.add_space(5.);
-
-                        if ui.checkbox(&mut self.settings_interaction.node_select, "select").changed() && !self.settings_interaction.node_select {
-                            self.settings_interaction.node_multiselect = false;
-                        };
-                        ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
+                        
+                        ui.add_enabled_ui(!self.settings_interaction.node_multiselect, |ui| {
+                            ui.vertical(|ui| {
+                                ui.checkbox(&mut self.settings_interaction.node_select, "select").on_disabled_hover_text("multiselect enables select");
+                                ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
+                            }).response.on_disabled_hover_text("multiselect enables select");
+                        });
 
                         ui.add_space(5.);
 
-                        ui.add_enabled_ui(self.settings_interaction.node_select, |ui| {
-                            ui.checkbox(&mut self.settings_interaction.node_multiselect, "multiselect")
-                                .on_disabled_hover_text("enable select to enable multiselect");
-                            ui.label("Enable multiselect to select multiple nodes.");
-                        });
+                        if ui.checkbox(&mut self.settings_interaction.node_multiselect, "multiselect").changed() {
+                            self.settings_interaction.node_select = true;
+                        }
+                        ui.label("Enable multiselect to select multiple nodes.");
 
                         ui.add_space(5.);
 
