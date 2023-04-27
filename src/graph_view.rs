@@ -109,17 +109,14 @@ impl<'a> GraphView<'a> {
         m.first_frame = false;
     }
 
-    // TODO: optimize this full scan run with quadtree or similar. Quadtree can be constructed
-    // on draw_and_sync run and used for operations like node_by_pos and similar.
-    // need to modify `crate::elements::Elements` to store nodes in a quadtree
-    // Is it really necessary? Check with benchmarks.
     fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<(&usize, &'a Node)> {
-        let node_props = self.elements.get_nodes().iter().find(|(_, n)| {
-            // TODO: dont make screen transform for every node,
-            // just make once transform to the graph coordinates for the pos
-            let node = n.screen_transform(metadata.zoom, metadata.pan);
-            (node.location - pos.to_vec2()).length() <= node.radius
-        });
+        // transform pos to graph coordinates
+        let pos_in_graph = (pos - metadata.pan).to_vec2() / metadata.zoom;
+        let node_props = self
+            .elements
+            .get_nodes()
+            .iter()
+            .find(|(_, n)| (n.location - pos_in_graph).length() <= n.radius);
 
         node_props
     }
