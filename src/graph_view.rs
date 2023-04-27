@@ -48,6 +48,8 @@ impl<'a> Widget for GraphView<'a> {
 }
 
 impl<'a> GraphView<'a> {
+    /// Creates a new `GraphView` widget with default navigation and interactions settings.
+    /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
     pub fn new(elements: &'a Elements) -> Self {
         Self {
             elements,
@@ -58,7 +60,8 @@ impl<'a> GraphView<'a> {
         }
     }
 
-    /// Makes widget interactive
+    /// Makes widget interactive sending changes. Events which
+    /// are configured in `settings_interaction` are sent to the channel as soon as the occured.
     pub fn with_interactions(
         mut self,
         settings_interaction: &SettingsInteraction,
@@ -69,7 +72,7 @@ impl<'a> GraphView<'a> {
         self
     }
 
-    /// Set navigation settings
+    /// Modifies default behaviour of navigation settings.
     pub fn with_navigations(mut self, settings_navigation: &SettingsNavigation) -> Self {
         self.setings_navigation = settings_navigation.clone();
         self
@@ -97,6 +100,8 @@ impl<'a> GraphView<'a> {
     // Is it really necessary? Check with benchmarks.
     fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<(&usize, &'a Node)> {
         let node_props = self.elements.get_nodes().iter().find(|(_, n)| {
+            // TODO: dont make screen transform for every node, 
+            // just make once transform to the graph coordinates for the pos
             let node = n.screen_transform(metadata.zoom, metadata.pan);
             (node.location - pos.to_vec2()).length() <= node.radius
         });
