@@ -18,6 +18,21 @@ use egui::{
 
 const ARROW_ANGLE: f32 = std::f32::consts::TAU / 50.;
 
+/// GraphView is a widget for visualizing and interacting with graphs.
+///
+/// It implements egui::Widget and can be used like any other widget.
+///
+/// The widget uses a reference to the Elements struct to visualize the graph. You can
+/// customize the visualization and interaction behavior using SettingsInteraction and
+/// SettingsNavigation structs.
+///
+/// When any interaction supported by the widget occurs, it does not modify the provided Elements;
+/// instead, it sends a Changes struct to the provided Sender<Changes> channel, which can be set via
+/// the with_interactions method. It is up to the user to apply the changes to the Elements struct.
+///
+/// When the user performs navigation actions (zoom & pan, fit to screen), they do not
+/// produce changes. This is because these actions are performed on the global coordinates and do not change
+/// the position or scale of the graph elements.
 #[derive(Clone)]
 pub struct GraphView<'a> {
     elements: &'a Elements,
@@ -100,7 +115,7 @@ impl<'a> GraphView<'a> {
     // Is it really necessary? Check with benchmarks.
     fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<(&usize, &'a Node)> {
         let node_props = self.elements.get_nodes().iter().find(|(_, n)| {
-            // TODO: dont make screen transform for every node, 
+            // TODO: dont make screen transform for every node,
             // just make once transform to the graph coordinates for the pos
             let node = n.screen_transform(metadata.zoom, metadata.pan);
             (node.location - pos.to_vec2()).length() <= node.radius
