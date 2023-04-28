@@ -104,7 +104,7 @@ impl<'a> GraphView<'a> {
             return;
         }
 
-        m.graph_bounds = compute_graph_bounds(self.elements);
+        m.graph_bounds = self.elements.graph_bounds();
         self.fit_to_screen(&r.rect, m);
         m.first_frame = false;
     }
@@ -143,7 +143,6 @@ impl<'a> GraphView<'a> {
         let node = self.node_by_pos(metadata, response.hover_pos().unwrap());
         if node.is_none() && self.setings_interaction.node_select {
             self.deselect_all_nodes(state);
-            self.deselect_all_edges(state);
             return;
         }
 
@@ -165,7 +164,6 @@ impl<'a> GraphView<'a> {
 
         if !self.setings_interaction.node_multiselect {
             self.deselect_all_nodes(state);
-            self.deselect_all_edges(state);
         }
 
         self.select_node(idx, n);
@@ -194,15 +192,6 @@ impl<'a> GraphView<'a> {
         state.selected_nodes().iter().for_each(|idx| {
             let n = self.elements.get_node(idx).unwrap();
             changes.deselect_node(idx, n);
-        });
-        self.send_changes(changes);
-    }
-
-    fn deselect_all_edges(&self, state: &FrameState) {
-        let mut changes = Changes::default();
-        state.selected_edges().iter().for_each(|idx| {
-            let e = self.elements.get_edge(idx).unwrap();
-            changes.deselect_edge(idx, e);
         });
         self.send_changes(changes);
     }
@@ -293,7 +282,7 @@ impl<'a> GraphView<'a> {
         }
 
         self.handle_zoom(ui, response, metadata);
-        self.handle_pan(ui, response, state, metadata);
+        self.handle_pan(response, state, metadata);
     }
 
     fn handle_zoom(&self, ui: &Ui, response: &Response, metadata: &mut Metadata) {
@@ -311,7 +300,7 @@ impl<'a> GraphView<'a> {
         });
     }
 
-    fn handle_pan(&self, ui: &Ui, response: &Response, state: &FrameState, metadata: &mut Metadata) {
+    fn handle_pan(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
         if !self.setings_navigation.zoom_and_pan {
             return;
         }
@@ -731,34 +720,6 @@ impl<'a> GraphView<'a> {
         }
         shapes
     }
-}
-
-fn compute_graph_bounds(elements: &Elements) -> Rect {
-    let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
-
-    elements.get_nodes().iter().for_each(|(_, n)| {
-        let x_minus_rad = n.location.x - n.radius;
-        if x_minus_rad < min_x {
-            min_x = x_minus_rad;
-        };
-
-        let y_minus_rad = n.location.y - n.radius;
-        if y_minus_rad < min_y {
-            min_y = y_minus_rad;
-        };
-
-        let x_plus_rad = n.location.x + n.radius;
-        if x_plus_rad > max_x {
-            max_x = x_plus_rad;
-        };
-
-        let y_plus_rad = n.location.y + n.radius;
-        if y_plus_rad > max_y {
-            max_y = y_plus_rad;
-        };
-    });
-
-    Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y))
 }
 
 fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
