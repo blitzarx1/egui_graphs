@@ -2,7 +2,7 @@
 [![docs.rs](https://img.shields.io/docsrs/egui_graphs)](https://docs.rs/egui_graphs)
 
 # egui_graphs
-Grpah visualization with rust and [egui](https://github.com/emilk/egui)
+Graph visualization with rust and [egui](https://github.com/emilk/egui)
 
 ![Screenshot 2023-04-28 at 23 14 38](https://user-images.githubusercontent.com/32969427/235233765-23b0673b-70e5-4138-9384-180804392dba.png)
 
@@ -23,12 +23,14 @@ The `GraphView` widget provides a way to visualize a graph and interact with it 
 
 This is where the `Elements` struct comes in. The `Elements` struct contains the graph data that is used to render the `GraphView` widget, and provides a method to apply the changes to this data.
 
-The simplest way to apply changes is to call the `apply_changes` method on the `Elements` struct. This method accepts a `Changes` struct which contains information about the changes that were made in the `GraphView` widget, and applies these changes to the `Elements` struct.
+The simplest way to apply changes is to call the `apply_changes` method on the `Elements` struct. This method accepts a `Changes` struct which contains information about the changes that were made in the `GraphView` widget, and applies these changes to the `Elements` struct. Default operations for applying changes will be performed automatically when `apply_changes` method is called. User callback is needed to perfor any additional actions which can be required by the user's application.
 
 ```rust
 elements.apply_changes(changes, &mut |elements, node_idx, change| {
   // some additional manipulation with changed node using its idx `node_idx`
   // or manipulations with other elements via mutable reference to `elements`
+  
+  println!("changes for node {} applied", node_idx);
 })
 ```
 
