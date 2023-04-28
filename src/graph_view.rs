@@ -16,7 +16,7 @@ use egui::{
     Color32, Painter, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, Widget,
 };
 
-/// GraphView is a widget for visualizing and interacting with graphs.
+/// `GraphView` is a widget for visualizing and interacting with graphs.
 ///
 /// It implements `egui::Widget` and can be used like any other widget.
 ///
