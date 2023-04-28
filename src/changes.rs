@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use egui::Vec2;
 
-use crate::{Edge, Node};
+use crate::Node;
 
-/// Stores changes to the graph elements that are not yet applied
+/// Stores changes to the graph elements that are not yet applied.
+/// Currently stores changes only to the nodes as there are no
+/// actions which can be applied to the edges tracked by the GraphView widget.
 #[derive(Default, Clone)]
 pub struct Changes {
     pub(crate) nodes: HashMap<usize, ChangesNode>,
-    pub(crate) edges: HashMap<(usize, usize, usize), ChangesEdge>,
 }
 
 impl Changes {
@@ -77,28 +78,6 @@ impl Changes {
             }
         };
     }
-
-    pub(crate) fn select_edge(&mut self, idx: &(usize, usize, usize), e: &Edge) {
-        match self.edges.get_mut(idx) {
-            Some(changes_edge) => changes_edge.select(e),
-            None => {
-                let mut changes_edge = ChangesEdge::default();
-                changes_edge.select(e);
-                self.edges.insert(*idx, changes_edge);
-            }
-        };
-    }
-
-    pub(crate) fn deselect_edge(&mut self, idx: &(usize, usize, usize), e: &Edge) {
-        match self.edges.get_mut(idx) {
-            Some(changes_edge) => changes_edge.deselect(e),
-            None => {
-                let mut changes_edge = ChangesEdge::default();
-                changes_edge.deselect(e);
-                self.edges.insert(*idx, changes_edge);
-            }
-        };
-    }
 }
 
 /// Stores changes to the node properties
@@ -142,21 +121,72 @@ impl ChangesNode {
         *clicked = true;
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-/// Stores changes to the edge properties
-#[derive(Default, Clone)]
-pub struct ChangesEdge {
-    pub selected: Option<bool>,
-}
+    #[test]
+    fn test_changes_move_node() {
+        let node = Node::new(1, Vec2::new(50.0, 50.0));
+        let mut changes = Changes::default();
 
-impl ChangesEdge {
-    fn select(&mut self, n: &Edge) {
-        let selected = self.selected.get_or_insert(n.selected);
-        *selected = true;
+        changes.move_node(&1, &node, Vec2::new(100.0, 100.0));
+        let changes_node = changes.nodes.get(&1).unwrap();
+
+        assert_eq!(changes_node.location, Some(Vec2::new(150.0, 150.0)));
     }
 
-    fn deselect(&mut self, n: &Edge) {
-        let selected = self.selected.get_or_insert(n.selected);
-        *selected = false;
+    #[test]
+    fn test_changes_click_node() {
+        let mut changes = Changes::default();
+
+        changes.click_node(&1);
+        let changes_node = changes.nodes.get(&1).unwrap();
+
+        assert_eq!(changes_node.clicked, Some(true));
+    }
+
+    #[test]
+    fn test_changes_select_node() {
+        let node = Node::new(1, Vec2::new(50.0, 50.0));
+        let mut changes = Changes::default();
+
+        changes.select_node(&1, &node);
+        let changes_node = changes.nodes.get(&1).unwrap();
+
+        assert_eq!(changes_node.selected, Some(true));
+    }
+
+    #[test]
+    fn test_changes_set_dragged_node() {
+        let node = Node::new(1, Vec2::new(50.0, 50.0));
+        let mut changes = Changes::default();
+
+        changes.set_dragged_node(&1, &node);
+        let changes_node = changes.nodes.get(&1).unwrap();
+
+        assert_eq!(changes_node.dragged, Some(true));
+    }
+
+    #[test]
+    fn test_changes_unset_dragged_node() {
+        let node = Node::new(1, Vec2::new(50.0, 50.0));
+        let mut changes = Changes::default();
+
+        changes.unset_dragged_node(&1, &node);
+        let changes_node = changes.nodes.get(&1).unwrap();
+
+        assert_eq!(changes_node.dragged, Some(false));
+    }
+
+    #[test]
+    fn test_changes_deselect_node() {
+        let node = Node::new(1, Vec2::new(50.0, 50.0));
+        let mut changes = Changes::default();
+
+        changes.deselect_node(&1, &node);
+        let changes_node = changes.nodes.get(&1).unwrap();
+
+        assert_eq!(changes_node.selected, Some(false));
     }
 }

@@ -270,7 +270,7 @@ impl InteractiveApp {
 
     fn draw_section_client(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Client")
-            .default_open(false)
+            .default_open(true)
             .show(ui, |ui| {
                 ui.add_space(10.);
 
@@ -429,50 +429,45 @@ fn apply_changes(
     simulation: &mut Simulation<usize, String>,
     elements: &mut Elements,
 ) {
-    let mut selected = 0;
-    let mut selected_neighbours = HashMap::new();
-
-    elements.apply_changes(
-        changes,
-        &mut |node, change| {
-            if let Some(location_change) = change.location {
-                // sync new location caused by dragging with simulation
-                let sim_node = simulation
-                    .get_graph_mut()
-                    .node_weight_mut(NodeIndex::new(node.id))
-                    .unwrap();
-                sim_node.location = Vec3::new(location_change.x, location_change.y, 0.);
-                sim_node.velocity = sim_node.location - sim_node.old_location;
-            }
-
-            if let Some(selected_change) = change.selected {
-                // chose all connected nodes and edges
-                selected = node.id;
-                simulation
-                    .get_graph()
-                    .neighbors(NodeIndex::new(node.id))
-                    .for_each(|neighbour| {
-                        selected_neighbours.insert(neighbour.index(), selected_change);
-                    });
-            }
-        },
-        &mut |_, _| {},
-    );
-
-    // select all connected nodes and edges
-    selected_neighbours.iter().for_each(|(node, selection)| {
-        elements.get_node_mut(node).unwrap().selected = *selection;
-
-        if let Some(edges) = elements.get_edges_between_mut(&selected, node) {
-            edges.iter_mut().for_each(|edge| {
-                edge.selected = *selection;
-            });
+    elements.apply_changes(changes, &mut |elements, node_idx, change| {
+        // handle location change - sync with simulation
+        if let Some(location_change) = change.location {
+            // sync new location caused by dragging with simulation
+            let sim_node = simulation
+                .get_graph_mut()
+                .node_weight_mut(NodeIndex::new(*node_idx))
+                .unwrap();
+            sim_node.location = Vec3::new(location_change.x, location_change.y, 0.);
+            sim_node.velocity = sim_node.location - sim_node.old_location;
         }
 
-        if let Some(edges) = elements.get_edges_between_mut(node, &selected) {
-            edges.iter_mut().for_each(|edge| {
-                edge.selected = *selection;
-            });
+        // handle selection change - select all neighboring nodes and edges
+        if let Some(selected_change) = change.selected {
+            simulation
+                .get_graph()
+                .neighbors(NodeIndex::new(*node_idx))
+                .for_each(|neighbour| {
+                    // mark neighbour
+                    elements.get_node_mut(&neighbour.index()).unwrap().selected = selected_change;
+
+                    // mark edges between selected node and neighbour
+                    if let Some(edges) =
+                        elements.get_edges_between_mut(&neighbour.index(), node_idx)
+                    {
+                        edges.iter_mut().for_each(|edge| {
+                            edge.selected = selected_change;
+                        });
+                    }
+
+                    // mark edges between neighbour and selected node
+                    if let Some(edges) =
+                        elements.get_edges_between_mut(node_idx, &neighbour.index())
+                    {
+                        edges.iter_mut().for_each(|edge| {
+                            edge.selected = selected_change;
+                        });
+                    }
+                });
         }
     });
 }
