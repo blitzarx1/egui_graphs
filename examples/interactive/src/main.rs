@@ -3,7 +3,7 @@ use std::{collections::HashMap, time::Instant};
 
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
-use egui::{CollapsingHeader, Color32, Context, ScrollArea, Vec2, Visuals, Ui};
+use egui::{CollapsingHeader, Color32, Context, ScrollArea, Ui, Vec2, Visuals};
 use egui_graphs::{
     Changes, Edge, Elements, GraphView, Node, SettingsInteraction, SettingsNavigation,
 };
@@ -59,10 +59,10 @@ impl InteractiveApp {
 
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
-            
+
             simulation_stopped: false,
             dark_mode: true,
-            
+
             fps: 0.,
             fps_history: Default::default(),
             last_update_time: Instant::now(),
@@ -166,14 +166,39 @@ impl InteractiveApp {
             ui.ctx().set_visuals(Visuals::light())
         }
 
-        if ui.button({
-            match self.dark_mode {
-                true => format!("{} Light", LIGHT_MODE_SYMBOL),
-                false => format!("{} Dark", DARK_MODE_SYMBOL),
-            }
-        }).clicked() {
+        if ui
+            .button({
+                match self.dark_mode {
+                    true => format!("{} Light", LIGHT_MODE_SYMBOL),
+                    false => format!("{} Dark", DARK_MODE_SYMBOL),
+                }
+            })
+            .clicked()
+        {
             self.dark_mode = !self.dark_mode
         };
+    }
+
+    fn draw_fps(&self, ui: &mut Ui) {
+        let points: PlotPoints = self
+            .fps_history
+            .iter()
+            .enumerate()
+            .map(|(i, val)| [i as f64, *val])
+            .collect();
+
+        let line = Line::new(points).color(FPS_LINE_COLOR);
+        Plot::new("my_plot")
+            .min_size(Vec2::new(100., 50.))
+            .show_x(false)
+            .show_background(false)
+            .show_axes([false, false])
+            .allow_boxed_zoom(false)
+            .allow_double_click_reset(false)
+            .allow_drag(false)
+            .allow_scroll(false)
+            .allow_zoom(false)
+            .show(ui, |plot_ui| plot_ui.line(line));
     }
 }
 
@@ -187,12 +212,12 @@ impl App for InteractiveApp {
             .default_width(300.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui|{
-                    CollapsingHeader::new("WIDGET SETTINGS")
+                    CollapsingHeader::new("Widget")
                     .default_open(true)
                     .show(ui, |ui| {
                         ui.add_space(10.);
 
-                        ui.label("Navigation");
+                        ui.label("NavigationSettings");
                         ui.separator();
 
                         if ui
@@ -215,14 +240,14 @@ impl App for InteractiveApp {
 
                         ui.add_space(10.);
 
-                        ui.label("Interactions");
+                        ui.label("InteractionSettings");
                         ui.separator();
 
                         ui.checkbox(&mut self.settings_interaction.node_drag, "drag");
                         ui.label("Enable drag. To drag use LMB + drag on a node.");
 
                         ui.add_space(5.);
-                        
+
                         ui.add_enabled_ui(!self.settings_interaction.node_multiselect, |ui| {
                             ui.vertical(|ui| {
                                 ui.checkbox(&mut self.settings_interaction.node_select, "select").on_disabled_hover_text("multiselect enables select");
@@ -252,10 +277,10 @@ impl App for InteractiveApp {
                     });
 
 
-                ui.add_space(20.);
+                ui.add_space(10.);
 
-                CollapsingHeader::new("APP SETTINGS")
-                    .default_open(true)
+                CollapsingHeader::new("Client")
+                    .default_open(false)
                     .show(ui, |ui| {
                         ui.add_space(10.);
 
@@ -285,30 +310,19 @@ impl App for InteractiveApp {
                         ui.label("Stop the simulation.");
                     });
 
-                egui::TopBottomPanel::bottom("bottom_panel").show_inside(ui, |ui| {
-                    ui.add_space(5.);
-                    ui.label(format!("fps: {:.1}", self.fps));
+                    ui.add_space(10.);
 
-                    let sin: PlotPoints = self
-                        .fps_history
-                        .iter()
-                        .enumerate()
-                        .map(|(i, val)| [i as f64, *val])
-                        .collect();
-                    let line = Line::new(sin).color(FPS_LINE_COLOR);
-                    Plot::new("my_plot")
-                        .height(100.)
-                        .show_x(false)
-                        .show_y(false)
-                        .show_background(false)
-                        .show_axes([false, true])
-                        .allow_boxed_zoom(false)
-                        .allow_double_click_reset(false)
-                        .allow_drag(false)
-                        .allow_scroll(false)
-                        .allow_zoom(false)
-                        .show(ui, |plot_ui| plot_ui.line(line));
-                });
+                    CollapsingHeader::new("Debug")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                            ui.add_space(10.);
+
+                            ui.vertical(|ui| {
+                                ui.label(format!("fps: {:.1}", self.fps));
+                                ui.add_space(10.);
+                                self.draw_fps(ui);
+                            });
+                    });
             });
         });
         egui::CentralPanel::default().show(ctx, |ui| {
