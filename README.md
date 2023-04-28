@@ -29,7 +29,7 @@ Default operations for applying changes to `Elements` itself will be performed a
 
 ```rust
 elements.apply_changes(changes, &mut |elements, node_idx, change| {
-  // some additional manipulation with changed node using its idx `node_idx`
+  // place for some additional manipulation with changed node using `node_idx`
   // or manipulations with other elements via mutable reference to `elements`
   
   println!("changes for node {} applied", node_idx);
