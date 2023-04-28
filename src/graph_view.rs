@@ -50,7 +50,7 @@ impl<'a> Widget for GraphView<'a> {
 
         let state = self.draw_and_sync(&painter, &mut metadata);
 
-        self.handle_drags(&response, &state, &mut metadata);
+        self.handle_nodes_drags(&response, &state, &mut metadata);
         self.handle_click(&response, &state, &mut metadata);
         self.handle_navigation(ui, &response, &state, &mut metadata);
 
@@ -230,7 +230,7 @@ impl<'a> GraphView<'a> {
         self.send_changes(changes);
     }
 
-    fn handle_drags(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
+    fn handle_nodes_drags(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
         if !self.setings_interaction.node_drag {
             return;
         }
@@ -291,8 +291,9 @@ impl<'a> GraphView<'a> {
         if self.setings_navigation.fit_to_screen {
             return self.fit_to_screen(&response.rect, metadata);
         }
+
         self.handle_zoom(ui, response, metadata);
-        self.handle_pan(response, state, metadata);
+        self.handle_pan(ui, response, state, metadata);
     }
 
     fn handle_zoom(&self, ui: &Ui, response: &Response, metadata: &mut Metadata) {
@@ -310,14 +311,13 @@ impl<'a> GraphView<'a> {
         });
     }
 
-    fn handle_pan(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
+    fn handle_pan(&self, ui: &Ui, response: &Response, state: &FrameState, metadata: &mut Metadata) {
         if !self.setings_navigation.zoom_and_pan {
             return;
         }
 
         if response.dragged() && state.dragged_node().is_none() {
-            let delta_in_graph_coords = response.drag_delta();
-            metadata.pan += delta_in_graph_coords;
+            metadata.pan += response.drag_delta();
         }
     }
 

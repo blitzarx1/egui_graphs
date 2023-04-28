@@ -130,11 +130,13 @@ impl Elements {
     }
 }
 
+/// Stores properties of a node that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug)]
 pub struct Node {
     pub id: usize,
     pub location: Vec2,
 
+    /// If `color` is None default color is used.
     pub color: Option<Color32>,
     pub radius: f32,
 
@@ -169,6 +171,7 @@ impl Node {
     }
 }
 
+/// Stores properties of an edge that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug)]
 pub struct Edge {
     pub start: usize,
@@ -180,6 +183,7 @@ pub struct Edge {
     pub tip_angle: f32,
     pub curve_size: f32,
 
+    /// If `color` is None default color is used.
     pub color: Option<Color32>,
     pub selected: bool,
 }

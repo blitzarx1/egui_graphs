@@ -1,5 +1,9 @@
 use egui::Color32;
 
+/// `SettingsInteraction` stores settings for the interaction with the graph.
+///
+/// `node_click` is included in `node_select` and `node_multiselect`.
+/// `node_select` is included in `node_multiselect`.
 #[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
     /// Node dragging
@@ -11,10 +15,11 @@ pub struct SettingsInteraction {
     /// Selects clicked node, enables node_click
     pub node_select: bool,
 
-    /// Multiselection for nodes, enables node_click
+    /// Multiselection for nodes, enables node_click and node_select
     pub node_multiselect: bool,
 }
 
+/// `SettingsNavigation` stores settings for the navigation around the graph.
 #[derive(Debug, Clone)]
 pub struct SettingsNavigation {
     /// Fit graph to the screen
