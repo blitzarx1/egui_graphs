@@ -18,15 +18,15 @@ use egui::{
 
 /// GraphView is a widget for visualizing and interacting with graphs.
 ///
-/// It implements egui::Widget and can be used like any other widget.
+/// It implements `egui::Widget` and can be used like any other widget.
 ///
-/// The widget uses a reference to the Elements struct to visualize the graph. You can
-/// customize the visualization and interaction behavior using SettingsInteraction and
-/// SettingsNavigation structs.
+/// The widget uses a reference to the `Elements` struct to visualize the graph. You can
+/// customize the visualization and interaction behavior using `SettingsInteraction` and
+/// `SettingsNavigation` structs.
 ///
-/// When any interaction supported by the widget occurs, it does not modify the provided Elements;
-/// instead, it sends a Changes struct to the provided Sender<Changes> channel, which can be set via
-/// the with_interactions method. It is up to the user to apply the changes to the Elements struct.
+/// When any interaction supported by the widget occurs, it does not modify the provided `Elements`;
+/// instead, it sends a `Changes` struct to the provided `Sender<Changes>` channel, which can be set via
+/// the `with_interactions` method. It is up to the user to apply the changes to the `Elements` struct.
 ///
 /// When the user performs navigation actions (zoom & pan, fit to screen), they do not
 /// produce changes. This is because these actions are performed on the global coordinates and do not change
