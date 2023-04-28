@@ -271,15 +271,14 @@ impl<'a> GraphView<'a> {
 
         // calculate the zoom delta and call handle_zoom to adjust the zoom factor
         let zoom_delta = new_zoom / metadata.zoom - 1.0;
-        let (new_zoom, _) = self.handle_zoom(rect, zoom_delta, None, metadata);
+        self.zoom(rect, zoom_delta, None, metadata);
 
         // calculate the center of the graph and the canvas
         let graph_center =
             (metadata.graph_bounds.min.to_vec2() + metadata.graph_bounds.max.to_vec2()) / 2.0;
 
         // adjust the pan value to align the centers of the graph and the canvas
-        (metadata.zoom, metadata.pan) =
-            (new_zoom, rect.center().to_vec2() - graph_center * new_zoom)
+        metadata.pan = rect.center().to_vec2() - graph_center * new_zoom;
     }
 
     fn handle_navigation(
@@ -292,47 +291,47 @@ impl<'a> GraphView<'a> {
         if self.setings_navigation.fit_to_screen {
             return self.fit_to_screen(&response.rect, metadata);
         }
+        self.handle_zoom(ui, response, metadata);
+        self.handle_pan(response, state, metadata);
+    }
+
+    fn handle_zoom(&self, ui: &Ui, response: &Response, metadata: &mut Metadata) {
         if !self.setings_navigation.zoom_and_pan {
             return;
         }
 
-        let (mut new_zoom, mut new_pan) = (metadata.zoom, metadata.pan);
         ui.input(|i| {
             let delta = i.zoom_delta();
             if delta == 1. {
                 return;
             }
             let step = self.setings_navigation.zoom_step * (1. - delta).signum();
-            (new_zoom, new_pan) =
-                self.handle_zoom(&response.rect, step, i.pointer.hover_pos(), metadata);
+            self.zoom(&response.rect, step, i.pointer.hover_pos(), metadata);
         });
-
-        if response.dragged() && state.dragged_node().is_none() {
-            (new_zoom, new_pan) = (new_zoom, metadata.pan + response.drag_delta());
-        }
-
-        (metadata.zoom, metadata.pan) = (new_zoom, new_pan);
     }
 
-    fn handle_zoom(
-        &self,
-        rect: &Rect,
-        delta: f32,
-        zoom_center: Option<Pos2>,
-        state: &Metadata,
-    ) -> (f32, Vec2) {
+    fn handle_pan(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
+        if !self.setings_navigation.zoom_and_pan {
+            return;
+        }
+
+        if response.dragged() && state.dragged_node().is_none() {
+            let delta_in_graph_coords = response.drag_delta();
+            metadata.pan += delta_in_graph_coords;
+        }
+    }
+
+    fn zoom(&self, rect: &Rect, delta: f32, zoom_center: Option<Pos2>, metadata: &mut Metadata) {
         let center_pos = match zoom_center {
             Some(center_pos) => center_pos - rect.min,
             None => rect.center() - rect.min,
         };
-        let graph_center_pos = (center_pos - state.pan) / state.zoom;
+        let graph_center_pos = (center_pos - metadata.pan) / metadata.zoom;
         let factor = 1. + delta;
-        let new_zoom = state.zoom * factor;
+        let new_zoom = metadata.zoom * factor;
 
-        (
-            new_zoom,
-            state.pan + (graph_center_pos * state.zoom - graph_center_pos * new_zoom),
-        )
+        metadata.pan += graph_center_pos * metadata.zoom - graph_center_pos * new_zoom;
+        metadata.zoom = new_zoom;
     }
 
     fn draw_and_sync(&self, p: &Painter, metadata: &mut Metadata) -> FrameState {

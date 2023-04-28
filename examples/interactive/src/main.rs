@@ -189,16 +189,135 @@ impl InteractiveApp {
 
         let line = Line::new(points).color(FPS_LINE_COLOR);
         Plot::new("my_plot")
-            .min_size(Vec2::new(100., 50.))
+            .min_size(Vec2::new(100., 80.))
             .show_x(false)
+            .show_y(false)
             .show_background(false)
-            .show_axes([false, false])
+            .show_axes([false, true])
             .allow_boxed_zoom(false)
             .allow_double_click_reset(false)
             .allow_drag(false)
             .allow_scroll(false)
             .allow_zoom(false)
             .show(ui, |plot_ui| plot_ui.line(line));
+    }
+
+    fn draw_section_widget(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("Widget")
+        .default_open(true)
+        .show(ui, |ui| {
+            ui.add_space(10.);
+
+            ui.label("NavigationSettings");
+            ui.separator();
+
+            if ui
+                .checkbox(&mut self.settings_navigation.fit_to_screen, "autofit")
+                .changed()
+                && self.settings_navigation.fit_to_screen
+            {
+                self.settings_navigation.zoom_and_pan = false
+            };
+            ui.label("Enable autofit to fit the graph to the screen on every frame.");
+
+            ui.add_space(5.);
+
+            ui.add_enabled_ui(!self.settings_navigation.fit_to_screen, |ui| {
+                ui.vertical(|ui| {
+                    ui.checkbox(&mut self.settings_navigation.zoom_and_pan, "pan & zoom");
+                    ui.label("Enable pan and zoom. To pan use LMB + drag and to zoom use Ctrl + Mouse Wheel.");
+                }).response.on_disabled_hover_text("disabled autofit to enable pan & zoom");
+            });
+
+            ui.add_space(10.);
+
+            ui.label("InteractionSettings");
+            ui.separator();
+
+            ui.checkbox(&mut self.settings_interaction.node_drag, "drag");
+            ui.label("Enable drag. To drag use LMB + drag on a node.");
+
+            ui.add_space(5.);
+
+            ui.add_enabled_ui(!self.settings_interaction.node_multiselect, |ui| {
+                ui.vertical(|ui| {
+                    ui.checkbox(&mut self.settings_interaction.node_select, "select").on_disabled_hover_text("multiselect enables select");
+                    ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
+                }).response.on_disabled_hover_text("multiselect enables select");
+            });
+
+            ui.add_space(5.);
+
+            if ui.checkbox(&mut self.settings_interaction.node_multiselect, "multiselect").changed() {
+                self.settings_interaction.node_select = true;
+            }
+            ui.label("Enable multiselect to select multiple nodes.");
+
+            ui.add_space(5.);
+
+            ui.collapsing("Selected", |ui| {
+                ScrollArea::vertical().max_height(200.).show(ui, |ui| {
+                    self.selected_nodes.iter().for_each(|node| {
+                        ui.label(format!("{:?}", node));
+                    });
+                    self.selected_edges.iter().for_each(|edge| {
+                        ui.label(format!("{:?}", edge));
+                    });
+                });
+            });
+        });
+    }
+
+    fn draw_section_client(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("Client")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.add_space(10.);
+
+                ui.label("Theme");
+                ui.separator();
+
+                self.draw_dark_mode(ui);
+
+                ui.add_space(10.);
+
+                ui.label("Simulation");
+                ui.separator();
+
+                if ui.button("randomize").clicked() {
+                    let (simulation, elements) = construct_simulation(NODE_COUNT, EDGE_COUNT);
+                    self.simulation = simulation;
+                    self.elements = elements;
+
+                    GraphView::reset_metadata(ui);
+                }
+                ui.label("Randomize the graph.");
+
+                ui.add_space(5.);
+
+                ui.checkbox(&mut self.simulation_stopped, "stop");
+                ui.label("Stop the simulation.");
+            });
+    }
+
+    fn draw_section_debug(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("Debug")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.add_space(10.);
+
+                ui.vertical(|ui| {
+                    ui.label(format!("fps: {:.1}", self.fps));
+                    ui.add_space(10.);
+                    self.draw_fps(ui);
+                });
+            });
+    }
+
+    fn check_changes(&mut self) {
+        self.changes_receiver.try_iter().for_each(|changes| {
+            apply_changes(&changes, &mut self.simulation, &mut self.elements);
+        });
     }
 }
 
@@ -211,120 +330,19 @@ impl App for InteractiveApp {
         egui::SidePanel::right("right_panel")
             .default_width(300.)
             .show(ctx, |ui| {
-                ScrollArea::vertical().show(ui, |ui|{
-                    CollapsingHeader::new("Widget")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        ui.add_space(10.);
-
-                        ui.label("NavigationSettings");
-                        ui.separator();
-
-                        if ui
-                            .checkbox(&mut self.settings_navigation.fit_to_screen, "autofit")
-                            .changed()
-                            && self.settings_navigation.fit_to_screen
-                        {
-                            self.settings_navigation.zoom_and_pan = false
-                        };
-                        ui.label("Enable autofit to fit the graph to the screen on every frame.");
-
-                        ui.add_space(5.);
-
-                        ui.add_enabled_ui(!self.settings_navigation.fit_to_screen, |ui| {
-                            ui.vertical(|ui| {
-                                ui.checkbox(&mut self.settings_navigation.zoom_and_pan, "pan & zoom");
-                                ui.label("Enable pan and zoom. To pan use LMB + drag and to zoom use Ctrl + Mouse Wheel.");
-                            }).response.on_disabled_hover_text("disabled autofit to enable pan & zoom");
-                        });
-
-                        ui.add_space(10.);
-
-                        ui.label("InteractionSettings");
-                        ui.separator();
-
-                        ui.checkbox(&mut self.settings_interaction.node_drag, "drag");
-                        ui.label("Enable drag. To drag use LMB + drag on a node.");
-
-                        ui.add_space(5.);
-
-                        ui.add_enabled_ui(!self.settings_interaction.node_multiselect, |ui| {
-                            ui.vertical(|ui| {
-                                ui.checkbox(&mut self.settings_interaction.node_select, "select").on_disabled_hover_text("multiselect enables select");
-                                ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
-                            }).response.on_disabled_hover_text("multiselect enables select");
-                        });
-
-                        ui.add_space(5.);
-
-                        if ui.checkbox(&mut self.settings_interaction.node_multiselect, "multiselect").changed() {
-                            self.settings_interaction.node_select = true;
-                        }
-                        ui.label("Enable multiselect to select multiple nodes.");
-
-                        ui.add_space(5.);
-
-                        ui.collapsing("Selected", |ui| {
-                            ScrollArea::vertical().max_height(200.).show(ui, |ui| {
-                                self.selected_nodes.iter().for_each(|node| {
-                                    ui.label(format!("{:?}", node));
-                                });
-                                self.selected_edges.iter().for_each(|edge| {
-                                    ui.label(format!("{:?}", edge));
-                                });
-                            });
-                        });
-                    });
-
-
-                ui.add_space(10.);
-
-                CollapsingHeader::new("Client")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        ui.add_space(10.);
-
-                        ui.label("Theme");
-                        ui.separator();
-
-                        self.draw_dark_mode(ui);
-
-                        ui.add_space(10.);
-
-                        ui.label("Simulation");
-                        ui.separator();
-
-                        if ui.button("randomize").clicked() {
-                            let (simulation, elements) =
-                                construct_simulation(NODE_COUNT, EDGE_COUNT);
-                            self.simulation = simulation;
-                            self.elements = elements;
-
-                            GraphView::reset_metadata(ui);
-                        }
-                        ui.label("Randomize the graph.");
-
-                        ui.add_space(5.);
-
-                        ui.checkbox(&mut self.simulation_stopped, "stop");
-                        ui.label("Stop the simulation.");
-                    });
+                ScrollArea::vertical().show(ui, |ui| {
+                    self.draw_section_widget(ui);
 
                     ui.add_space(10.);
 
-                    CollapsingHeader::new("Debug")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                            ui.add_space(10.);
+                    self.draw_section_client(ui);
 
-                            ui.vertical(|ui| {
-                                ui.label(format!("fps: {:.1}", self.fps));
-                                ui.add_space(10.);
-                                self.draw_fps(ui);
-                            });
-                    });
+                    ui.add_space(10.);
+
+                    self.draw_section_debug(ui);
+                });
             });
-        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(
                 GraphView::new(&self.elements)
@@ -333,9 +351,7 @@ impl App for InteractiveApp {
             );
         });
 
-        self.changes_receiver.try_iter().for_each(|changes| {
-            apply_changes(&changes, &mut self.simulation, &mut self.elements);
-        });
+        self.check_changes();
     }
 }
 
