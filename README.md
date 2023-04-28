@@ -23,7 +23,9 @@ The `GraphView` widget provides a way to visualize a graph and interact with it 
 
 This is where the `Elements` struct comes in. The `Elements` struct contains the graph data that is used to render the `GraphView` widget, and provides a method to apply the changes to this data.
 
-The simplest way to apply changes is to call the `apply_changes` method on the `Elements` struct. This method accepts a `Changes` struct which contains information about the changes that were made in the `GraphView` widget, and applies these changes to the `Elements` struct. Default operations for applying changes will be performed automatically when `apply_changes` method is called. User callback is needed to perfor any additional actions which can be required by the user's application.
+The simplest way to apply changes is to call the `apply_changes` method on the `Elements` struct. This method accepts a `Changes` struct which contains information about the changes that were made in the `GraphView` widget, and applies these changes to the `Elements` struct.
+
+Default operations for applying changes to `Elements` itself will be performed automatically when the method is called. User callback is needed to perform any additional actions which can be required by the user's application. This is a good place to sync changes to your graph backend for example petgraph.
 
 ```rust
 elements.apply_changes(changes, &mut |elements, node_idx, change| {
@@ -33,12 +35,6 @@ elements.apply_changes(changes, &mut |elements, node_idx, change| {
   println!("changes for node {} applied", node_idx);
 })
 ```
-
-`apply_changes` method on the `Elements` struct applies changes, calling the user callback for each node that was changed after default changes has been applied.
-
-The `apply_changes` method is flexible and allows for custom behavior when changes are applied. For example, if you want to update some external data structure when a node is moved in the `GraphView` widget, you can provide a callback function to the `apply_changes` method.
-
-By using the `apply_changes` method and providing custom callback functions, we can easily apply changes made in the `GraphView` widget to our graph data structure and perform any additional tasks we need to when changes are made.
 
 ---
 
