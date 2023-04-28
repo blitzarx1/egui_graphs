@@ -6,32 +6,35 @@ use egui::Color32;
 /// `node_select` is included in `node_multiselect`.
 #[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
-    /// Node dragging
+    /// Node dragging. To drag a node, click, hold and drag.
     pub node_drag: bool,
 
-    /// Allows clicking on nodes
+    /// Allows clicking on nodes.
     pub node_click: bool,
 
-    /// Selects clicked node, enables node_click
+    /// Selects clicked node, enables node_click.
+    /// Select by clicking on node, deselect by clicking again.
+    /// Clicking on empty space deselects all nodes.
     pub node_select: bool,
 
-    /// Multiselection for nodes, enables node_click and node_select
+    /// Multiselection for nodes, enables node_click and node_select.
     pub node_multiselect: bool,
 }
 
 /// `SettingsNavigation` stores settings for the navigation around the graph.
 #[derive(Debug, Clone)]
 pub struct SettingsNavigation {
-    /// Fit graph to the screen
+    /// Fit graph to the screen. With this enabled, the graph will be scaled to
+    /// fit the screen with empty space around it the size of `screen_padding`.
     pub fit_to_screen: bool,
 
-    /// Zoom and pan
+    /// Zoom and pan. Zoom with ctrl + mouse wheel, pan with mouse drag.
     pub zoom_and_pan: bool,
 
-    /// Padding around the graph when fitting to screen
+    /// Padding around the graph when fitting to screen.
     pub screen_padding: f32,
 
-    /// Zoom step
+    /// Zoom step.
     pub zoom_step: f32,
 }
 
