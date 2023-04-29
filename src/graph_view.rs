@@ -141,8 +141,10 @@ impl<'a> GraphView<'a> {
 
         // click on empty space
         let node = self.node_by_pos(metadata, response.hover_pos().unwrap());
-        if node.is_none() && self.setings_interaction.node_select {
-            self.deselect_all_nodes(state);
+        if node.is_none() {
+            if self.setings_interaction.node_select {
+                self.deselect_all_nodes(state);
+            }
             return;
         }
 
