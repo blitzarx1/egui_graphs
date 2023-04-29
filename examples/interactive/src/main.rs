@@ -475,7 +475,6 @@ impl App for InteractiveApp {
 
         egui::SidePanel::right("right_panel")
             .min_width(250.)
-            .max_width(400.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
                     self.draw_section_client(ui);
