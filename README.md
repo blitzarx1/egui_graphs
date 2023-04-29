@@ -25,7 +25,7 @@ This is where the `Elements` struct comes in. The `Elements` struct contains the
 
 The simplest way to apply changes is to call the `apply_changes` method on the `Elements` struct. This method accepts a `Changes` struct which contains information about the changes that were made in the `GraphView` widget, and applies these changes to the `Elements` struct.
 
-Default operations for applying changes to `Elements` itself will be performed automatically when the method is called. User callback is needed to perform any additional actions which can be required by the user's application. This is a good place to sync changes to your graph backend for example petgraph.
+Default operations for applying changes to `Elements` itself will be performed automatically when the method is called. User callback is needed to perform any additional actions which can be required by the user's application. This is a good place to sync changes to your graph backend for example [petgraph](https://github.com/petgraph/petgraph).
 
 ```rust
 elements.apply_changes(changes, &mut |elements, node_idx, change| {

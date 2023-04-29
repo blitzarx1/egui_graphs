@@ -8,7 +8,7 @@ use egui::{Color32, Pos2, Rect, Vec2};
 use crate::{Changes, ChangesNode};
 
 /// Used to store the state of the graph, i.e. the location of the nodes.
-/// It is passed to the GraphView widget and is used to draw the graph.
+/// It is passed to the `GraphView` widget and is used to draw the graph.
 ///
 /// Changes to elements should be applied using the `apply_changes` method.
 pub struct Elements {
