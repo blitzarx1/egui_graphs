@@ -132,17 +132,20 @@ impl<'a> GraphView<'a> {
             return;
         }
 
-        if !(self.setings_interaction.node_click
+        let clickable = self.setings_interaction.node_click
             || self.setings_interaction.node_select
-            || self.setings_interaction.node_multiselect)
-        {
+            || self.setings_interaction.node_multiselect;
+
+        if !(clickable) {
             return;
         }
 
         // click on empty space
         let node = self.node_by_pos(metadata, response.hover_pos().unwrap());
         if node.is_none() {
-            if self.setings_interaction.node_select {
+            let selectable =
+                self.setings_interaction.node_select || self.setings_interaction.node_multiselect;
+            if selectable {
                 self.deselect_all_nodes(state);
             }
             return;
