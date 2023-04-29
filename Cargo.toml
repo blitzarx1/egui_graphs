@@ -1,6 +1,6 @@
 [package]
 name = "egui_graphs"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 homepage = "https://github.com/blitzarx1/egui_graphs"
@@ -10,6 +10,7 @@ edition = "2021"
 
 [dependencies]
 egui = "0.21.0"
+rand = "0.8.4"
 
 [workspace]
 members = ["examples/*"]

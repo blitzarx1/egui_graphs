@@ -4,6 +4,7 @@ use std::{
 };
 
 use egui::{Color32, Pos2, Rect, Vec2};
+use rand::Rng;
 
 use crate::{Changes, ChangesNode};
 
@@ -118,8 +119,9 @@ impl Elements {
         self.edges.get_mut(&(idx.0, idx.1))?.get_mut(idx.2)
     }
 
-    /// Computes the bounds of the graph, i.e. the minimum and maximum x and y coordinates. It also account for the radius of the nodes.
-    pub(crate) fn graph_bounds(&self) -> Rect {
+    /// Computes the bounds of the graph in real time, i.e. the minimum and maximum x and y coordinates. It also account for the radius of the nodes.
+    //TODO: make cached version of this
+    pub fn get_rect(&self) -> Rect {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
 
         self.get_nodes().iter().for_each(|(_, n)| {
@@ -146,10 +148,85 @@ impl Elements {
 
         Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y))
     }
+
+    /// Removes node and all edges associated with it.
+    pub fn remove_node(&mut self, idx: &usize, neighbors: &[usize]) -> Option<Node> {
+        neighbors.iter().for_each(|n| {
+            self.remove_edges(idx, n);
+            self.remove_edge(n, idx);
+        });
+
+        // clear self refenreces
+        self.remove_edges(idx, idx);
+
+        self.nodes.remove(idx)
+    }
+
+    /// Removes an edge between two nodes. Returns the removed edge if it exists.
+    pub fn remove_edge(&mut self, start: &usize, end: &usize) -> Option<Edge> {
+        let edges_between = self.get_edges_between_mut(start, end)?;
+        let edge = edges_between.pop()?;
+        if edges_between.is_empty() {
+            self.edges.remove(&(*start, *end));
+        };
+
+        Some(edge)
+    }
+
+    /// Adds an edge between two nodes. Returns the added edge if start and end node exist.
+    pub fn add_edge(&mut self, start: &usize, end: &usize) -> Option<Edge> {
+        self.get_node(start)?;
+        self.get_node(end)?;
+
+        let edges_between = self.get_edges_between_mut(start, end);
+        if let Some(edges_list) = edges_between {
+            let edge_count = edges_list.len();
+            let edge = Edge::new(*start, *end, edge_count);
+            edges_list.push(edge);
+
+            return Some(edge);
+        }
+
+        let edge = Edge::new(*start, *end, 0);
+        let edges = self.get_edges_mut();
+        edges.insert((*start, *end), vec![edge]);
+
+        Some(edge)
+    }
+
+    /// Removes all edges between two nodes. Returns the removed edges if they exist.
+    pub fn remove_edges(
+        &mut self,
+        start: &usize,
+        end: &usize,
+    ) -> Option<((usize, usize), Vec<Edge>)> {
+        self.edges.remove_entry(&(*start, *end))
+    }
+
+    pub fn get_random_node_idx(&self) -> Option<&usize> {
+        if self.nodes.is_empty() {
+            return None;
+        }
+        let mut rng = rand::thread_rng();
+        let nodes = self.get_nodes();
+        let random_node_idx = rng.gen_range(0..nodes.len());
+
+        nodes.keys().nth(random_node_idx)
+    }
+
+    pub fn get_random_edge_idx(&self) -> Option<&(usize, usize)> {
+        if self.edges.is_empty() {
+            return None;
+        }
+        let mut rng = rand::thread_rng();
+        let random_edges_idx = rng.gen_range(0..self.edges.len());
+
+        self.edges.keys().nth(random_edges_idx)
+    }
 }
 
 /// Stores properties of a node that can be changed. Used to apply changes to the graph.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy, PartialEq)]
 pub struct Node {
     pub id: usize,
     pub location: Vec2,
@@ -190,7 +267,7 @@ impl Node {
 }
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy, PartialEq)]
 pub struct Edge {
     pub start: usize,
     pub end: usize,
@@ -245,6 +322,8 @@ impl Edge {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
 
     fn create_sample_elements() -> Elements {
@@ -260,9 +339,9 @@ mod tests {
     }
 
     #[test]
-    fn test_graph_bounds() {
+    fn test_get_rect() {
         let elements = create_sample_elements();
-        let bounds = elements.graph_bounds();
+        let bounds = elements.get_rect();
 
         let expected_min_x = -105.0; // x_minus_rad
         let expected_min_y = -105.0; // y_minus_rad
@@ -328,5 +407,111 @@ mod tests {
 
         let node3 = elements.get_node(&3).unwrap();
         assert_eq!(node3.color, None);
+    }
+
+    #[test]
+    fn test_add_edge() {
+        let mut elements = create_sample_elements();
+
+        // Test adding edge between existing nodes
+        let edge = elements.add_edge(&0, &1);
+        assert!(edge.is_some());
+        let edge = edge.unwrap();
+        assert_eq!(edge.start, 0);
+        assert_eq!(edge.end, 1);
+        assert_eq!(edge.list_idx, 0);
+
+        // Test adding another edge between the same nodes
+        let edge2 = elements.add_edge(&0, &1);
+        assert!(edge2.is_some());
+        let edge2 = edge2.unwrap();
+        assert_eq!(edge2.start, 0);
+        assert_eq!(edge2.end, 1);
+        assert_eq!(edge2.list_idx, 1);
+
+        // Test edge count between nodes
+        let edges_between = elements.get_edges_between(&0, &1);
+        assert!(edges_between.is_some());
+        let edges_between = edges_between.unwrap();
+        assert_eq!(edges_between.len(), 2);
+
+        // Test adding edge between non-existing nodes
+        let edge3 = elements.add_edge(&0, &100);
+        assert!(edge3.is_none());
+    }
+
+    #[test]
+    fn test_remove_edges() {
+        let mut elements = create_sample_elements();
+
+        elements.add_edge(&0, &1);
+        elements.add_edge(&0, &1);
+        elements.add_edge(&0, &1);
+
+        assert_eq!(elements.get_edges_between(&0, &1).unwrap().len(), 3);
+
+        let removed_edges = elements.remove_edges(&0, &1).unwrap();
+
+        assert_eq!(removed_edges.0, (0, 1));
+        assert_eq!(removed_edges.1.len(), 3);
+        assert!(elements.get_edges_between(&0, &1).is_none());
+    }
+
+    #[test]
+    fn test_remove_edge() {
+        let mut elements = create_sample_elements();
+
+        elements.add_edge(&1, &2);
+
+        // Test removing edge between existing nodes
+        let removed_edge = elements.remove_edge(&1, &2).unwrap();
+        assert_eq!(removed_edge.start, 1);
+        assert_eq!(removed_edge.end, 2);
+        assert_eq!(removed_edge.list_idx, 0);
+
+        // Test removing edge between non-existing nodes
+        let non_existing_removed_edge = elements.remove_edge(&1, &10);
+        assert_eq!(non_existing_removed_edge, None);
+    }
+
+    #[test]
+    fn test_remove_node() {
+        let mut elements = create_sample_elements();
+
+        // Test removing existing node
+        let removed_node = elements.remove_node(&1, &[]).unwrap();
+        assert_eq!(removed_node.id, 1);
+
+        // Test removing non-existing node
+        let non_existing_removed_node = elements.remove_node(&10, &[]);
+        assert_eq!(non_existing_removed_node, None);
+    }
+
+    #[test]
+    fn test_get_random_node_idx() {
+        let elements = create_sample_elements();
+
+        let mut node_indices = HashSet::new();
+        for _ in 0..50 {
+            let random_node_idx = elements.get_random_node_idx();
+            node_indices.insert(random_node_idx);
+        }
+
+        assert_eq!(node_indices.len(), 4);
+    }
+
+    #[test]
+    fn test_get_random_edge_idx() {
+        let mut elements = create_sample_elements();
+
+        // Test getting random edge index from non-empty set
+        elements.add_edge(&1, &2);
+        let random_edge_idx = elements.get_random_edge_idx().unwrap();
+        assert!(elements.get_edges().contains_key(random_edge_idx));
+
+        // Test getting random edge index from an empty set
+        let empty_elements = Elements::new(HashMap::new(), HashMap::new());
+        let empty_random_edge_idx = empty_elements.get_random_edge_idx();
+        assert_eq!(empty_random_edge_idx, None);
     }
 }

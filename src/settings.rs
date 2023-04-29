@@ -25,14 +25,16 @@ pub struct SettingsInteraction {
 #[derive(Debug, Clone)]
 pub struct SettingsNavigation {
     /// Fit graph to the screen. With this enabled, the graph will be scaled to
-    /// fit the screen with empty space around it the size of `screen_padding`.
+    /// fit the screen on every frate.
+    ///
+    /// You can cofigure the padding around the graph with `screen_padding`.
     pub fit_to_screen: bool,
-
-    /// Zoom and pan. Zoom with ctrl + mouse wheel, pan with mouse drag.
-    pub zoom_and_pan: bool,
 
     /// Padding around the graph when fitting to screen.
     pub screen_padding: f32,
+
+    /// Zoom and pan. Zoom with ctrl + mouse wheel, pan with mouse drag.
+    pub zoom_and_pan: bool,
 
     /// Zoom step.
     pub zoom_step: f32,

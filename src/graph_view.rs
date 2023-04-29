@@ -104,7 +104,7 @@ impl<'a> GraphView<'a> {
             return;
         }
 
-        m.graph_bounds = self.elements.graph_bounds();
+        m.graph_bounds = self.elements.get_rect();
         self.fit_to_screen(&r.rect, m);
         m.first_frame = false;
     }
