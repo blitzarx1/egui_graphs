@@ -8,7 +8,7 @@ Graph visualization with rust and [egui](https://github.com/emilk/egui)
 
 ## Features
 * Customization and interactivity;
-* Arbitrarily complex graphs with self-references, multiple edges, multiloops, etc.;
+* Arbitrarily complex graphs with self-references, multiple edges, loops, etc.;
 * Zoom & pan;
 * Dragging, Selecting;
 * The `GraphView` widget does not modify the provided graph and properties, instead in case of any interactions, it generates changes which the client can apply;
