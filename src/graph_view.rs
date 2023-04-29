@@ -586,6 +586,9 @@ impl<'a> GraphView<'a> {
         shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
 
         if !e.selected {
+            quadratic_shapes.into_iter().for_each(|shape| {
+                p.add(shape);
+            });
             shapes.into_iter().for_each(|shape| {
                 p.add(shape);
             });
