@@ -121,8 +121,8 @@ impl InteractiveApp {
         // * update simulation
         // * restore loop edges
 
+        // remove looped edges
         let looped_nodes = {
-            // remove looped edges
             let graph = self.simulation.get_graph_mut();
             let mut looped_nodes = vec![];
             let mut looped_edges = vec![];
@@ -308,6 +308,18 @@ impl InteractiveApp {
         });
     }
 
+    fn reset_graph(&mut self, ui: &mut Ui) {
+        self.settings_graph = SettingsGraph::default();
+        let (simulation, elements) = construct_simulation(
+            self.settings_graph.count_node,
+            self.settings_graph.count_edge,
+        );
+        self.simulation = simulation;
+        self.elements = elements;
+
+        GraphView::reset_metadata(ui);
+    }
+
     fn draw_section_client(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Client")
             .default_open(true)
@@ -327,7 +339,9 @@ impl InteractiveApp {
                     {
                         self.simulation_stopped = !self.simulation_stopped;
                     };
-                    ui.label("Stop/start the simulation.");
+                    if ui.button("reset").clicked() {
+                        self.reset_graph(ui);
+                    }
                 });
 
                 ui.add_space(10.);
@@ -336,22 +350,10 @@ impl InteractiveApp {
 
                 ui.add_space(10.);
 
-                ui.horizontal(|ui| {
-                    if ui.button("randomize").clicked() {
-                        let (simulation, elements) = construct_simulation(
-                            self.settings_graph.count_node,
-                            self.settings_graph.count_edge,
-                        );
-                        self.simulation = simulation;
-                        self.elements = elements;
+                ui.label("Style");
+                ui.separator();
 
-                        GraphView::reset_metadata(ui);
-                    }
-
-                    ui.add_space(5.);
-
-                    self.draw_dark_mode(ui);
-                });
+                self.draw_dark_mode(ui);
             });
     }
 
@@ -473,7 +475,6 @@ impl App for InteractiveApp {
 
         egui::SidePanel::right("right_panel")
             .min_width(250.)
-            .max_width(400.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
                     self.draw_section_client(ui);
