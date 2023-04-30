@@ -382,8 +382,8 @@ impl InteractiveApp {
             .get_graph_mut()
             .add_edge(NodeIndex::new(*start), NodeIndex::new(*end), ());
 
-        self.elements.node_mut(start).unwrap().radius += 1.;
-        self.elements.node_mut(end).unwrap().radius += 1.;
+        self.elements.node_mut(start).unwrap().radius += EDGE_SCALE_WEIGHT;
+        self.elements.node_mut(end).unwrap().radius += EDGE_SCALE_WEIGHT;
         self.elements.add_edge(start, end)
     }
 
@@ -426,8 +426,8 @@ impl InteractiveApp {
         let edge_indx = graph.find_edge(NodeIndex::new(*start), NodeIndex::new(*end))?;
         graph.remove_edge(edge_indx)?;
 
-        self.elements.node_mut(start).unwrap().radius -= 1.;
-        self.elements.node_mut(end).unwrap().radius -= 1.;
+        self.elements.node_mut(start).unwrap().radius -= EDGE_SCALE_WEIGHT;
+        self.elements.node_mut(end).unwrap().radius -= EDGE_SCALE_WEIGHT;
         self.elements.remove_edge(start, end)
     }
 
