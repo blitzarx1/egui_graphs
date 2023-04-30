@@ -95,4 +95,4 @@ You can further customize the appearance and behavior of your graph by modifying
 
 ### Interactive
 
-You can check more advanced [interactive example](https://github.com/blitzarx1/egui_graph/tree/master/examples/interactive) for usage references, settings description and changes apply demonstration.
+You can check more advanced [interactive example](https://github.com/blitzarx1/egui_graph/tree/master/examples/interactive) for usage references and settings description.
