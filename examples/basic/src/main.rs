@@ -1,42 +1,41 @@
-use std::collections::HashMap;
-
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Edge, Elements, GraphView, Node};
+use egui_graphs::{Edge, GraphView, Node};
+use petgraph::stable_graph::StableGraph;
 
 const SIDE_SIZE: f32 = 50.;
 
 pub struct BasicApp {
-    elements: Elements,
+    g: petgraph::stable_graph::StableGraph<Node<()>, Edge<()>>,
 }
 
 impl BasicApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let elements = generate_graph();
-        Self { elements }
+        let g = generate_graph();
+        Self { g }
     }
 }
 
 impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(GraphView::new(&self.elements));
+            ui.add(GraphView::new(&mut self.g));
         });
     }
 }
 
-fn generate_graph() -> Elements {
-    let mut nodes = HashMap::new();
-    nodes.insert(0, Node::new(0, egui::Vec2::new(0., SIDE_SIZE)));
-    nodes.insert(1, Node::new(1, egui::Vec2::new(-SIDE_SIZE, 0.)));
-    nodes.insert(2, Node::new(2, egui::Vec2::new(SIDE_SIZE, 0.)));
+fn generate_graph() -> StableGraph<Node<()>, Edge<()>> {
+    let mut g: StableGraph<Node<()>, Edge<()>> = StableGraph::new();
 
-    let mut edges = HashMap::new();
-    edges.insert((0, 1), vec![Edge::new(0, 1, 0)]);
-    edges.insert((1, 2), vec![Edge::new(1, 2, 0)]);
-    edges.insert((2, 0), vec![Edge::new(2, 0, 0)]);
+    let a = g.add_node(Node::new(egui::Vec2::new(0., SIDE_SIZE), ()));
+    let b = g.add_node(Node::new(egui::Vec2::new(-SIDE_SIZE, 0.), ()));
+    let c = g.add_node(Node::new(egui::Vec2::new(SIDE_SIZE, 0.), ()));
 
-    Elements::new(nodes, edges)
+    g.add_edge(a, b, Edge::new(()));
+    g.add_edge(b, c, Edge::new(()));
+    g.add_edge(c, a, Edge::new(()));
+
+    g
 }
 
 fn main() {
