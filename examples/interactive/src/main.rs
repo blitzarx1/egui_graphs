@@ -18,7 +18,6 @@ mod settings;
 
 const SIMULATION_DT: f32 = 0.035;
 const INITIAL_RECT_SIZE: f32 = 200.;
-//TODO: take from settings
 const FPS_LINE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
 const CHANGES_LIMIT: usize = 100;
 
