@@ -8,7 +8,7 @@ use crate::{
     elements::{Elements, Node},
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsStyle},
-    state::FrameState,
+    frame_state::FrameState,
     Edge, SettingsNavigation,
 };
 use egui::{
@@ -48,7 +48,7 @@ impl<'a> Widget for GraphView<'a> {
 
         self.fit_if_first(&response, &mut metadata);
 
-        let state = self.draw_and_sync(&painter, &mut metadata);
+        let state = self.draw_and_get_state(&painter, &mut metadata);
 
         self.handle_nodes_drags(&response, &state, &mut metadata);
         self.handle_click(&response, &state, &mut metadata);
@@ -98,27 +98,150 @@ impl<'a> GraphView<'a> {
         Metadata::default().store(ui);
     }
 
+    /// Gets rect in which graph is contained including node radius
+    fn bounding_rect(&self) -> Rect {
+        self.elements.rect()
+    }
+
+    fn node_by_idx(&self, idx: &usize) -> Option<&'a Node> {
+        self.elements.node(idx)
+    }
+
+    fn nodes(&self) -> Vec<&Node> {
+        self.elements.nodes().iter().map(|(_, n)| n).collect()
+    }
+
+    fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<&Node> {
+        // transform pos to graph coordinates
+        let pos_in_graph = (pos - metadata.pan).to_vec2() / metadata.zoom;
+        let nodes = self.nodes();
+        nodes
+            .iter()
+            .filter_map(|n| {
+                if (n.location - pos_in_graph).length() <= n.radius {
+                    return Some(*n);
+                }
+
+                None
+            })
+            .next()
+    }
+
+    fn edges_by_node_pairs(&self) -> Vec<(&(usize, usize), &Vec<Edge>)> {
+        self.elements.edges().iter().collect()
+    }
+
     /// Fits the graph to the screen if it is the first frame
     fn fit_if_first(&self, r: &Response, m: &mut Metadata) {
         if !m.first_frame {
             return;
         }
 
-        m.graph_bounds = self.elements.get_rect();
+        m.graph_bounds = self.bounding_rect();
         self.fit_to_screen(&r.rect, m);
         m.first_frame = false;
     }
 
-    fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<(&usize, &'a Node)> {
-        // transform pos to graph coordinates
-        let pos_in_graph = (pos - metadata.pan).to_vec2() / metadata.zoom;
-        let node_props = self
-            .elements
-            .get_nodes()
-            .iter()
-            .find(|(_, n)| (n.location - pos_in_graph).length() <= n.radius);
+    /// Draws edges and nodes and returns the state of the graph 
+    /// (important if there were changes by client) in one run
+    fn draw_and_get_state(&self, p: &Painter, metadata: &mut Metadata) -> FrameState {
+        let mut state = FrameState::default();
 
-        node_props
+        let edges_shapes = self.draw_and_sync_edges(p, &mut state, metadata);
+        let nodes_shapes = self.draw_and_sync_nodes(p, &mut state, metadata);
+
+        self.draw_edges_shapes(p, edges_shapes);
+        self.draw_nodes_shapes(p, nodes_shapes);
+
+        state
+    }
+
+    fn draw_and_sync_nodes(
+        &self,
+        p: &Painter,
+        state: &mut FrameState,
+        metadata: &mut Metadata,
+    ) -> Vec<CircleShape> {
+        let mut shapes = vec![];
+        let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
+        self.nodes().iter().for_each(|n| {
+            // update graph bounds on the fly
+            // we shall account for the node radius
+            // so that the node is fully visible
+
+            let x_minus_rad = n.location.x - n.radius;
+            if x_minus_rad < min_x {
+                min_x = x_minus_rad;
+            };
+
+            let y_minus_rad = n.location.y - n.radius;
+            if y_minus_rad < min_y {
+                min_y = y_minus_rad;
+            };
+
+            let x_plus_rad = n.location.x + n.radius;
+            if x_plus_rad > max_x {
+                max_x = x_plus_rad;
+            };
+
+            let y_plus_rad = n.location.y + n.radius;
+            if y_plus_rad > max_y {
+                max_y = y_plus_rad;
+            };
+
+            GraphView::sync_node(self, state, n);
+            let selected = self.draw_node(p, n, metadata);
+            shapes.extend(selected);
+        });
+
+        metadata.graph_bounds =
+            Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
+
+        shapes
+    }
+
+    fn draw_and_sync_edges(
+        &self,
+        p: &Painter,
+        state: &mut FrameState,
+        metadata: &Metadata,
+    ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
+        let mut shapes = (Vec::new(), Vec::new(), Vec::new());
+        self.edges_by_node_pairs().iter().for_each(|(_, edges)| {
+            let mut order = edges.len();
+            edges.iter().enumerate().for_each(|(_, e)| {
+                order -= 1;
+
+                let edge = e.screen_transform(metadata.zoom);
+
+                self.sync_edge(state, e);
+
+                let start_node = self.node_by_idx(&edge.start).unwrap();
+                let end_node = self.node_by_idx(&edge.end).unwrap();
+
+                let selected = self.draw_edge(&edge, p, start_node, end_node, metadata, order);
+                shapes.0.extend(selected.0);
+                shapes.1.extend(selected.1);
+                shapes.2.extend(selected.2);
+            });
+        });
+
+        shapes
+    }
+
+    fn sync_node(&self, state: &mut FrameState, n: &Node) {
+        if n.dragged {
+            state.set_dragged_node(n.id);
+        }
+        if n.selected {
+            state.select_node(n.id);
+        }
+    }
+
+    fn sync_edge(&self, state: &mut FrameState, e: &Edge) {
+        if e.selected {
+            state.select_edge(e.id);
+        }
     }
 
     fn send_changes(&self, changes: Changes) {
@@ -151,8 +274,7 @@ impl<'a> GraphView<'a> {
             return;
         }
 
-        let (idx, _) = node.unwrap();
-        self.handle_node_click(idx, state);
+        self.handle_node_click(&node.unwrap().id, state);
     }
 
     fn handle_node_click(&self, idx: &usize, state: &FrameState) {
@@ -161,7 +283,7 @@ impl<'a> GraphView<'a> {
             return;
         }
 
-        let n = self.elements.get_node(idx).unwrap();
+        let n = self.node_by_idx(idx).unwrap();
         if n.selected {
             self.deselect_node(idx, n);
             return;
@@ -195,14 +317,14 @@ impl<'a> GraphView<'a> {
     fn deselect_all_nodes(&self, state: &FrameState) {
         let mut changes = Changes::default();
         state.selected_nodes().iter().for_each(|idx| {
-            let n = self.elements.get_node(idx).unwrap();
+            let n = self.node_by_idx(idx).unwrap();
             changes.deselect_node(idx, n);
         });
         self.send_changes(changes);
     }
 
     fn set_dragged_node(&self, idx: &usize) {
-        let n = self.elements.get_node(idx).unwrap();
+        let n = self.node_by_idx(idx).unwrap();
         let mut changes = Changes::default();
         changes.set_dragged_node(idx, n);
         self.send_changes(changes);
@@ -210,7 +332,7 @@ impl<'a> GraphView<'a> {
 
     fn unset_dragged_node(&self, state: &FrameState) {
         if let Some(idx) = state.dragged_node() {
-            let n = self.elements.get_node(&idx).unwrap();
+            let n = self.node_by_idx(&idx).unwrap();
             let mut changes = Changes::default();
             changes.unset_dragged_node(&idx, n);
             self.send_changes(changes);
@@ -218,7 +340,7 @@ impl<'a> GraphView<'a> {
     }
 
     fn move_node(&self, idx: &usize, delta: Vec2) {
-        let n = self.elements.get_node(idx).unwrap();
+        let n = self.node_by_idx(idx).unwrap();
         let mut changes = Changes::default();
         changes.move_node(idx, n, delta);
         self.send_changes(changes);
@@ -230,8 +352,8 @@ impl<'a> GraphView<'a> {
         }
 
         if response.drag_started() {
-            if let Some((idx, _)) = self.node_by_pos(metadata, response.hover_pos().unwrap()) {
-                self.set_dragged_node(idx);
+            if let Some(n) = self.node_by_pos(metadata, response.hover_pos().unwrap()) {
+                self.set_dragged_node(&n.id);
             }
         }
 
@@ -328,18 +450,6 @@ impl<'a> GraphView<'a> {
         metadata.zoom = new_zoom;
     }
 
-    fn draw_and_sync(&self, p: &Painter, metadata: &mut Metadata) -> FrameState {
-        let mut state = FrameState::default();
-
-        let edges_shapes = self.draw_and_sync_edges(p, &mut state, metadata);
-        let nodes_shapes = self.draw_and_sync_nodes(p, &mut state, metadata);
-
-        self.draw_edges_shapes(p, edges_shapes);
-        self.draw_nodes_shapes(p, nodes_shapes);
-
-        state
-    }
-
     fn draw_edges_shapes(
         &self,
         p: &Painter,
@@ -360,46 +470,6 @@ impl<'a> GraphView<'a> {
         shapes.into_iter().for_each(|shape| {
             p.add(shape);
         });
-    }
-
-    fn draw_and_sync_edges(
-        &self,
-        p: &Painter,
-        state: &mut FrameState,
-        metadata: &Metadata,
-    ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
-        let mut shapes = (Vec::new(), Vec::new(), Vec::new());
-        self.elements.get_edges().iter().for_each(|(idx, edges)| {
-            let mut order = edges.len();
-            edges.iter().enumerate().for_each(|(list_idx, e)| {
-                order -= 1;
-
-                let edge = e.screen_transform(metadata.zoom);
-
-                let edge_idx = (idx.0, idx.1, list_idx);
-                self.sync_edge(state, &edge_idx, e);
-
-                let start_node = self.elements.get_node(&edge.start).unwrap();
-                let end_node = self.elements.get_node(&edge.end).unwrap();
-                let selected = self.draw_edge(&edge, p, start_node, end_node, metadata, order);
-                selected.0.into_iter().for_each(|shape| {
-                    shapes.0.push(shape);
-                });
-                selected.1.into_iter().for_each(|shape| {
-                    shapes.1.push(shape);
-                });
-                selected.2.into_iter().for_each(|shape| {
-                    shapes.2.push(shape);
-                });
-            });
-        });
-        shapes
-    }
-
-    fn sync_edge(&self, state: &mut FrameState, idx: &(usize, usize, usize), e: &Edge) {
-        if e.selected {
-            state.select_edge(*idx);
-        }
     }
 
     fn draw_edge(
@@ -612,62 +682,6 @@ impl<'a> GraphView<'a> {
         ));
 
         (shapes, quadratic_shapes)
-    }
-
-    fn draw_and_sync_nodes(
-        &self,
-        p: &Painter,
-        state: &mut FrameState,
-        metadata: &mut Metadata,
-    ) -> Vec<CircleShape> {
-        let mut shapes = vec![];
-        let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
-        self.elements.get_nodes().iter().for_each(|(idx, n)| {
-            // update graph bounds
-            // we shall account for the node radius
-            // so that the node is fully visible
-
-            let x_minus_rad = n.location.x - n.radius;
-            if x_minus_rad < min_x {
-                min_x = x_minus_rad;
-            };
-
-            let y_minus_rad = n.location.y - n.radius;
-            if y_minus_rad < min_y {
-                min_y = y_minus_rad;
-            };
-
-            let x_plus_rad = n.location.x + n.radius;
-            if x_plus_rad > max_x {
-                max_x = x_plus_rad;
-            };
-
-            let y_plus_rad = n.location.y + n.radius;
-            if y_plus_rad > max_y {
-                max_y = y_plus_rad;
-            };
-
-            GraphView::sync_node(self, idx, state, n);
-            self.draw_node(p, n, metadata)
-                .into_iter()
-                .for_each(|shape| {
-                    shapes.push(shape);
-                });
-        });
-
-        metadata.graph_bounds =
-            Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
-
-        shapes
-    }
-
-    fn sync_node(&self, idx: &usize, state: &mut FrameState, node: &Node) {
-        if node.dragged {
-            state.set_dragged_node(*idx);
-        }
-        if node.selected {
-            state.select_node(*idx);
-        }
     }
 
     fn draw_node(&self, p: &Painter, n: &Node, metadata: &Metadata) -> Vec<CircleShape> {
