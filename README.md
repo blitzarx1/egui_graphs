@@ -11,6 +11,7 @@ Graph visualization with rust and [egui](https://github.com/emilk/egui)
 * Arbitrarily complex graphs with self-references, multiple edges, loops, etc.;
 * Zoom & pan;
 * Dragging, Selecting;
+* Graph elements style configuration;
 * Support for egui dark/light mode;
 
 ![ezgif-4-3e4e4469e6](https://user-images.githubusercontent.com/32969427/233863786-11459176-b741-4343-8b42-7d9b3a8239ee.gif)
@@ -62,7 +63,7 @@ fn generate_graph() -> StableGraph<Node<()>, Edge<()>> {
 
 #### Step 4: Implementing the update() function. 
 
-Now, lets implement the `update()` function for the `BasicApp`. This function creates a `GraphView` widget providing it mutable reference to the graph, and adds it to the central panel using the `ui.add()` function.
+Now, lets implement the `update()` function for the `BasicApp`. This function creates a `GraphView` widget providing a mutable reference to the graph, and adds it to `egui::CentralPanel` using the `ui.add()` function for adding widgets.
 ```rust 
 impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
