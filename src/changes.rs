@@ -8,7 +8,7 @@ use crate::Node;
 /// Stores changes to the graph elements that are not yet applied.
 /// Currently stores changes only to the nodes as there are no
 /// actions which can be applied to the edges tracked by the GraphView widget.
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Changes {
     pub(crate) nodes: HashMap<NodeIndex, ChangesNode>,
 }
@@ -82,7 +82,7 @@ impl Changes {
 }
 
 /// Stores changes to the node properties
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct ChangesNode {
     pub location: Option<Vec2>,
     pub radius: Option<f32>,
