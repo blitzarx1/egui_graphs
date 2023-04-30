@@ -85,7 +85,6 @@ impl ChangesNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use petgraph::stable_graph::StableGraph;
 
     #[test]
     fn test_changes_default() {

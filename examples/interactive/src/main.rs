@@ -4,7 +4,9 @@ use std::time::Instant;
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, Pos2, Rect, ScrollArea, Slider, Ui, Vec2, Visuals};
-use egui_graphs::{Changes, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation};
+use egui_graphs::{
+    Changes, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle,
+};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
@@ -27,6 +29,7 @@ pub struct InteractiveApp {
     settings_graph: SettingsGraph,
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
+    settings_style: SettingsStyle,
 
     selected_nodes: Vec<Node<()>>,
     selected_edges: Vec<Edge<()>>,
@@ -60,6 +63,7 @@ impl InteractiveApp {
 
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
+            settings_style: Default::default(),
 
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
@@ -361,47 +365,56 @@ impl InteractiveApp {
         .show(ui, |ui| {
             ui.add_space(10.);
 
-            ui.label("NavigationSettings");
+            ui.label("SettingsNavigation");
             ui.separator();
 
             if ui
-                .checkbox(&mut self.settings_navigation.fit_to_screen, "autofit")
+                .checkbox(&mut self.settings_navigation.fit_to_screen, "fit_to_screen")
                 .changed()
                 && self.settings_navigation.fit_to_screen
             {
                 self.settings_navigation.zoom_and_pan = false
             };
-            ui.label("Enable autofit to fit the graph to the screen on every frame.");
+            ui.label("Enable fit to screen to fit the graph to the screen on every frame.");
 
             ui.add_space(5.);
 
             ui.add_enabled_ui(!self.settings_navigation.fit_to_screen, |ui| {
                 ui.vertical(|ui| {
-                    ui.checkbox(&mut self.settings_navigation.zoom_and_pan, "pan & zoom");
-                    ui.label("Enable pan and zoom. Zoom with ctrl + mouse wheel, pan with mouse drag.");
-                }).response.on_disabled_hover_text("disabled autofit to enable pan & zoom");
+                    ui.checkbox(&mut self.settings_navigation.zoom_and_pan, "zoom_and_pan");
+                    ui.label("Zoom with ctrl + mouse wheel, pan with mouse drag.");
+                }).response.on_disabled_hover_text("disable fit_to_screen to enable zoom_and_pan");
             });
 
             ui.add_space(10.);
 
-            ui.label("InteractionSettings");
+            ui.label("SettingsStyle");
             ui.separator();
 
-            ui.checkbox(&mut self.settings_interaction.node_drag, "drag");
-            ui.label("Enable drag. To drag use LMB + drag on a node.");
+            ui.add(Slider::new(&mut self.settings_style.edge_radius_weight, 1.0..=5.0)
+            .text("edge_radius_weight"));
+            ui.label("For every edge connected to node its radius is getting bigger by this value.");
+
+            ui.add_space(10.);
+
+            ui.label("SettingsInteraction");
+            ui.separator();
+
+            ui.checkbox(&mut self.settings_interaction.node_drag, "node_drag");
+            ui.label("To drag use LMB + drag on a node.");
 
             ui.add_space(5.);
 
             ui.add_enabled_ui(!self.settings_interaction.node_multiselect, |ui| {
                 ui.vertical(|ui| {
-                    ui.checkbox(&mut self.settings_interaction.node_select, "select").on_disabled_hover_text("multiselect enables select");
+                    ui.checkbox(&mut self.settings_interaction.node_select, "node_select");
                     ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
-                }).response.on_disabled_hover_text("multiselect enables select");
+                }).response.on_disabled_hover_text("node_multiselect enables select");
             });
 
             ui.add_space(5.);
 
-            if ui.checkbox(&mut self.settings_interaction.node_multiselect, "multiselect").changed() {
+            if ui.checkbox(&mut self.settings_interaction.node_multiselect, "node_multiselect").changed() {
                 self.settings_interaction.node_select = true;
             }
             ui.label("Enable multiselect to select multiple nodes.");
@@ -490,7 +503,7 @@ impl InteractiveApp {
         ui.horizontal(|ui| {
             let before = self.settings_graph.count_node as i32;
 
-            ui.add(Slider::new(&mut self.settings_graph.count_node, 1..=2500).text("Nodes"));
+            ui.add(Slider::new(&mut self.settings_graph.count_node, 1..=2500).text("nodes"));
 
             let delta = self.settings_graph.count_node as i32 - before;
             (0..delta.abs()).for_each(|_| {
@@ -505,7 +518,7 @@ impl InteractiveApp {
         ui.horizontal(|ui| {
             let before = self.settings_graph.count_edge as i32;
 
-            ui.add(Slider::new(&mut self.settings_graph.count_edge, 0..=5000).text("Edges"));
+            ui.add(Slider::new(&mut self.settings_graph.count_edge, 0..=5000).text("edges"));
 
             let delta = self.settings_graph.count_edge as i32 - before;
             (0..delta.abs()).for_each(|_| {
@@ -541,7 +554,8 @@ impl App for InteractiveApp {
             ui.add(
                 &mut GraphView::new(&mut self.g)
                     .with_interactions(&self.settings_interaction, &self.changes_sender)
-                    .with_navigations(&self.settings_navigation),
+                    .with_navigations(&self.settings_navigation)
+                    .with_styles(&self.settings_style),
             );
         });
 

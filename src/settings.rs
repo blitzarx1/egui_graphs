@@ -51,11 +51,13 @@ impl Default for SettingsNavigation {
     }
 }
 
+/// `SettingsStyle` stores settings for the style of the graph.
 #[derive(Debug, Clone)]
 pub struct SettingsStyle {
     color_node: Color32,
     color_edge: Color32,
 
+    /// For every edge connected to node its radius is getting bigger by this value.
     pub edge_radius_weight: f32,
 
     pub color_highlight: Color32,

@@ -96,6 +96,11 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self
     }
 
+    pub fn with_styles(mut self, settings_style: &SettingsStyle) -> Self {
+        self.settings_style = settings_style.clone();
+        self
+    }
+
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
         Metadata::default().store(ui);
@@ -149,117 +154,6 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         m.first_frame = false;
     }
 
-    fn draw_and_get_state(&mut self, p: &Painter, metadata: &mut Metadata) -> FrameState<E> {
-        let mut frame_state = FrameState::default();
-
-        // reset node radius
-        let default_radius = Node::new(Vec2::default(), ()).radius;
-        self.g
-            .node_weights_mut()
-            .for_each(|n| n.radius = default_radius);
-
-        let edges = frame_state.edges_by_nodes(self.g);
-        edges.iter().for_each(|((start, end), edges)| {
-            self.g
-                .node_weight_mut(NodeIndex::new(*start))
-                .unwrap()
-                .radius += self.settings_style.edge_radius_weight * edges.len() as f32;
-            self.g.node_weight_mut(NodeIndex::new(*end)).unwrap().radius +=
-                self.settings_style.edge_radius_weight * edges.len() as f32;
-        });
-
-        let edges_shapes = self.draw_edges(p, &mut frame_state, metadata);
-        let nodes_shapes = self.draw_nodes(p, metadata, &mut frame_state);
-
-        self.draw_edges_shapes(p, edges_shapes);
-        self.draw_nodes_shapes(p, nodes_shapes);
-
-        frame_state
-    }
-
-    fn draw_nodes(
-        &self,
-        p: &Painter,
-        meta: &mut Metadata,
-        frame_state: &mut FrameState<E>,
-    ) -> Vec<CircleShape> {
-        let mut shapes = vec![];
-        let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
-        self.g.node_references().for_each(|(idx, n)| {
-            // update graph bounds on the fly
-            // we shall account for the node radius
-            // so that the node is fully visible
-
-            let x_minus_rad = n.location.x - n.radius;
-            if x_minus_rad < min_x {
-                min_x = x_minus_rad;
-            };
-
-            let y_minus_rad = n.location.y - n.radius;
-            if y_minus_rad < min_y {
-                min_y = y_minus_rad;
-            };
-
-            let x_plus_rad = n.location.x + n.radius;
-            if x_plus_rad > max_x {
-                max_x = x_plus_rad;
-            };
-
-            let y_plus_rad = n.location.y + n.radius;
-            if y_plus_rad > max_y {
-                max_y = y_plus_rad;
-            };
-
-            if n.dragged {
-                frame_state.dragged = Some(idx);
-            }
-
-            if n.selected {
-                frame_state.selected.push(idx)
-            }
-
-            let selected = self.draw_node(p, n, meta);
-            shapes.extend(selected);
-        });
-
-        meta.graph_bounds = Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
-
-        shapes
-    }
-
-    fn draw_edges(
-        &mut self,
-        p: &Painter,
-        state: &mut FrameState<E>,
-        meta: &Metadata,
-    ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
-        let mut shapes = (Vec::new(), Vec::new(), Vec::new());
-        state
-            .edges_by_nodes(self.g)
-            .iter()
-            .for_each(|((start, end), edges)| {
-                let mut order = edges.len();
-                edges.iter().enumerate().for_each(|(_, e)| {
-                    order -= 1;
-
-                    let edge = e.screen_transform(meta.zoom);
-
-                    let selected = self.draw_edge(&edge, p, start, end, meta, order);
-                    shapes.0.extend(selected.0);
-                    shapes.1.extend(selected.1);
-                    shapes.2.extend(selected.2);
-                });
-            });
-
-        shapes
-    }
-
-    fn send_changes(&self, changes: Changes) {
-        if let Some(sender) = self.changes_sender {
-            sender.send(changes).unwrap();
-        }
-    }
-
     fn handle_click(&mut self, resp: &Response, state: &mut FrameState<E>, meta: &mut Metadata) {
         if !resp.clicked() {
             return;
@@ -304,68 +198,6 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         }
 
         self.select_node(idx);
-    }
-
-    fn click_node(&self, idx: NodeIndex) {
-        let mut changes = Changes::default();
-        changes.set_clicked(idx, true);
-        self.send_changes(changes);
-    }
-
-    fn select_node(&mut self, idx: NodeIndex) {
-        self.g.node_weight_mut(idx).unwrap().selected = true;
-
-        let mut changes = Changes::default();
-        changes.set_selected(idx, true);
-        self.send_changes(changes);
-    }
-
-    fn deselect_node(&mut self, idx: NodeIndex) {
-        self.g.node_weight_mut(idx).unwrap().selected = false;
-
-        let mut changes = Changes::default();
-        changes.set_selected(idx, false);
-        self.send_changes(changes);
-    }
-
-    fn deselect_all_nodes(&mut self, state: &FrameState<E>) {
-        if state.selected.is_empty() {
-            return;
-        }
-
-        let mut changes = Changes::default();
-        state.selected.iter().for_each(|idx| {
-            self.g.node_weight_mut(*idx).unwrap().selected = false;
-            changes.set_selected(*idx, false);
-        });
-        self.send_changes(changes);
-    }
-
-    fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
-        self.g.node_weight_mut(idx).unwrap().dragged = val;
-
-        let mut changes = Changes::default();
-        changes.set_dragged(idx, val);
-        self.send_changes(changes);
-    }
-
-    fn unset_dragged_node(&mut self, state: &FrameState<E>) {
-        let n_idx = state.dragged.unwrap();
-        let n = self.g.node_weight_mut(n_idx).unwrap();
-        n.dragged = false;
-
-        let mut changes = Changes::default();
-        changes.set_dragged(n_idx, false);
-        self.send_changes(changes);
-    }
-
-    fn move_node(&mut self, idx: NodeIndex, val: Vec2) {
-        let n = self.g.node_weight_mut(idx).unwrap();
-        n.location += val;
-
-        let mut changes = Changes::default();
-        changes.set_location(idx, n.location);
-        self.send_changes(changes);
     }
 
     fn handle_nodes_drags(
@@ -475,6 +307,173 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
 
         meta.pan += graph_center_pos * meta.zoom - graph_center_pos * new_zoom;
         meta.zoom = new_zoom;
+    }
+
+    fn click_node(&self, idx: NodeIndex) {
+        let mut changes = Changes::default();
+        changes.set_clicked(idx, true);
+        self.send_changes(changes);
+    }
+
+    fn select_node(&mut self, idx: NodeIndex) {
+        self.g.node_weight_mut(idx).unwrap().selected = true;
+
+        let mut changes = Changes::default();
+        changes.set_selected(idx, true);
+        self.send_changes(changes);
+    }
+
+    fn deselect_node(&mut self, idx: NodeIndex) {
+        self.g.node_weight_mut(idx).unwrap().selected = false;
+
+        let mut changes = Changes::default();
+        changes.set_selected(idx, false);
+        self.send_changes(changes);
+    }
+
+    fn deselect_all_nodes(&mut self, state: &FrameState<E>) {
+        if state.selected.is_empty() {
+            return;
+        }
+
+        let mut changes = Changes::default();
+        state.selected.iter().for_each(|idx| {
+            self.g.node_weight_mut(*idx).unwrap().selected = false;
+            changes.set_selected(*idx, false);
+        });
+        self.send_changes(changes);
+    }
+
+    fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
+        self.g.node_weight_mut(idx).unwrap().dragged = val;
+
+        let mut changes = Changes::default();
+        changes.set_dragged(idx, val);
+        self.send_changes(changes);
+    }
+
+    fn unset_dragged_node(&mut self, state: &FrameState<E>) {
+        let n_idx = state.dragged.unwrap();
+        let n = self.g.node_weight_mut(n_idx).unwrap();
+        n.dragged = false;
+
+        let mut changes = Changes::default();
+        changes.set_dragged(n_idx, false);
+        self.send_changes(changes);
+    }
+
+    fn move_node(&mut self, idx: NodeIndex, val: Vec2) {
+        let n = self.g.node_weight_mut(idx).unwrap();
+        n.location += val;
+
+        let mut changes = Changes::default();
+        changes.set_location(idx, n.location);
+        self.send_changes(changes);
+    }
+
+    fn draw_and_get_state(&mut self, p: &Painter, metadata: &mut Metadata) -> FrameState<E> {
+        let mut frame_state = FrameState::default();
+
+        // reset node radius
+        let default_radius = Node::new(Vec2::default(), ()).radius;
+        self.g
+            .node_weights_mut()
+            .for_each(|n| n.radius = default_radius);
+
+        let edges = frame_state.edges_by_nodes(self.g);
+        edges.iter().for_each(|((start, end), edges)| {
+            self.g
+                .node_weight_mut(NodeIndex::new(*start))
+                .unwrap()
+                .radius += self.settings_style.edge_radius_weight * edges.len() as f32;
+            self.g.node_weight_mut(NodeIndex::new(*end)).unwrap().radius +=
+                self.settings_style.edge_radius_weight * edges.len() as f32;
+        });
+
+        let edges_shapes = self.draw_edges(p, &mut frame_state, metadata);
+        let nodes_shapes = self.draw_nodes(p, metadata, &mut frame_state);
+
+        self.draw_edges_shapes(p, edges_shapes);
+        self.draw_nodes_shapes(p, nodes_shapes);
+
+        frame_state
+    }
+
+    fn draw_nodes(
+        &self,
+        p: &Painter,
+        meta: &mut Metadata,
+        frame_state: &mut FrameState<E>,
+    ) -> Vec<CircleShape> {
+        let mut shapes = vec![];
+        let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
+        self.g.node_references().for_each(|(idx, n)| {
+            // update graph bounds on the fly
+            // we shall account for the node radius
+            // so that the node is fully visible
+
+            let x_minus_rad = n.location.x - n.radius;
+            if x_minus_rad < min_x {
+                min_x = x_minus_rad;
+            };
+
+            let y_minus_rad = n.location.y - n.radius;
+            if y_minus_rad < min_y {
+                min_y = y_minus_rad;
+            };
+
+            let x_plus_rad = n.location.x + n.radius;
+            if x_plus_rad > max_x {
+                max_x = x_plus_rad;
+            };
+
+            let y_plus_rad = n.location.y + n.radius;
+            if y_plus_rad > max_y {
+                max_y = y_plus_rad;
+            };
+
+            if n.dragged {
+                frame_state.dragged = Some(idx);
+            }
+
+            if n.selected {
+                frame_state.selected.push(idx)
+            }
+
+            let selected = self.draw_node(p, n, meta);
+            shapes.extend(selected);
+        });
+
+        meta.graph_bounds = Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
+
+        shapes
+    }
+
+    fn draw_edges(
+        &mut self,
+        p: &Painter,
+        state: &mut FrameState<E>,
+        meta: &Metadata,
+    ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
+        let mut shapes = (Vec::new(), Vec::new(), Vec::new());
+        state
+            .edges_by_nodes(self.g)
+            .iter()
+            .for_each(|((start, end), edges)| {
+                let mut order = edges.len();
+                edges.iter().enumerate().for_each(|(_, e)| {
+                    order -= 1;
+
+                    let edge = e.screen_transform(meta.zoom);
+
+                    let selected = self.draw_edge(&edge, p, start, end, meta, order);
+                    shapes.0.extend(selected.0);
+                    shapes.1.extend(selected.1);
+                    shapes.2.extend(selected.2);
+                });
+            });
+
+        shapes
     }
 
     fn draw_edges_shapes(
@@ -779,6 +778,12 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             });
         }
         shapes
+    }
+
+    fn send_changes(&self, changes: Changes) {
+        if let Some(sender) = self.changes_sender {
+            sender.send(changes).unwrap();
+        }
     }
 }
 
