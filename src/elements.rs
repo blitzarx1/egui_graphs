@@ -337,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_rect() {
+    fn test_rect() {
         let elements = create_sample_elements();
         let bounds = elements.rect();
 
@@ -486,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_random_node_idx() {
+    fn test_random_node_idx() {
         let elements = create_sample_elements();
 
         let mut node_indices = HashSet::new();
@@ -499,7 +499,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_random_edge_idx() {
+    fn test_random_edge_idx() {
         let mut elements = create_sample_elements();
 
         // Test getting random edge index from non-empty set
