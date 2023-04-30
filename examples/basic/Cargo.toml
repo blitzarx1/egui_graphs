@@ -1,6 +1,6 @@
 [package]
 name = "basic"
-version = "0.1.4"
+version = "0.2.0"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 edition = "2021"
@@ -9,3 +9,4 @@ edition = "2021"
 egui_graphs = { path = "../../" }
 egui = "0.21.0"
 eframe = "0.21.3"
+petgraph = "0.6.3"
