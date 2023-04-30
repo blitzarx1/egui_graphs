@@ -3,9 +3,7 @@ use std::collections::HashMap;
 use egui::Vec2;
 use petgraph::stable_graph::NodeIndex;
 
-/// Stores changes to the graph elements that are not yet applied.
-/// Currently stores changes only to the nodes as there are no
-/// actions which can be applied to the edges tracked by the GraphView widget.
+/// `Changes` is a struct that stores the changes that happened in the graph
 #[derive(Default, Debug, Clone)]
 pub struct Changes {
     pub(crate) nodes: HashMap<NodeIndex, ChangesNode>,
@@ -81,5 +79,48 @@ impl ChangesNode {
 
     fn set_clicked(&mut self, new_clicked: bool) {
         self.clicked.get_or_insert(new_clicked);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use petgraph::stable_graph::StableGraph;
+
+    #[test]
+    fn test_changes_default() {
+        let changes: Changes = Changes::default();
+        assert_eq!(changes.nodes.len(), 0);
+    }
+
+    #[test]
+    fn test_changes_node_default() {
+        let changes_node: ChangesNode = ChangesNode::default();
+        assert!(changes_node.location.is_none());
+        assert!(changes_node.selected.is_none());
+        assert!(changes_node.dragged.is_none());
+        assert!(changes_node.clicked.is_none());
+    }
+
+    #[test]
+    fn test_setters() {
+        let mut changes = Changes::default();
+        let idx = NodeIndex::new(0);
+
+        let location = Vec2::new(10.0, 10.0);
+        changes.set_location(idx, location);
+        assert_eq!(changes.nodes.get(&idx).unwrap().location.unwrap(), location);
+
+        let clicked = true;
+        changes.set_clicked(idx, clicked);
+        assert_eq!(changes.nodes.get(&idx).unwrap().clicked.unwrap(), clicked);
+
+        let selected = true;
+        changes.set_selected(idx, selected);
+        assert_eq!(changes.nodes.get(&idx).unwrap().selected.unwrap(), selected);
+
+        let dragged = true;
+        changes.set_dragged(idx, dragged);
+        assert_eq!(changes.nodes.get(&idx).unwrap().dragged.unwrap(), dragged);
     }
 }
