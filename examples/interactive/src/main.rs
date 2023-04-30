@@ -80,7 +80,7 @@ impl InteractiveApp {
         self.selected_edges = Default::default();
 
         self.elements
-            .get_nodes_mut()
+            .nodes_mut()
             .iter_mut()
             .for_each(|(idx, node)| {
                 let sim_node = self
@@ -100,7 +100,7 @@ impl InteractiveApp {
                 };
             });
 
-        self.elements.get_edges().iter().for_each(|(_, edges)| {
+        self.elements.edges().iter().for_each(|(_, edges)| {
             edges.iter().for_each(|e| {
                 if e.selected {
                     self.selected_edges.push(*e);
@@ -382,19 +382,19 @@ impl InteractiveApp {
             .get_graph_mut()
             .add_edge(NodeIndex::new(*start), NodeIndex::new(*end), ());
 
-        self.elements.get_node_mut(start).unwrap().radius += 1.;
-        self.elements.get_node_mut(end).unwrap().radius += 1.;
+        self.elements.node_mut(start).unwrap().radius += 1.;
+        self.elements.node_mut(end).unwrap().radius += 1.;
         self.elements.add_edge(start, end)
     }
 
     fn add_random_node(&mut self) {
-        let node_count = self.elements.get_nodes().len();
+        let node_count = self.elements.nodes().len();
         let idx: usize = node_count;
 
         // compute location for new node inside graph rect
         let mut rng = rand::thread_rng();
-        let random_node_key = self.elements.get_random_node_idx().unwrap();
-        let random_node = self.elements.get_nodes().get(random_node_key).unwrap();
+        let random_node_key = self.elements.random_node_idx().unwrap();
+        let random_node = self.elements.nodes().get(random_node_key).unwrap();
         let random_node_loc = random_node.location;
         let location = Vec2::new(
             random_node_loc.x + random_node.radius + rng.gen_range(0. ..(random_node.radius * 5.)),
@@ -408,15 +408,15 @@ impl InteractiveApp {
         let sim_node_idx = graph.add_node(sim_node);
 
         // add node to elements
-        self.elements.get_nodes_mut().insert(
+        self.elements.nodes_mut().insert(
             sim_node_idx.index(),
             Node::new(sim_node_idx.index(), location),
         );
     }
 
     fn add_random_edge(&mut self) {
-        let random_start = *self.elements.get_random_node_idx().unwrap();
-        let random_end = *self.elements.get_random_node_idx().unwrap();
+        let random_start = *self.elements.random_node_idx().unwrap();
+        let random_end = *self.elements.random_node_idx().unwrap();
 
         self.add_edge(&random_start, &random_end).unwrap();
     }
@@ -426,18 +426,18 @@ impl InteractiveApp {
         let edge_indx = graph.find_edge(NodeIndex::new(*start), NodeIndex::new(*end))?;
         graph.remove_edge(edge_indx)?;
 
-        self.elements.get_node_mut(start).unwrap().radius -= 1.;
-        self.elements.get_node_mut(end).unwrap().radius -= 1.;
+        self.elements.node_mut(start).unwrap().radius -= 1.;
+        self.elements.node_mut(end).unwrap().radius -= 1.;
         self.elements.remove_edge(start, end)
     }
 
     fn remove_random_edge(&mut self) {
-        let key = *self.elements.get_random_edge_idx().unwrap();
+        let key = *self.elements.random_edge_idx().unwrap();
         self.remove_edge(&key.0, &key.1).unwrap();
     }
 
     fn remove_random_node(&mut self) {
-        let key = *self.elements.get_random_node_idx().unwrap();
+        let key = *self.elements.random_node_idx().unwrap();
         self.remove_node(&key).unwrap();
     }
 
@@ -461,7 +461,7 @@ impl InteractiveApp {
         graph.remove_node(NodeIndex::new(*idx))?;
 
         let res = self.elements.remove_node(idx, neighbors);
-        self.settings_graph.count_edge = self.elements.get_edges().len();
+        self.settings_graph.count_edge = self.elements.edges().len();
 
         res
     }
@@ -588,21 +588,17 @@ fn apply_changes(changes: &Changes, simulation: &mut Simulation<(), ()>, element
                 .neighbors(NodeIndex::new(*node_idx))
                 .for_each(|neighbour| {
                     // mark neighbour
-                    elements.get_node_mut(&neighbour.index()).unwrap().selected = selected_change;
+                    elements.node_mut(&neighbour.index()).unwrap().selected = selected_change;
 
                     // mark edges between selected node and neighbour
-                    if let Some(edges) =
-                        elements.get_edges_between_mut(&neighbour.index(), node_idx)
-                    {
+                    if let Some(edges) = elements.edges_between_mut(&neighbour.index(), node_idx) {
                         edges.iter_mut().for_each(|edge| {
                             edge.selected = selected_change;
                         });
                     }
 
                     // mark edges between neighbour and selected node
-                    if let Some(edges) =
-                        elements.get_edges_between_mut(node_idx, &neighbour.index())
-                    {
+                    if let Some(edges) = elements.edges_between_mut(node_idx, &neighbour.index()) {
                         edges.iter_mut().for_each(|edge| {
                             edge.selected = selected_change;
                         });
