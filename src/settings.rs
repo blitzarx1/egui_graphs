@@ -52,9 +52,12 @@ impl Default for SettingsNavigation {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SettingsStyle {
+pub struct SettingsStyle {
     color_node: Color32,
     color_edge: Color32,
+
+    pub edge_radius_weight: f32,
+
     pub color_highlight: Color32,
     pub color_drag: Color32,
 }
@@ -62,6 +65,7 @@ pub(crate) struct SettingsStyle {
 impl Default for SettingsStyle {
     fn default() -> Self {
         Self {
+            edge_radius_weight: 1.,
             color_node: Color32::from_rgb(200, 200, 200), // Light Gray
             color_edge: Color32::from_rgb(128, 128, 128), // Gray
             color_highlight: Color32::from_rgba_unmultiplied(100, 149, 237, 153), // Cornflower Blue

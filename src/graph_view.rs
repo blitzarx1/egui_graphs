@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     f32::{MAX, MIN},
     sync::mpsc::Sender,
 };
@@ -55,7 +54,7 @@ impl<'a, N: Clone, E: Clone> Widget for &mut GraphView<'a, N, E> {
         let mut state = self.draw_and_get_state(&p, &mut meta);
 
         self.handle_nodes_drags(&resp, &mut state, &mut meta);
-        // self.handle_click(&response, &state, &mut metadata);
+        self.handle_click(&resp, &mut state, &mut meta);
         self.handle_navigation(ui, &resp, &state, &mut meta);
 
         meta.store(ui);
@@ -102,27 +101,6 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         Metadata::default().store(ui);
     }
 
-    fn edges_by_node_pairs(&self) -> Vec<((usize, usize), Vec<Edge<E>>)> {
-        let mut edge_map: HashMap<(usize, usize), Vec<Edge<E>>> = HashMap::new();
-
-        for edge_idx in self.g.edge_indices() {
-            let (source_idx, target_idx) = self.g.edge_endpoints(edge_idx).unwrap();
-            let source = source_idx.index();
-            let target = target_idx.index();
-            let edge = self.g.edge_weight(edge_idx).unwrap().clone();
-
-            edge_map
-                .entry((source, target))
-                .or_insert_with(Vec::new)
-                .push(edge);
-        }
-
-        edge_map
-            .iter()
-            .map(|entry| (*entry.0, entry.1.clone()))
-            .collect()
-    }
-
     /// Gets rect in which graph is contained including node radius
     fn bounding_rect(&self) -> Rect {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
@@ -157,7 +135,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         let pos_in_graph = (pos - metadata.pan).to_vec2() / metadata.zoom;
         self.g
             .node_references()
-            .find(|(idx, n)| (n.location - pos_in_graph).length() <= n.radius)
+            .find(|(_, n)| (n.location - pos_in_graph).length() <= n.radius)
     }
 
     /// Fits the graph to the screen if it is the first frame
@@ -171,10 +149,26 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         m.first_frame = false;
     }
 
-    fn draw_and_get_state(&self, p: &Painter, metadata: &mut Metadata) -> FrameState {
+    fn draw_and_get_state(&mut self, p: &Painter, metadata: &mut Metadata) -> FrameState<E> {
         let mut frame_state = FrameState::default();
 
-        let edges_shapes = self.draw_edges(p, metadata);
+        // reset node radius
+        let default_radius = Node::new(Vec2::default(), ()).radius;
+        self.g
+            .node_weights_mut()
+            .for_each(|n| n.radius = default_radius);
+
+        let edges = frame_state.edges_by_nodes(self.g);
+        edges.iter().for_each(|((start, end), edges)| {
+            self.g
+                .node_weight_mut(NodeIndex::new(*start))
+                .unwrap()
+                .radius += self.settings_style.edge_radius_weight * edges.len() as f32;
+            self.g.node_weight_mut(NodeIndex::new(*end)).unwrap().radius +=
+                self.settings_style.edge_radius_weight * edges.len() as f32;
+        });
+
+        let edges_shapes = self.draw_edges(p, &mut frame_state, metadata);
         let nodes_shapes = self.draw_nodes(p, metadata, &mut frame_state);
 
         self.draw_edges_shapes(p, edges_shapes);
@@ -187,7 +181,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         &self,
         p: &Painter,
         meta: &mut Metadata,
-        frame_state: &mut FrameState,
+        frame_state: &mut FrameState<E>,
     ) -> Vec<CircleShape> {
         let mut shapes = vec![];
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
@@ -234,12 +228,14 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn draw_edges(
-        &self,
+        &mut self,
         p: &Painter,
+        state: &mut FrameState<E>,
         meta: &Metadata,
     ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
         let mut shapes = (Vec::new(), Vec::new(), Vec::new());
-        self.edges_by_node_pairs()
+        state
+            .edges_by_nodes(self.g)
             .iter()
             .for_each(|((start, end), edges)| {
                 let mut order = edges.len();
@@ -264,94 +260,99 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         }
     }
 
-    // fn handle_click(&mut self, response: &Response, metadata: &mut Metadata) {
-    //     if !response.clicked() {
-    //         return;
-    //     }
+    fn handle_click(&mut self, resp: &Response, state: &mut FrameState<E>, meta: &mut Metadata) {
+        if !resp.clicked() {
+            return;
+        }
 
-    //     let clickable = self.setings_interaction.node_click
-    //         || self.setings_interaction.node_select
-    //         || self.setings_interaction.node_multiselect;
+        let clickable = self.setings_interaction.node_click
+            || self.setings_interaction.node_select
+            || self.setings_interaction.node_multiselect;
 
-    //     if !(clickable) {
-    //         return;
-    //     }
+        if !(clickable) {
+            return;
+        }
 
-    //     // click on empty space
-    //     let node = self.node_by_pos(metadata, response.hover_pos().unwrap());
-    //     if node.is_none() {
-    //         let selectable =
-    //             self.setings_interaction.node_select || self.setings_interaction.node_multiselect;
-    //         if selectable {
-    //             self.deselect_all_nodes(state);
-    //         }
-    //         return;
-    //     }
+        // click on empty space
+        let node = self.node_by_pos(meta, resp.hover_pos().unwrap());
+        if node.is_none() {
+            let selectable =
+                self.setings_interaction.node_select || self.setings_interaction.node_multiselect;
+            if selectable {
+                self.deselect_all_nodes(state);
+            }
+            return;
+        }
 
-    //     self.handle_node_click(&node.unwrap().id, state);
-    // }
+        self.handle_node_click(node.unwrap().0, state);
+    }
 
-    // fn handle_node_click(&self, idx: &usize, state: &FrameState) {
-    //     if !self.setings_interaction.node_select {
-    //         self.click_node(idx);
-    //         return;
-    //     }
+    fn handle_node_click(&mut self, idx: NodeIndex, state: &FrameState<E>) {
+        if !self.setings_interaction.node_select {
+            self.click_node(idx);
+            return;
+        }
 
-    //     let n = self.node_by_idx(idx).unwrap();
-    //     if n.selected {
-    //         self.deselect_node(idx, n);
-    //         return;
-    //     }
+        let n = self.g.node_weight(idx).unwrap();
+        if n.selected {
+            self.deselect_node(idx);
+            return;
+        }
 
-    //     if !self.setings_interaction.node_multiselect {
-    //         self.deselect_all_nodes(state);
-    //     }
+        if !self.setings_interaction.node_multiselect {
+            self.deselect_all_nodes(state);
+        }
 
-    //     self.select_node(idx, n);
-    // }
+        self.select_node(idx);
+    }
 
-    // fn click_node(&self, idx: &usize) {
-    //     let mut changes = Changes::default();
-    //     changes.click_node(idx);
-    //     self.send_changes(changes);
-    // }
+    fn click_node(&self, idx: NodeIndex) {
+        let mut changes = Changes::default();
+        changes.set_clicked(idx, true);
+        self.send_changes(changes);
+    }
 
-    // fn select_node(&self, idx: &usize, node: &Node<N>) {
-    //     let mut changes = Changes::default();
-    //     changes.select_node(idx, node);
-    //     self.send_changes(changes);
-    // }
+    fn select_node(&mut self, idx: NodeIndex) {
+        self.g.node_weight_mut(idx).unwrap().selected = true;
 
-    // fn deselect_node(&self, idx: &usize, node: &Node<N>) {
-    //     let mut changes = Changes::default();
-    //     changes.deselect_node(idx, node);
-    //     self.send_changes(changes);
-    // }
+        let mut changes = Changes::default();
+        changes.set_selected(idx, true);
+        self.send_changes(changes);
+    }
 
-    // fn deselect_all_nodes(&self) {
-    //     let mut changes = Changes::default();
-    //     self.g.node_weights_mut().map(||); selected_nodes().iter().for_each(|idx| {
-    //         let n = self.node_by_idx(idx).unwrap();
-    //         changes.deselect_node(idx, n);
-    //     });
-    //     self.send_changes(changes);
-    // }
+    fn deselect_node(&mut self, idx: NodeIndex) {
+        self.g.node_weight_mut(idx).unwrap().selected = false;
 
-    fn set_dragged(&mut self, state: &mut FrameState, idx: NodeIndex, val: bool) {
+        let mut changes = Changes::default();
+        changes.set_selected(idx, false);
+        self.send_changes(changes);
+    }
+
+    fn deselect_all_nodes(&mut self, state: &FrameState<E>) {
+        if state.selected.is_empty() {
+            return;
+        }
+
+        let mut changes = Changes::default();
+        state.selected.iter().for_each(|idx| {
+            self.g.node_weight_mut(*idx).unwrap().selected = false;
+            changes.set_selected(*idx, false);
+        });
+        self.send_changes(changes);
+    }
+
+    fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
         self.g.node_weight_mut(idx).unwrap().dragged = val;
-        state.dragged = Some(idx);
 
         let mut changes = Changes::default();
         changes.set_dragged(idx, val);
         self.send_changes(changes);
     }
 
-    fn unset_dragged_node(&mut self, state: &mut FrameState) {
+    fn unset_dragged_node(&mut self, state: &FrameState<E>) {
         let n_idx = state.dragged.unwrap();
         let n = self.g.node_weight_mut(n_idx).unwrap();
         n.dragged = false;
-
-        state.dragged = None;
 
         let mut changes = Changes::default();
         changes.set_dragged(n_idx, false);
@@ -367,14 +368,19 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.send_changes(changes);
     }
 
-    fn handle_nodes_drags(&mut self, resp: &Response, state: &mut FrameState, meta: &mut Metadata) {
+    fn handle_nodes_drags(
+        &mut self,
+        resp: &Response,
+        state: &mut FrameState<E>,
+        meta: &mut Metadata,
+    ) {
         if !self.setings_interaction.node_drag {
             return;
         }
 
         if resp.drag_started() {
             if let Some((idx, _)) = self.node_by_pos(meta, resp.hover_pos().unwrap()) {
-                self.set_dragged(state, idx, true);
+                self.set_dragged(idx, true);
             }
         }
 
@@ -418,7 +424,13 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         meta.pan = rect.center().to_vec2() - graph_center * new_zoom;
     }
 
-    fn handle_navigation(&self, ui: &Ui, resp: &Response, state: &FrameState, meta: &mut Metadata) {
+    fn handle_navigation(
+        &self,
+        ui: &Ui,
+        resp: &Response,
+        state: &FrameState<E>,
+        meta: &mut Metadata,
+    ) {
         if self.setings_navigation.fit_to_screen {
             return self.fit_to_screen(&resp.rect, meta);
         }
@@ -442,7 +454,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         });
     }
 
-    fn handle_pan(&self, resp: &Response, state: &FrameState, meta: &mut Metadata) {
+    fn handle_pan(&self, resp: &Response, state: &FrameState<E>, meta: &mut Metadata) {
         if !self.setings_navigation.zoom_and_pan {
             return;
         }
@@ -496,11 +508,19 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         meta: &Metadata,
         order: usize,
     ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
-        let n_start = self.g.node_weight(NodeIndex::new(*start)).unwrap();
-        let n_end = self.g.node_weight(NodeIndex::new(*end)).unwrap();
+        let idx_start = NodeIndex::new(*start);
+        let idx_end = NodeIndex::new(*end);
 
-        let start_node = n_start.screen_transform(meta.zoom, meta.pan);
-        let end_node = n_end.screen_transform(meta.zoom, meta.pan);
+        let start_node = self
+            .g
+            .node_weight(idx_start)
+            .unwrap()
+            .screen_transform(meta.zoom, meta.pan);
+        let end_node = self
+            .g
+            .node_weight(idx_end)
+            .unwrap()
+            .screen_transform(meta.zoom, meta.pan);
 
         let mut selected_shapes = vec![];
         let mut selected_quadratic = vec![];

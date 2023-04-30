@@ -17,7 +17,6 @@ mod settings;
 const SIMULATION_DT: f32 = 0.035;
 const INITIAL_RECT_SIZE: f32 = 200.;
 //TODO: take from settings
-const EDGE_SCALE_WEIGHT: f32 = 1.;
 const FPS_LINE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
 const CHANGES_LIMIT: usize = 100;
 
@@ -125,6 +124,9 @@ impl InteractiveApp {
     ///
     /// If node or edge is selected it is added to the corresponding selected field in `self`.
     fn sync_graph_with_simulation(&mut self) {
+        self.selected_nodes = vec![];
+        self.selected_edges = vec![];
+
         let g_indices = self.g.node_indices().collect::<Vec<_>>();
         g_indices.iter().for_each(|g_n_idx| {
             let g_n = self.g.node_weight_mut(*g_n_idx).unwrap();
@@ -262,9 +264,6 @@ impl InteractiveApp {
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
         self.g.add_edge(start, end, Edge::new(()));
         self.sim.get_graph_mut().add_edge(start, end, ());
-
-        self.g.node_weight_mut(start).unwrap().radius += EDGE_SCALE_WEIGHT;
-        self.g.node_weight_mut(end).unwrap().radius += EDGE_SCALE_WEIGHT;
     }
 
     fn remove_random_edge(&mut self) {
@@ -290,9 +289,6 @@ impl InteractiveApp {
 
         let sim_idx = self.sim.get_graph_mut().find_edge(start, end).unwrap();
         self.sim.get_graph_mut().remove_edge(sim_idx).unwrap();
-
-        self.g.node_weight_mut(start).unwrap().radius -= EDGE_SCALE_WEIGHT;
-        self.g.node_weight_mut(end).unwrap().radius -= EDGE_SCALE_WEIGHT;
     }
 
     /// Removes all edges between two nodes
@@ -320,9 +316,6 @@ impl InteractiveApp {
         sim_idxs.iter().for_each(|e| {
             self.sim.get_graph_mut().remove_edge(*e).unwrap();
         });
-
-        self.g.node_weight_mut(start).unwrap().radius -= EDGE_SCALE_WEIGHT;
-        self.g.node_weight_mut(end).unwrap().radius -= EDGE_SCALE_WEIGHT;
     }
 
     fn draw_section_client(&mut self, ui: &mut Ui) {
@@ -415,7 +408,7 @@ impl InteractiveApp {
 
             ui.add_space(5.);
 
-            ui.collapsing("Selected", |ui| {
+            ui.collapsing("selected", |ui| {
                 ScrollArea::vertical().max_height(200.).show(ui, |ui| {
                     self.selected_nodes.iter().for_each(|node| {
                         ui.label(format!("{:?}", node));
@@ -426,7 +419,7 @@ impl InteractiveApp {
                 });
             });
 
-            ui.collapsing("Last changes", |ui| {
+            ui.collapsing("last changes", |ui| {
                 ScrollArea::vertical().max_height(200.).show(ui, |ui| {
                     self.last_changes.iter().for_each(|node| {
                         ui.label(format!("{:?}", node));
