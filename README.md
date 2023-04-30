@@ -2,12 +2,11 @@
 [![docs.rs](https://img.shields.io/docsrs/egui_graphs)](https://docs.rs/egui_graphs)
 
 # egui_graphs
-Graph visualization with rust and [egui](https://github.com/emilk/egui)
+Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) and [egui](https://github.com/emilk/egui) in its DNA.
 
 ![Screenshot 2023-04-28 at 23 14 38](https://user-images.githubusercontent.com/32969427/235233765-23b0673b-70e5-4138-9384-180804392dba.png)
 
 ## Features
-* Customization and interactivity;
 * Arbitrarily complex graphs with self-references, multiple edges, loops, etc.;
 * Zoom & pan;
 * Dragging, Selecting;
