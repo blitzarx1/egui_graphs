@@ -6,7 +6,7 @@ use petgraph::stable_graph::StableGraph;
 const SIDE_SIZE: f32 = 50.;
 
 pub struct BasicApp {
-    g: petgraph::stable_graph::StableGraph<Node<()>, Edge<()>>,
+    g: StableGraph<Node<()>, Edge<()>>,
 }
 
 impl BasicApp {
