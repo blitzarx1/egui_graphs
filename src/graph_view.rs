@@ -24,17 +24,17 @@ use petgraph::{
 ///
 /// It implements `egui::Widget` and can be used like any other widget.
 ///
-/// The widget uses a reference to the `Elements` struct to visualize the graph. You can
-/// customize the visualization and interaction behavior using `SettingsInteraction` and
-/// `SettingsNavigation` structs.
+/// The widget uses a mutable reference to the `petgraph::StableGraph<egui_graphs::Node<N>, egui_graphs::Edge<E>>`
+/// struct to visualize and interact with the graph. `N` and `E` is arbitrary client data associated with nodes and edges.
+/// You can customize the visualization and interaction behavior using `SettingsInteraction`, `SettingsNavigation` and `SettingsStyle` structs.
 ///
-/// When any interaction supported by the widget occurs, it does not modify the provided `Elements`;
-/// instead, it sends a `Changes` struct to the provided `Sender<Changes>` channel, which can be set via
-/// the `with_interactions` method. It is up to the user to apply the changes to the `Elements` struct.
+/// When any interaction or node propery change supported by the widget occurs, the widget sends `Changes` struct to the provided
+/// `Sender<Changes>` channel, which can be set via the `with_interactions` method. The `Changes` struct contains information about
+/// the changes that occured in the graph. Client can use this information to modify external state of the application if needed.
 ///
 /// When the user performs navigation actions (zoom & pan, fit to screen), they do not
-/// produce changes. This is because these actions are performed on the global coordinates and do not change
-/// the position or scale of the graph elements.
+/// produce changes. This is because these actions are performed on the global coordinates and do not change any
+/// properties of the nodes or edges.
 pub struct GraphView<'a, N: Clone, E: Clone> {
     g: &'a mut StableGraph<Node<N>, Edge<E>>,
     setings_interaction: SettingsInteraction,
@@ -791,4 +791,35 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
     let cos = angle.cos();
     let sin = angle.sin();
     Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use petgraph::stable_graph::StableGraph;
+
+    // Helper function to create a test StableGraph
+    fn create_test_graph() -> StableGraph<Node<()>, Edge<usize>> {
+        let mut graph = StableGraph::<Node<()>, Edge<usize>>::new();
+        let n0 = graph.add_node(Node::new(Vec2::new(0.0, 0.0), ()));
+        let n1 = graph.add_node(Node::new(Vec2::new(10.0, 10.0), ()));
+        let n2 = graph.add_node(Node::new(Vec2::new(20.0, 20.0), ()));
+
+        graph.add_edge(n0, n1, Edge::new(1));
+        graph.add_edge(n0, n2, Edge::new(2));
+        graph.add_edge(n1, n2, Edge::new(3));
+
+        graph
+    }
+
+    #[test]
+    fn test_bounding_rect() {
+        let mut graph = create_test_graph();
+        let graph_view = GraphView::<_, usize>::new(&mut graph);
+
+        let bounding_rect = graph_view.bounding_rect();
+
+        assert_eq!(bounding_rect.min, Pos2::new(-5.0, -5.0));
+        assert_eq!(bounding_rect.max, Pos2::new(25.0, 25.0));
+    }
 }
