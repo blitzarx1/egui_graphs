@@ -19,7 +19,7 @@ impl BasicApp {
 impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(GraphView::new(&mut self.g));
+            ui.add(&mut GraphView::new(&mut self.g));
         });
     }
 }

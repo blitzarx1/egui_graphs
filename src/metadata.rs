@@ -1,5 +1,4 @@
 use egui::{Id, Rect, Vec2};
-use petgraph::stable_graph::NodeIndex;
 
 #[derive(Clone)]
 pub struct Metadata {
@@ -15,8 +14,6 @@ pub struct Metadata {
     pub down_right_pos: Vec2,
     /// Stores the bounds of the graph
     pub graph_bounds: Rect,
-    /// Stores the node that is currently being dragged
-    pub dragged_node: Option<NodeIndex>,
 }
 
 impl Default for Metadata {
@@ -28,7 +25,6 @@ impl Default for Metadata {
             top_left_pos: Default::default(),
             down_right_pos: Default::default(),
             graph_bounds: Rect::from_two_pos(egui::Pos2::default(), egui::Pos2::default()),
-            dragged_node: Default::default(),
         }
     }
 }

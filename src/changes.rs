@@ -14,16 +14,16 @@ pub struct Changes {
 }
 
 impl Changes {
-    // pub(crate) fn move_node(&mut self, idx: &usize, n: &Node, delta: Vec2) {
-    //     match self.nodes.get_mut(idx) {
-    //         Some(changes_node) => changes_node.modify_location(n, delta),
-    //         None => {
-    //             let mut changes_node = ChangesNode::default();
-    //             changes_node.modify_location(n, delta);
-    //             self.nodes.insert(*idx, changes_node);
-    //         }
-    //     };
-    // }
+    pub(crate) fn set_location(&mut self, idx: NodeIndex, val: Vec2) {
+        match self.nodes.get_mut(&idx) {
+            Some(changes_node) => changes_node.set_location(val),
+            None => {
+                let mut changes_node = ChangesNode::default();
+                changes_node.set_location(val);
+                self.nodes.insert(idx, changes_node);
+            }
+        };
+    }
 
     // pub(crate) fn click_node(&mut self, idx: &usize) {
     //     match self.nodes.get_mut(idx) {
@@ -47,27 +47,16 @@ impl Changes {
     //     };
     // }
 
-    // pub(crate) fn set_dragged_node(&mut self, idx: &usize, n: &Node) {
-    //     match self.nodes.get_mut(idx) {
-    //         Some(changes_node) => changes_node.set_drag(n),
-    //         None => {
-    //             let mut changes_node = ChangesNode::default();
-    //             changes_node.set_drag(n);
-    //             self.nodes.insert(*idx, changes_node);
-    //         }
-    //     };
-    // }
-
-    // pub(crate) fn unset_dragged_node(&mut self, idx: &usize, n: &Node) {
-    //     match self.nodes.get_mut(idx) {
-    //         Some(changes_node) => changes_node.unset_drag(n),
-    //         None => {
-    //             let mut changes_node = ChangesNode::default();
-    //             changes_node.unset_drag(n);
-    //             self.nodes.insert(*idx, changes_node);
-    //         }
-    //     };
-    // }
+    pub(crate) fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
+        match self.nodes.get_mut(&idx) {
+            Some(changes_node) => changes_node.set_dragged(val),
+            None => {
+                let mut changes_node = ChangesNode::default();
+                changes_node.set_dragged(val);
+                self.nodes.insert(idx, changes_node);
+            }
+        };
+    }
 
     // pub(crate) fn deselect_node(&mut self, idx: &usize, n: &Node) {
     //     match self.nodes.get_mut(idx) {

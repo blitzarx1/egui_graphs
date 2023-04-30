@@ -120,8 +120,6 @@ impl InteractiveApp {
 
     /// Syncs the graph with the simulation.
     ///
-    /// Should be called after simulation update.
-    ///
     /// Changes location of nodes in `g` according to the locations in `sim`. If node from `g` is dragged its location is prioritized
     /// over the location of the corresponding node from `sim` and this location is set to the node from the `sim`.
     ///
@@ -192,23 +190,23 @@ impl InteractiveApp {
     }
 
     fn random_node_idx(&self) -> Option<NodeIndex> {
-        let mut rng = rand::thread_rng();
         let nodes_cnt = self.g.node_count();
         if nodes_cnt == 0 {
             return None;
         }
 
+        let mut rng = rand::thread_rng();
         let random_n_idx = rng.gen_range(0..nodes_cnt);
         self.g.node_indices().nth(random_n_idx)
     }
 
     fn random_edge_idx(&self) -> Option<EdgeIndex> {
-        let mut rng = rand::thread_rng();
         let edges_cnt = self.g.edge_count();
         if edges_cnt == 0 {
             return None;
         }
 
+        let mut rng = rand::thread_rng();
         let random_e_idx = rng.gen_range(0..edges_cnt);
         self.g.edge_indices().nth(random_e_idx)
     }
@@ -530,10 +528,6 @@ impl InteractiveApp {
 
 impl App for InteractiveApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        self.update_simulation();
-        self.sync_graph_with_simulation();
-        self.update_fps();
-
         egui::SidePanel::right("right_panel")
             .min_width(250.)
             .show(ctx, |ui| {
@@ -552,13 +546,17 @@ impl App for InteractiveApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(
-                GraphView::new(&mut self.g)
+                &mut GraphView::new(&mut self.g)
                     .with_interactions(&self.settings_interaction, &self.changes_sender)
                     .with_navigations(&self.settings_navigation),
             );
         });
 
         self.handle_changes();
+        self.sync_graph_with_simulation();
+
+        self.update_simulation();
+        self.update_fps();
     }
 }
 
@@ -625,46 +623,6 @@ fn random_point(rect: &Rect) -> Vec2 {
 
     Vec2::new(x, y)
 }
-
-// fn apply_changes(changes: &Changes, simulation: &mut Simulation<(), ()>) {
-//     elements.apply_changes(changes, &mut |elements, node_idx, change| {
-//         // handle location change - sync with simulation
-//         if let Some(location_change) = change.location {
-//             // sync new location caused by dragging with simulation
-//             let sim_node = simulation
-//                 .get_graph_mut()
-//                 .node_weight_mut(NodeIndex::new(*node_idx))
-//                 .unwrap();
-//             sim_node.location = Vec3::new(location_change.x, location_change.y, 0.);
-//             sim_node.velocity = sim_node.location - sim_node.old_location;
-//         }
-
-//         // handle selection change - select all neighboring nodes and edges
-//         if let Some(selected_change) = change.selected {
-//             simulation
-//                 .get_graph()
-//                 .neighbors(NodeIndex::new(*node_idx))
-//                 .for_each(|neighbour| {
-//                     // mark neighbour
-//                     elements.node_mut(&neighbour.index()).unwrap().selected = selected_change;
-
-//                     // mark edges between selected node and neighbour
-//                     if let Some(edges) = elements.edges_between_mut(&neighbour.index(), node_idx) {
-//                         edges.iter_mut().for_each(|edge| {
-//                             edge.selected = selected_change;
-//                         });
-//                     }
-
-//                     // mark edges between neighbour and selected node
-//                     if let Some(edges) = elements.edges_between_mut(node_idx, &neighbour.index()) {
-//                         edges.iter_mut().for_each(|edge| {
-//                             edge.selected = selected_change;
-//                         });
-//                     }
-//                 });
-//         }
-//     });
-// }
 
 fn main() {
     let native_options = eframe::NativeOptions::default();

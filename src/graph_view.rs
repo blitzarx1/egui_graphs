@@ -7,6 +7,7 @@ use std::{
 use crate::{
     changes::Changes,
     elements::Node,
+    frame_state::FrameState,
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsStyle},
     Edge, SettingsNavigation,
@@ -15,7 +16,10 @@ use egui::{
     epaint::{CircleShape, CubicBezierShape, QuadraticBezierShape},
     Color32, Painter, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, Widget,
 };
-use petgraph::stable_graph::{NodeIndex, StableGraph};
+use petgraph::{
+    stable_graph::{NodeIndex, StableGraph},
+    visit::IntoNodeReferences,
+};
 
 /// `GraphView` is a widget for visualizing and interacting with graphs.
 ///
@@ -40,7 +44,7 @@ pub struct GraphView<'a, N: Clone, E: Clone> {
     changes_sender: Option<&'a Sender<Changes>>,
 }
 
-impl<'a, N: Clone, E: Clone> Widget for GraphView<'a, N, E> {
+impl<'a, N: Clone, E: Clone> Widget for &mut GraphView<'a, N, E> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut meta = Metadata::get(ui);
 
@@ -48,11 +52,11 @@ impl<'a, N: Clone, E: Clone> Widget for GraphView<'a, N, E> {
 
         self.fit_if_first(&resp, &mut meta);
 
-        self.draw(&p, &mut meta);
+        let mut state = self.draw_and_get_state(&p, &mut meta);
 
-        // self.handle_nodes_drags(&response, &state, &mut metadata);
+        self.handle_nodes_drags(&resp, &mut state, &mut meta);
         // self.handle_click(&response, &state, &mut metadata);
-        self.handle_navigation(ui, &resp, &mut meta);
+        self.handle_navigation(ui, &resp, &state, &mut meta);
 
         meta.store(ui);
         ui.ctx().request_repaint();
@@ -98,14 +102,6 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         Metadata::default().store(ui);
     }
 
-    fn node_by_idx(&self, idx: &usize) -> Option<&Node<N>> {
-        self.g.node_weight(NodeIndex::new(*idx))
-    }
-
-    fn nodes(&self) -> Vec<&Node<N>> {
-        self.g.node_weights().collect()
-    }
-
     fn edges_by_node_pairs(&self) -> Vec<((usize, usize), Vec<Edge<E>>)> {
         let mut edge_map: HashMap<(usize, usize), Vec<Edge<E>>> = HashMap::new();
 
@@ -131,7 +127,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     fn bounding_rect(&self) -> Rect {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
 
-        self.nodes().iter().for_each(|n| {
+        self.g.node_weights().for_each(|n| {
             let x_minus_rad = n.location.x - n.radius;
             if x_minus_rad < min_x {
                 min_x = x_minus_rad;
@@ -156,20 +152,12 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y))
     }
 
-    fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<&Node<N>> {
+    fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<(NodeIndex, &Node<N>)> {
         // transform pos to graph coordinates
         let pos_in_graph = (pos - metadata.pan).to_vec2() / metadata.zoom;
-        let nodes = self.nodes();
-        nodes
-            .iter()
-            .filter_map(|n| {
-                if (n.location - pos_in_graph).length() <= n.radius {
-                    return Some(*n);
-                }
-
-                None
-            })
-            .next()
+        self.g
+            .node_references()
+            .find(|(idx, n)| (n.location - pos_in_graph).length() <= n.radius)
     }
 
     /// Fits the graph to the screen if it is the first frame
@@ -183,18 +171,27 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         m.first_frame = false;
     }
 
-    fn draw(&self, p: &Painter, metadata: &mut Metadata) {
+    fn draw_and_get_state(&self, p: &Painter, metadata: &mut Metadata) -> FrameState {
+        let mut frame_state = FrameState::default();
+
         let edges_shapes = self.draw_edges(p, metadata);
-        let nodes_shapes = self.draw_nodes(p, metadata);
+        let nodes_shapes = self.draw_nodes(p, metadata, &mut frame_state);
 
         self.draw_edges_shapes(p, edges_shapes);
         self.draw_nodes_shapes(p, nodes_shapes);
+
+        frame_state
     }
 
-    fn draw_nodes(&self, p: &Painter, metadata: &mut Metadata) -> Vec<CircleShape> {
+    fn draw_nodes(
+        &self,
+        p: &Painter,
+        meta: &mut Metadata,
+        frame_state: &mut FrameState,
+    ) -> Vec<CircleShape> {
         let mut shapes = vec![];
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
-        self.nodes().iter().for_each(|n| {
+        self.g.node_references().for_each(|(idx, n)| {
             // update graph bounds on the fly
             // we shall account for the node radius
             // so that the node is fully visible
@@ -219,12 +216,19 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                 max_y = y_plus_rad;
             };
 
-            let selected = self.draw_node(p, n, metadata);
+            if n.dragged {
+                frame_state.dragged = Some(idx);
+            }
+
+            if n.selected {
+                frame_state.selected.push(idx)
+            }
+
+            let selected = self.draw_node(p, n, meta);
             shapes.extend(selected);
         });
 
-        metadata.graph_bounds =
-            Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
+        meta.graph_bounds = Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
 
         shapes
     }
@@ -232,7 +236,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     fn draw_edges(
         &self,
         p: &Painter,
-        metadata: &Metadata,
+        meta: &Metadata,
     ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
         let mut shapes = (Vec::new(), Vec::new(), Vec::new());
         self.edges_by_node_pairs()
@@ -242,9 +246,9 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                 edges.iter().enumerate().for_each(|(_, e)| {
                     order -= 1;
 
-                    let edge = e.screen_transform(metadata.zoom);
+                    let edge = e.screen_transform(meta.zoom);
 
-                    let selected = self.draw_edge(&edge, p, start, end, metadata, order);
+                    let selected = self.draw_edge(&edge, p, start, end, meta, order);
                     shapes.0.extend(selected.0);
                     shapes.1.extend(selected.1);
                     shapes.2.extend(selected.2);
@@ -260,7 +264,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         }
     }
 
-    // fn handle_click(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
+    // fn handle_click(&mut self, response: &Response, metadata: &mut Metadata) {
     //     if !response.clicked() {
     //         return;
     //     }
@@ -324,59 +328,66 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     //     self.send_changes(changes);
     // }
 
-    // fn deselect_all_nodes(&self, state: &FrameState) {
+    // fn deselect_all_nodes(&self) {
     //     let mut changes = Changes::default();
-    //     state.selected_nodes().iter().for_each(|idx| {
+    //     self.g.node_weights_mut().map(||); selected_nodes().iter().for_each(|idx| {
     //         let n = self.node_by_idx(idx).unwrap();
     //         changes.deselect_node(idx, n);
     //     });
     //     self.send_changes(changes);
     // }
 
-    // fn set_dragged_node(&self, idx: &usize) {
-    //     let n = self.node_by_idx(idx).unwrap();
-    //     let mut changes = Changes::default();
-    //     changes.set_dragged_node(idx, n);
-    //     self.send_changes(changes);
-    // }
+    fn set_dragged(&mut self, state: &mut FrameState, idx: NodeIndex, val: bool) {
+        self.g.node_weight_mut(idx).unwrap().dragged = val;
+        state.dragged = Some(idx);
 
-    // fn unset_dragged_node(&self, state: &FrameState) {
-    //     if let Some(idx) = state.dragged_node() {
-    //         let n = self.node_by_idx(&idx).unwrap();
-    //         let mut changes = Changes::default();
-    //         changes.unset_dragged_node(&idx, n);
-    //         self.send_changes(changes);
-    //     }
-    // }
+        let mut changes = Changes::default();
+        changes.set_dragged(idx, val);
+        self.send_changes(changes);
+    }
 
-    // fn move_node(&self, idx: &usize, delta: Vec2) {
-    //     let n = self.node_by_idx(idx).unwrap();
-    //     let mut changes = Changes::default();
-    //     changes.move_node(idx, n, delta);
-    //     self.send_changes(changes);
-    // }
+    fn unset_dragged_node(&mut self, state: &mut FrameState) {
+        let n_idx = state.dragged.unwrap();
+        let n = self.g.node_weight_mut(n_idx).unwrap();
+        n.dragged = false;
 
-    // fn handle_nodes_drags(&self, response: &Response, state: &FrameState, metadata: &mut Metadata) {
-    //     if !self.setings_interaction.node_drag {
-    //         return;
-    //     }
+        state.dragged = None;
 
-    //     if response.drag_started() {
-    //         if let Some(n) = self.node_by_pos(metadata, response.hover_pos().unwrap()) {
-    //             self.set_dragged_node(&n.id);
-    //         }
-    //     }
+        let mut changes = Changes::default();
+        changes.set_dragged(n_idx, false);
+        self.send_changes(changes);
+    }
 
-    //     if response.dragged() && state.dragged_node().is_some() {
-    //         let node_idx_dragged = state.dragged_node().unwrap();
-    //         let delta_in_graph_coords = response.drag_delta() / metadata.zoom;
-    //         self.move_node(&node_idx_dragged, delta_in_graph_coords);
-    //     }
+    fn move_node(&mut self, idx: NodeIndex, val: Vec2) {
+        let n = self.g.node_weight_mut(idx).unwrap();
+        n.location += val;
 
-    //     if response.drag_released() && state.dragged_node().is_some() {
-    //         self.unset_dragged_node(state);
-    //     }
-    // }
+        let mut changes = Changes::default();
+        changes.set_location(idx, n.location);
+        self.send_changes(changes);
+    }
+
+    fn handle_nodes_drags(&mut self, resp: &Response, state: &mut FrameState, meta: &mut Metadata) {
+        if !self.setings_interaction.node_drag {
+            return;
+        }
+
+        if resp.drag_started() {
+            if let Some((idx, _)) = self.node_by_pos(meta, resp.hover_pos().unwrap()) {
+                self.set_dragged(state, idx, true);
+            }
+        }
+
+        if resp.dragged() && state.dragged.is_some() {
+            let n_idx_dragged = state.dragged.unwrap();
+            let delta_in_graph_coords = resp.drag_delta() / meta.zoom;
+            self.move_node(n_idx_dragged, delta_in_graph_coords);
+        }
+
+        if resp.drag_released() && state.dragged.is_some() {
+            self.unset_dragged_node(state);
+        }
+    }
 
     fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata) {
         // calculate graph dimensions with decorative padding
@@ -407,13 +418,13 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         meta.pan = rect.center().to_vec2() - graph_center * new_zoom;
     }
 
-    fn handle_navigation(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
+    fn handle_navigation(&self, ui: &Ui, resp: &Response, state: &FrameState, meta: &mut Metadata) {
         if self.setings_navigation.fit_to_screen {
             return self.fit_to_screen(&resp.rect, meta);
         }
 
         self.handle_zoom(ui, resp, meta);
-        self.handle_pan(resp, meta);
+        self.handle_pan(resp, state, meta);
     }
 
     fn handle_zoom(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
@@ -431,12 +442,12 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         });
     }
 
-    fn handle_pan(&self, resp: &Response, meta: &mut Metadata) {
+    fn handle_pan(&self, resp: &Response, state: &FrameState, meta: &mut Metadata) {
         if !self.setings_navigation.zoom_and_pan {
             return;
         }
 
-        if resp.dragged() && meta.dragged_node.is_none() {
+        if resp.dragged() && state.dragged.is_none() {
             meta.pan += resp.drag_delta();
         }
     }
@@ -485,8 +496,8 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         meta: &Metadata,
         order: usize,
     ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
-        let n_start = self.node_by_idx(start).unwrap();
-        let n_end = self.node_by_idx(end).unwrap();
+        let n_start = self.g.node_weight(NodeIndex::new(*start)).unwrap();
+        let n_end = self.g.node_weight(NodeIndex::new(*end)).unwrap();
 
         let start_node = n_start.screen_transform(meta.zoom, meta.pan);
         let end_node = n_end.screen_transform(meta.zoom, meta.pan);
