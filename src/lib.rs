@@ -4,6 +4,7 @@ mod graph_view;
 mod metadata;
 mod settings;
 mod frame_state;
+mod selections;
 
 pub use self::changes::{Changes, ChangesNode};
 pub use self::elements::{Edge, Node};

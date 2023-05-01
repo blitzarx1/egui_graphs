@@ -68,8 +68,11 @@ pub struct SettingsStyle {
     /// For every edge connected to node its radius is getting bigger by this value.
     pub edge_radius_weight: f32,
 
-    /// Used to color nodes and edges that are connected to selected nodes.
-    pub color_selection_secondary: Color32,
+    /// Used to color children of the selected nodes.
+    pub color_selection_child: Color32,
+
+    /// Used to color parents of the selected nodes.
+    pub color_selection_parent: Color32,
 
     /// Used to color selected nodes.
     pub color_selection: Color32,
@@ -83,7 +86,8 @@ impl Default for SettingsStyle {
         Self {
             edge_radius_weight: 1.,
             color_selection: Color32::from_rgba_unmultiplied(0, 255, 127, 153), // Spring Green
-            color_selection_secondary: Color32::from_rgba_unmultiplied(100, 149, 237, 153), // Cornflower Blue
+            color_selection_child: Color32::from_rgba_unmultiplied(100, 149, 237, 153), // Cornflower Blue
+            color_selection_parent: Color32::from_rgba_unmultiplied(255, 105, 180, 153), // Hot Pink
             color_node: Color32::from_rgb(200, 200, 200), // Light Gray
             color_edge: Color32::from_rgb(128, 128, 128), // Gray
             color_drag: Color32::from_rgba_unmultiplied(240, 128, 128, 153), // Light Coral
@@ -113,8 +117,12 @@ impl SettingsStyle {
             return Some(self.color_selection);
         }
 
-        if n.selected_secondary {
-            return Some(self.color_selection_secondary);
+        if n.selected_child {
+            return Some(self.color_selection_child);
+        }
+
+        if n.selected_parent {
+            return Some(self.color_selection_parent);
         }
 
         None
@@ -136,8 +144,12 @@ impl SettingsStyle {
             return Some(self.color_selection);
         }
 
-        if e.selected_secondary {
-            return Some(self.color_selection_secondary);
+        if e.selected_child {
+            return Some(self.color_selection_child);
+        }
+
+        if e.selected_parent {
+            return Some(self.color_selection_parent);
         }
 
         None

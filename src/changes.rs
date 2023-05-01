@@ -1,16 +1,19 @@
 use std::collections::HashMap;
 
 use egui::Vec2;
-use petgraph::stable_graph::{EdgeIndex, NodeIndex};
+use petgraph::stable_graph::NodeIndex;
 
 /// `Changes` is a struct that stores the changes that happened in the graph
 #[derive(Default, Debug, Clone)]
 pub struct Changes {
-    pub(crate) nodes: HashMap<NodeIndex, ChangesNode>,
-    pub(crate) edges: HashMap<EdgeIndex, ChangesEdge>,
+    pub nodes: HashMap<NodeIndex, ChangesNode>,
 }
 
 impl Changes {
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
     pub(crate) fn set_location(&mut self, idx: NodeIndex, val: Vec2) {
         match self.nodes.get_mut(&idx) {
             Some(changes_node) => changes_node.set_location(val),
@@ -51,28 +54,6 @@ impl Changes {
                 let mut changes_node = ChangesNode::default();
                 changes_node.deselect();
                 self.nodes.insert(idx, changes_node);
-            }
-        };
-    }
-
-    pub(crate) fn select_edge(&mut self, idx: EdgeIndex) {
-        match self.edges.get_mut(&idx) {
-            Some(changes_edge) => changes_edge.select(),
-            None => {
-                let mut changes_edge = ChangesEdge::default();
-                changes_edge.select();
-                self.edges.insert(idx, changes_edge);
-            }
-        };
-    }
-
-    pub(crate) fn deselect_edge(&mut self, idx: EdgeIndex) {
-        match self.edges.get_mut(&idx) {
-            Some(changes_edge) => changes_edge.deselect(),
-            None => {
-                let mut changes_edge = ChangesEdge::default();
-                changes_edge.deselect();
-                self.edges.insert(idx, changes_edge);
             }
         };
     }
@@ -125,22 +106,6 @@ impl ChangesNode {
     }
 }
 
-/// Stores changes to the edge properties
-#[derive(Default, Debug, Clone)]
-pub struct ChangesEdge {
-    pub selected_secondary: Option<bool>,
-}
-
-impl ChangesEdge {
-    fn select(&mut self) {
-        self.selected_secondary = Some(true);
-    }
-
-    fn deselect(&mut self) {
-        self.selected_secondary = Some(false);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,7 +114,6 @@ mod tests {
     fn test_changes_default() {
         let changes: Changes = Changes::default();
         assert_eq!(changes.nodes.len(), 0);
-        assert_eq!(changes.edges.len(), 0);
     }
 
     #[test]
@@ -159,12 +123,6 @@ mod tests {
         assert!(changes_node.selected.is_none());
         assert!(changes_node.dragged.is_none());
         assert!(changes_node.clicked.is_none());
-    }
-
-    #[test]
-    fn test_changes_edge_default() {
-        let changes_edge: ChangesEdge = ChangesEdge::default();
-        assert!(changes_edge.selected_secondary.is_none());
     }
 
     #[test]
@@ -203,15 +161,5 @@ mod tests {
         let dragged = true;
         changes.set_dragged(idx, dragged);
         assert_eq!(changes.nodes.get(&idx).unwrap().dragged.unwrap(), dragged);
-    }
-
-    #[test]
-    fn test_changes_edge_select_deselect() {
-        let mut changes_edge = ChangesEdge::default();
-        changes_edge.select();
-        assert_eq!(changes_edge.selected_secondary.unwrap(), true);
-
-        changes_edge.deselect();
-        assert_eq!(changes_edge.selected_secondary.unwrap(), false);
     }
 }

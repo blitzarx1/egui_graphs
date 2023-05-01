@@ -179,6 +179,7 @@ impl ConfigurableApp {
         self.g = g;
         self.sim = sim;
         self.settings_graph = settings_graph;
+        self.last_changes = Default::default();
 
         GraphView::<(), ()>::reset_metadata(ui);
     }
@@ -441,7 +442,7 @@ impl ConfigurableApp {
 
             ui.collapsing("last changes", |ui| {
                 ScrollArea::vertical().max_height(200.).show(ui, |ui| {
-                    self.last_changes.iter().for_each(|node| {
+                    self.last_changes.iter().rev().for_each(|node| {
                         ui.label(format!("{:?}", node));
                     });
                 });
