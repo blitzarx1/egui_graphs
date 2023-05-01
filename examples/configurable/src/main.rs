@@ -408,23 +408,22 @@ impl ConfigurableApp {
                 ui.vertical(|ui| {
                     ui.checkbox(&mut self.settings_interaction.node_select, "node_select");
                     ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
+                    
                 }).response.on_disabled_hover_text("node_multiselect enables select");
             });
 
+            ui.add_space(5.);
+
+            ui.add(Slider::new(&mut self.settings_interaction.selection_depth, -10..=10)
+            .text("selection_depth"));
+            ui.label("How deep into the neighbours of selected nodes should the selection go.");
+            
             ui.add_space(5.);
 
             if ui.checkbox(&mut self.settings_interaction.node_multiselect, "node_multiselect").changed() {
                 self.settings_interaction.node_select = true;
             }
             ui.label("Enable multiselect to select multiple nodes.");
-
-            ui.add_space(5.);
-
-            ui.add_enabled_ui(self.settings_interaction.node_select, |ui| {
-                ui.add(Slider::new(&mut self.settings_interaction.selection_depth, -10..=10)
-                .text("selection_depth"));
-                ui.label("How deep into the neighbours of selected nodes should the selection go.");
-            }).response.on_disabled_hover_text("node_select enables the selection_depth");
 
             ui.add_space(5.);
 
