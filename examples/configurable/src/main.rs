@@ -420,6 +420,14 @@ impl ConfigurableApp {
 
             ui.add_space(5.);
 
+            ui.add_enabled_ui(self.settings_interaction.node_select, |ui| {
+                ui.add(Slider::new(&mut self.settings_interaction.selection_depth, -10..=10)
+                .text("selection_depth"));
+                ui.label("How deep into the neighbours of selected nodes should the selection go.");
+            }).response.on_disabled_hover_text("node_select enables the selection_depth");
+
+            ui.add_space(5.);
+
             ui.collapsing("selected", |ui| {
                 ScrollArea::vertical().max_height(200.).show(ui, |ui| {
                     self.selected_nodes.iter().for_each(|node| {

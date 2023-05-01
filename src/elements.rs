@@ -13,6 +13,7 @@ pub struct Node<N: Clone> {
     pub(crate) radius: f32,
 
     pub selected: bool,
+    pub selected_secondary: bool,
     pub dragged: bool,
 }
 
@@ -26,6 +27,7 @@ impl<N: Clone> Node<N> {
             radius: 5.,
 
             selected: false,
+            selected_secondary: false,
             dragged: false,
         }
     }
@@ -38,6 +40,7 @@ impl<N: Clone> Node<N> {
             color: self.color,
             selected: self.selected,
             dragged: self.dragged,
+            selected_secondary: self.selected_secondary,
 
             data: self.data.clone(),
         }
@@ -62,6 +65,7 @@ pub struct Edge<E: Clone> {
     /// If `color` is None default color is used.
     pub color: Option<Color32>,
     pub selected: bool,
+    pub selected_secondary: bool,
 }
 
 impl<E: Clone> Edge<E> {
@@ -76,6 +80,7 @@ impl<E: Clone> Edge<E> {
 
             color: None,
             selected: false,
+            selected_secondary: false,
         }
     }
 
@@ -88,6 +93,7 @@ impl<E: Clone> Edge<E> {
             color: self.color,
             tip_angle: self.tip_angle,
             selected: self.selected,
+            selected_secondary: self.selected_secondary,
 
             data: self.data.clone(),
         }

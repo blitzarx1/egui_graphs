@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use petgraph::stable_graph::{NodeIndex, StableGraph};
+use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 
 use crate::{Edge, Node};
 
@@ -9,15 +9,17 @@ use crate::{Edge, Node};
 /// The struct stores the selected nodes, dragged node, and cached edges by nodes.
 #[derive(Debug, Clone)]
 pub struct FrameState<E: Clone> {
-    pub selected: Vec<NodeIndex>,
+    pub selected_nodes: Vec<NodeIndex>,
+    pub selected_edges: Vec<EdgeIndex>,
     pub dragged: Option<NodeIndex>,
-    edges_by_nodes: Option<Vec<((usize, usize), Vec<Edge<E>>)>>,
+    edges_by_nodes: Option<Vec<((usize, usize), Vec<(EdgeIndex, Edge<E>)>)>>,
 }
 
 impl<E: Clone> Default for FrameState<E> {
     fn default() -> Self {
         Self {
-            selected: Vec::new(),
+            selected_nodes: Default::default(),
+            selected_edges: Default::default(),
             dragged: None,
             edges_by_nodes: None,
         }
@@ -25,15 +27,16 @@ impl<E: Clone> Default for FrameState<E> {
 }
 
 impl<E: Clone> FrameState<E> {
+    /// Helper method to get the edges by nodes. This is cached for performance.
     pub fn edges_by_nodes<N: Clone>(
         &mut self,
         g: &StableGraph<Node<N>, Edge<E>>,
-    ) -> &Vec<((usize, usize), Vec<Edge<E>>)> {
+    ) -> &Vec<((usize, usize), Vec<(EdgeIndex, Edge<E>)>)> {
         if self.edges_by_nodes.is_some() {
             return self.edges_by_nodes.as_ref().unwrap();
         }
 
-        let mut edge_map: HashMap<(usize, usize), Vec<Edge<E>>> = HashMap::new();
+        let mut edge_map: HashMap<(usize, usize), Vec<(EdgeIndex, Edge<E>)>> = HashMap::new();
 
         for edge_idx in g.edge_indices() {
             let (source_idx, target_idx) = g.edge_endpoints(edge_idx).unwrap();
@@ -44,7 +47,7 @@ impl<E: Clone> FrameState<E> {
             edge_map
                 .entry((source, target))
                 .or_insert_with(Vec::new)
-                .push(edge);
+                .push((edge_idx, edge));
         }
 
         let res = edge_map
@@ -81,7 +84,7 @@ mod tests {
     #[test]
     fn test_frame_state_default() {
         let frame_state: FrameState<usize> = FrameState::default();
-        assert_eq!(frame_state.selected.len(), 0);
+        assert_eq!(frame_state.selected_nodes.len(), 0);
         assert!(frame_state.dragged.is_none());
         assert!(frame_state.edges_by_nodes.is_none());
     }
@@ -107,10 +110,11 @@ mod tests {
             let target = target_idx.index();
             let edge = graph.edge_weight(edge_idx).unwrap();
 
-            assert_eq!(
-                found_edges.get(&(source, target)).unwrap().first().unwrap(),
-                edge
-            );
+            assert!(found_edges
+                .get(&(source, target))
+                .unwrap()
+                .iter()
+                .any(|(idx, e)| idx == &edge_idx && e == edge));
         }
     }
 }

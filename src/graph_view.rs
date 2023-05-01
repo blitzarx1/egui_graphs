@@ -16,8 +16,9 @@ use egui::{
     Color32, Painter, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, Widget,
 };
 use petgraph::{
-    stable_graph::{NodeIndex, StableGraph},
-    visit::IntoNodeReferences,
+    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
+    visit::{EdgeRef, IntoNodeReferences},
+    Direction,
 };
 
 /// `GraphView` is a widget for visualizing and interacting with graphs.
@@ -80,10 +81,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
 
     /// Makes widget interactive sending changes. Events which
     /// are configured in `settings_interaction` are sent to the channel as soon as the occured.
-    pub fn with_interactions(
-        mut self,
-        settings_interaction: &SettingsInteraction,
-    ) -> Self {
+    pub fn with_interactions(mut self, settings_interaction: &SettingsInteraction) -> Self {
         self.setings_interaction = settings_interaction.clone();
         self
     }
@@ -176,7 +174,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             let selectable =
                 self.setings_interaction.node_select || self.setings_interaction.node_multiselect;
             if selectable {
-                self.deselect_all_nodes(state);
+                self.deselect_all(state);
             }
             return;
         }
@@ -197,7 +195,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         }
 
         if !self.setings_interaction.node_multiselect {
-            self.deselect_all_nodes(state);
+            self.deselect_all(state);
         }
 
         self.select_node(idx);
@@ -322,27 +320,110 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.g.node_weight_mut(idx).unwrap().selected = true;
 
         let mut changes = Changes::default();
-        changes.set_selected(idx, true);
+        changes.select_node(idx, false);
         self.send_changes(changes);
+
+        if self.setings_interaction.selection_depth == 0 {
+            return;
+        }
+
+        let dir = match self.setings_interaction.selection_depth > 0 {
+            true => petgraph::Direction::Outgoing,
+            false => petgraph::Direction::Incoming,
+        };
+
+        let (nodes, edges) = self.collect_generations(
+            idx,
+            self.setings_interaction.selection_depth.unsigned_abs() as usize,
+            dir,
+        );
+
+        if nodes.is_empty() && edges.is_empty() {
+            return;
+        }
+
+        changes = Changes::default();
+        nodes.iter().for_each(|idx| {
+            self.g.node_weight_mut(*idx).unwrap().selected_secondary = true;
+            changes.select_node(*idx, true);
+        });
+        self.send_changes(changes);
+
+        changes = Changes::default();
+        edges.iter().for_each(|idx| {
+            self.g.edge_weight_mut(*idx).unwrap().selected_secondary = true;
+            let mut changes = Changes::default();
+            changes.select_edge(*idx);
+            self.send_changes(changes);
+        });
+        self.send_changes(changes);
+    }
+
+    fn collect_generations(
+        &self,
+        root: NodeIndex,
+        n: usize,
+        dir: Direction,
+    ) -> (Vec<NodeIndex>, Vec<EdgeIndex>) {
+        if n == 0 {
+            return (vec![], vec![]);
+        }
+
+        let mut nodes = vec![];
+        let mut edges = vec![];
+        let mut depth = n;
+        let mut next_start = vec![root];
+
+        while depth > 0 {
+            depth -= 1;
+
+            let mut next_next_start = vec![];
+            next_start.iter().for_each(|idx| {
+                nodes.push(*idx);
+                self.g.edges_directed(*idx, dir).for_each(|edge| {
+                    edges.push(edge.id());
+                    let next = match dir {
+                        Direction::Incoming => edge.source(),
+                        Direction::Outgoing => edge.target(),
+                    };
+                    next_next_start.push(next);
+                });
+            });
+
+            next_start = next_next_start;
+        }
+
+        nodes.extend(next_start);
+
+        (nodes, edges)
     }
 
     fn deselect_node(&mut self, idx: NodeIndex) {
         self.g.node_weight_mut(idx).unwrap().selected = false;
 
         let mut changes = Changes::default();
-        changes.set_selected(idx, false);
+        changes.deselect_node(idx);
         self.send_changes(changes);
     }
 
-    fn deselect_all_nodes(&mut self, state: &FrameState<E>) {
-        if state.selected.is_empty() {
+    fn deselect_all(&mut self, state: &FrameState<E>) {
+        if state.selected_nodes.is_empty() && state.selected_edges.is_empty() {
             return;
         }
 
         let mut changes = Changes::default();
-        state.selected.iter().for_each(|idx| {
+        state.selected_nodes.iter().for_each(|idx| {
             self.g.node_weight_mut(*idx).unwrap().selected = false;
-            changes.set_selected(*idx, false);
+            self.g.node_weight_mut(*idx).unwrap().selected_secondary = false;
+            changes.deselect_node(*idx);
+        });
+        self.send_changes(changes);
+
+        let mut changes = Changes::default();
+        state.selected_edges.iter().for_each(|idx| {
+            self.g.edge_weight_mut(*idx).unwrap().selected = false;
+            self.g.edge_weight_mut(*idx).unwrap().selected_secondary = false;
+            changes.deselect_edge(*idx);
         });
         self.send_changes(changes);
     }
@@ -439,8 +520,8 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                 frame_state.dragged = Some(idx);
             }
 
-            if n.selected {
-                frame_state.selected.push(idx)
+            if n.selected || n.selected_secondary {
+                frame_state.selected_nodes.push(idx)
             }
 
             let selected = self.draw_node(p, n, meta);
@@ -459,13 +540,18 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         meta: &Metadata,
     ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
         let mut shapes = (Vec::new(), Vec::new(), Vec::new());
+        let mut selected_edges = vec![];
         state
             .edges_by_nodes(self.g)
             .iter()
             .for_each(|((start, end), edges)| {
                 let mut order = edges.len();
-                edges.iter().enumerate().for_each(|(_, e)| {
+                edges.iter().for_each(|(idx, e)| {
                     order -= 1;
+
+                    if e.selected || e.selected_secondary {
+                        selected_edges.push(*idx);
+                    }
 
                     let edge = e.screen_transform(meta.zoom);
 
@@ -476,6 +562,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                 });
             });
 
+        state.selected_edges = selected_edges;
         shapes
     }
 
@@ -556,10 +643,6 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         e: &Edge<E>,
         order: usize,
     ) -> Vec<CubicBezierShape> {
-        let color = match e.color {
-            Some(color) => color,
-            None => self.settings_style.color_edge(p.ctx()),
-        };
         let pos_start_and_end = n.location.to_pos2();
         let loop_size = n.radius * (4. + 1. + order as f32);
 
@@ -572,7 +655,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             pos_start_and_end.y - loop_size,
         );
 
-        let stroke = Stroke::new(e.width, color);
+        let stroke = Stroke::new(e.width, self.settings_style.color_edge(p.ctx(), e));
         let shape_basic = CubicBezierShape::from_points_stroke(
             [
                 pos_start_and_end,
@@ -585,13 +668,17 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             stroke,
         );
 
-        if !e.selected {
+        if !(e.selected || e.selected_secondary) {
             p.add(shape_basic);
             return vec![];
         }
 
         let mut shapes = vec![shape_basic];
-        let highlighted_stroke = Stroke::new(e.width * 2., self.settings_style.color_highlight);
+
+        let highlighted_stroke = Stroke::new(
+            e.width * 2.,
+            self.settings_style.color_edge_highlight(e).unwrap(),
+        );
         shapes.push(CubicBezierShape::from_points_stroke(
             [
                 pos_start_and_end,
@@ -615,10 +702,6 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         e: &Edge<E>,
         order: usize,
     ) -> (Vec<Shape>, Vec<QuadraticBezierShape>) {
-        let color = match e.color {
-            Some(color) => color,
-            None => self.settings_style.color_edge(p.ctx()),
-        };
         let pos_start = n_start.location.to_pos2();
         let pos_end = n_end.location.to_pos2();
 
@@ -632,8 +715,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         let tip_point = pos_start + vec - end_node_radius_vec;
         let start_point = pos_start + start_node_radius_vec;
 
-        let stroke = Stroke::new(e.width, color);
-        let highlighted_stroke = Stroke::new(e.width * 2., self.settings_style.color_highlight);
+        let stroke = Stroke::new(e.width, self.settings_style.color_edge(p.ctx(), e));
 
         // draw straight edge
         if order == 0 {
@@ -645,7 +727,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
             shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
 
-            if !e.selected {
+            if !(e.selected || e.selected_secondary) {
                 shapes.into_iter().for_each(|shape| {
                     p.add(shape);
                 });
@@ -653,6 +735,10 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                 return (vec![], vec![]);
             }
 
+            let highlighted_stroke = Stroke::new(
+                e.width * 2.,
+                self.settings_style.color_edge_highlight(e).unwrap(),
+            );
             shapes.push(Shape::line_segment(
                 [start_point, tip_point],
                 highlighted_stroke,
@@ -695,7 +781,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
         shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
 
-        if !e.selected {
+        if !(e.selected || e.selected_secondary) {
             quadratic_shapes.into_iter().for_each(|shape| {
                 p.add(shape);
             });
@@ -706,6 +792,10 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             return (vec![], vec![]);
         }
 
+        let highlighted_stroke = Stroke::new(
+            e.width * 2.,
+            self.settings_style.color_edge_highlight(e).unwrap(),
+        );
         quadratic_shapes.push(QuadraticBezierShape::from_points_stroke(
             [start_point, control_point, tip_point],
             false,
@@ -735,16 +825,18 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn draw_node_basic(&self, loc: Pos2, p: &Painter, node: &Node<N>) -> Vec<CircleShape> {
-        let color = match node.color {
-            Some(c) => c,
-            None => self.settings_style.color_node(p.ctx()),
-        };
-
-        if !(node.selected || node.dragged) {
-            p.circle_filled(loc, node.radius, color);
+        let color = self.settings_style.color_node(p.ctx(), node);
+        if !(node.selected || node.selected_secondary || node.dragged) {
+            // draw the node in place
+            p.circle_filled(
+                loc,
+                node.radius,
+                self.settings_style.color_node(p.ctx(), node),
+            );
             return vec![];
         }
 
+        // draw the node later if it's selected or dragged to make sure it's on top
         vec![CircleShape {
             center: loc,
             radius: node.radius,
@@ -754,32 +846,23 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn draw_node_interacted(&self, loc: Pos2, node: &Node<N>) -> Vec<CircleShape> {
-        if !(node.selected || node.dragged) {
+        if !(node.selected || node.dragged || node.selected_secondary) {
             return vec![];
         }
 
         let mut shapes = vec![];
         let highlight_radius = node.radius * 1.5;
 
-        // draw a border around the selected node
-        if node.selected {
-            shapes.push(CircleShape {
-                center: loc,
-                radius: highlight_radius,
-                fill: Color32::TRANSPARENT,
-                stroke: Stroke::new(node.radius, self.settings_style.color_highlight),
-            });
-        };
+        shapes.push(CircleShape {
+            center: loc,
+            radius: highlight_radius,
+            fill: Color32::TRANSPARENT,
+            stroke: Stroke::new(
+                node.radius,
+                self.settings_style.color_node_highlight(node).unwrap(),
+            ),
+        });
 
-        // draw a border around the dragged node
-        if node.dragged {
-            shapes.push(CircleShape {
-                center: loc,
-                radius: highlight_radius,
-                fill: Color32::TRANSPARENT,
-                stroke: Stroke::new(node.radius, self.settings_style.color_drag),
-            });
-        }
         shapes
     }
 

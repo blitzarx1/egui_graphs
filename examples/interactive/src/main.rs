@@ -25,6 +25,7 @@ impl App for InteractiveApp {
                     node_click: true,
                     node_select: true,
                     node_multiselect: true,
+                    ..Default::default()
                 }),
             );
         });
