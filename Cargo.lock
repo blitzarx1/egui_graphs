@@ -339,7 +339,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "basic"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "eframe",
  "egui",
@@ -517,6 +517,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62ec6771ecfa0762d24683ee5a32ad78487a3d3afdc0fb8cae19d2c5deb50b7c"
 dependencies = [
  "crossbeam-utils",
+]
+
+[[package]]
+name = "configurable"
+version = "0.3.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_graphs",
+ "fdg-sim",
+ "petgraph",
+ "rand",
 ]
 
 [[package]]
@@ -739,7 +751,7 @@ dependencies = [
 
 [[package]]
 name = "egui_graphs"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "egui",
  "petgraph",
@@ -1133,14 +1145,12 @@ dependencies = [
 
 [[package]]
 name = "interactive"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "eframe",
  "egui",
  "egui_graphs",
- "fdg-sim",
  "petgraph",
- "rand",
 ]
 
 [[package]]

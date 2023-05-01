@@ -83,10 +83,13 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     pub fn with_interactions(
         mut self,
         settings_interaction: &SettingsInteraction,
-        changes_sender: &'a Sender<Changes>,
     ) -> Self {
-        self.changes_sender = Some(changes_sender);
         self.setings_interaction = settings_interaction.clone();
+        self
+    }
+
+    pub fn with_changes(mut self, changes_sender: &'a Sender<Changes>) -> Self {
+        self.changes_sender = Some(changes_sender);
         self
     }
 

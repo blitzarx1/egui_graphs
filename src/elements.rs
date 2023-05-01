@@ -10,7 +10,7 @@ pub struct Node<N: Clone> {
 
     /// If `color` is None default color is used.
     pub color: Option<Color32>,
-    pub radius: f32,
+    pub(crate) radius: f32,
 
     pub selected: bool,
     pub dragged: bool,
@@ -41,6 +41,10 @@ impl<N: Clone> Node<N> {
 
             data: self.data.clone(),
         }
+    }
+
+    pub fn radius(&self) -> f32 {
+        self.radius
     }
 }
 
