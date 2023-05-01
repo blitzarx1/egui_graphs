@@ -90,7 +90,7 @@ fn main() {
 
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
 
-### Interactive
+### Interactivity
 
 You can check more advanced [configurable demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/configurable) for usage references and settings description.
 
