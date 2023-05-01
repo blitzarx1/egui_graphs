@@ -322,7 +322,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.g.node_weight_mut(idx).unwrap().selected = true;
 
         let mut changes = Changes::default();
-        changes.select_node(idx, false);
+        changes.select_node(idx);
         self.send_changes(changes);
     }
 

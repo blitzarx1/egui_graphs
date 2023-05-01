@@ -187,8 +187,7 @@ impl ConfigurableApp {
     fn handle_changes(&mut self) {
         self.changes_receiver.try_iter().for_each(|changes| {
             if self.last_changes.len() > CHANGES_LIMIT {
-                self.last_changes[0] = changes;
-                return;
+                self.last_changes.remove(0);
             }
 
             self.last_changes.push(changes);

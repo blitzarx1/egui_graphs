@@ -36,12 +36,12 @@ impl Changes {
         };
     }
 
-    pub(crate) fn select_node(&mut self, idx: NodeIndex, secondary: bool) {
+    pub(crate) fn select_node(&mut self, idx: NodeIndex) {
         match self.nodes.get_mut(&idx) {
-            Some(changes_node) => changes_node.select(secondary),
+            Some(changes_node) => changes_node.select(),
             None => {
                 let mut changes_node = ChangesNode::default();
-                changes_node.select(secondary);
+                changes_node.select();
                 self.nodes.insert(idx, changes_node);
             }
         };
@@ -75,7 +75,6 @@ impl Changes {
 pub struct ChangesNode {
     pub location: Option<Vec2>,
     pub selected: Option<bool>,
-    pub selected_secondary: Option<bool>,
     pub dragged: Option<bool>,
     pub clicked: Option<bool>,
 }
@@ -85,16 +84,12 @@ impl ChangesNode {
         self.location = Some(new_location);
     }
 
-    fn select(&mut self, secondary: bool) {
-        match secondary {
-            true => self.selected_secondary = Some(true),
-            false => self.selected = Some(true),
-        };
+    fn select(&mut self) {
+        self.selected = Some(true)
     }
 
     fn deselect(&mut self) {
         self.selected = Some(false);
-        self.selected_secondary = Some(false);
     }
 
     fn set_dragged(&mut self, new_dragged: bool) {
@@ -138,25 +133,11 @@ mod tests {
         changes.set_clicked(idx, clicked);
         assert_eq!(changes.nodes.get(&idx).unwrap().clicked.unwrap(), clicked);
 
-        let secondary = false;
-        changes.select_node(idx, secondary);
-        assert_eq!(changes.nodes.get(&idx).unwrap().selected.unwrap(), true);
+        changes.select_node(idx);
+        assert!(changes.nodes.get(&idx).unwrap().selected.unwrap());
 
-        let secondary = true;
-        changes.select_node(idx, secondary);
-        assert_eq!(
-            changes.nodes.get(&idx).unwrap().selected_secondary.unwrap(),
-            true
-        );
-
-        changes.select_node(idx, true);
-        changes.select_node(idx, false);
         changes.deselect_node(idx);
-        assert_eq!(changes.nodes.get(&idx).unwrap().selected.unwrap(), false);
-        assert_eq!(
-            changes.nodes.get(&idx).unwrap().selected_secondary.unwrap(),
-            false
-        );
+        assert!(!changes.nodes.get(&idx).unwrap().selected.unwrap());
 
         let dragged = true;
         changes.set_dragged(idx, dragged);
