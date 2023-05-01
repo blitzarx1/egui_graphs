@@ -13,12 +13,6 @@ Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) 
 * Graph elements style configuration;
 * Support for egui dark/light mode;
 
-![ezgif-4-3e4e4469e6](https://user-images.githubusercontent.com/32969427/233863786-11459176-b741-4343-8b42-7d9b3a8239ee.gif)
-
-![dynamic_demo](https://user-images.githubusercontent.com/32969427/235311610-b59b4cfb-3e93-49a2-8780-61a83a95af03.gif)
-
----
-
 ## Status
 The project is on the track to v1.0.0 and there will be some minor releases prior. So stay tuned!
 
@@ -99,3 +93,8 @@ You can further customize the appearance and behavior of your graph by modifying
 ### Interactive
 
 You can check more advanced [interactive example](https://github.com/blitzarx1/egui_graph/tree/master/examples/interactive) for usage references and settings description.
+
+## Gallery
+![ezgif-4-3e4e4469e6](https://user-images.githubusercontent.com/32969427/233863786-11459176-b741-4343-8b42-7d9b3a8239ee.gif)
+
+![dynamic_demo](https://user-images.githubusercontent.com/32969427/235311610-b59b4cfb-3e93-49a2-8780-61a83a95af03.gif)
