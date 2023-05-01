@@ -19,6 +19,9 @@ Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) 
 
 ---
 
+## Status
+The project is on the track to v1.0.0 and there will be some minor releases prior. So stay tuned!
+
 ### Basic setup example
 #### Step 1: Setting up the BasicApp struct. 
 
