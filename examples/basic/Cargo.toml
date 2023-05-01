@@ -1,6 +1,6 @@
 [package]
 name = "basic"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 edition = "2021"
