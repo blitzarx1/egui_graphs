@@ -107,3 +107,63 @@ impl Selections {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui::Vec2;
+    use petgraph::stable_graph::StableGraph;
+
+    // Helper function to create a test StableGraph
+    fn create_test_graph() -> StableGraph<Node<()>, Edge<usize>> {
+        let mut graph = StableGraph::<Node<()>, Edge<usize>>::new();
+        let n0 = graph.add_node(Node::new(Vec2::default(), ()));
+        let n1 = graph.add_node(Node::new(Vec2::default(), ()));
+        let n2 = graph.add_node(Node::new(Vec2::default(), ()));
+
+        graph.add_edge(n0, n1, Edge::new(1));
+        graph.add_edge(n0, n2, Edge::new(2));
+        graph.add_edge(n1, n2, Edge::new(3));
+
+        graph
+    }
+
+    #[test]
+    fn test_selections_add_and_elements() {
+        let graph = create_test_graph();
+        let mut selections = Selections::default();
+
+        selections.add_selection(&graph, NodeIndex::new(0), 1);
+
+        let (nodes, edges) = selections.elements();
+        assert_eq!(nodes.len(), 3);
+        assert_eq!(edges.len(), 2);
+
+        assert!(nodes.contains(&NodeIndex::new(0)));
+        assert!(nodes.contains(&NodeIndex::new(1)));
+        assert!(nodes.contains(&NodeIndex::new(2)));
+
+        assert!(edges.contains(&EdgeIndex::new(0)));
+        assert!(edges.contains(&EdgeIndex::new(1)));
+    }
+
+    #[test]
+    fn test_elements_by_root() {
+        let graph = create_test_graph();
+        let mut selections = Selections::default();
+
+        selections.add_selection(&graph, NodeIndex::new(0), 1);
+
+        let (nodes, edges) = selections.elements_by_root(NodeIndex::new(0)).unwrap();
+        assert_eq!(nodes.len(), 3);
+        assert_eq!(edges.len(), 2);
+
+        assert!(nodes.contains(&NodeIndex::new(0)));
+        assert!(nodes.contains(&NodeIndex::new(1)));
+        assert!(nodes.contains(&NodeIndex::new(2)));
+
+        assert!(edges.contains(&EdgeIndex::new(0)));
+        assert!(edges.contains(&EdgeIndex::new(1)));
+    }
+}
