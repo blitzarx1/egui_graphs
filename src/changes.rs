@@ -6,10 +6,14 @@ use petgraph::stable_graph::NodeIndex;
 /// `Changes` is a struct that stores the changes that happened in the graph
 #[derive(Default, Debug, Clone)]
 pub struct Changes {
-    pub(crate) nodes: HashMap<NodeIndex, ChangesNode>,
+    pub nodes: HashMap<NodeIndex, ChangesNode>,
 }
 
 impl Changes {
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
     pub(crate) fn set_location(&mut self, idx: NodeIndex, val: Vec2) {
         match self.nodes.get_mut(&idx) {
             Some(changes_node) => changes_node.set_location(val),
@@ -32,12 +36,23 @@ impl Changes {
         };
     }
 
-    pub(crate) fn set_selected(&mut self, idx: NodeIndex, val: bool) {
+    pub(crate) fn select_node(&mut self, idx: NodeIndex) {
         match self.nodes.get_mut(&idx) {
-            Some(changes_node) => changes_node.set_selected(val),
+            Some(changes_node) => changes_node.select(),
             None => {
                 let mut changes_node = ChangesNode::default();
-                changes_node.set_selected(val);
+                changes_node.select();
+                self.nodes.insert(idx, changes_node);
+            }
+        };
+    }
+
+    pub(crate) fn deselect_node(&mut self, idx: NodeIndex) {
+        match self.nodes.get_mut(&idx) {
+            Some(changes_node) => changes_node.deselect(),
+            None => {
+                let mut changes_node = ChangesNode::default();
+                changes_node.deselect();
                 self.nodes.insert(idx, changes_node);
             }
         };
@@ -66,19 +81,23 @@ pub struct ChangesNode {
 
 impl ChangesNode {
     fn set_location(&mut self, new_location: Vec2) {
-        self.location.get_or_insert(new_location);
+        self.location = Some(new_location);
     }
 
-    fn set_selected(&mut self, new_selected: bool) {
-        self.selected.get_or_insert(new_selected);
+    fn select(&mut self) {
+        self.selected = Some(true)
+    }
+
+    fn deselect(&mut self) {
+        self.selected = Some(false);
     }
 
     fn set_dragged(&mut self, new_dragged: bool) {
-        self.dragged.get_or_insert(new_dragged);
+        self.dragged = Some(new_dragged);
     }
 
     fn set_clicked(&mut self, new_clicked: bool) {
-        self.clicked.get_or_insert(new_clicked);
+        self.clicked = Some(new_clicked);
     }
 }
 
@@ -114,9 +133,11 @@ mod tests {
         changes.set_clicked(idx, clicked);
         assert_eq!(changes.nodes.get(&idx).unwrap().clicked.unwrap(), clicked);
 
-        let selected = true;
-        changes.set_selected(idx, selected);
-        assert_eq!(changes.nodes.get(&idx).unwrap().selected.unwrap(), selected);
+        changes.select_node(idx);
+        assert!(changes.nodes.get(&idx).unwrap().selected.unwrap());
+
+        changes.deselect_node(idx);
+        assert!(!changes.nodes.get(&idx).unwrap().selected.unwrap());
 
         let dragged = true;
         changes.set_dragged(idx, dragged);

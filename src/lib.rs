@@ -1,9 +1,10 @@
 mod changes;
 mod elements;
+mod frame_state;
 mod graph_view;
 mod metadata;
+mod selections;
 mod settings;
-mod frame_state;
 
 pub use self::changes::{Changes, ChangesNode};
 pub use self::elements::{Edge, Node};

@@ -8,6 +8,7 @@ use crate::{
     elements::Node,
     frame_state::FrameState,
     metadata::Metadata,
+    selections::Selections,
     settings::{SettingsInteraction, SettingsStyle},
     Edge, SettingsNavigation,
 };
@@ -37,7 +38,7 @@ use petgraph::{
 /// properties of the nodes or edges.
 pub struct GraphView<'a, N: Clone, E: Clone> {
     g: &'a mut StableGraph<Node<N>, Edge<E>>,
-    setings_interaction: SettingsInteraction,
+    settings_interaction: SettingsInteraction,
     setings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
     changes_sender: Option<&'a Sender<Changes>>,
@@ -51,11 +52,13 @@ impl<'a, N: Clone, E: Clone> Widget for &mut GraphView<'a, N, E> {
 
         self.fit_if_first(&resp, &mut meta);
 
-        let mut state = self.draw_and_get_state(&p, &mut meta);
+        let mut frame_state = self.precompute_state();
 
-        self.handle_nodes_drags(&resp, &mut state, &mut meta);
-        self.handle_click(&resp, &mut state, &mut meta);
-        self.handle_navigation(ui, &resp, &state, &mut meta);
+        self.draw(&p, &mut frame_state, &mut meta);
+
+        self.handle_nodes_drags(&resp, &mut frame_state, &mut meta);
+        self.handle_click(&resp, &mut frame_state, &mut meta);
+        self.handle_navigation(ui, &resp, &frame_state, &mut meta);
 
         meta.store(ui);
         ui.ctx().request_repaint();
@@ -72,7 +75,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             g,
 
             settings_style: Default::default(),
-            setings_interaction: Default::default(),
+            settings_interaction: Default::default(),
             setings_navigation: Default::default(),
             changes_sender: Default::default(),
         }
@@ -80,13 +83,13 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
 
     /// Makes widget interactive sending changes. Events which
     /// are configured in `settings_interaction` are sent to the channel as soon as the occured.
-    pub fn with_interactions(
-        mut self,
-        settings_interaction: &SettingsInteraction,
-        changes_sender: &'a Sender<Changes>,
-    ) -> Self {
+    pub fn with_interactions(mut self, settings_interaction: &SettingsInteraction) -> Self {
+        self.settings_interaction = settings_interaction.clone();
+        self
+    }
+
+    pub fn with_changes(mut self, changes_sender: &'a Sender<Changes>) -> Self {
         self.changes_sender = Some(changes_sender);
-        self.setings_interaction = settings_interaction.clone();
         self
     }
 
@@ -159,9 +162,9 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             return;
         }
 
-        let clickable = self.setings_interaction.node_click
-            || self.setings_interaction.node_select
-            || self.setings_interaction.node_multiselect;
+        let clickable = self.settings_interaction.node_click
+            || self.settings_interaction.node_select
+            || self.settings_interaction.node_multiselect;
 
         if !(clickable) {
             return;
@@ -171,9 +174,9 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         let node = self.node_by_pos(meta, resp.hover_pos().unwrap());
         if node.is_none() {
             let selectable =
-                self.setings_interaction.node_select || self.setings_interaction.node_multiselect;
+                self.settings_interaction.node_select || self.settings_interaction.node_multiselect;
             if selectable {
-                self.deselect_all_nodes(state);
+                self.deselect_all(state);
             }
             return;
         }
@@ -182,7 +185,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn handle_node_click(&mut self, idx: NodeIndex, state: &FrameState<E>) {
-        if !self.setings_interaction.node_select {
+        if !self.settings_interaction.node_select {
             self.click_node(idx);
             return;
         }
@@ -193,8 +196,8 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             return;
         }
 
-        if !self.setings_interaction.node_multiselect {
-            self.deselect_all_nodes(state);
+        if !self.settings_interaction.node_multiselect {
+            self.deselect_all(state);
         }
 
         self.select_node(idx);
@@ -206,7 +209,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         state: &mut FrameState<E>,
         meta: &mut Metadata,
     ) {
-        if !self.setings_interaction.node_drag {
+        if !self.settings_interaction.node_drag {
             return;
         }
 
@@ -319,7 +322,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.g.node_weight_mut(idx).unwrap().selected = true;
 
         let mut changes = Changes::default();
-        changes.set_selected(idx, true);
+        changes.select_node(idx);
         self.send_changes(changes);
     }
 
@@ -327,21 +330,33 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.g.node_weight_mut(idx).unwrap().selected = false;
 
         let mut changes = Changes::default();
-        changes.set_selected(idx, false);
+        changes.deselect_node(idx);
         self.send_changes(changes);
     }
 
-    fn deselect_all_nodes(&mut self, state: &FrameState<E>) {
-        if state.selected.is_empty() {
+    fn deselect_all(&mut self, state: &FrameState<E>) {
+        if state.selections.is_none() {
             return;
         }
 
+        let (selected_nodes, selected_edges) = state.selections.as_ref().unwrap().elements();
+
         let mut changes = Changes::default();
-        state.selected.iter().for_each(|idx| {
+        selected_nodes.iter().for_each(|idx| {
             self.g.node_weight_mut(*idx).unwrap().selected = false;
-            changes.set_selected(*idx, false);
+            self.g.node_weight_mut(*idx).unwrap().selected_child = false;
+            self.g.node_weight_mut(*idx).unwrap().selected_parent = false;
+            changes.deselect_node(*idx);
         });
-        self.send_changes(changes);
+        if !changes.is_empty() {
+            self.send_changes(changes);
+        }
+
+        selected_edges.iter().for_each(|idx| {
+            self.g.edge_weight_mut(*idx).unwrap().selected = false;
+            self.g.edge_weight_mut(*idx).unwrap().selected_child = false;
+            self.g.edge_weight_mut(*idx).unwrap().selected_parent = false;
+        });
     }
 
     fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
@@ -371,16 +386,20 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.send_changes(changes);
     }
 
-    fn draw_and_get_state(&mut self, p: &Painter, metadata: &mut Metadata) -> FrameState<E> {
-        let mut frame_state = FrameState::default();
+    fn precompute_state(&mut self) -> FrameState<E> {
+        let mut state = FrameState::default();
 
-        // reset node radius
-        let default_radius = Node::new(Vec2::default(), ()).radius;
+        // reset nodes radiuses
         self.g
             .node_weights_mut()
-            .for_each(|n| n.radius = default_radius);
+            .for_each(|n| n.reset_precalculated());
 
-        let edges = frame_state.edges_by_nodes(self.g);
+        self.g
+            .edge_weights_mut()
+            .for_each(|e| e.reset_precalculated());
+
+        // compute nodes radiuses
+        let edges = state.edges_by_nodes(self.g);
         edges.iter().for_each(|((start, end), edges)| {
             self.g
                 .node_weight_mut(NodeIndex::new(*start))
@@ -390,13 +409,58 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                 self.settings_style.edge_radius_weight * edges.len() as f32;
         });
 
-        let edges_shapes = self.draw_edges(p, &mut frame_state, metadata);
-        let nodes_shapes = self.draw_nodes(p, metadata, &mut frame_state);
+        // compute selections
+        let mut selections = Selections::default();
+        let mut subselected_nodes = vec![];
+        let mut subselected_edges = vec![];
+        self.g.node_references().for_each(|(root_idx, root_n)| {
+            if !root_n.selected {
+                return;
+            }
+
+            selections.add_selection(self.g, root_idx, self.settings_interaction.selection_depth);
+
+            let elements = selections.elements_by_root(root_idx);
+            if elements.is_none() {
+                return;
+            }
+
+            let (nodes, edges) = elements.unwrap();
+
+            nodes.iter().for_each(|idx| {
+                if *idx == root_idx {
+                    return;
+                }
+                subselected_nodes.push(*idx);
+            });
+
+            edges.iter().for_each(|idx| subselected_edges.push(*idx));
+        });
+        state.selections = Some(selections);
+
+        subselected_nodes.iter().for_each(|idx| {
+            match self.settings_interaction.selection_depth > 0 {
+                true => self.g.node_weight_mut(*idx).unwrap().selected_child = true,
+                false => self.g.node_weight_mut(*idx).unwrap().selected_parent = true,
+            }
+        });
+
+        subselected_edges.iter().for_each(|idx| {
+            match self.settings_interaction.selection_depth > 0 {
+                true => self.g.edge_weight_mut(*idx).unwrap().selected_child = true,
+                false => self.g.edge_weight_mut(*idx).unwrap().selected_parent = true,
+            }
+        });
+
+        state
+    }
+
+    fn draw(&mut self, p: &Painter, state: &mut FrameState<E>, metadata: &mut Metadata) {
+        let edges_shapes = self.draw_edges(p, state, metadata);
+        let nodes_shapes = self.draw_nodes(p, metadata, state);
 
         self.draw_edges_shapes(p, edges_shapes);
         self.draw_nodes_shapes(p, nodes_shapes);
-
-        frame_state
     }
 
     fn draw_nodes(
@@ -436,10 +500,6 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                 frame_state.dragged = Some(idx);
             }
 
-            if n.selected {
-                frame_state.selected.push(idx)
-            }
-
             let selected = self.draw_node(p, n, meta);
             shapes.extend(selected);
         });
@@ -461,7 +521,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             .iter()
             .for_each(|((start, end), edges)| {
                 let mut order = edges.len();
-                edges.iter().enumerate().for_each(|(_, e)| {
+                edges.iter().for_each(|(_, e)| {
                     order -= 1;
 
                     let edge = e.screen_transform(meta.zoom);
@@ -553,10 +613,6 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         e: &Edge<E>,
         order: usize,
     ) -> Vec<CubicBezierShape> {
-        let color = match e.color {
-            Some(color) => color,
-            None => self.settings_style.color_edge(p.ctx()),
-        };
         let pos_start_and_end = n.location.to_pos2();
         let loop_size = n.radius * (4. + 1. + order as f32);
 
@@ -569,7 +625,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             pos_start_and_end.y - loop_size,
         );
 
-        let stroke = Stroke::new(e.width, color);
+        let stroke = Stroke::new(e.width, self.settings_style.color_edge(p.ctx(), e));
         let shape_basic = CubicBezierShape::from_points_stroke(
             [
                 pos_start_and_end,
@@ -582,13 +638,17 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             stroke,
         );
 
-        if !e.selected {
+        if !e.selected() {
             p.add(shape_basic);
             return vec![];
         }
 
         let mut shapes = vec![shape_basic];
-        let highlighted_stroke = Stroke::new(e.width * 2., self.settings_style.color_highlight);
+
+        let highlighted_stroke = Stroke::new(
+            e.width * 2.,
+            self.settings_style.color_edge_highlight(e).unwrap(),
+        );
         shapes.push(CubicBezierShape::from_points_stroke(
             [
                 pos_start_and_end,
@@ -612,10 +672,6 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         e: &Edge<E>,
         order: usize,
     ) -> (Vec<Shape>, Vec<QuadraticBezierShape>) {
-        let color = match e.color {
-            Some(color) => color,
-            None => self.settings_style.color_edge(p.ctx()),
-        };
         let pos_start = n_start.location.to_pos2();
         let pos_end = n_end.location.to_pos2();
 
@@ -629,8 +685,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         let tip_point = pos_start + vec - end_node_radius_vec;
         let start_point = pos_start + start_node_radius_vec;
 
-        let stroke = Stroke::new(e.width, color);
-        let highlighted_stroke = Stroke::new(e.width * 2., self.settings_style.color_highlight);
+        let stroke = Stroke::new(e.width, self.settings_style.color_edge(p.ctx(), e));
 
         // draw straight edge
         if order == 0 {
@@ -642,7 +697,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
             shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
 
-            if !e.selected {
+            if !e.selected() {
                 shapes.into_iter().for_each(|shape| {
                     p.add(shape);
                 });
@@ -650,6 +705,10 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                 return (vec![], vec![]);
             }
 
+            let highlighted_stroke = Stroke::new(
+                e.width * 2.,
+                self.settings_style.color_edge_highlight(e).unwrap(),
+            );
             shapes.push(Shape::line_segment(
                 [start_point, tip_point],
                 highlighted_stroke,
@@ -703,6 +762,10 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             return (vec![], vec![]);
         }
 
+        let highlighted_stroke = Stroke::new(
+            e.width * 2.,
+            self.settings_style.color_edge_highlight(e).unwrap(),
+        );
         quadratic_shapes.push(QuadraticBezierShape::from_points_stroke(
             [start_point, control_point, tip_point],
             false,
@@ -732,16 +795,18 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn draw_node_basic(&self, loc: Pos2, p: &Painter, node: &Node<N>) -> Vec<CircleShape> {
-        let color = match node.color {
-            Some(c) => c,
-            None => self.settings_style.color_node(p.ctx()),
-        };
-
-        if !(node.selected || node.dragged) {
-            p.circle_filled(loc, node.radius, color);
+        let color = self.settings_style.color_node(p.ctx(), node);
+        if !(node.selected() || node.dragged) {
+            // draw the node in place
+            p.circle_filled(
+                loc,
+                node.radius,
+                self.settings_style.color_node(p.ctx(), node),
+            );
             return vec![];
         }
 
+        // draw the node later if it's selected or dragged to make sure it's on top
         vec![CircleShape {
             center: loc,
             radius: node.radius,
@@ -751,32 +816,23 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn draw_node_interacted(&self, loc: Pos2, node: &Node<N>) -> Vec<CircleShape> {
-        if !(node.selected || node.dragged) {
+        if !(node.selected() || node.dragged) {
             return vec![];
         }
 
         let mut shapes = vec![];
         let highlight_radius = node.radius * 1.5;
 
-        // draw a border around the selected node
-        if node.selected {
-            shapes.push(CircleShape {
-                center: loc,
-                radius: highlight_radius,
-                fill: Color32::TRANSPARENT,
-                stroke: Stroke::new(node.radius, self.settings_style.color_highlight),
-            });
-        };
+        shapes.push(CircleShape {
+            center: loc,
+            radius: highlight_radius,
+            fill: Color32::TRANSPARENT,
+            stroke: Stroke::new(
+                node.radius,
+                self.settings_style.color_node_highlight(node).unwrap(),
+            ),
+        });
 
-        // draw a border around the dragged node
-        if node.dragged {
-            shapes.push(CircleShape {
-                center: loc,
-                radius: highlight_radius,
-                fill: Color32::TRANSPARENT,
-                stroke: Stroke::new(node.radius, self.settings_style.color_drag),
-            });
-        }
         shapes
     }
 

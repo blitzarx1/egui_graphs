@@ -92,7 +92,7 @@ You can further customize the appearance and behavior of your graph by modifying
 
 ### Interactive
 
-You can check more advanced [interactive example](https://github.com/blitzarx1/egui_graph/tree/master/examples/interactive) for usage references and settings description.
+You can check more advanced [configurable demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/configurable) for usage references and settings description.
 
 ## Gallery
 ![ezgif-4-3e4e4469e6](https://user-images.githubusercontent.com/32969427/233863786-11459176-b741-4343-8b42-7d9b3a8239ee.gif)

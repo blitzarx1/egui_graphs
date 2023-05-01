@@ -4,29 +4,47 @@ use egui::{Color32, Vec2};
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct Node<N: Clone> {
     /// Client data
-    pub data: N,
+    pub data: Option<N>,
 
     pub location: Vec2,
 
     /// If `color` is None default color is used.
     pub color: Option<Color32>,
-    pub radius: f32,
 
     pub selected: bool,
     pub dragged: bool,
+
+    /// This field is recomputed on every frame
+    pub(crate) radius: f32,
+    /// This field is recomputed on every frame
+    pub(crate) selected_child: bool,
+    /// This field is recomputed on every frame
+    pub(crate) selected_parent: bool,
+}
+
+impl<N: Clone> Default for Node<N> {
+    fn default() -> Self {
+        Self {
+            radius: 5.,
+
+            location: Default::default(),
+            data: Default::default(),
+            color: Default::default(),
+            selected: Default::default(),
+            dragged: Default::default(),
+            selected_child: Default::default(),
+            selected_parent: Default::default(),
+        }
+    }
 }
 
 impl<N: Clone> Node<N> {
     pub fn new(location: Vec2, data: N) -> Self {
         Self {
             location,
-            data,
+            data: Some(data),
 
-            color: None,
-            radius: 5.,
-
-            selected: false,
-            dragged: false,
+            ..Default::default()
         }
     }
 
@@ -36,11 +54,36 @@ impl<N: Clone> Node<N> {
             radius: self.radius * zoom,
 
             color: self.color,
-            selected: self.selected,
             dragged: self.dragged,
+
+            selected: self.selected,
+            selected_child: self.selected_child,
+            selected_parent: self.selected_parent,
 
             data: self.data.clone(),
         }
+    }
+
+    pub fn selected_child(&self) -> bool {
+        self.selected_child
+    }
+
+    pub fn selected_parent(&self) -> bool {
+        self.selected_parent
+    }
+
+    pub fn radius(&self) -> f32 {
+        self.radius
+    }
+
+    pub fn selected(&self) -> bool {
+        self.selected || self.selected_child || self.selected_parent
+    }
+
+    pub fn reset_precalculated(&mut self) {
+        self.radius = 5.;
+        self.selected_child = false;
+        self.selected_parent = false;
     }
 }
 
@@ -48,7 +91,7 @@ impl<N: Clone> Node<N> {
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct Edge<E: Clone> {
     /// Client data
-    pub data: E,
+    pub data: Option<E>,
 
     pub width: f32,
     pub tip_size: f32,
@@ -58,20 +101,36 @@ pub struct Edge<E: Clone> {
     /// If `color` is None default color is used.
     pub color: Option<Color32>,
     pub selected: bool,
+
+    /// This field is recomputed on every frame
+    pub(crate) selected_child: bool,
+    /// This field is recomputed on every frame
+    pub(crate) selected_parent: bool,
 }
 
-impl<E: Clone> Edge<E> {
-    pub fn new(data: E) -> Self {
+impl<E: Clone> Default for Edge<E> {
+    fn default() -> Self {
         Self {
-            data,
-
             width: 2.,
             tip_size: 15.,
             tip_angle: std::f32::consts::TAU / 50.,
             curve_size: 20.,
 
-            color: None,
-            selected: false,
+            data: Default::default(),
+            color: Default::default(),
+            selected: Default::default(),
+            selected_child: Default::default(),
+            selected_parent: Default::default(),
+        }
+    }
+}
+
+impl<E: Clone> Edge<E> {
+    pub fn new(data: E) -> Self {
+        Self {
+            data: Some(data),
+
+            ..Default::default()
         }
     }
 
@@ -85,7 +144,27 @@ impl<E: Clone> Edge<E> {
             tip_angle: self.tip_angle,
             selected: self.selected,
 
+            selected_child: self.selected_child,
+            selected_parent: self.selected_parent,
+
             data: self.data.clone(),
         }
+    }
+
+    pub fn selected_child(&self) -> bool {
+        self.selected_child
+    }
+
+    pub fn selected_parent(&self) -> bool {
+        self.selected_parent
+    }
+
+    pub fn selected(&self) -> bool {
+        self.selected || self.selected_child || self.selected_parent
+    }
+
+    pub(crate) fn reset_precalculated(&mut self) {
+        self.selected_child = false;
+        self.selected_parent = false;
     }
 }

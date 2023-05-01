@@ -1,5 +1,7 @@
 use egui::Color32;
 
+use crate::{Edge, Node};
+
 /// `SettingsInteraction` stores settings for the interaction with the graph.
 ///
 /// `node_click` is included in `node_select` and `node_multiselect`.
@@ -16,6 +18,12 @@ pub struct SettingsInteraction {
     /// Select by clicking on node, deselect by clicking again.
     /// Clicking on empty space deselects all nodes.
     pub node_select: bool,
+
+    /// How deep into the neighbours of selected nodes should the selection go.
+    /// `selection_depth == 0` means only selected nodes are selected.
+    /// `selection_depth > 0` means children of selected nodes are selected up to `selection_depth` generation.
+    /// `selection_depth < 0` means parents of selected nodes are selected up to `selection_depth` generation.
+    pub selection_depth: i32,
 
     /// Multiselection for nodes, enables node_click and node_select.
     pub node_multiselect: bool,
@@ -60,7 +68,16 @@ pub struct SettingsStyle {
     /// For every edge connected to node its radius is getting bigger by this value.
     pub edge_radius_weight: f32,
 
-    pub color_highlight: Color32,
+    /// Used to color children of the selected nodes.
+    pub color_selection_child: Color32,
+
+    /// Used to color parents of the selected nodes.
+    pub color_selection_parent: Color32,
+
+    /// Used to color selected nodes.
+    pub color_selection: Color32,
+
+    /// Color of nodes being dragged.
     pub color_drag: Color32,
 }
 
@@ -68,16 +85,22 @@ impl Default for SettingsStyle {
     fn default() -> Self {
         Self {
             edge_radius_weight: 1.,
+            color_selection: Color32::from_rgba_unmultiplied(0, 255, 127, 153), // Spring Green
+            color_selection_child: Color32::from_rgba_unmultiplied(100, 149, 237, 153), // Cornflower Blue
+            color_selection_parent: Color32::from_rgba_unmultiplied(255, 105, 180, 153), // Hot Pink
             color_node: Color32::from_rgb(200, 200, 200), // Light Gray
             color_edge: Color32::from_rgb(128, 128, 128), // Gray
-            color_highlight: Color32::from_rgba_unmultiplied(100, 149, 237, 153), // Cornflower Blue
             color_drag: Color32::from_rgba_unmultiplied(240, 128, 128, 153), // Light Coral
         }
     }
 }
 
 impl SettingsStyle {
-    pub fn color_node(&self, ctx: &egui::Context) -> Color32 {
+    pub(crate) fn color_node<N: Clone>(&self, ctx: &egui::Context, n: &Node<N>) -> Color32 {
+        if n.color.is_some() {
+            return n.color.unwrap();
+        }
+
         if ctx.style().visuals.dark_mode {
             return self.color_node;
         }
@@ -85,10 +108,50 @@ impl SettingsStyle {
         self.color_edge
     }
 
-    pub fn color_edge(&self, ctx: &egui::Context) -> Color32 {
+    pub(crate) fn color_node_highlight<N: Clone>(&self, n: &Node<N>) -> Option<Color32> {
+        if n.dragged {
+            return Some(self.color_drag);
+        }
+
+        if n.selected {
+            return Some(self.color_selection);
+        }
+
+        if n.selected_child {
+            return Some(self.color_selection_child);
+        }
+
+        if n.selected_parent {
+            return Some(self.color_selection_parent);
+        }
+
+        None
+    }
+
+    pub fn color_edge<E: Clone>(&self, ctx: &egui::Context, e: &Edge<E>) -> Color32 {
+        if e.color.is_some() {
+            return e.color.unwrap();
+        }
+
         if ctx.style().visuals.dark_mode {
             return self.color_edge;
         }
         self.color_node
+    }
+
+    pub fn color_edge_highlight<E: Clone>(&self, e: &Edge<E>) -> Option<Color32> {
+        if e.selected {
+            return Some(self.color_selection);
+        }
+
+        if e.selected_child {
+            return Some(self.color_selection_child);
+        }
+
+        if e.selected_parent {
+            return Some(self.color_selection_parent);
+        }
+
+        None
     }
 }
