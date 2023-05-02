@@ -1,6 +1,6 @@
 [package]
 name = "interactive"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 edition = "2021"
