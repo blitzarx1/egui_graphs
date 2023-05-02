@@ -14,11 +14,11 @@ pub struct Node<N: Clone> {
     pub selected: bool,
     pub dragged: bool,
 
-    /// This field is recomputed on every frame
+    /// This field is recomputed on every frame. Not available for client and not sent in changes.
     pub(crate) radius: f32,
-    /// This field is recomputed on every frame
+    /// This field is recomputed on every frame. Not available for client and not sent in changes.
     pub(crate) selected_child: bool,
-    /// This field is recomputed on every frame
+    /// This field is recomputed on every frame. Not available for client and not sent in changes.
     pub(crate) selected_parent: bool,
 }
 
@@ -102,9 +102,9 @@ pub struct Edge<E: Clone> {
     pub color: Option<Color32>,
     pub selected: bool,
 
-    /// This field is recomputed on every frame
+    /// This field is recomputed on every frame. Not available for client and not sent in changes.
     pub(crate) selected_child: bool,
-    /// This field is recomputed on every frame
+    /// This field is recomputed on every frame. Not available for client and not sent in changes.
     pub(crate) selected_parent: bool,
 }
 
