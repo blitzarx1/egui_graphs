@@ -5,7 +5,7 @@ use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, Pos2, Rect, ScrollArea, Slider, Ui, Vec2, Visuals};
 use egui_graphs::{
-    Changes, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle,
+    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle,
 };
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -32,7 +32,7 @@ pub struct ConfigurableApp {
 
     selected_nodes: Vec<Node<()>>,
     selected_edges: Vec<Edge<()>>,
-    last_changes: Vec<Changes>,
+    last_changes: Vec<Change>,
 
     simulation_stopped: bool,
     dark_mode: bool,
@@ -42,8 +42,8 @@ pub struct ConfigurableApp {
     last_update_time: Instant,
     frames_last_time_span: usize,
 
-    changes_receiver: Receiver<Changes>,
-    changes_sender: Sender<Changes>,
+    changes_receiver: Receiver<Change>,
+    changes_sender: Sender<Change>,
 }
 
 impl ConfigurableApp {

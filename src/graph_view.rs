@@ -4,7 +4,9 @@ use std::{
 };
 
 use crate::{
-    changes::Changes,
+    change::Change,
+    change::ChangeEdge,
+    change::ChangeNode,
     elements::Node,
     frame_state::FrameState,
     metadata::Metadata,
@@ -17,7 +19,7 @@ use egui::{
     Color32, Painter, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, Widget,
 };
 use petgraph::{
-    stable_graph::{NodeIndex, StableGraph},
+    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
     visit::IntoNodeReferences,
 };
 
@@ -41,7 +43,7 @@ pub struct GraphView<'a, N: Clone, E: Clone> {
     settings_interaction: SettingsInteraction,
     setings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
-    changes_sender: Option<&'a Sender<Changes>>,
+    changes_sender: Option<&'a Sender<Change>>,
 }
 
 impl<'a, N: Clone, E: Clone> Widget for &mut GraphView<'a, N, E> {
@@ -88,7 +90,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self
     }
 
-    pub fn with_changes(mut self, changes_sender: &'a Sender<Changes>) -> Self {
+    pub fn with_changes(mut self, changes_sender: &'a Sender<Change>) -> Self {
         self.changes_sender = Some(changes_sender);
         self
     }
@@ -186,13 +188,12 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
 
     fn handle_node_click(&mut self, idx: NodeIndex, state: &FrameState<E>) {
         if !self.settings_interaction.node_select {
-            self.click_node(idx);
             return;
         }
 
         let n = self.g.node_weight(idx).unwrap();
         if n.selected {
-            self.deselect_node(idx);
+            self.set_node_selected(idx, false);
             return;
         }
 
@@ -200,7 +201,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             self.deselect_all(state);
         }
 
-        self.select_node(idx);
+        self.set_node_selected(idx, true);
     }
 
     fn handle_nodes_drags(
@@ -226,7 +227,8 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         }
 
         if resp.drag_released() && state.dragged.is_some() {
-            self.unset_dragged_node(state);
+            let n_idx = state.dragged.unwrap();
+            self.set_dragged(n_idx, false);
         }
     }
 
@@ -312,26 +314,18 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         meta.zoom = new_zoom;
     }
 
-    fn click_node(&self, idx: NodeIndex) {
-        let mut changes = Changes::default();
-        changes.set_clicked(idx, true);
-        self.send_changes(changes);
+    fn set_node_selected(&mut self, idx: NodeIndex, val: bool) {
+        let n = self.g.node_weight_mut(idx).unwrap();
+        let change = ChangeNode::change_selected(idx, n.selected, val);
+        n.selected = val;
+        self.send_changes(Change::node(change));
     }
 
-    fn select_node(&mut self, idx: NodeIndex) {
-        self.g.node_weight_mut(idx).unwrap().selected = true;
-
-        let mut changes = Changes::default();
-        changes.select_node(idx);
-        self.send_changes(changes);
-    }
-
-    fn deselect_node(&mut self, idx: NodeIndex) {
-        self.g.node_weight_mut(idx).unwrap().selected = false;
-
-        let mut changes = Changes::default();
-        changes.deselect_node(idx);
-        self.send_changes(changes);
+    fn set_edge_selected(&mut self, idx: EdgeIndex, val: bool) {
+        let e = self.g.edge_weight_mut(idx).unwrap();
+        let change = ChangeEdge::change_selected(idx, e.selected, val);
+        e.selected = val;
+        self.send_changes(Change::edge(change));
     }
 
     fn deselect_all(&mut self, state: &FrameState<E>) {
@@ -341,49 +335,36 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
 
         let (selected_nodes, selected_edges) = state.selections.as_ref().unwrap().elements();
 
-        let mut changes = Changes::default();
         selected_nodes.iter().for_each(|idx| {
-            self.g.node_weight_mut(*idx).unwrap().selected = false;
+            self.set_node_selected(*idx, false);
+
+            // TODO: create new changes
             self.g.node_weight_mut(*idx).unwrap().selected_child = false;
             self.g.node_weight_mut(*idx).unwrap().selected_parent = false;
-            changes.deselect_node(*idx);
         });
-        if !changes.is_empty() {
-            self.send_changes(changes);
-        }
 
         selected_edges.iter().for_each(|idx| {
-            self.g.edge_weight_mut(*idx).unwrap().selected = false;
+            self.set_edge_selected(*idx, false);
+
+            // TODO: create new changes
             self.g.edge_weight_mut(*idx).unwrap().selected_child = false;
             self.g.edge_weight_mut(*idx).unwrap().selected_parent = false;
         });
     }
 
     fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
-        self.g.node_weight_mut(idx).unwrap().dragged = val;
-
-        let mut changes = Changes::default();
-        changes.set_dragged(idx, val);
-        self.send_changes(changes);
-    }
-
-    fn unset_dragged_node(&mut self, state: &FrameState<E>) {
-        let n_idx = state.dragged.unwrap();
-        let n = self.g.node_weight_mut(n_idx).unwrap();
-        n.dragged = false;
-
-        let mut changes = Changes::default();
-        changes.set_dragged(n_idx, false);
-        self.send_changes(changes);
-    }
-
-    fn move_node(&mut self, idx: NodeIndex, val: Vec2) {
         let n = self.g.node_weight_mut(idx).unwrap();
-        n.location += val;
+        let change = ChangeNode::change_dragged(idx, n.dragged, val);
+        n.dragged = val;
+        self.send_changes(Change::node(change));
+    }
 
-        let mut changes = Changes::default();
-        changes.set_location(idx, n.location);
-        self.send_changes(changes);
+    fn move_node(&mut self, idx: NodeIndex, delta: Vec2) {
+        let n = self.g.node_weight_mut(idx).unwrap();
+        let new_loc = n.location + delta;
+        let change = ChangeNode::change_location(idx, n.location, new_loc);
+        n.location = new_loc;
+        self.send_changes(Change::node(change));
     }
 
     fn precompute_state(&mut self) -> FrameState<E> {
@@ -836,7 +817,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         shapes
     }
 
-    fn send_changes(&self, changes: Changes) {
+    fn send_changes(&self, changes: Change) {
         if let Some(sender) = self.changes_sender {
             sender.send(changes).unwrap();
         }
