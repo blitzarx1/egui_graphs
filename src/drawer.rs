@@ -402,3 +402,17 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
     let sin = angle.sin();
     Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rotate_vector() {
+        let vec = Vec2::new(1.0, 0.0);
+        let angle = std::f32::consts::PI / 2.0;
+        let rotated = rotate_vector(vec, angle);
+        assert!((rotated.x - 0.0).abs() < 1e-6);
+        assert!((rotated.y - 1.0).abs() < 1e-6);
+    }
+}
