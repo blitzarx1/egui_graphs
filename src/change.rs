@@ -1,5 +1,5 @@
 use egui::Vec2;
-use petgraph::stable_graph::{NodeIndex, EdgeIndex};
+use petgraph::stable_graph::{EdgeIndex, NodeIndex};
 
 /// `ChangeNode` is a enum that stores the changes to `Node` properties.
 #[derive(Debug, Clone)]
@@ -67,12 +67,20 @@ mod tests {
         let old_node_location = vec2(0.0, 0.0);
         let new_node_location = vec2(10.0, 10.0);
 
-        let node_change = Change::node(ChangeNode::change_location(node_id, old_node_location, new_node_location));
+        let node_change = Change::node(ChangeNode::change_location(
+            node_id,
+            old_node_location,
+            new_node_location,
+        ));
 
         let node_selected_old = false;
         let node_selected_new = true;
 
-        let edge_change = Change::edge(ChangeEdge::change_selected(edge_id, node_selected_old, node_selected_new));
+        let edge_change = Change::edge(ChangeEdge::change_selected(
+            edge_id,
+            node_selected_old,
+            node_selected_new,
+        ));
 
         match node_change {
             Change::Node(ChangeNode::Location { id, old, new }) => {

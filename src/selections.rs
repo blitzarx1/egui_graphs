@@ -7,11 +7,11 @@ use petgraph::{
 
 use crate::{Edge, Node};
 
-pub(crate) type Selection = Graph<NodeIndex, EdgeIndex>;
-pub(crate) type Elements = (Vec<NodeIndex>, Vec<EdgeIndex>);
+pub type Selection = Graph<NodeIndex, EdgeIndex>;
+pub type Elements = (Vec<NodeIndex>, Vec<EdgeIndex>);
 
 #[derive(Default, Debug, Clone)]
-pub(crate) struct Selections {
+pub struct Selections {
     data: HashMap<NodeIndex, Selection>,
 }
 

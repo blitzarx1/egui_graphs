@@ -4,13 +4,13 @@ use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 
 use crate::{selections::Selections, Edge, Node};
 
-pub(crate) type EdgesByNodes<E> = Vec<((usize, usize), Vec<(EdgeIndex, Edge<E>)>)>;
+pub type EdgesByNodes<E> = Vec<((usize, usize), Vec<(EdgeIndex, Edge<E>)>)>;
 
 /// `FrameState` is a utility struct for managing ephemerial state which is created and destroyed in one frame.
 ///
 /// The struct stores the selected nodes, dragged node, and cached edges by nodes.
 #[derive(Debug, Clone)]
-pub(crate) struct FrameState<E: Clone> {
+pub struct FrameState<E: Clone> {
     pub dragged: Option<NodeIndex>,
     pub selections: Option<Selections>,
     edges_by_nodes: Option<EdgesByNodes<E>>,
@@ -27,14 +27,14 @@ impl<E: Clone> Default for FrameState<E> {
 }
 
 impl<E: Clone> FrameState<E> {
-    /// Helper method to get the edges by nodes. This is cached for performance.
+    /// Helper method to get edges by nodes.
     pub fn edges_by_nodes<N: Clone>(
         &mut self,
         g: &StableGraph<Node<N>, Edge<E>>,
     ) -> &EdgesByNodes<E> {
         let mut edge_map: HashMap<(usize, usize), Vec<(EdgeIndex, Edge<E>)>> = HashMap::new();
 
-        for edge_idx in g.edge_indices() {
+        g.edge_indices().for_each(|edge_idx| {
             let (source_idx, target_idx) = g.edge_endpoints(edge_idx).unwrap();
             let source = source_idx.index();
             let target = target_idx.index();
@@ -44,7 +44,7 @@ impl<E: Clone> FrameState<E> {
                 .entry((source, target))
                 .or_insert_with(Vec::new)
                 .push((edge_idx, edge));
-        }
+        });
 
         let res = edge_map
             .iter()

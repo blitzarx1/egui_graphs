@@ -128,7 +128,7 @@ impl SettingsStyle {
         None
     }
 
-    pub fn color_edge<E: Clone>(&self, ctx: &egui::Context, e: &Edge<E>) -> Color32 {
+    pub(crate) fn color_edge<E: Clone>(&self, ctx: &egui::Context, e: &Edge<E>) -> Color32 {
         if e.color.is_some() {
             return e.color.unwrap();
         }
@@ -139,7 +139,7 @@ impl SettingsStyle {
         self.color_node
     }
 
-    pub fn color_edge_highlight<E: Clone>(&self, e: &Edge<E>) -> Option<Color32> {
+    pub(crate) fn color_edge_highlight<E: Clone>(&self, e: &Edge<E>) -> Option<Color32> {
         if e.selected {
             return Some(self.color_selection);
         }

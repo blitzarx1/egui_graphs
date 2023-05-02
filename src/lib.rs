@@ -1,4 +1,5 @@
 mod change;
+mod drawer;
 mod elements;
 mod frame_state;
 mod graph_view;
