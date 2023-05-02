@@ -94,7 +94,7 @@ You can further customize the appearance and behavior of your graph by modifying
 
 ### Interactivity
 
-You can check more advanced [configurable demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/configurable) for usage references and settings description.
+It is easy to add interactivity to the visualization. Just use `SettingsNavigation` and `SettingsInteraction` with constructor methods. You can also check [interactive demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/interactive) and comprehensive [configurable demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/configurable) for usage references and settings description.
 
 ## Gallery
 
