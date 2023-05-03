@@ -128,7 +128,6 @@ impl ConfigurableApp {
     /// If node or edge is selected it is added to the corresponding selected field in `self`.
     fn sync_graph_with_simulation(&mut self) {
         self.selected_nodes = vec![];
-        self.selected_edges = vec![];
 
         let g_indices = self.g.node_indices().collect::<Vec<_>>();
         g_indices.iter().for_each(|g_n_idx| {
@@ -146,12 +145,6 @@ impl ConfigurableApp {
 
             if g_n.selected {
                 self.selected_nodes.push(*g_n);
-            }
-        });
-
-        self.g.edge_weights().for_each(|g_e| {
-            if g_e.selected {
-                self.selected_edges.push(*g_e);
             }
         });
     }
