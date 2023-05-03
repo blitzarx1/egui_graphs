@@ -8,12 +8,16 @@ Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) 
 
 This project represents a `Widget` implementation for egui framework. It allows effortless interactive graph visualization with rust.
 
-## Features
-* Arbitrarily complex graphs with self-references, multiple edges, loops, etc.;
-* Zoom & pan;
-* Dragging, Selecting;
-* Graph elements style configuration;
-* Support for egui dark/light mode;
+## Features Status
+[*] Arbitrarily complex graphs with self-references, multiple edges, loops, etc.;
+[*] Zoom & pan;
+[*] Dragging, Selecting;
+[*] Graph elements style configuration;
+[*] Support for egui dark/light mode;
+[*] Selection depth;
+[*] Changes reporting;
+[ ] Node folding;
+[ ] Layouts;
 
 ## Status
 The project is on the track to v1.0.0 and there will be some minor releases prior. So stay tuned!
