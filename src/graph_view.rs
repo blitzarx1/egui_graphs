@@ -1,24 +1,25 @@
 use std::{
+    collections::HashMap,
     f32::{MAX, MIN},
     sync::mpsc::Sender,
 };
 
 use crate::{
     change::Change,
-    change::ChangeEdge,
     change::ChangeNode,
     drawer::Drawer,
     elements::Node,
-    frame_state::FrameState,
     metadata::Metadata,
     selections::Selections,
     settings::{SettingsInteraction, SettingsStyle},
+    state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
+    stable_graph::{NodeIndex, StableGraph},
     visit::IntoNodeReferences,
+    Direction::{Incoming, Outgoing},
 };
 
 /// `GraphView` is a widget for visualizing and interacting with graphs.
@@ -47,17 +48,17 @@ pub struct GraphView<'a, N: Clone, E: Clone> {
 impl<'a, N: Clone, E: Clone> Widget for &mut GraphView<'a, N, E> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut meta = Metadata::get(ui);
-        let mut frame_state = self.precompute_state();
+        let mut computed = self.precompute_state();
 
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
         self.fit_if_first(&resp, &mut meta);
 
-        self.draw(&p, &mut frame_state, &mut meta);
+        self.draw(&p, &mut computed, &mut meta);
 
-        self.handle_nodes_drags(&resp, &mut frame_state, &mut meta);
-        self.handle_click(&resp, &mut frame_state, &mut meta);
-        self.handle_navigation(ui, &resp, &frame_state, &mut meta);
+        self.handle_nodes_drags(&resp, &mut computed, &mut meta);
+        self.handle_click(&resp, &mut computed, &mut meta);
+        self.handle_navigation(ui, &resp, &computed, &mut meta);
 
         meta.store(ui);
         ui.ctx().request_repaint();
@@ -113,22 +114,22 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
 
         self.g.node_weights().for_each(|n| {
-            let x_minus_rad = n.location.x - n.radius;
+            let x_minus_rad = n.location.x - n.radius();
             if x_minus_rad < min_x {
                 min_x = x_minus_rad;
             };
 
-            let y_minus_rad = n.location.y - n.radius;
+            let y_minus_rad = n.location.y - n.radius();
             if y_minus_rad < min_y {
                 min_y = y_minus_rad;
             };
 
-            let x_plus_rad = n.location.x + n.radius;
+            let x_plus_rad = n.location.x + n.radius();
             if x_plus_rad > max_x {
                 max_x = x_plus_rad;
             };
 
-            let y_plus_rad = n.location.y + n.radius;
+            let y_plus_rad = n.location.y + n.radius();
             if y_plus_rad > max_y {
                 max_y = y_plus_rad;
             };
@@ -142,7 +143,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         let pos_in_graph = (pos - metadata.pan).to_vec2() / metadata.zoom;
         self.g
             .node_references()
-            .find(|(_, n)| (n.location - pos_in_graph).length() <= n.radius)
+            .find(|(_, n)| (n.location - pos_in_graph).length() <= n.radius())
     }
 
     /// Fits the graph to the screen if it is the first frame
@@ -156,7 +157,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         m.first_frame = false;
     }
 
-    fn handle_click(&mut self, resp: &Response, state: &mut FrameState<E>, meta: &mut Metadata) {
+    fn handle_click(&mut self, resp: &Response, state: &mut StateComputed, meta: &mut Metadata) {
         if !resp.clicked() {
             return;
         }
@@ -183,7 +184,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.handle_node_click(node.unwrap().0, state);
     }
 
-    fn handle_node_click(&mut self, idx: NodeIndex, state: &FrameState<E>) {
+    fn handle_node_click(&mut self, idx: NodeIndex, state: &StateComputed) {
         if !self.settings_interaction.node_select {
             return;
         }
@@ -204,7 +205,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     fn handle_nodes_drags(
         &mut self,
         resp: &Response,
-        state: &mut FrameState<E>,
+        state: &mut StateComputed,
         meta: &mut Metadata,
     ) {
         if !self.settings_interaction.node_drag {
@@ -262,7 +263,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         &self,
         ui: &Ui,
         resp: &Response,
-        state: &FrameState<E>,
+        state: &StateComputed,
         meta: &mut Metadata,
     ) {
         if self.setings_navigation.fit_to_screen {
@@ -288,7 +289,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         });
     }
 
-    fn handle_pan(&self, resp: &Response, state: &FrameState<E>, meta: &mut Metadata) {
+    fn handle_pan(&self, resp: &Response, state: &StateComputed, meta: &mut Metadata) {
         if !self.setings_navigation.zoom_and_pan {
             return;
         }
@@ -318,34 +319,17 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.send_changes(Change::node(change));
     }
 
-    fn set_edge_selected(&mut self, idx: EdgeIndex, val: bool) {
-        let e = self.g.edge_weight_mut(idx).unwrap();
-        let change = ChangeEdge::change_selected(idx, e.selected, val);
-        e.selected = val;
-        self.send_changes(Change::edge(change));
-    }
-
-    fn deselect_all(&mut self, state: &FrameState<E>) {
+    fn deselect_all(&mut self, state: &StateComputed) {
         if state.selections.is_none() {
             return;
         }
 
-        let (selected_nodes, selected_edges) = state.selections.as_ref().unwrap().elements();
+        // dont need to deselect edges because they are not selectable
+        // and subselections are dropped on every frame
+        let (selected_nodes, _) = state.selections.as_ref().unwrap().elements();
 
         selected_nodes.iter().for_each(|idx| {
             self.set_node_selected(*idx, false);
-
-            // TODO: create new changes
-            self.g.node_weight_mut(*idx).unwrap().selected_child = false;
-            self.g.node_weight_mut(*idx).unwrap().selected_parent = false;
-        });
-
-        selected_edges.iter().for_each(|idx| {
-            self.set_edge_selected(*idx, false);
-
-            // TODO: create new changes
-            self.g.edge_weight_mut(*idx).unwrap().selected_child = false;
-            self.g.edge_weight_mut(*idx).unwrap().selected_parent = false;
         });
     }
 
@@ -364,33 +348,35 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.send_changes(Change::node(change));
     }
 
-    fn precompute_state(&mut self) -> FrameState<E> {
-        let mut state = FrameState::default();
-
-        // reset nodes radiuses
-        self.g
-            .node_weights_mut()
-            .for_each(|n| n.reset_precalculated());
-
-        self.g
-            .edge_weights_mut()
-            .for_each(|e| e.reset_precalculated());
-
-        // compute nodes radiuses
-        let edges = state.edges_by_nodes(self.g);
-        edges.iter().for_each(|((start, end), edges)| {
-            self.g
-                .node_weight_mut(NodeIndex::new(*start))
-                .unwrap()
-                .radius += self.settings_style.edge_radius_weight * edges.len() as f32;
-            self.g.node_weight_mut(NodeIndex::new(*end)).unwrap().radius +=
-                self.settings_style.edge_radius_weight * edges.len() as f32;
+    fn precompute_state(&mut self) -> StateComputed {
+        // reset computed values
+        self.g.node_weights_mut().for_each(|n| {
+            n.computed = Default::default();
+        });
+        self.g.edge_weights_mut().for_each(|e| {
+            e.computed = Default::default();
         });
 
         // compute selections
+        let mut states_computed_nodes = HashMap::with_capacity(self.g.node_count());
+        let mut states_computed_edges = HashMap::with_capacity(self.g.edge_count());
         let mut selections = Selections::default();
-        let mut subselected_nodes = vec![];
-        let mut subselected_edges = vec![];
+
+        self.g.node_indices().for_each(|idx| {
+            let mut num = self.g.edges_directed(idx, Outgoing).count();
+            num += self.g.edges_directed(idx, Incoming).count();
+            if num == 0 {
+                return;
+            }
+
+            let mut computed = StateComputedNode::default();
+            computed.radius += self.settings_style.edge_radius_weight * num as f32;
+
+            states_computed_nodes.insert(idx, computed);
+        });
+
+        // compute selections
+        let child_mode = self.settings_interaction.selection_depth > 0;
         self.g.node_references().for_each(|(root_idx, root_n)| {
             if !root_n.selected {
                 return;
@@ -409,31 +395,57 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                 if *idx == root_idx {
                     return;
                 }
-                subselected_nodes.push(*idx);
+
+                if let Some(computed_node) = states_computed_nodes.get_mut(idx) {
+                    if child_mode {
+                        computed_node.selected_child = true;
+                        return;
+                    }
+
+                    computed_node.selected_parent = true;
+                } else {
+                    let mut computed_node = StateComputedNode::default();
+                    if child_mode {
+                        computed_node.selected_child = true;
+                    } else {
+                        computed_node.selected_parent = true;
+                    }
+
+                    states_computed_nodes.insert(*idx, computed_node);
+                }
             });
 
-            edges.iter().for_each(|idx| subselected_edges.push(*idx));
-        });
-        state.selections = Some(selections);
+            edges.iter().for_each(|idx| {
+                let mut computed_edge = StateComputedEdge::default();
+                if child_mode {
+                    computed_edge.selected_child = true;
+                } else {
+                    computed_edge.selected_parent = true;
+                }
 
-        subselected_nodes.iter().for_each(|idx| {
-            match self.settings_interaction.selection_depth > 0 {
-                true => self.g.node_weight_mut(*idx).unwrap().selected_child = true,
-                false => self.g.node_weight_mut(*idx).unwrap().selected_parent = true,
-            }
+                states_computed_edges.insert(*idx, computed_edge);
+            });
         });
 
-        subselected_edges.iter().for_each(|idx| {
-            match self.settings_interaction.selection_depth > 0 {
-                true => self.g.edge_weight_mut(*idx).unwrap().selected_child = true,
-                false => self.g.edge_weight_mut(*idx).unwrap().selected_parent = true,
-            }
+        let state = StateComputed {
+            selections: Some(selections),
+            ..Default::default()
+        };
+
+        // apply computed states
+        states_computed_nodes.iter().for_each(|(idx, computed)| {
+            let n = self.g.node_weight_mut(*idx).unwrap();
+            n.computed = *computed;
+        });
+        states_computed_edges.iter().for_each(|(idx, computed)| {
+            let e = self.g.edge_weight_mut(*idx).unwrap();
+            e.computed = *computed;
         });
 
         state
     }
 
-    fn draw(&self, p: &Painter, state: &mut FrameState<E>, metadata: &mut Metadata) {
+    fn draw(&self, p: &Painter, state: &mut StateComputed, metadata: &mut Metadata) {
         let drawer = Drawer::new(self.g, p, &self.settings_style);
         drawer.draw(state, metadata);
     }

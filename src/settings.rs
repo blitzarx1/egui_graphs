@@ -117,11 +117,11 @@ impl SettingsStyle {
             return Some(self.color_selection);
         }
 
-        if n.selected_child {
+        if n.computed.selected_child {
             return Some(self.color_selection_child);
         }
 
-        if n.selected_parent {
+        if n.computed.selected_parent {
             return Some(self.color_selection_parent);
         }
 
@@ -136,19 +136,16 @@ impl SettingsStyle {
         if ctx.style().visuals.dark_mode {
             return self.color_edge;
         }
+
         self.color_node
     }
 
     pub(crate) fn color_edge_highlight<E: Clone>(&self, e: &Edge<E>) -> Option<Color32> {
-        if e.selected {
-            return Some(self.color_selection);
-        }
-
-        if e.selected_child {
+        if e.computed.selected_child {
             return Some(self.color_selection_child);
         }
 
-        if e.selected_parent {
+        if e.computed.selected_parent {
             return Some(self.color_selection_parent);
         }
 

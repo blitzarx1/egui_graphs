@@ -1,15 +1,18 @@
-use std::f32::{MAX, MIN};
+use std::{
+    collections::HashMap,
+    f32::{MAX, MIN},
+};
 
 use egui::{
     epaint::{CircleShape, CubicBezierShape, QuadraticBezierShape},
     Color32, Painter, Pos2, Rect, Shape, Stroke, Vec2,
 };
 use petgraph::{
-    stable_graph::{NodeIndex, StableGraph},
+    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
     visit::IntoNodeReferences,
 };
 
-use crate::{frame_state::FrameState, metadata::Metadata, Edge, Node, SettingsStyle};
+use crate::{metadata::Metadata, state_computed::StateComputed, Edge, Node, SettingsStyle};
 
 pub struct Drawer<'a, N: Clone, E: Clone> {
     g: &'a StableGraph<Node<N>, Edge<E>>,
@@ -30,15 +33,15 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
         }
     }
 
-    pub fn draw(&self, state: &mut FrameState<E>, metadata: &mut Metadata) {
-        let edges_shapes = self.draw_edges(state, metadata);
+    pub fn draw(&self, state: &mut StateComputed, metadata: &mut Metadata) {
+        let edges_shapes = self.draw_edges(metadata);
         let nodes_shapes = self.draw_nodes(metadata, state);
 
         self.draw_edges_shapes(edges_shapes);
         self.draw_nodes_shapes(nodes_shapes);
     }
 
-    fn draw_nodes(&self, meta: &mut Metadata, frame_state: &mut FrameState<E>) -> Vec<CircleShape> {
+    fn draw_nodes(&self, meta: &mut Metadata, frame_state: &mut StateComputed) -> Vec<CircleShape> {
         let mut shapes = vec![];
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
         self.g.node_references().for_each(|(idx, n)| {
@@ -46,22 +49,22 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
             // we shall account for the node radius
             // so that the node is fully visible
 
-            let x_minus_rad = n.location.x - n.radius;
+            let x_minus_rad = n.location.x - n.radius();
             if x_minus_rad < min_x {
                 min_x = x_minus_rad;
             };
 
-            let y_minus_rad = n.location.y - n.radius;
+            let y_minus_rad = n.location.y - n.radius();
             if y_minus_rad < min_y {
                 min_y = y_minus_rad;
             };
 
-            let x_plus_rad = n.location.x + n.radius;
+            let x_plus_rad = n.location.x + n.radius();
             if x_plus_rad > max_x {
                 max_x = x_plus_rad;
             };
 
-            let y_plus_rad = n.location.y + n.radius;
+            let y_plus_rad = n.location.y + n.radius();
             if y_plus_rad > max_y {
                 max_y = y_plus_rad;
             };
@@ -81,26 +84,42 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
 
     fn draw_edges(
         &self,
-        state: &mut FrameState<E>,
         meta: &Metadata,
     ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
         let mut shapes = (Vec::new(), Vec::new(), Vec::new());
-        state
-            .edges_by_nodes(self.g)
+
+        let mut edge_map: HashMap<(usize, usize), Vec<(EdgeIndex, Edge<E>)>> = HashMap::new();
+
+        self.g.edge_indices().for_each(|edge_idx| {
+            let (source_idx, target_idx) = self.g.edge_endpoints(edge_idx).unwrap();
+            let source = source_idx.index();
+            let target = target_idx.index();
+            let edge = self.g.edge_weight(edge_idx).unwrap().clone();
+
+            edge_map
+                .entry((source, target))
+                .or_insert_with(Vec::new)
+                .push((edge_idx, edge));
+        });
+
+        let edges_by_nodes = edge_map
             .iter()
-            .for_each(|((start, end), edges)| {
-                let mut order = edges.len();
-                edges.iter().for_each(|(_, e)| {
-                    order -= 1;
+            .map(|entry| (*entry.0, entry.1.clone()))
+            .collect::<Vec<_>>();
 
-                    let edge = e.screen_transform(meta.zoom);
+        edges_by_nodes.iter().for_each(|((start, end), edges)| {
+            let mut order = edges.len();
+            edges.iter().for_each(|(_, e)| {
+                order -= 1;
 
-                    let selected = self.draw_edge(&edge, start, end, meta, order);
-                    shapes.0.extend(selected.0);
-                    shapes.1.extend(selected.1);
-                    shapes.2.extend(selected.2);
-                });
+                let edge = e.screen_transform(meta.zoom);
+
+                let selected = self.draw_edge(&edge, start, end, meta, order);
+                shapes.0.extend(selected.0);
+                shapes.1.extend(selected.1);
+                shapes.2.extend(selected.2);
             });
+        });
 
         shapes
     }
@@ -175,7 +194,7 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
 
     fn draw_edge_looped(&self, n: &Node<N>, e: &Edge<E>, order: usize) -> Vec<CubicBezierShape> {
         let pos_start_and_end = n.location.to_pos2();
-        let loop_size = n.radius * (4. + 1. + order as f32);
+        let loop_size = n.radius() * (4. + 1. + order as f32);
 
         let control_point1 = Pos2::new(
             pos_start_and_end.x + loop_size,
@@ -199,7 +218,7 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
             stroke,
         );
 
-        if !e.selected() {
+        if !e.highlighted() {
             self.p.add(shape_basic);
             return vec![];
         }
@@ -239,8 +258,8 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
         let l = vec.length();
         let dir = vec / l;
 
-        let start_node_radius_vec = Vec2::new(n_start.radius, n_start.radius) * dir;
-        let end_node_radius_vec = Vec2::new(n_end.radius, n_end.radius) * dir;
+        let start_node_radius_vec = Vec2::new(n_start.radius(), n_start.radius()) * dir;
+        let end_node_radius_vec = Vec2::new(n_end.radius(), n_end.radius()) * dir;
 
         let tip_point = pos_start + vec - end_node_radius_vec;
         let start_point = pos_start + start_node_radius_vec;
@@ -257,7 +276,7 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
             shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
             shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
 
-            if !e.selected() {
+            if !e.highlighted() {
                 shapes.into_iter().for_each(|shape| {
                     self.p.add(shape);
                 });
@@ -311,7 +330,7 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
         shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
         shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
 
-        if !e.selected {
+        if !e.highlighted() {
             quadratic_shapes.into_iter().for_each(|shape| {
                 self.p.add(shape);
             });
@@ -356,11 +375,11 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
 
     fn draw_node_basic(&self, loc: Pos2, node: &Node<N>) -> Vec<CircleShape> {
         let color = self.settings_style.color_node(self.p.ctx(), node);
-        if !(node.selected() || node.dragged) {
+        if !(node.highlighted() || node.dragged) {
             // draw the node in place
             self.p.circle_filled(
                 loc,
-                node.radius,
+                node.radius(),
                 self.settings_style.color_node(self.p.ctx(), node),
             );
             return vec![];
@@ -369,26 +388,26 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
         // draw the node later if it's selected or dragged to make sure it's on top
         vec![CircleShape {
             center: loc,
-            radius: node.radius,
+            radius: node.radius(),
             fill: color,
             stroke: Stroke::new(1., color),
         }]
     }
 
     fn draw_node_interacted(&self, loc: Pos2, node: &Node<N>) -> Vec<CircleShape> {
-        if !(node.selected() || node.dragged) {
+        if !(node.highlighted() || node.dragged) {
             return vec![];
         }
 
         let mut shapes = vec![];
-        let highlight_radius = node.radius * 1.5;
+        let highlight_radius = node.radius() * 1.5;
 
         shapes.push(CircleShape {
             center: loc,
             radius: highlight_radius,
             fill: Color32::TRANSPARENT,
             stroke: Stroke::new(
-                node.radius,
+                node.radius(),
                 self.settings_style.color_node_highlight(node).unwrap(),
             ),
         });

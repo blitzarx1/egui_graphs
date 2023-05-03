@@ -1,7 +1,7 @@
 mod change;
 mod drawer;
 mod elements;
-mod frame_state;
+mod state_computed;
 mod graph_view;
 mod metadata;
 mod selections;
