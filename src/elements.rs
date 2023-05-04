@@ -103,3 +103,85 @@ impl<E: Clone> Edge<E> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn node_default() {
+        let node: Node<()> = Node::default();
+        assert_eq!(node.location, Vec2::default());
+        assert_eq!(node.data, None);
+        assert_eq!(node.color, None);
+        assert!(!node.selected);
+        assert!(!node.dragged);
+    }
+
+    #[test]
+    fn node_new() {
+        let node = Node::new(Vec2::new(1., 2.), "data");
+        assert_eq!(node.location, Vec2::new(1., 2.));
+        assert_eq!(node.data, Some("data"));
+        assert_eq!(node.color, None);
+        assert!(!node.selected);
+        assert!(!node.dragged);
+    }
+
+    #[test]
+    fn node_screen_transform() {
+        let mut node = Node::new(Vec2::new(1., 2.), "data");
+        let meta = Metadata {
+            zoom: 2.,
+            pan: Vec2::new(3., 4.),
+            ..Default::default()
+        };
+
+        node = node.screen_transform(&meta);
+        assert_eq!(node.location, Vec2::new(5., 8.));
+        assert_eq!(node.data, Some("data"));
+        assert_eq!(node.color, None);
+        assert!(!node.selected);
+        assert!(!node.dragged);
+    }
+
+    #[test]
+    fn edge_default() {
+        let edge: Edge<()> = Edge::default();
+        assert_eq!(edge.width, 2.);
+        assert_eq!(edge.tip_size, 15.);
+        assert_eq!(edge.tip_angle, std::f32::consts::TAU / 50.);
+        assert_eq!(edge.curve_size, 20.);
+        assert_eq!(edge.data, None);
+        assert_eq!(edge.color, None);
+    }
+
+    #[test]
+    fn edge_new() {
+        let edge = Edge::new("data");
+        assert_eq!(edge.width, 2.);
+        assert_eq!(edge.tip_size, 15.);
+        assert_eq!(edge.tip_angle, std::f32::consts::TAU / 50.);
+        assert_eq!(edge.curve_size, 20.);
+        assert_eq!(edge.data, Some("data"));
+        assert_eq!(edge.color, None);
+    }
+
+    #[test]
+    fn edge_screen_transform() {
+        let mut edge = Edge::new("data");
+        let meta = Metadata {
+            zoom: 2.,
+            pan: Vec2::new(3., 4.),
+            ..Default::default()
+        };
+
+        edge = edge.screen_transform(&meta);
+        assert_eq!(edge.width, 4.);
+        assert_eq!(edge.tip_size, 30.);
+        assert_eq!(edge.tip_angle, std::f32::consts::TAU / 50.);
+        assert_eq!(edge.curve_size, 40.);
+        assert_eq!(edge.data, Some("data"));
+        assert_eq!(edge.color, None);
+    }
+}

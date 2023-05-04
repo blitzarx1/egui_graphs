@@ -1,4 +1,5 @@
-use egui::epaint::ahash::HashMap;
+use std::collections::HashMap;
+
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
     visit::EdgeRef,
@@ -25,6 +26,12 @@ impl Selections {
             nodes.extend(curr_nodes);
             edges.extend(curr_edges);
         }
+
+        // remove duplicates
+        nodes.sort();
+        nodes.dedup();
+        edges.sort();
+        edges.dedup();
 
         (nodes, edges)
     }
@@ -105,5 +112,85 @@ impl Selections {
 
             next_start = next_next_start;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Edge, Node};
+
+    use super::*;
+    use egui::Vec2;
+    use petgraph::stable_graph::StableGraph;
+
+    fn create_test_graph() -> StableGraph<Node<()>, Edge<()>> {
+        let mut graph = StableGraph::<Node<()>, Edge<()>>::new();
+        let a = graph.add_node(Node::new(Vec2::default(), ()));
+        let b = graph.add_node(Node::new(Vec2::default(), ()));
+        let c = graph.add_node(Node::new(Vec2::default(), ()));
+        let d = graph.add_node(Node::new(Vec2::default(), ()));
+
+        graph.add_edge(a, b, Edge::new(()));
+        graph.add_edge(b, c, Edge::new(()));
+        graph.add_edge(c, d, Edge::new(()));
+        graph.add_edge(a, d, Edge::new(()));
+
+        graph
+    }
+
+    #[test]
+    fn selections_elements() {
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
+        let mut selections = Selections::default();
+
+        // a->b, a->d
+        selections.add_selection(&graph, NodeIndex::new(0), 1);
+        // b->c
+        selections.add_selection(&graph, NodeIndex::new(1), 1);
+
+        let (nodes, edges) = selections.elements();
+        assert_eq!(nodes.len(), 4);
+        assert_eq!(edges.len(), 3);
+    }
+
+    #[test]
+    fn selections_elements_by_root() {
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
+        let mut selections = Selections::default();
+
+        selections.add_selection(&graph, NodeIndex::new(0), 1);
+
+        let (nodes, edges) = selections.elements_by_root(NodeIndex::new(0)).unwrap();
+        assert_eq!(nodes.len(), 3);
+        assert_eq!(edges.len(), 2);
+    }
+
+    #[test]
+    fn selections_add_selection() {
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
+        let mut selections = Selections::default();
+
+        selections.add_selection(&graph, NodeIndex::new(0), 1);
+        assert_eq!(selections.data.len(), 1);
+
+        selections.add_selection(&graph, NodeIndex::new(1), 1);
+        assert_eq!(selections.data.len(), 2);
+    }
+
+    #[test]
+    fn selections_add_selection_zero_depth() {
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
+        let mut selections = Selections::default();
+
+        selections.add_selection(&graph, NodeIndex::new(0), 0);
+        assert_eq!(selections.data.len(), 1);
+
+        let selection_graph = selections.data.get(&NodeIndex::new(0)).unwrap();
+        assert_eq!(selection_graph.node_count(), 0);
+        assert_eq!(selection_graph.edge_count(), 0);
     }
 }
