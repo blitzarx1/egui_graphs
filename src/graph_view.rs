@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     f32::{MAX, MIN},
     sync::mpsc::Sender,
 };
@@ -12,12 +11,12 @@ use crate::{
     metadata::Metadata,
     selections::Selections,
     settings::{SettingsInteraction, SettingsStyle},
-    state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
+    state_computed::StateComputed,
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{
-    stable_graph::{NodeIndex, StableGraph},
+    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
     visit::IntoNodeReferences,
     Direction::{Incoming, Outgoing},
 };
@@ -348,36 +347,31 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         self.send_changes(Change::node(change));
     }
 
-    fn precompute_state(&mut self) -> StateComputed {
-        // reset computed values
-        self.g.node_weights_mut().for_each(|n| {
-            n.computed = Default::default();
-        });
-        self.g.edge_weights_mut().for_each(|e| {
-            e.computed = Default::default();
-        });
+    fn edges_num(&self, idx: NodeIndex) -> usize {
+        if self.g.is_directed() {
+            self.g
+                .edges_directed(idx, Outgoing)
+                .chain(self.g.edges_directed(idx, Incoming))
+                .count()
+        } else {
+            self.g.edges(idx).count()
+        }
+    }
 
-        // compute selections
-        let mut states_computed_nodes = HashMap::with_capacity(self.g.node_count());
-        let mut states_computed_edges = HashMap::with_capacity(self.g.edge_count());
+    fn precompute_state(&mut self) -> StateComputed {
+        let mut state = StateComputed::new(self.g.node_count(), self.g.edge_count());
+
         let mut selections = Selections::default();
 
-        self.g.node_indices().for_each(|idx| {
-            let mut num = self.g.edges_directed(idx, Outgoing).count();
-            num += self.g.edges_directed(idx, Incoming).count();
-            if num == 0 {
-                return;
-            }
-
-            let mut computed = StateComputedNode::default();
-            computed.radius += self.settings_style.edge_radius_weight * num as f32;
-
-            states_computed_nodes.insert(idx, computed);
-        });
-
-        // compute selections
+        // compute radiuses and selections
         let child_mode = self.settings_interaction.selection_depth > 0;
         self.g.node_references().for_each(|(root_idx, root_n)| {
+            // compute radii
+            let num = self.edges_num(root_idx);
+            state.node_state_mut(root_idx).unwrap().radius +=
+                self.settings_style.edge_radius_weight * num as f32;
+
+            // compute selections
             if !root_n.selected {
                 return;
             }
@@ -396,51 +390,47 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                     return;
                 }
 
-                if let Some(computed_node) = states_computed_nodes.get_mut(idx) {
-                    if child_mode {
-                        computed_node.selected_child = true;
-                        return;
-                    }
-
-                    computed_node.selected_parent = true;
-                } else {
-                    let mut computed_node = StateComputedNode::default();
-                    if child_mode {
-                        computed_node.selected_child = true;
-                    } else {
-                        computed_node.selected_parent = true;
-                    }
-
-                    states_computed_nodes.insert(*idx, computed_node);
+                let computed = state.node_state_mut(*idx).unwrap();
+                if child_mode {
+                    computed.selected_child = true;
+                    return;
                 }
+                computed.selected_parent = true;
             });
 
             edges.iter().for_each(|idx| {
-                let mut computed_edge = StateComputedEdge::default();
+                let mut computed = state.edge_state_mut(*idx).unwrap();
                 if child_mode {
-                    computed_edge.selected_child = true;
-                } else {
-                    computed_edge.selected_parent = true;
+                    computed.selected_child = true;
+                    return;
                 }
-
-                states_computed_edges.insert(*idx, computed_edge);
+                computed.selected_parent = true;
             });
         });
 
-        let state = StateComputed {
-            selections: Some(selections),
-            ..Default::default()
-        };
+        state.selections = Some(selections);
 
-        // apply computed states
-        states_computed_nodes.iter().for_each(|(idx, computed)| {
-            let n = self.g.node_weight_mut(*idx).unwrap();
-            n.computed = *computed;
-        });
-        states_computed_edges.iter().for_each(|(idx, computed)| {
-            let e = self.g.edge_weight_mut(*idx).unwrap();
-            e.computed = *computed;
-        });
+        state
+            .nodes_states()
+            .iter()
+            .enumerate()
+            .for_each(|(idx, comp)| {
+                self.g
+                    .node_weight_mut(NodeIndex::new(idx))
+                    .unwrap()
+                    .computed = *comp
+            });
+
+        state
+            .edges_states()
+            .iter()
+            .enumerate()
+            .for_each(|(idx, comp)| {
+                self.g
+                    .edge_weight_mut(EdgeIndex::new(idx))
+                    .unwrap()
+                    .computed = *comp
+            });
 
         state
     }
