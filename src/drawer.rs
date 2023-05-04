@@ -127,18 +127,12 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
 
         edges_by_nodes.iter().for_each(|((start, end), edges)| {
             let mut order = edges.len();
-            edges.iter().for_each(|(idx, e, comp)| {
+            edges.iter().for_each(|(_, e, comp)| {
                 order -= 1;
 
                 let edge = e.screen_transform(self.meta);
 
-                let selected = self.draw_edge(
-                    &edge,
-                    self.comp.edge_state(*idx).unwrap(),
-                    start,
-                    end,
-                    order,
-                );
+                let selected = self.draw_edge(&edge, comp, start, end, order);
                 shapes.0.extend(selected.0);
                 shapes.1.extend(selected.1);
                 shapes.2.extend(selected.2);

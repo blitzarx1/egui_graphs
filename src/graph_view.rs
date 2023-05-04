@@ -16,11 +16,7 @@ use crate::{
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
-    visit::{IntoEdgeReferences, IntoNodeReferences},
-    Direction::{Incoming, Outgoing},
-};
+use petgraph::stable_graph::{NodeIndex, StableGraph};
 
 /// `GraphView` is a widget for visualizing and interacting with graphs.
 ///
@@ -398,7 +394,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn draw(&self, p: &Painter, comp: &mut StateComputed, meta: &mut Metadata) {
-        let drawer = Drawer::new(&self.g, p, meta, comp, &self.settings_style).draw();
+        Drawer::new(&self.g, p, meta, comp, &self.settings_style).draw();
     }
 
     fn send_changes(&self, changes: Change) {

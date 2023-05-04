@@ -1,9 +1,6 @@
 use egui::{Color32, Vec2};
 
-use crate::{
-    metadata::Metadata,
-    state_computed::{StateComputedEdge, StateComputedNode},
-};
+use crate::metadata::Metadata;
 
 /// Stores properties of a node that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug, Copy, PartialEq)]
