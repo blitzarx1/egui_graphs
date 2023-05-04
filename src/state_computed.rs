@@ -1,6 +1,6 @@
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex};
 
-use crate::{metadata::Metadata, selections::Selections};
+use crate::{metadata::Metadata, selections::Selections, Node};
 
 /// `StateComputed` is a utility struct for managing ephemerial state which is created and destroyed in one frame.
 ///
@@ -52,7 +52,7 @@ impl StateComputed {
 pub struct StateComputedNode {
     pub selected_child: bool,
     pub selected_parent: bool,
-    pub radius: f32,
+    radius: f32,
 }
 
 impl Default for StateComputedNode {
@@ -65,8 +65,28 @@ impl Default for StateComputedNode {
     }
 }
 
+impl StateComputedNode {
+    pub fn subselected(&self) -> bool {
+        self.selected_child || self.selected_parent
+    }
+
+    pub fn radius(&self, meta: &Metadata) -> f32 {
+        self.radius * meta.zoom
+    }
+
+    pub fn inc_radius(&mut self, inc: f32) {
+        self.radius += inc;
+    }
+}
+
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct StateComputedEdge {
     pub selected_child: bool,
     pub selected_parent: bool,
+}
+
+impl StateComputedEdge {
+    pub fn subselected(&self) -> bool {
+        self.selected_child || self.selected_parent
+    }
 }

@@ -1,6 +1,9 @@
 use egui::Color32;
 
-use crate::{Edge, Node};
+use crate::{
+    state_computed::{StateComputedEdge, StateComputedNode},
+    Edge, Node,
+};
 
 /// `SettingsInteraction` stores settings for the interaction with the graph.
 ///
@@ -108,7 +111,11 @@ impl SettingsStyle {
         self.color_edge
     }
 
-    pub(crate) fn color_node_highlight<N: Clone>(&self, n: &Node<N>) -> Option<Color32> {
+    pub(crate) fn color_node_highlight<N: Clone>(
+        &self,
+        n: &Node<N>,
+        comp: &StateComputedNode,
+    ) -> Option<Color32> {
         if n.dragged {
             return Some(self.color_drag);
         }
@@ -117,11 +124,11 @@ impl SettingsStyle {
             return Some(self.color_selection);
         }
 
-        if n.computed.selected_child {
+        if comp.selected_child {
             return Some(self.color_selection_child);
         }
 
-        if n.computed.selected_parent {
+        if comp.selected_parent {
             return Some(self.color_selection_parent);
         }
 
@@ -140,12 +147,12 @@ impl SettingsStyle {
         self.color_node
     }
 
-    pub(crate) fn color_edge_highlight<E: Clone>(&self, e: &Edge<E>) -> Option<Color32> {
-        if e.computed.selected_child {
+    pub(crate) fn color_edge_highlight(&self, comp: &StateComputedEdge) -> Option<Color32> {
+        if comp.selected_child {
             return Some(self.color_selection_child);
         }
 
-        if e.computed.selected_parent {
+        if comp.selected_parent {
             return Some(self.color_selection_parent);
         }
 

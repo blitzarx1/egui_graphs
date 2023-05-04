@@ -1,6 +1,9 @@
 use egui::{Color32, Vec2};
 
-use crate::state_computed::{StateComputedEdge, StateComputedNode};
+use crate::{
+    metadata::Metadata,
+    state_computed::{StateComputedEdge, StateComputedNode},
+};
 
 /// Stores properties of a node that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -15,9 +18,6 @@ pub struct Node<N: Clone> {
 
     pub selected: bool,
     pub dragged: bool,
-
-    /// Computed state recomputes on every frame. Not available for client and not sent in changes.
-    pub(crate) computed: StateComputedNode,
 }
 
 impl<N: Clone> Default for Node<N> {
@@ -28,7 +28,6 @@ impl<N: Clone> Default for Node<N> {
             color: Default::default(),
             selected: Default::default(),
             dragged: Default::default(),
-            computed: Default::default(),
         }
     }
 }
@@ -43,12 +42,9 @@ impl<N: Clone> Node<N> {
         }
     }
 
-    pub fn screen_transform(&self, zoom: f32, pan: Vec2) -> Self {
-        let mut computed_transformed = self.computed;
-        computed_transformed.radius *= zoom;
+    pub fn screen_transform(&self, meta: &Metadata) -> Self {
         Self {
-            location: self.location * zoom + pan,
-            computed: computed_transformed,
+            location: self.location * meta.zoom + meta.pan,
 
             color: self.color,
             dragged: self.dragged,
@@ -56,14 +52,6 @@ impl<N: Clone> Node<N> {
             selected: self.selected,
             data: self.data.clone(),
         }
-    }
-
-    pub fn radius(&self) -> f32 {
-        self.computed.radius
-    }
-
-    pub(crate) fn highlighted(&self) -> bool {
-        self.selected || self.computed.selected_child || self.computed.selected_parent
     }
 }
 
@@ -80,8 +68,6 @@ pub struct Edge<E: Clone> {
 
     /// If `color` is None default color is used.
     pub color: Option<Color32>,
-
-    pub(crate) computed: StateComputedEdge,
 }
 
 impl<E: Clone> Default for Edge<E> {
@@ -94,8 +80,6 @@ impl<E: Clone> Default for Edge<E> {
 
             data: Default::default(),
             color: Default::default(),
-
-            computed: Default::default(),
         }
     }
 }
@@ -109,21 +93,16 @@ impl<E: Clone> Edge<E> {
         }
     }
 
-    pub(crate) fn screen_transform(&self, zoom: f32) -> Self {
+    pub(crate) fn screen_transform(&self, meta: &Metadata) -> Self {
         Self {
-            width: self.width * zoom,
-            tip_size: self.tip_size * zoom,
-            curve_size: self.curve_size * zoom,
+            width: self.width * meta.zoom,
+            tip_size: self.tip_size * meta.zoom,
+            curve_size: self.curve_size * meta.zoom,
 
             color: self.color,
             tip_angle: self.tip_angle,
 
             data: self.data.clone(),
-            computed: self.computed,
         }
-    }
-
-    pub(crate) fn highlighted(&self) -> bool {
-        self.computed.selected_child || self.computed.selected_parent
     }
 }
