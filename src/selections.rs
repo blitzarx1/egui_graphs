@@ -1,11 +1,12 @@
-use egui::epaint::ahash::HashMap;
+use std::collections::HashMap;
+
 use petgraph::{
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
+    stable_graph::{EdgeIndex, NodeIndex},
     visit::EdgeRef,
     Direction, Graph,
 };
 
-use crate::{Edge, Node};
+use crate::graph_wrapper::GraphWrapper;
 
 pub type Selection = Graph<NodeIndex, EdgeIndex>;
 pub type Elements = (Vec<NodeIndex>, Vec<EdgeIndex>);
@@ -25,6 +26,12 @@ impl Selections {
             nodes.extend(curr_nodes);
             edges.extend(curr_edges);
         }
+
+        // remove duplicates
+        nodes.sort();
+        nodes.dedup();
+        edges.sort();
+        edges.dedup();
 
         (nodes, edges)
     }
@@ -46,7 +53,7 @@ impl Selections {
 
     pub fn add_selection<N: Clone, E: Clone>(
         &mut self,
-        g: &StableGraph<Node<N>, Edge<E>>,
+        g: &GraphWrapper<N, E>,
         root: NodeIndex,
         depth: i32,
     ) {
@@ -74,7 +81,7 @@ impl Selections {
 
     fn collect_generations<N: Clone, E: Clone>(
         &self,
-        g: &StableGraph<Node<N>, Edge<E>>,
+        g: &GraphWrapper<N, E>,
         selection_g: &mut Graph<NodeIndex, EdgeIndex>,
         root: NodeIndex,
         n: usize,
@@ -110,46 +117,47 @@ impl Selections {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Edge, Node};
+
     use super::*;
     use egui::Vec2;
     use petgraph::stable_graph::StableGraph;
 
-    // Helper function to create a test StableGraph
-    fn create_test_graph() -> StableGraph<Node<()>, Edge<usize>> {
-        let mut graph = StableGraph::<Node<()>, Edge<usize>>::new();
-        let n0 = graph.add_node(Node::new(Vec2::default(), ()));
-        let n1 = graph.add_node(Node::new(Vec2::default(), ()));
-        let n2 = graph.add_node(Node::new(Vec2::default(), ()));
+    fn create_test_graph() -> StableGraph<Node<()>, Edge<()>> {
+        let mut graph = StableGraph::<Node<()>, Edge<()>>::new();
+        let a = graph.add_node(Node::new(Vec2::default(), ()));
+        let b = graph.add_node(Node::new(Vec2::default(), ()));
+        let c = graph.add_node(Node::new(Vec2::default(), ()));
+        let d = graph.add_node(Node::new(Vec2::default(), ()));
 
-        graph.add_edge(n0, n1, Edge::new(1));
-        graph.add_edge(n0, n2, Edge::new(2));
-        graph.add_edge(n1, n2, Edge::new(3));
+        graph.add_edge(a, b, Edge::new(()));
+        graph.add_edge(b, c, Edge::new(()));
+        graph.add_edge(c, d, Edge::new(()));
+        graph.add_edge(a, d, Edge::new(()));
 
         graph
     }
 
     #[test]
-    fn test_selections_add_and_elements() {
-        let graph = create_test_graph();
+    fn selections_elements() {
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
         let mut selections = Selections::default();
 
+        // a->b, a->d
         selections.add_selection(&graph, NodeIndex::new(0), 1);
+        // b->c
+        selections.add_selection(&graph, NodeIndex::new(1), 1);
 
         let (nodes, edges) = selections.elements();
-        assert_eq!(nodes.len(), 3);
-        assert_eq!(edges.len(), 2);
-
-        assert!(nodes.contains(&NodeIndex::new(0)));
-        assert!(nodes.contains(&NodeIndex::new(1)));
-        assert!(nodes.contains(&NodeIndex::new(2)));
-
-        assert!(edges.contains(&EdgeIndex::new(0)));
-        assert!(edges.contains(&EdgeIndex::new(1)));
+        assert_eq!(nodes.len(), 4);
+        assert_eq!(edges.len(), 3);
     }
 
     #[test]
-    fn test_elements_by_root() {
-        let graph = create_test_graph();
+    fn selections_elements_by_root() {
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
         let mut selections = Selections::default();
 
         selections.add_selection(&graph, NodeIndex::new(0), 1);
@@ -157,12 +165,32 @@ mod tests {
         let (nodes, edges) = selections.elements_by_root(NodeIndex::new(0)).unwrap();
         assert_eq!(nodes.len(), 3);
         assert_eq!(edges.len(), 2);
+    }
 
-        assert!(nodes.contains(&NodeIndex::new(0)));
-        assert!(nodes.contains(&NodeIndex::new(1)));
-        assert!(nodes.contains(&NodeIndex::new(2)));
+    #[test]
+    fn selections_add_selection() {
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
+        let mut selections = Selections::default();
 
-        assert!(edges.contains(&EdgeIndex::new(0)));
-        assert!(edges.contains(&EdgeIndex::new(1)));
+        selections.add_selection(&graph, NodeIndex::new(0), 1);
+        assert_eq!(selections.data.len(), 1);
+
+        selections.add_selection(&graph, NodeIndex::new(1), 1);
+        assert_eq!(selections.data.len(), 2);
+    }
+
+    #[test]
+    fn selections_add_selection_zero_depth() {
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
+        let mut selections = Selections::default();
+
+        selections.add_selection(&graph, NodeIndex::new(0), 0);
+        assert_eq!(selections.data.len(), 1);
+
+        let selection_graph = selections.data.get(&NodeIndex::new(0)).unwrap();
+        assert_eq!(selection_graph.node_count(), 0);
+        assert_eq!(selection_graph.edge_count(), 0);
     }
 }

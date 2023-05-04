@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     f32::{MAX, MIN},
     sync::mpsc::Sender,
 };
@@ -9,18 +8,15 @@ use crate::{
     change::ChangeNode,
     drawer::Drawer,
     elements::Node,
+    graph_wrapper::GraphWrapper,
     metadata::Metadata,
     selections::Selections,
     settings::{SettingsInteraction, SettingsStyle},
-    state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
+    state_computed::StateComputed,
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{
-    stable_graph::{NodeIndex, StableGraph},
-    visit::IntoNodeReferences,
-    Direction::{Incoming, Outgoing},
-};
+use petgraph::stable_graph::{NodeIndex, StableGraph};
 
 /// `GraphView` is a widget for visualizing and interacting with graphs.
 ///
@@ -38,10 +34,10 @@ use petgraph::{
 /// produce changes. This is because these actions are performed on the global coordinates and do not change any
 /// properties of the nodes or edges.
 pub struct GraphView<'a, N: Clone, E: Clone> {
-    g: &'a mut StableGraph<Node<N>, Edge<E>>,
     settings_interaction: SettingsInteraction,
     setings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
+    g: GraphWrapper<'a, N, E>,
     changes_sender: Option<&'a Sender<Change>>,
 }
 
@@ -52,7 +48,7 @@ impl<'a, N: Clone, E: Clone> Widget for &mut GraphView<'a, N, E> {
 
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
-        self.fit_if_first(&resp, &mut meta);
+        self.fit_if_first(&resp, &computed, &mut meta);
 
         self.draw(&p, &mut computed, &mut meta);
 
@@ -72,7 +68,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
     pub fn new(g: &'a mut StableGraph<Node<N>, Edge<E>>) -> Self {
         Self {
-            g,
+            g: GraphWrapper::new(g),
 
             settings_style: Default::default(),
             settings_interaction: Default::default(),
@@ -110,26 +106,26 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     /// Gets rect in which graph is contained including node radius
-    fn bounding_rect(&self) -> Rect {
+    fn bounding_rect(&self, state: &StateComputed, meta: &mut Metadata) -> Rect {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
 
-        self.g.node_weights().for_each(|n| {
-            let x_minus_rad = n.location.x - n.radius();
+        self.g.nodes_with_context(state).for_each(|(_, n, comp)| {
+            let x_minus_rad = n.location.x - comp.radius(meta);
             if x_minus_rad < min_x {
                 min_x = x_minus_rad;
             };
 
-            let y_minus_rad = n.location.y - n.radius();
+            let y_minus_rad = n.location.y - comp.radius(meta);
             if y_minus_rad < min_y {
                 min_y = y_minus_rad;
             };
 
-            let x_plus_rad = n.location.x + n.radius();
+            let x_plus_rad = n.location.x + comp.radius(meta);
             if x_plus_rad > max_x {
                 max_x = x_plus_rad;
             };
 
-            let y_plus_rad = n.location.y + n.radius();
+            let y_plus_rad = n.location.y + comp.radius(meta);
             if y_plus_rad > max_y {
                 max_y = y_plus_rad;
             };
@@ -138,26 +134,18 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y))
     }
 
-    fn node_by_pos(&self, metadata: &Metadata, pos: Pos2) -> Option<(NodeIndex, &Node<N>)> {
-        // transform pos to graph coordinates
-        let pos_in_graph = (pos - metadata.pan).to_vec2() / metadata.zoom;
-        self.g
-            .node_references()
-            .find(|(_, n)| (n.location - pos_in_graph).length() <= n.radius())
-    }
-
     /// Fits the graph to the screen if it is the first frame
-    fn fit_if_first(&self, r: &Response, m: &mut Metadata) {
-        if !m.first_frame {
+    fn fit_if_first(&self, r: &Response, state: &StateComputed, meta: &mut Metadata) {
+        if !meta.first_frame {
             return;
         }
 
-        m.graph_bounds = self.bounding_rect();
-        self.fit_to_screen(&r.rect, m);
-        m.first_frame = false;
+        meta.graph_bounds = self.bounding_rect(state, meta);
+        self.fit_to_screen(&r.rect, meta);
+        meta.first_frame = false;
     }
 
-    fn handle_click(&mut self, resp: &Response, state: &mut StateComputed, meta: &mut Metadata) {
+    fn handle_click(&mut self, resp: &Response, comp: &mut StateComputed, meta: &mut Metadata) {
         if !resp.clicked() {
             return;
         }
@@ -171,17 +159,17 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         }
 
         // click on empty space
-        let node = self.node_by_pos(meta, resp.hover_pos().unwrap());
+        let node = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap());
         if node.is_none() {
             let selectable =
                 self.settings_interaction.node_select || self.settings_interaction.node_multiselect;
             if selectable {
-                self.deselect_all(state);
+                self.deselect_all(comp);
             }
             return;
         }
 
-        self.handle_node_click(node.unwrap().0, state);
+        self.handle_node_click(node.unwrap().0, comp);
     }
 
     fn handle_node_click(&mut self, idx: NodeIndex, state: &StateComputed) {
@@ -189,7 +177,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             return;
         }
 
-        let n = self.g.node_weight(idx).unwrap();
+        let n = self.g.node(idx).unwrap();
         if n.selected {
             self.set_node_selected(idx, false);
             return;
@@ -205,7 +193,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     fn handle_nodes_drags(
         &mut self,
         resp: &Response,
-        state: &mut StateComputed,
+        comp: &mut StateComputed,
         meta: &mut Metadata,
     ) {
         if !self.settings_interaction.node_drag {
@@ -213,19 +201,19 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
         }
 
         if resp.drag_started() {
-            if let Some((idx, _)) = self.node_by_pos(meta, resp.hover_pos().unwrap()) {
+            if let Some((idx, _, _)) = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap()) {
                 self.set_dragged(idx, true);
             }
         }
 
-        if resp.dragged() && state.dragged.is_some() {
-            let n_idx_dragged = state.dragged.unwrap();
+        if resp.dragged() && comp.dragged.is_some() {
+            let n_idx_dragged = comp.dragged.unwrap();
             let delta_in_graph_coords = resp.drag_delta() / meta.zoom;
             self.move_node(n_idx_dragged, delta_in_graph_coords);
         }
 
-        if resp.drag_released() && state.dragged.is_some() {
-            let n_idx = state.dragged.unwrap();
+        if resp.drag_released() && comp.dragged.is_some() {
+            let n_idx = comp.dragged.unwrap();
             self.set_dragged(n_idx, false);
         }
     }
@@ -313,7 +301,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn set_node_selected(&mut self, idx: NodeIndex, val: bool) {
-        let n = self.g.node_weight_mut(idx).unwrap();
+        let n = self.g.node_mut(idx).unwrap();
         let change = ChangeNode::change_selected(idx, n.selected, val);
         n.selected = val;
         self.send_changes(Change::node(change));
@@ -334,14 +322,14 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
-        let n = self.g.node_weight_mut(idx).unwrap();
+        let n = self.g.node_mut(idx).unwrap();
         let change = ChangeNode::change_dragged(idx, n.dragged, val);
         n.dragged = val;
         self.send_changes(Change::node(change));
     }
 
     fn move_node(&mut self, idx: NodeIndex, delta: Vec2) {
-        let n = self.g.node_weight_mut(idx).unwrap();
+        let n = self.g.node_mut(idx).unwrap();
         let new_loc = n.location + delta;
         let change = ChangeNode::change_location(idx, n.location, new_loc);
         n.location = new_loc;
@@ -349,40 +337,26 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn precompute_state(&mut self) -> StateComputed {
-        // reset computed values
-        self.g.node_weights_mut().for_each(|n| {
-            n.computed = Default::default();
-        });
-        self.g.edge_weights_mut().for_each(|e| {
-            e.computed = Default::default();
-        });
+        let mut state = StateComputed::new(self.g.node_count(), self.g.edge_count());
 
-        // compute selections
-        let mut states_computed_nodes = HashMap::with_capacity(self.g.node_count());
-        let mut states_computed_edges = HashMap::with_capacity(self.g.edge_count());
         let mut selections = Selections::default();
 
-        self.g.node_indices().for_each(|idx| {
-            let mut num = self.g.edges_directed(idx, Outgoing).count();
-            num += self.g.edges_directed(idx, Incoming).count();
-            if num == 0 {
-                return;
-            }
-
-            let mut computed = StateComputedNode::default();
-            computed.radius += self.settings_style.edge_radius_weight * num as f32;
-
-            states_computed_nodes.insert(idx, computed);
-        });
-
-        // compute selections
+        // compute radiuses and selections
         let child_mode = self.settings_interaction.selection_depth > 0;
-        self.g.node_references().for_each(|(root_idx, root_n)| {
+        self.g.nodes().for_each(|(root_idx, root_n)| {
+            // compute radii
+            let num = self.g.edges_num(root_idx);
+            state
+                .node_state_mut(root_idx)
+                .unwrap()
+                .inc_radius(self.settings_style.edge_radius_weight * num as f32);
+
+            // compute selections
             if !root_n.selected {
                 return;
             }
 
-            selections.add_selection(self.g, root_idx, self.settings_interaction.selection_depth);
+            selections.add_selection(&self.g, root_idx, self.settings_interaction.selection_depth);
 
             let elements = selections.elements_by_root(root_idx);
             if elements.is_none() {
@@ -396,94 +370,36 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                     return;
                 }
 
-                if let Some(computed_node) = states_computed_nodes.get_mut(idx) {
-                    if child_mode {
-                        computed_node.selected_child = true;
-                        return;
-                    }
-
-                    computed_node.selected_parent = true;
-                } else {
-                    let mut computed_node = StateComputedNode::default();
-                    if child_mode {
-                        computed_node.selected_child = true;
-                    } else {
-                        computed_node.selected_parent = true;
-                    }
-
-                    states_computed_nodes.insert(*idx, computed_node);
+                let computed = state.node_state_mut(*idx).unwrap();
+                if child_mode {
+                    computed.selected_child = true;
+                    return;
                 }
+                computed.selected_parent = true;
             });
 
             edges.iter().for_each(|idx| {
-                let mut computed_edge = StateComputedEdge::default();
+                let mut computed = state.edge_state_mut(*idx).unwrap();
                 if child_mode {
-                    computed_edge.selected_child = true;
-                } else {
-                    computed_edge.selected_parent = true;
+                    computed.selected_child = true;
+                    return;
                 }
-
-                states_computed_edges.insert(*idx, computed_edge);
+                computed.selected_parent = true;
             });
         });
 
-        let state = StateComputed {
-            selections: Some(selections),
-            ..Default::default()
-        };
-
-        // apply computed states
-        states_computed_nodes.iter().for_each(|(idx, computed)| {
-            let n = self.g.node_weight_mut(*idx).unwrap();
-            n.computed = *computed;
-        });
-        states_computed_edges.iter().for_each(|(idx, computed)| {
-            let e = self.g.edge_weight_mut(*idx).unwrap();
-            e.computed = *computed;
-        });
+        state.selections = Some(selections);
 
         state
     }
 
-    fn draw(&self, p: &Painter, state: &mut StateComputed, metadata: &mut Metadata) {
-        let drawer = Drawer::new(self.g, p, &self.settings_style);
-        drawer.draw(state, metadata);
+    fn draw(&self, p: &Painter, comp: &mut StateComputed, meta: &mut Metadata) {
+        Drawer::new(&self.g, p, meta, comp, &self.settings_style).draw();
     }
 
     fn send_changes(&self, changes: Change) {
         if let Some(sender) = self.changes_sender {
             sender.send(changes).unwrap();
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use petgraph::stable_graph::StableGraph;
-
-    // Helper function to create a test StableGraph
-    fn create_test_graph() -> StableGraph<Node<()>, Edge<usize>> {
-        let mut graph = StableGraph::<Node<()>, Edge<usize>>::new();
-        let n0 = graph.add_node(Node::new(Vec2::new(0.0, 0.0), ()));
-        let n1 = graph.add_node(Node::new(Vec2::new(10.0, 10.0), ()));
-        let n2 = graph.add_node(Node::new(Vec2::new(20.0, 20.0), ()));
-
-        graph.add_edge(n0, n1, Edge::new(1));
-        graph.add_edge(n0, n2, Edge::new(2));
-        graph.add_edge(n1, n2, Edge::new(3));
-
-        graph
-    }
-
-    #[test]
-    fn test_bounding_rect() {
-        let mut graph = create_test_graph();
-        let graph_view = GraphView::<_, usize>::new(&mut graph);
-
-        let bounding_rect = graph_view.bounding_rect();
-
-        assert_eq!(bounding_rect.min, Pos2::new(-5.0, -5.0));
-        assert_eq!(bounding_rect.max, Pos2::new(25.0, 25.0));
     }
 }

@@ -225,8 +225,8 @@ impl ConfigurableApp {
         // location of new node is in surrounging of random existing node
         let mut rng = rand::thread_rng();
         let location = Vec2::new(
-            random_n.location.x + random_n.radius() + rng.gen_range(0. ..(random_n.radius() * 5.)),
-            random_n.location.y + random_n.radius() + rng.gen_range(0. ..(random_n.radius() * 5.)),
+            random_n.location.x + 10. + rng.gen_range(0. ..50.),
+            random_n.location.y + 10. + rng.gen_range(0. ..50.),
         );
 
         let idx = self.g.add_node(Node::new(location, ()));

@@ -6,6 +6,7 @@ mod graph_view;
 mod metadata;
 mod selections;
 mod settings;
+mod graph_wrapper;
 
 pub use self::change::{Change, ChangeEdge, ChangeNode};
 pub use self::elements::{Edge, Node};

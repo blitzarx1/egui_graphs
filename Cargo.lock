@@ -339,7 +339,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "basic"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "eframe",
  "egui",
@@ -521,7 +521,7 @@ dependencies = [
 
 [[package]]
 name = "configurable"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "eframe",
  "egui",
@@ -751,7 +751,7 @@ dependencies = [
 
 [[package]]
 name = "egui_graphs"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "egui",
  "petgraph",
@@ -1145,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "interactive"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "eframe",
  "egui",
