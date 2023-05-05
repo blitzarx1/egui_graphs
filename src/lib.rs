@@ -4,7 +4,7 @@ mod elements;
 mod state_computed;
 mod graph_view;
 mod metadata;
-mod selections;
+mod subgraphs;
 mod settings;
 mod graph_wrapper;
 

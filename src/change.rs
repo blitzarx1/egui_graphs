@@ -9,6 +9,8 @@ pub enum ChangeNode {
     Selected { id: NodeIndex, old: bool, new: bool },
 
     Dragged { id: NodeIndex, old: bool, new: bool },
+
+    Folded { id: NodeIndex, old: bool, new: bool },
 }
 
 impl ChangeNode {
@@ -18,6 +20,10 @@ impl ChangeNode {
 
     pub(crate) fn change_selected(id: NodeIndex, old: bool, new: bool) -> Self {
         Self::Selected { id, old, new }
+    }
+
+    pub(crate) fn change_folded(id: NodeIndex, old: bool, new: bool) -> Self {
+        Self::Folded { id, old, new }
     }
 
     pub(crate) fn change_dragged(id: NodeIndex, old: bool, new: bool) -> Self {

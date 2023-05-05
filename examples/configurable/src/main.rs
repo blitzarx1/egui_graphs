@@ -421,6 +421,15 @@ impl ConfigurableApp {
 
             ui.add_space(5.);
 
+            ui.checkbox(&mut self.settings_interaction.node_fold, "node_fold");
+            ui.label("To fold/unfold double click on a node.");
+
+            ui.add(Slider::new(&mut self.settings_interaction.folding_depth, 0..=10)
+            .text("folding_depth"));
+            ui.label("How deep the folding goes.");
+
+            ui.add_space(5.);
+
             ui.collapsing("selected", |ui| {
                 ScrollArea::vertical().max_height(200.).show(ui, |ui| {
                     self.selected_nodes.iter().for_each(|node| {

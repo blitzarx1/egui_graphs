@@ -8,15 +8,17 @@ use petgraph::{
 
 use crate::graph_wrapper::GraphWrapper;
 
-pub type Selection = Graph<NodeIndex, EdgeIndex>;
+/// This type is representing a subgraph of the graph. Node and edges are holding
+/// references to the elements of the original graph.
+pub type Subgraph = Graph<NodeIndex, EdgeIndex>;
 pub type Elements = (Vec<NodeIndex>, Vec<EdgeIndex>);
 
 #[derive(Default, Debug, Clone)]
-pub struct Selections {
-    data: HashMap<NodeIndex, Selection>,
+pub struct Subgraphs {
+    data: HashMap<NodeIndex, Subgraph>,
 }
 
-impl Selections {
+impl Subgraphs {
     pub fn elements(&self) -> Elements {
         let mut nodes = vec![];
         let mut edges = vec![];
@@ -51,15 +53,15 @@ impl Selections {
         ))
     }
 
-    pub fn add_selection<N: Clone, E: Clone, Ty: EdgeType>(
+    pub fn add_subgraph<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
         g: &GraphWrapper<N, E, Ty>,
         root: NodeIndex,
         depth: i32,
     ) {
-        let mut selection_g = Graph::<NodeIndex, EdgeIndex>::new();
+        let mut subgraph = Graph::<NodeIndex, EdgeIndex>::new();
         if depth == 0 {
-            self.data.insert(root, selection_g);
+            self.data.insert(root, subgraph);
             return;
         }
 
@@ -68,21 +70,15 @@ impl Selections {
             false => petgraph::Direction::Incoming,
         };
 
-        self.collect_generations(
-            g,
-            &mut selection_g,
-            root,
-            depth.unsigned_abs() as usize,
-            dir,
-        );
+        self.collect_generations(g, &mut subgraph, root, depth.unsigned_abs() as usize, dir);
 
-        self.data.insert(root, selection_g);
+        self.data.insert(root, subgraph);
     }
 
     fn collect_generations<N: Clone, E: Clone, Ty: EdgeType>(
         &self,
         g: &GraphWrapper<N, E, Ty>,
-        selection_g: &mut Graph<NodeIndex, EdgeIndex>,
+        subgraph: &mut Graph<NodeIndex, EdgeIndex>,
         root: NodeIndex,
         n: usize,
         dir: Direction,
@@ -98,14 +94,14 @@ impl Selections {
 
             let mut next_next_start = vec![];
             next_start.iter().for_each(|g_idx| {
-                let s_idx = selection_g.add_node(*g_idx);
+                let s_idx = subgraph.add_node(*g_idx);
                 g.edges_directed(*g_idx, dir).for_each(|edge| {
                     let next = match dir {
                         Direction::Incoming => edge.source(),
                         Direction::Outgoing => edge.target(),
                     };
-                    let next_idx = selection_g.add_node(next);
-                    selection_g.add_edge(s_idx, next_idx, edge.id());
+                    let next_idx = subgraph.add_node(next);
+                    subgraph.add_edge(s_idx, next_idx, edge.id());
                     next_next_start.push(next);
                 });
             });
@@ -139,58 +135,58 @@ mod tests {
     }
 
     #[test]
-    fn selections_elements() {
+    fn subgraphs_elements() {
         let g = &mut create_test_graph();
         let graph = GraphWrapper::new(g);
-        let mut selections = Selections::default();
+        let mut subgraphs = Subgraphs::default();
 
         // a->b, a->d
-        selections.add_selection(&graph, NodeIndex::new(0), 1);
+        subgraphs.add_subgraph(&graph, NodeIndex::new(0), 1);
         // b->c
-        selections.add_selection(&graph, NodeIndex::new(1), 1);
+        subgraphs.add_subgraph(&graph, NodeIndex::new(1), 1);
 
-        let (nodes, edges) = selections.elements();
+        let (nodes, edges) = subgraphs.elements();
         assert_eq!(nodes.len(), 4);
         assert_eq!(edges.len(), 3);
     }
 
     #[test]
-    fn selections_elements_by_root() {
+    fn subgraphs_elements_by_root() {
         let g = &mut create_test_graph();
         let graph = GraphWrapper::new(g);
-        let mut selections = Selections::default();
+        let mut subgraphs = Subgraphs::default();
 
-        selections.add_selection(&graph, NodeIndex::new(0), 1);
+        subgraphs.add_subgraph(&graph, NodeIndex::new(0), 1);
 
-        let (nodes, edges) = selections.elements_by_root(NodeIndex::new(0)).unwrap();
+        let (nodes, edges) = subgraphs.elements_by_root(NodeIndex::new(0)).unwrap();
         assert_eq!(nodes.len(), 3);
         assert_eq!(edges.len(), 2);
     }
 
     #[test]
-    fn selections_add_selection() {
+    fn subgraphs_add_subgraph() {
         let g = &mut create_test_graph();
         let graph = GraphWrapper::new(g);
-        let mut selections = Selections::default();
+        let mut subgraphs = Subgraphs::default();
 
-        selections.add_selection(&graph, NodeIndex::new(0), 1);
-        assert_eq!(selections.data.len(), 1);
+        subgraphs.add_subgraph(&graph, NodeIndex::new(0), 1);
+        assert_eq!(subgraphs.data.len(), 1);
 
-        selections.add_selection(&graph, NodeIndex::new(1), 1);
-        assert_eq!(selections.data.len(), 2);
+        subgraphs.add_subgraph(&graph, NodeIndex::new(1), 1);
+        assert_eq!(subgraphs.data.len(), 2);
     }
 
     #[test]
-    fn selections_add_selection_zero_depth() {
+    fn subgraphs_add_subgraph_zero_depth() {
         let g = &mut create_test_graph();
         let graph = GraphWrapper::new(g);
-        let mut selections = Selections::default();
+        let mut subgraphs = Subgraphs::default();
 
-        selections.add_selection(&graph, NodeIndex::new(0), 0);
-        assert_eq!(selections.data.len(), 1);
+        subgraphs.add_subgraph(&graph, NodeIndex::new(0), 0);
+        assert_eq!(subgraphs.data.len(), 1);
 
-        let selection_graph = selections.data.get(&NodeIndex::new(0)).unwrap();
-        assert_eq!(selection_graph.node_count(), 0);
-        assert_eq!(selection_graph.edge_count(), 0);
+        let subgraph = subgraphs.data.get(&NodeIndex::new(0)).unwrap();
+        assert_eq!(subgraph.node_count(), 0);
+        assert_eq!(subgraph.edge_count(), 0);
     }
 }

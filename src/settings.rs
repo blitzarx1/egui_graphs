@@ -28,6 +28,13 @@ pub struct SettingsInteraction {
     /// `selection_depth < 0` means parents of selected nodes are selected up to `selection_depth` generation.
     pub selection_depth: i32,
 
+    /// Allows folding of nodes. To fold node use doubleclick.
+    pub node_fold: bool,
+
+    /// How deep the fold will go.
+    /// Must be greater than 0.
+    pub folding_depth: usize,
+
     /// Multiselection for nodes, enables node_click and node_select.
     pub node_multiselect: bool,
 }
