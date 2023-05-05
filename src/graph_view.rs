@@ -16,7 +16,11 @@ use crate::{
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{stable_graph::{NodeIndex, StableGraph}, visit::EdgeRef};
+use petgraph::{
+    stable_graph::{NodeIndex, StableGraph},
+    visit::EdgeRef,
+    EdgeType,
+};
 
 /// `GraphView` is a widget for visualizing and interacting with graphs.
 ///
@@ -33,15 +37,15 @@ use petgraph::{stable_graph::{NodeIndex, StableGraph}, visit::EdgeRef};
 /// When the user performs navigation actions (zoom & pan, fit to screen), they do not
 /// produce changes. This is because these actions are performed on the global coordinates and do not change any
 /// properties of the nodes or edges.
-pub struct GraphView<'a, N: Clone, E: Clone> {
+pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_interaction: SettingsInteraction,
     setings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
-    g: GraphWrapper<'a, N, E>,
+    g: GraphWrapper<'a, N, E, Ty>,
     changes_sender: Option<&'a Sender<Change>>,
 }
 
-impl<'a, N: Clone, E: Clone> Widget for &mut GraphView<'a, N, E> {
+impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut meta = Metadata::get(ui);
         let mut computed = self.precompute_state();
@@ -63,10 +67,10 @@ impl<'a, N: Clone, E: Clone> Widget for &mut GraphView<'a, N, E> {
     }
 }
 
-impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
+impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut StableGraph<Node<N>, Edge<E>>) -> Self {
+    pub fn new(g: &'a mut StableGraph<Node<N>, Edge<E>, Ty>) -> Self {
         Self {
             g: GraphWrapper::new(g),
 

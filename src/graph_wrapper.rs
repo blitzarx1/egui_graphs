@@ -3,6 +3,7 @@ use petgraph::{
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
     visit::{IntoEdgeReferences, IntoNodeReferences},
     Direction::{self, Incoming, Outgoing},
+    EdgeType,
 };
 
 use crate::{
@@ -12,12 +13,12 @@ use crate::{
 };
 
 /// Encapsulates graph access and traversal methods.
-pub struct GraphWrapper<'a, N: Clone, E: Clone> {
-    g: &'a mut StableGraph<Node<N>, Edge<E>>,
+pub struct GraphWrapper<'a, N: Clone, E: Clone, Ty: EdgeType> {
+    g: &'a mut StableGraph<Node<N>, Edge<E>, Ty>,
 }
 
-impl<'a, N: Clone, E: Clone> GraphWrapper<'a, N, E> {
-    pub fn new(g: &'a mut StableGraph<Node<N>, Edge<E>>) -> Self {
+impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
+    pub fn new(g: &'a mut StableGraph<Node<N>, Edge<E>, Ty>) -> Self {
         Self { g }
     }
 

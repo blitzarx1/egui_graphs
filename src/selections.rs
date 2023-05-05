@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
     visit::EdgeRef,
-    Direction, Graph,
+    Direction, EdgeType, Graph,
 };
 
 use crate::graph_wrapper::GraphWrapper;
@@ -51,9 +51,9 @@ impl Selections {
         ))
     }
 
-    pub fn add_selection<N: Clone, E: Clone>(
+    pub fn add_selection<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        g: &GraphWrapper<N, E>,
+        g: &GraphWrapper<N, E, Ty>,
         root: NodeIndex,
         depth: i32,
     ) {
@@ -79,9 +79,9 @@ impl Selections {
         self.data.insert(root, selection_g);
     }
 
-    fn collect_generations<N: Clone, E: Clone>(
+    fn collect_generations<N: Clone, E: Clone, Ty: EdgeType>(
         &self,
-        g: &GraphWrapper<N, E>,
+        g: &GraphWrapper<N, E, Ty>,
         selection_g: &mut Graph<NodeIndex, EdgeIndex>,
         root: NodeIndex,
         n: usize,
