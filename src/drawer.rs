@@ -10,6 +10,7 @@ use egui::{
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
     visit::EdgeRef,
+    EdgeType,
 };
 
 use crate::{
@@ -19,17 +20,17 @@ use crate::{
     Edge, Node, SettingsStyle,
 };
 
-pub struct Drawer<'a, N: Clone, E: Clone> {
-    g: &'a GraphWrapper<'a, N, E>,
+pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
+    g: &'a GraphWrapper<'a, N, E, Ty>,
     p: &'a Painter,
     meta: &'a mut Metadata,
     comp: &'a mut StateComputed,
     settings_style: &'a SettingsStyle,
 }
 
-impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
+impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     pub fn new(
-        g: &'a GraphWrapper<N, E>,
+        g: &'a GraphWrapper<N, E, Ty>,
         p: &'a Painter,
         meta: &'a mut Metadata,
         comp: &'a mut StateComputed,
@@ -306,8 +307,12 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
             let head_point_2 = tip_point - e.tip_size * rotate_vector(dir, -e.tip_angle);
 
             shapes.push(Shape::line_segment([start_point, tip_point], stroke));
-            shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
-            shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
+
+            // draw tips for directed edges
+            if self.g.is_directed() {
+                shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
+                shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
+            }
 
             if !comp_edge.subselected() {
                 shapes.into_iter().for_each(|shape| {
@@ -325,14 +330,17 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
                 [start_point, tip_point],
                 highlighted_stroke,
             ));
-            shapes.push(Shape::line_segment(
-                [tip_point, head_point_1],
-                highlighted_stroke,
-            ));
-            shapes.push(Shape::line_segment(
-                [tip_point, head_point_2],
-                highlighted_stroke,
-            ));
+
+            if self.g.is_directed() {
+                shapes.push(Shape::line_segment(
+                    [tip_point, head_point_1],
+                    highlighted_stroke,
+                ));
+                shapes.push(Shape::line_segment(
+                    [tip_point, head_point_2],
+                    highlighted_stroke,
+                ));
+            }
 
             return (shapes, vec![]);
         }

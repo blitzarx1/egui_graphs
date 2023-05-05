@@ -9,6 +9,7 @@ use egui_graphs::{
 };
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
+use petgraph::Directed;
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 use petgraph::visit::EdgeRef;
 use rand::Rng;
@@ -174,7 +175,7 @@ impl ConfigurableApp {
         self.settings_graph = settings_graph;
         self.last_changes = Default::default();
 
-        GraphView::<(), ()>::reset_metadata(ui);
+        GraphView::<(), (), Directed>::reset_metadata(ui);
     }
 
     fn handle_changes(&mut self) {
