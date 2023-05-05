@@ -12,11 +12,11 @@ use crate::{
     metadata::Metadata,
     selections::Selections,
     settings::{SettingsInteraction, SettingsStyle},
-    state_computed::StateComputed,
+    state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::stable_graph::{NodeIndex, StableGraph};
+use petgraph::{stable_graph::{NodeIndex, StableGraph}, visit::EdgeRef};
 
 /// `GraphView` is a widget for visualizing and interacting with graphs.
 ///
@@ -337,9 +337,20 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
     }
 
     fn precompute_state(&mut self) -> StateComputed {
-        let mut state = StateComputed::new(self.g.node_count(), self.g.edge_count());
-
         let mut selections = Selections::default();
+        let nodes_computed = self.g.nodes().map(|(idx, _)| {
+            let node_state = StateComputedNode::default();
+            (idx, node_state)
+        });
+
+        let edges_computed = self.g.edges().map(|e| {
+            let edge_state = StateComputedEdge::default();
+            (e.id(), edge_state)
+        });
+
+        let mut state = StateComputed::default();
+        state.nodes = nodes_computed.collect();
+        state.edges = edges_computed.collect();
 
         // compute radiuses and selections
         let child_mode = self.settings_interaction.selection_depth > 0;
@@ -347,7 +358,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             // compute radii
             let num = self.g.edges_num(root_idx);
             state
-                .node_state_mut(root_idx)
+                .node_state_mut(&root_idx)
                 .unwrap()
                 .inc_radius(self.settings_style.edge_radius_weight * num as f32);
 
@@ -370,7 +381,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
                     return;
                 }
 
-                let computed = state.node_state_mut(*idx).unwrap();
+                let computed = state.node_state_mut(idx).unwrap();
                 if child_mode {
                     computed.selected_child = true;
                     return;
@@ -379,7 +390,7 @@ impl<'a, N: Clone, E: Clone> GraphView<'a, N, E> {
             });
 
             edges.iter().for_each(|idx| {
-                let mut computed = state.edge_state_mut(*idx).unwrap();
+                let mut computed = state.edge_state_mut(idx).unwrap();
                 if child_mode {
                     computed.selected_child = true;
                     return;

@@ -39,7 +39,7 @@ impl<'a, N: Clone, E: Clone> GraphWrapper<'a, N, E> {
     ) -> impl Iterator<Item = (NodeIndex, &Node<N>, &StateComputedNode)> {
         self.g
             .node_references()
-            .map(|(i, n)| (i, n, comp.node_state(i).unwrap()))
+            .map(|(i, n)| (i, n, comp.node_state(&i).unwrap()))
     }
 
     pub fn nodes(&'a self) -> impl Iterator<Item = (NodeIndex, &Node<N>)> {

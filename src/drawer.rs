@@ -117,7 +117,7 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
             edge_map
                 .entry((source, target))
                 .or_insert_with(Vec::new)
-                .push((e.id(), edge.clone(), self.comp.edge_state(e.id()).unwrap()));
+                .push((e.id(), edge.clone(), self.comp.edge_state(&e.id()).unwrap()));
         });
 
         let edges_by_nodes = edge_map
@@ -206,7 +206,7 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
         order: usize,
     ) -> Vec<CubicBezierShape> {
         let n: Node<N> = self.g.node(*n_idx).unwrap().screen_transform(self.meta);
-        let comp_node = self.comp.node_state(*n_idx).unwrap();
+        let comp_node = self.comp.node_state(n_idx).unwrap();
 
         let pos_start_and_end = n.location.to_pos2();
         let loop_size = comp_node.radius(self.meta) * (4. + 1. + order as f32);
@@ -282,8 +282,8 @@ impl<'a, N: Clone, E: Clone> Drawer<'a, N, E> {
             .location
             .to_pos2();
 
-        let comp_start = self.comp.node_state(*start_idx).unwrap();
-        let comp_end = self.comp.node_state(*end_idx).unwrap();
+        let comp_start = self.comp.node_state(start_idx).unwrap();
+        let comp_end = self.comp.node_state(end_idx).unwrap();
 
         let vec = pos_end - pos_start;
         let l = vec.length();

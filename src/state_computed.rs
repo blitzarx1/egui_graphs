@@ -1,42 +1,35 @@
+use std::collections::HashMap;
+
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex};
 
 use crate::{metadata::Metadata, selections::Selections};
 
 /// `StateComputed` is a utility struct for managing ephemerial state which is created and destroyed in one frame.
 ///
-/// The struct stores the selected nodes, dragged node, and cached edges by nodes.
-#[derive(Debug, Clone)]
+/// The struct stores selections, dragged node and computed elements states.
+#[derive(Default, Debug, Clone)]
 pub struct StateComputed {
     pub dragged: Option<NodeIndex>,
     pub selections: Option<Selections>,
-    nodes: Vec<StateComputedNode>,
-    edges: Vec<StateComputedEdge>,
+    pub nodes: HashMap<NodeIndex,StateComputedNode>,
+    pub edges: HashMap<EdgeIndex,StateComputedEdge>,
 }
 
 impl StateComputed {
-    pub fn new(node_count: usize, edge_count: usize) -> Self {
-        Self {
-            dragged: None,
-            selections: None,
-            nodes: vec![Default::default(); node_count],
-            edges: vec![Default::default(); edge_count],
-        }
+    pub fn node_state(&self, idx: &NodeIndex) -> Option<&StateComputedNode> {
+        self.nodes.get(idx)
     }
 
-    pub fn node_state(&self, idx: NodeIndex) -> Option<&StateComputedNode> {
-        self.nodes.get(idx.index())
+    pub fn node_state_mut(&mut self, idx: &NodeIndex) -> Option<&mut StateComputedNode> {
+        self.nodes.get_mut(idx)
     }
 
-    pub fn node_state_mut(&mut self, idx: NodeIndex) -> Option<&mut StateComputedNode> {
-        self.nodes.get_mut(idx.index())
+    pub fn edge_state(&self, idx: &EdgeIndex) -> Option<&StateComputedEdge> {
+        self.edges.get(idx)
     }
 
-    pub fn edge_state(&self, idx: EdgeIndex) -> Option<&StateComputedEdge> {
-        self.edges.get(idx.index())
-    }
-
-    pub fn edge_state_mut(&mut self, idx: EdgeIndex) -> Option<&mut StateComputedEdge> {
-        self.edges.get_mut(idx.index())
+    pub fn edge_state_mut(&mut self, idx: &EdgeIndex) -> Option<&mut StateComputedEdge> {
+        self.edges.get_mut(idx)
     }
 }
 
