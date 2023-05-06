@@ -67,6 +67,8 @@ impl Subgraphs {
         self.data.keys().cloned().collect()
     }
 
+    /// Adds a subgraph to the collection. The subgraph is created by walking the graph
+    /// from the root node to the given depth.
     pub fn add_subgraph<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
         g: &GraphWrapper<N, E, Ty>,
@@ -145,6 +147,8 @@ impl Subgraphs {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::{Edge, Node};
 
     use super::*;
@@ -242,5 +246,36 @@ mod tests {
         let roots = subgraphs.roots_by_node(NodeIndex::new(2)).unwrap();
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0], NodeIndex::new(1));
+    }
+
+    #[test]
+    fn subgraphs_roots_and_roots_by_node() {
+        // Check that roots and roots_by_node are the same
+
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
+        let mut subgraphs = Subgraphs::default();
+
+        // a->b, a->d
+        subgraphs.add_subgraph(&graph, NodeIndex::new(0), 1);
+        // b->c
+        subgraphs.add_subgraph(&graph, NodeIndex::new(1), 1);
+
+        let all_roots_from_roots_by_node = subgraphs
+            .roots_by_node
+            .values()
+            .cloned()
+            .reduce(|acc, el| acc.into_iter().chain(el.into_iter()).collect())
+            .unwrap();
+        let all_roots_from_roots_by_node_deduped =
+            all_roots_from_roots_by_node.iter().collect::<HashSet<_>>();
+
+        assert_eq!(
+            subgraphs.roots().len(),
+            all_roots_from_roots_by_node_deduped.len()
+        );
+        subgraphs.roots().iter().for_each(|root| {
+            assert!(all_roots_from_roots_by_node_deduped.contains(root));
+        });
     }
 }
