@@ -10,9 +10,9 @@ use crate::{
     elements::Node,
     graph_wrapper::GraphWrapper,
     metadata::Metadata,
-    subgraphs::Subgraphs,
     settings::{SettingsInteraction, SettingsStyle},
     state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
+    subgraphs::Subgraphs,
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
@@ -333,7 +333,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
         // dont need to deselect edges because they are not selectable
         // and subselections are dropped on every frame
-        let (selected_nodes, _) = state.selections.as_ref().unwrap().elements();
+        let selected_nodes = state.selections.as_ref().unwrap().roots();
 
         selected_nodes.iter().for_each(|idx| {
             self.set_node_selected(*idx, false);
@@ -356,24 +356,35 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn precompute_state(&mut self) -> StateComputed {
+        let mut foldings = Subgraphs::default();
         let mut selections = Subgraphs::default();
-        let nodes_computed = self.g.nodes().map(|(idx, _)| {
-            let node_state = StateComputedNode::default();
-            (idx, node_state)
-        });
 
-        let edges_computed = self.g.edges().map(|e| {
-            let edge_state = StateComputedEdge::default();
-            (e.id(), edge_state)
-        });
+        // init computed states
+        let mut state = StateComputed {
+            nodes: self
+                .g
+                .nodes()
+                .map(|(idx, _)| {
+                    let node_state = StateComputedNode::default();
+                    (idx, node_state)
+                })
+                .collect(),
+            edges: self
+                .g
+                .edges()
+                .map(|e| {
+                    let edge_state = StateComputedEdge::default();
+                    (e.id(), edge_state)
+                })
+                .collect(),
+            ..Default::default()
+        };
 
-        let mut state = StateComputed::default();
-        state.nodes = nodes_computed.collect();
-        state.edges = edges_computed.collect();
-
-        // compute radiuses and selections
+        // compute states
         let child_mode = self.settings_interaction.selection_depth > 0;
         self.g.nodes().for_each(|(root_idx, root_n)| {
+            // TODO: compute foldings
+
             // compute radii
             let num = self.g.edges_num(root_idx);
             state

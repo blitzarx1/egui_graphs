@@ -16,6 +16,9 @@ pub type Elements = (Vec<NodeIndex>, Vec<EdgeIndex>);
 #[derive(Default, Debug, Clone)]
 pub struct Subgraphs {
     data: HashMap<NodeIndex, Subgraph>,
+    /// Keeps references to the root node of the subgraph node.
+    /// One node can be a part of multiple subgraphs.
+    roots_by_node: HashMap<NodeIndex, Vec<NodeIndex>>,
 }
 
 impl Subgraphs {
@@ -53,6 +56,17 @@ impl Subgraphs {
         ))
     }
 
+    /// Returns root nodes of the given node if it is a part of any subgraph.
+    /// Is a way to check if the node is a part of any subgraph.
+    pub fn roots_by_node(&self, idx: NodeIndex) -> Option<&Vec<NodeIndex>> {
+        self.roots_by_node.get(&idx)
+    }
+
+    /// return all roots of the subgraphs
+    pub fn roots(&self) -> Vec<NodeIndex> {
+        self.data.keys().cloned().collect()
+    }
+
     pub fn add_subgraph<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
         g: &GraphWrapper<N, E, Ty>,
@@ -75,8 +89,26 @@ impl Subgraphs {
         self.data.insert(root, subgraph);
     }
 
+    fn add_node(&mut self, g: &mut Subgraph, root: NodeIndex, node: NodeIndex) -> NodeIndex {
+        let idx = g.add_node(node);
+
+        // do not add root to its roots
+        if node == root {
+            return idx;
+        }
+
+        if let Some(roots) = self.roots_by_node.get_mut(&node) {
+            roots.push(root);
+            roots.dedup();
+            return idx;
+        }
+
+        self.roots_by_node.insert(node, vec![root]);
+        idx
+    }
+
     fn collect_generations<N: Clone, E: Clone, Ty: EdgeType>(
-        &self,
+        &mut self,
         g: &GraphWrapper<N, E, Ty>,
         subgraph: &mut Graph<NodeIndex, EdgeIndex>,
         root: NodeIndex,
@@ -94,13 +126,13 @@ impl Subgraphs {
 
             let mut next_next_start = vec![];
             next_start.iter().for_each(|g_idx| {
-                let s_idx = subgraph.add_node(*g_idx);
+                let s_idx = self.add_node(subgraph, root, *g_idx);
                 g.edges_directed(*g_idx, dir).for_each(|edge| {
                     let next = match dir {
                         Direction::Incoming => edge.source(),
                         Direction::Outgoing => edge.target(),
                     };
-                    let next_idx = subgraph.add_node(next);
+                    let next_idx = self.add_node(subgraph, root, next);
                     subgraph.add_edge(s_idx, next_idx, edge.id());
                     next_next_start.push(next);
                 });
@@ -188,5 +220,27 @@ mod tests {
         let subgraph = subgraphs.data.get(&NodeIndex::new(0)).unwrap();
         assert_eq!(subgraph.node_count(), 0);
         assert_eq!(subgraph.edge_count(), 0);
+    }
+
+    #[test]
+    fn subgraphs_roots_by_node() {
+        let g = &mut create_test_graph();
+        let graph = GraphWrapper::new(g);
+        let mut subgraphs = Subgraphs::default();
+
+        // a->b, a->d
+        subgraphs.add_subgraph(&graph, NodeIndex::new(0), 1);
+        // b->c
+        subgraphs.add_subgraph(&graph, NodeIndex::new(1), 1);
+
+        // Check roots for node 1 (b)
+        let roots = subgraphs.roots_by_node(NodeIndex::new(1)).unwrap();
+        assert_eq!(roots.len(), 1);
+        assert_eq!(roots[0], NodeIndex::new(0));
+
+        // Check roots for node 2 (c)
+        let roots = subgraphs.roots_by_node(NodeIndex::new(2)).unwrap();
+        assert_eq!(roots.len(), 1);
+        assert_eq!(roots[0], NodeIndex::new(1));
     }
 }

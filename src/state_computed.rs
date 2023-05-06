@@ -11,8 +11,9 @@ use crate::{metadata::Metadata, subgraphs::Subgraphs};
 pub struct StateComputed {
     pub dragged: Option<NodeIndex>,
     pub selections: Option<Subgraphs>,
-    pub nodes: HashMap<NodeIndex,StateComputedNode>,
-    pub edges: HashMap<EdgeIndex,StateComputedEdge>,
+    pub foldings: Option<Subgraphs>,
+    pub nodes: HashMap<NodeIndex, StateComputedNode>,
+    pub edges: HashMap<EdgeIndex, StateComputedEdge>,
 }
 
 impl StateComputed {
@@ -37,15 +38,18 @@ impl StateComputed {
 pub struct StateComputedNode {
     pub selected_child: bool,
     pub selected_parent: bool,
+    pub folding_root: Option<NodeIndex>,
     radius: f32,
 }
 
 impl Default for StateComputedNode {
     fn default() -> Self {
         Self {
+            radius: 5.,
+
             selected_child: Default::default(),
             selected_parent: Default::default(),
-            radius: 5.,
+            folding_root: Default::default(),
         }
     }
 }
@@ -68,10 +72,15 @@ impl StateComputedNode {
 pub struct StateComputedEdge {
     pub selected_child: bool,
     pub selected_parent: bool,
+    pub folded_ends: (u8, u8),
 }
 
 impl StateComputedEdge {
     pub fn subselected(&self) -> bool {
         self.selected_child || self.selected_parent
+    }
+
+    pub fn folded(&self) -> bool {
+        self.folded_ends.0 != 0 || self.folded_ends.1 != 0
     }
 }
