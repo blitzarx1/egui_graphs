@@ -420,14 +420,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         node: &Node<N>,
         comp_node: &StateComputedNode,
     ) -> Vec<CircleShape> {
-        let color = self.settings_style.color_node(self.p.ctx(), node);
-        if !(node.selected || comp_node.subselected() || node.dragged) {
+        let color = match comp_node.is_folded() {
+            true => Color32::TRANSPARENT,
+            false => self.settings_style.color_node(self.p.ctx(), node),
+        };
+        if comp_node.is_folded() || !(node.selected || comp_node.subselected() || node.dragged) {
             // draw the node in place
-            self.p.circle_filled(
-                loc,
-                comp_node.radius(self.meta),
-                self.settings_style.color_node(self.p.ctx(), node),
-            );
+            self.p
+                .circle_filled(loc, comp_node.radius(self.meta), color);
             return vec![];
         }
 
@@ -446,7 +446,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         node: &Node<N>,
         comp_node: &StateComputedNode,
     ) -> Vec<CircleShape> {
-        if !(node.selected || comp_node.subselected() || node.dragged) {
+        if comp_node.is_folded() || !(node.selected || comp_node.subselected() || node.dragged) {
             return vec![];
         }
 

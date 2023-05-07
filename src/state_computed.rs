@@ -66,6 +66,10 @@ impl StateComputedNode {
     pub fn inc_radius(&mut self, inc: f32) {
         self.radius += inc;
     }
+
+    pub fn is_folded(&self) -> bool {
+        self.folding_root.is_some()
+    }
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]

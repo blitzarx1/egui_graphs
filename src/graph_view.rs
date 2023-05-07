@@ -356,9 +356,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn precompute_state(&mut self) -> StateComputed {
-        let mut foldings = Subgraphs::default();
-        let mut selections = Subgraphs::default();
-
         // init computed states
         let mut state = StateComputed {
             nodes: self
@@ -381,10 +378,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         };
 
         // compute states
+        let mut foldings = Subgraphs::default();
+        let mut selections = Subgraphs::default();
         let child_mode = self.settings_interaction.selection_depth > 0;
         self.g.nodes().for_each(|(root_idx, root_n)| {
-            // TODO: compute foldings
-
             // compute radii
             let num = self.g.edges_num(root_idx);
             state
@@ -392,41 +389,63 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
                 .unwrap()
                 .inc_radius(self.settings_style.edge_radius_weight * num as f32);
 
-            // compute selections
-            if !root_n.selected {
-                return;
+            // compute foldings
+            if root_n.folded {
+                foldings.add_subgraph(
+                    &self.g,
+                    root_idx,
+                    self.settings_interaction.folding_depth as i32,
+                );
+            }
+
+            let elements = foldings.elements_by_root(root_idx);
+            if let Some((nodes, edges)) = elements {
+                nodes.iter().for_each(|idx| {
+                    if *idx == root_idx {
+                        return;
+                    }
+
+                    let computed = state.node_state_mut(idx).unwrap();
+                    computed.folding_root = Some(root_idx);
+                });
+
+                edges.iter().for_each(|idx| {
+                    let mut computed = state.edge_state_mut(idx).unwrap();
+                    computed.folded_ends = (1, 1);
+                });
+
+                // compute selections
+                if !root_n.selected {
+                    return;
+                }
             }
 
             selections.add_subgraph(&self.g, root_idx, self.settings_interaction.selection_depth);
-
             let elements = selections.elements_by_root(root_idx);
-            if elements.is_none() {
-                return;
-            }
 
-            let (nodes, edges) = elements.unwrap();
+            if let Some((nodes, edges)) = elements {
+                nodes.iter().for_each(|idx| {
+                    if *idx == root_idx {
+                        return;
+                    }
 
-            nodes.iter().for_each(|idx| {
-                if *idx == root_idx {
-                    return;
-                }
+                    let computed = state.node_state_mut(idx).unwrap();
+                    if child_mode {
+                        computed.selected_child = true;
+                        return;
+                    }
+                    computed.selected_parent = true;
+                });
 
-                let computed = state.node_state_mut(idx).unwrap();
-                if child_mode {
-                    computed.selected_child = true;
-                    return;
-                }
-                computed.selected_parent = true;
-            });
-
-            edges.iter().for_each(|idx| {
-                let mut computed = state.edge_state_mut(idx).unwrap();
-                if child_mode {
-                    computed.selected_child = true;
-                    return;
-                }
-                computed.selected_parent = true;
-            });
+                edges.iter().for_each(|idx| {
+                    let mut computed = state.edge_state_mut(idx).unwrap();
+                    if child_mode {
+                        computed.selected_child = true;
+                        return;
+                    }
+                    computed.selected_parent = true;
+                });
+            };
         });
 
         state.selections = Some(selections);
