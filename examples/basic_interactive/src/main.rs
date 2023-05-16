@@ -5,18 +5,18 @@ use petgraph::stable_graph::StableGraph;
 
 const SIDE_SIZE: f32 = 50.;
 
-pub struct InteractiveApp {
+pub struct BasicInteractiveApp {
     g: StableGraph<Node<()>, Edge<()>>,
 }
 
-impl InteractiveApp {
+impl BasicInteractiveApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
         Self { g }
     }
 }
 
-impl App for InteractiveApp {
+impl App for BasicInteractiveApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(
@@ -49,9 +49,9 @@ fn generate_graph() -> StableGraph<Node<()>, Edge<()>> {
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui_graphs_interactive_demo",
+        "egui_graphs_basic_interactive_demo",
         native_options,
-        Box::new(|cc| Box::new(InteractiveApp::new(cc))),
+        Box::new(|cc| Box::new(BasicInteractiveApp::new(cc))),
     )
     .unwrap();
 }

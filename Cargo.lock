@@ -348,6 +348,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "basic_interactive"
+version = "0.4.5"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_graphs",
+ "petgraph",
+]
+
+[[package]]
 name = "basic_undirected"
 version = "0.4.5"
 dependencies = [
@@ -1151,16 +1161,6 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "interactive"
-version = "0.4.5"
-dependencies = [
- "eframe",
- "egui",
- "egui_graphs",
- "petgraph",
 ]
 
 [[package]]
