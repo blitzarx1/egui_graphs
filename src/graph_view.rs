@@ -352,9 +352,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             (e.id(), edge_state)
         });
 
-        let mut state = StateComputed::default();
-        state.nodes = nodes_computed.collect();
-        state.edges = edges_computed.collect();
+        let mut state = StateComputed {
+            nodes: nodes_computed.collect(),
+            edges: edges_computed.collect(),
+            ..Default::default()
+        };
 
         // compute radiuses and selections
         let child_mode = self.settings_interaction.selection_depth > 0;
