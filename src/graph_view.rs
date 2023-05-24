@@ -340,6 +340,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.send_changes(Change::node(change));
     }
 
+    // TODO: try to use rayon for parallelization of list iterations
     fn precompute_state(&mut self) -> StateComputed {
         let mut selections = Selections::default();
         let nodes_computed = self.g.nodes().map(|(idx, _)| {

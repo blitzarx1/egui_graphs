@@ -9,9 +9,9 @@ description = "Interactive graph visualization widget for rust powered by egui"
 edition = "2021"
 
 [dependencies]
-egui = "0.21.0"
-rand = "0.8.4"
-petgraph = "0.6.3"
+egui = "0.22"
+rand = "0.8"
+petgraph = "0.6"
 
 [workspace]
 members = ["examples/*"]
