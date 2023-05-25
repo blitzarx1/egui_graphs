@@ -10,6 +10,7 @@ Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) 
 This project represents a `Widget` implementation for egui framework. It allows effortless interactive graph visualization with rust.
 
 ## Features Status
+- [ ] Display node labels;
 - [ ] Node folding;
 - [ ] Layouts;
 - [x] Arbitrarily complex graphs with self-references, multiple edges, loops, etc.;
