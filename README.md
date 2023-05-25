@@ -22,7 +22,7 @@ This project represents a `Widget` implementation for egui framework. It allows 
 - [x] Changes reporting;
 
 ## Status
-The project is on the track to v1.0.0 and there will be some minor releases prior. So stay tuned!
+The project is on the track to v1.0.0 and there will be some releases prior. So stay tuned!
 
 ### Docs
 Docs can be found [here](https://docs.rs/egui_graphs/latest/egui_graphs/)
