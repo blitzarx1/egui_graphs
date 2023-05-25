@@ -24,6 +24,9 @@ This project represents a `Widget` implementation for egui framework. It allows 
 ## Status
 The project is on the track to v1.0.0 and there will be some minor releases prior. So stay tuned!
 
+### Docs
+Docs can be found [here](https://www.reddit.com/r/rust/comments/13qnjwz/comment/jlfjsoe/?utm_source=share&utm_medium=web2x&context=3)
+
 ### Basic setup example
 #### Step 1: Setting up the BasicApp struct. 
 
