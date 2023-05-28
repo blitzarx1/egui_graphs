@@ -1,7 +1,7 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
 use egui_graphs::{Edge, GraphView, Node};
-use petgraph::{stable_graph::StableUnGraph, stable_graph::StableGraph, Undirected};
+use petgraph::{stable_graph::StableGraph, stable_graph::StableUnGraph, Undirected};
 
 const SIDE_SIZE: f32 = 50.;
 

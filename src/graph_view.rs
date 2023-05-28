@@ -10,9 +10,9 @@ use crate::{
     elements::Node,
     graph_wrapper::GraphWrapper,
     metadata::Metadata,
-    selections::Selections,
     settings::{SettingsInteraction, SettingsStyle},
     state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
+    subgraphs::SubGraphs,
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
@@ -56,7 +56,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
 
         self.draw(&p, &mut computed, &mut meta);
 
-        self.handle_nodes_drags(&resp, &mut computed, &mut meta);
+        self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
         self.handle_navigation(ui, &resp, &computed, &mut meta);
 
@@ -194,12 +194,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.set_node_selected(idx, true);
     }
 
-    fn handle_nodes_drags(
-        &mut self,
-        resp: &Response,
-        comp: &mut StateComputed,
-        meta: &mut Metadata,
-    ) {
+    fn handle_node_drag(&mut self, resp: &Response, comp: &mut StateComputed, meta: &mut Metadata) {
         if !self.settings_interaction.node_drag {
             return;
         }
@@ -276,6 +271,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             if delta == 1. {
                 return;
             }
+
             let step = self.setings_navigation.zoom_step * (1. - delta).signum();
             self.zoom(&resp.rect, step, i.pointer.hover_pos(), meta);
         });
@@ -342,7 +338,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     // TODO: try to use rayon for parallelization of list iterations
     fn precompute_state(&mut self) -> StateComputed {
-        let mut selections = Selections::default();
+        let mut selections = SubGraphs::default();
         let nodes_computed = self.g.nodes().map(|(idx, _)| {
             let node_state = StateComputedNode::default();
             (idx, node_state)
@@ -359,7 +355,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             ..Default::default()
         };
 
-        // compute radiuses and selections
+        // compute radii and selections
         let child_mode = self.settings_interaction.selection_depth > 0;
         self.g.nodes().for_each(|(root_idx, root_n)| {
             // compute radii
@@ -374,7 +370,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
                 return;
             }
 
-            selections.add_selection(&self.g, root_idx, self.settings_interaction.selection_depth);
+            selections.add_subgraph(&self.g, root_idx, self.settings_interaction.selection_depth);
 
             let elements = selections.elements_by_root(root_idx);
             if elements.is_none() {
