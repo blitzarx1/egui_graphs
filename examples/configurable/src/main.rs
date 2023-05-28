@@ -9,9 +9,9 @@ use egui_graphs::{
 };
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
-use petgraph::Directed;
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 use petgraph::visit::EdgeRef;
+use petgraph::Directed;
 use rand::Rng;
 use settings::SettingsGraph;
 

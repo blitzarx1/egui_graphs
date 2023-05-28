@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex};
 
-use crate::{metadata::Metadata, selections::Selections};
+use crate::{metadata::Metadata, subgraphs::SubGraphs};
 
 /// `StateComputed` is a utility struct for managing ephemerial state which is created and destroyed in one frame.
 ///
@@ -10,9 +10,9 @@ use crate::{metadata::Metadata, selections::Selections};
 #[derive(Default, Debug, Clone)]
 pub struct StateComputed {
     pub dragged: Option<NodeIndex>,
-    pub selections: Option<Selections>,
-    pub nodes: HashMap<NodeIndex,StateComputedNode>,
-    pub edges: HashMap<EdgeIndex,StateComputedEdge>,
+    pub selections: Option<SubGraphs>,
+    pub nodes: HashMap<NodeIndex, StateComputedNode>,
+    pub edges: HashMap<EdgeIndex, StateComputedEdge>,
 }
 
 impl StateComputed {
