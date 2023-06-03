@@ -81,7 +81,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
-    /// Makes widget interactive sending changes. Events which
+    /// Makes widget interactive sending changes if interaction has occured. Interaction events which
     /// are configured in `settings_interaction` are sent to the channel as soon as the occured.
     pub fn with_interactions(mut self, settings_interaction: &SettingsInteraction) -> Self {
         self.settings_interaction = settings_interaction.clone();
@@ -156,7 +156,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
         let clickable = self.settings_interaction.node_click
             || self.settings_interaction.node_select
-            || self.settings_interaction.node_multiselect;
+            || self.settings_interaction.node_multiselect
+            || self.settings_interaction.node_fold;
 
         if !(clickable) {
             return;
@@ -177,7 +178,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn handle_node_click(&mut self, idx: NodeIndex, state: &StateComputed) {
-        if !self.settings_interaction.node_select {
+        if !self.settings_interaction.node_select && !self.settings_interaction.node_fold {
             return;
         }
 

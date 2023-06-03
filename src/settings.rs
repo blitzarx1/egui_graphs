@@ -17,6 +17,9 @@ pub struct SettingsInteraction {
     /// Allows clicking on nodes.
     pub node_click: bool,
 
+    /// Allows to fold nodes.
+    pub node_fold: bool,
+
     /// Selects clicked node, enables node_click.
     /// Select by clicking on node, deselect by clicking again.
     /// Clicking on empty space deselects all nodes.
@@ -27,6 +30,9 @@ pub struct SettingsInteraction {
     /// `selection_depth > 0` means children of selected nodes are selected up to `selection_depth` generation.
     /// `selection_depth < 0` means parents of selected nodes are selected up to `selection_depth` generation.
     pub selection_depth: i32,
+
+    /// Defines the depth up to which the children of the folded node will be folded.
+    pub folding_depth: usize,
 
     /// Multiselection for nodes, enables node_click and node_select.
     pub node_multiselect: bool,
