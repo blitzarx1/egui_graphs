@@ -150,7 +150,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn handle_click(&mut self, resp: &Response, comp: &mut StateComputed, meta: &mut Metadata) {
-        if !resp.clicked() {
+        if !resp.clicked() && !resp.double_clicked() {
             return;
         }
 
@@ -174,11 +174,32 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        self.handle_node_click(node.unwrap().0, comp);
+        let node_idx = node.unwrap().0;
+        if resp.double_clicked() {
+            self.handle_node_double_click(node_idx, comp);
+            return;
+        }
+        self.handle_node_click(node_idx, comp);
+    }
+
+    fn handle_node_double_click(&mut self, idx: NodeIndex, state: &StateComputed) {
+        if !self.settings_interaction.node_fold {
+            return;
+        }
+
+        todo!();
     }
 
     fn handle_node_click(&mut self, idx: NodeIndex, state: &StateComputed) {
-        if !self.settings_interaction.node_select && !self.settings_interaction.node_fold {
+        if !self.settings_interaction.node_click && !self.settings_interaction.node_select {
+            return;
+        }
+
+        if self.settings_interaction.node_click {
+            self.set_node_clicked(idx);
+        }
+
+        if !self.settings_interaction.node_select {
             return;
         }
 
