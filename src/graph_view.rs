@@ -178,13 +178,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         // then double click
         let node_idx = node.unwrap().0;
         if resp.double_clicked() {
-            self.handle_node_double_click(node_idx, comp);
+            self.handle_node_double_click(node_idx);
             return;
         }
         self.handle_node_click(node_idx, comp);
     }
 
-    fn handle_node_double_click(&mut self, idx: NodeIndex, state: &StateComputed) {
+    fn handle_node_double_click(&mut self, idx: NodeIndex) {
         if !self.settings_interaction.node_click && !self.settings_interaction.node_fold {
             return;
         }
@@ -197,7 +197,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        todo!();
+        let n = self.g.node(idx).unwrap();
+        if n.folded {
+            self.set_node_folded(idx, false);
+            return;
+        }
+
+        self.set_node_folded(idx, true);
     }
 
     fn handle_node_click(&mut self, idx: NodeIndex, state: &StateComputed) {
@@ -336,6 +342,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let n = self.g.node_mut(idx).unwrap();
         let change = ChangeNode::change_selected(idx, n.selected, val);
         n.selected = val;
+        self.send_changes(Change::node(change));
+    }
+
+    fn set_node_folded(&mut self, idx: NodeIndex, val: bool) {
+        let n = self.g.node_mut(idx).unwrap();
+        let change = ChangeNode::change_folded(idx, n.folded, val);
+        n.folded = val;
         self.send_changes(Change::node(change));
     }
 

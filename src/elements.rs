@@ -13,6 +13,7 @@ pub struct Node<N: Clone> {
     /// If `color` is None default color is used.
     pub color: Option<Color32>,
 
+    pub folded: bool,
     pub selected: bool,
     pub dragged: bool,
 }
@@ -23,6 +24,7 @@ impl<N: Clone> Default for Node<N> {
             location: Default::default(),
             data: Default::default(),
             color: Default::default(),
+            folded: Default::default(),
             selected: Default::default(),
             dragged: Default::default(),
         }
@@ -46,6 +48,7 @@ impl<N: Clone> Node<N> {
             color: self.color,
             dragged: self.dragged,
 
+            folded: self.folded,
             selected: self.selected,
             data: self.data.clone(),
         }

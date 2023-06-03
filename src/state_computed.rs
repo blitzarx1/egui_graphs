@@ -14,27 +14,12 @@ use crate::{
 pub struct StateComputed {
     pub dragged: Option<NodeIndex>,
     pub selections: Option<SubGraphs>,
+    pub foldings: Option<SubGraphs>,
     pub nodes: HashMap<NodeIndex, StateComputedNode>,
     pub edges: HashMap<EdgeIndex, StateComputedEdge>,
 }
 
 impl StateComputed {
-    pub fn node_state(&self, idx: &NodeIndex) -> Option<&StateComputedNode> {
-        self.nodes.get(idx)
-    }
-
-    pub fn node_state_mut(&mut self, idx: &NodeIndex) -> Option<&mut StateComputedNode> {
-        self.nodes.get_mut(idx)
-    }
-
-    pub fn edge_state(&self, idx: &EdgeIndex) -> Option<&StateComputedEdge> {
-        self.edges.get(idx)
-    }
-
-    pub fn edge_state_mut(&mut self, idx: &EdgeIndex) -> Option<&mut StateComputedEdge> {
-        self.edges.get_mut(idx)
-    }
-
     // TODO: try to use rayon for parallelization of list iterations
     // TODO: compute foldings
     pub fn compute<'a, N: Clone, E: Clone, Ty: EdgeType>(
@@ -108,8 +93,25 @@ impl StateComputed {
         });
 
         state.selections = Some(selections);
+        state.foldings = Some(foldings);
 
         state
+    }
+
+    pub fn node_state(&self, idx: &NodeIndex) -> Option<&StateComputedNode> {
+        self.nodes.get(idx)
+    }
+
+    pub fn node_state_mut(&mut self, idx: &NodeIndex) -> Option<&mut StateComputedNode> {
+        self.nodes.get_mut(idx)
+    }
+
+    pub fn edge_state(&self, idx: &EdgeIndex) -> Option<&StateComputedEdge> {
+        self.edges.get(idx)
+    }
+
+    pub fn edge_state_mut(&mut self, idx: &EdgeIndex) -> Option<&mut StateComputedEdge> {
+        self.edges.get_mut(idx)
     }
 }
 
