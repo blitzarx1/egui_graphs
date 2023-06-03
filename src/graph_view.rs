@@ -177,6 +177,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn handle_node_click(&mut self, idx: NodeIndex, state: &StateComputed) {
+        if self.settings_interaction.node_click {
+            self.set_node_clicked(idx);
+        }
+
         if !self.settings_interaction.node_select {
             return;
         }
@@ -304,6 +308,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let n = self.g.node_mut(idx).unwrap();
         let change = ChangeNode::change_selected(idx, n.selected, val);
         n.selected = val;
+        self.send_changes(Change::node(change));
+    }
+
+    fn set_node_clicked(&mut self, idx: NodeIndex) {
+        let change = ChangeNode::clicked(idx);
         self.send_changes(Change::node(change));
     }
 
