@@ -308,6 +308,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.send_changes(Change::node(change));
     }
 
+    fn set_node_clicked(&mut self, idx: NodeIndex) {
+        let change = ChangeNode::clicked(idx);
+        self.send_changes(Change::node(change));
+    }
+
     fn deselect_all(&mut self, state: &StateComputed) {
         if state.selections.is_none() {
             return;

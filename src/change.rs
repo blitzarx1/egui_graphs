@@ -4,14 +4,24 @@ use petgraph::stable_graph::{EdgeIndex, NodeIndex};
 /// `ChangeNode` is a enum that stores the changes to `Node` properties.
 #[derive(Debug, Clone)]
 pub enum ChangeNode {
+    /// Node has been clicked
+    Clicked { id: NodeIndex },
+
+    /// Node has changed its location
     Location { id: NodeIndex, old: Vec2, new: Vec2 },
 
+    /// Node has been selected or deselected
     Selected { id: NodeIndex, old: bool, new: bool },
 
+    /// Node is dragged or ceased to be dragged
     Dragged { id: NodeIndex, old: bool, new: bool },
 }
 
 impl ChangeNode {
+    pub(crate) fn clicked(id: NodeIndex) -> Self {
+        Self::Clicked { id }
+    }
+
     pub(crate) fn change_location(id: NodeIndex, old: Vec2, new: Vec2) -> Self {
         Self::Location { id, old, new }
     }
