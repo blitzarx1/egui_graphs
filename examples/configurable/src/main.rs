@@ -393,17 +393,26 @@ impl ConfigurableApp {
             ui.label("SettingsInteraction");
             ui.separator();
 
-            ui.add_enabled_ui(!(self.settings_interaction.node_drag || self.settings_interaction.node_select || self.settings_interaction.node_multiselect), |ui| {
-                ui.checkbox(&mut self.settings_interaction.node_click, "node_click");
-                ui.label("Check click events in last changes");
-            }).response.on_disabled_hover_text("node click is enabled if any other interaction event is enabled");
+            ui.add_enabled_ui(!(self.settings_interaction.node_drag || self.settings_interaction.node_select || self.settings_interaction.node_multiselect || self.settings_interaction.node_fold), |ui| {
+                ui.vertical(|ui| {
+                    ui.checkbox(&mut self.settings_interaction.node_click, "node_click");
+                    ui.label("Check click events in last changes");
+                }).response.on_disabled_hover_text("node click is enabled when any of the interaction is also enabled");
+            });
 
             if ui.checkbox(&mut self.settings_interaction.node_drag, "node_drag").clicked() {
                 if self.settings_interaction.node_drag {
                     self.settings_interaction.node_click = true;
                 }
             };
-            ui.label("To drag use LMB + drag on a node.");
+            ui.label("To drag use LMB click + drag on a node.");
+
+            if ui.checkbox(&mut self.settings_interaction.node_fold, "node_fold").clicked() {
+                if self.settings_interaction.node_fold{
+                    self.settings_interaction.node_click = true;
+                }
+            };
+            ui.label("To fold use LMB double click on a node.");
 
             ui.add_space(5.);
 
