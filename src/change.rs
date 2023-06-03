@@ -7,6 +7,9 @@ pub enum ChangeNode {
     /// Node has been clicked
     Clicked { id: NodeIndex },
 
+    /// Node has been clicked
+    DoubleClicked { id: NodeIndex },
+
     /// Node has changed its location
     Location { id: NodeIndex, old: Vec2, new: Vec2 },
 
@@ -20,6 +23,10 @@ pub enum ChangeNode {
 impl ChangeNode {
     pub(crate) fn clicked(id: NodeIndex) -> Self {
         Self::Clicked { id }
+    }
+
+    pub(crate) fn double_clicked(id: NodeIndex) -> Self {
+        Self::DoubleClicked { id }
     }
 
     pub(crate) fn change_location(id: NodeIndex, old: Vec2, new: Vec2) -> Self {

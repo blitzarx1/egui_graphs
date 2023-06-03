@@ -174,6 +174,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
+        // first clickf of double click is accepted as single click
+        // so if you double click a node it will handle it as click and
+        // then double click
         let node_idx = node.unwrap().0;
         if resp.double_clicked() {
             self.handle_node_double_click(node_idx, comp);
@@ -183,6 +186,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn handle_node_double_click(&mut self, idx: NodeIndex, state: &StateComputed) {
+        if !self.settings_interaction.node_click && !self.settings_interaction.node_fold {
+            return;
+        }
+
+        if self.settings_interaction.node_click {
+            self.set_node_double_clicked(idx);
+        }
+
         if !self.settings_interaction.node_fold {
             return;
         }
@@ -331,6 +342,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     fn set_node_clicked(&mut self, idx: NodeIndex) {
         let change = ChangeNode::clicked(idx);
+        self.send_changes(Change::node(change));
+    }
+
+    fn set_node_double_clicked(&mut self, idx: NodeIndex) {
+        let change = ChangeNode::double_clicked(idx);
         self.send_changes(Change::node(change));
     }
 
