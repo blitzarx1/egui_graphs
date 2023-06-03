@@ -438,7 +438,7 @@ impl ConfigurableApp {
                     ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
                 }).response.on_disabled_hover_text("node_multiselect enables select");
             });
-          
+
             if ui.checkbox(&mut self.settings_interaction.node_multiselect, "node_multiselect").changed() {
                 if self.settings_interaction.node_multiselect {
                     self.settings_interaction.node_click = true;
