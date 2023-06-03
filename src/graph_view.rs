@@ -11,14 +11,12 @@ use crate::{
     graph_wrapper::GraphWrapper,
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsStyle},
-    state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
-    subgraphs::SubGraphs,
+    state_computed::StateComputed,
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{
     stable_graph::{NodeIndex, StableGraph},
-    visit::EdgeRef,
     EdgeType,
 };
 
@@ -48,7 +46,8 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut meta = Metadata::get(ui);
-        let mut computed = self.precompute_state();
+        let mut computed =
+            StateComputed::compute(&self.g, &self.settings_interaction, &self.settings_style);
 
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
@@ -377,77 +376,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let change = ChangeNode::change_location(idx, n.location, new_loc);
         n.location = new_loc;
         self.send_changes(Change::node(change));
-    }
-
-    // TODO: try to use rayon for parallelization of list iterations
-    fn precompute_state(&mut self) -> StateComputed {
-        let mut selections = SubGraphs::default();
-        let nodes_computed = self.g.nodes().map(|(idx, _)| {
-            let node_state = StateComputedNode::default();
-            (idx, node_state)
-        });
-
-        let edges_computed = self.g.edges().map(|e| {
-            let edge_state = StateComputedEdge::default();
-            (e.id(), edge_state)
-        });
-
-        let mut state = StateComputed {
-            nodes: nodes_computed.collect(),
-            edges: edges_computed.collect(),
-            ..Default::default()
-        };
-
-        // compute radii and selections
-        let child_mode = self.settings_interaction.selection_depth > 0;
-        self.g.nodes().for_each(|(root_idx, root_n)| {
-            // compute radii
-            let num = self.g.edges_num(root_idx);
-            state
-                .node_state_mut(&root_idx)
-                .unwrap()
-                .inc_radius(self.settings_style.edge_radius_weight * num as f32);
-
-            // compute selections
-            if !root_n.selected {
-                return;
-            }
-
-            selections.add_subgraph(&self.g, root_idx, self.settings_interaction.selection_depth);
-
-            let elements = selections.elements_by_root(root_idx);
-            if elements.is_none() {
-                return;
-            }
-
-            let (nodes, edges) = elements.unwrap();
-
-            nodes.iter().for_each(|idx| {
-                if *idx == root_idx {
-                    return;
-                }
-
-                let computed = state.node_state_mut(idx).unwrap();
-                if child_mode {
-                    computed.selected_child = true;
-                    return;
-                }
-                computed.selected_parent = true;
-            });
-
-            edges.iter().for_each(|idx| {
-                let mut computed = state.edge_state_mut(idx).unwrap();
-                if child_mode {
-                    computed.selected_child = true;
-                    return;
-                }
-                computed.selected_parent = true;
-            });
-        });
-
-        state.selections = Some(selections);
-
-        state
     }
 
     fn draw(&self, p: &Painter, comp: &mut StateComputed, meta: &mut Metadata) {
