@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, visit::EdgeRef, EdgeType};
 
 use crate::{
-    graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, SettingsInteraction,
-    SettingsStyle,
+    graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Node,
+    SettingsInteraction, SettingsStyle,
 };
 
 /// `StateComputed` is a utility struct for managing ephemerial state which is created and destroyed in one frame.
@@ -44,10 +44,10 @@ impl StateComputed {
         };
 
         // compute radii and selections
-        let child_mode = settings_interaction.selection_depth > 0;
         let mut selections = SubGraphs::default();
         let mut foldings = SubGraphs::default();
         g.nodes().for_each(|(root_idx, root_n)| {
+            // TODO: remove raddii comp from subgraphs iter
             // compute radii
             let num = g.edges_num(root_idx);
             state
@@ -55,47 +55,65 @@ impl StateComputed {
                 .unwrap()
                 .inc_radius(settings_style.edge_radius_weight * num as f32);
 
-            // compute selections
-            if !root_n.selected {
-                return;
-            }
-
-            selections.add_subgraph(&g, root_idx, settings_interaction.selection_depth);
-
-            let elements = selections.elements_by_root(root_idx);
-            if elements.is_none() {
-                return;
-            }
-
-            let (nodes, edges) = elements.unwrap();
-
-            nodes.iter().for_each(|idx| {
-                if *idx == root_idx {
-                    return;
-                }
-
-                let computed = state.node_state_mut(idx).unwrap();
-                if child_mode {
-                    computed.selected_child = true;
-                    return;
-                }
-                computed.selected_parent = true;
-            });
-
-            edges.iter().for_each(|idx| {
-                let mut computed = state.edge_state_mut(idx).unwrap();
-                if child_mode {
-                    computed.selected_child = true;
-                    return;
-                }
-                computed.selected_parent = true;
-            });
+            state.compute_selection(
+                g,
+                &mut selections,
+                root_idx,
+                root_n,
+                settings_interaction.selection_depth > 0,
+                settings_interaction.selection_depth,
+            )
         });
 
         state.selections = Some(selections);
         state.foldings = Some(foldings);
 
         state
+    }
+
+    fn compute_selection<'a, N: Clone, E: Clone, Ty: EdgeType>(
+        &mut self,
+        g: &GraphWrapper<'a, N, E, Ty>,
+        selections: &mut SubGraphs,
+        root_idx: NodeIndex,
+        root: &Node<N>,
+        child_mode: bool,
+        depth: i32,
+    ) {
+        if !root.selected {
+            return;
+        }
+
+        selections.add_subgraph(&g, root_idx, depth);
+
+        let elements = selections.elements_by_root(root_idx);
+        if elements.is_none() {
+            return;
+        }
+
+        let (nodes, edges) = elements.unwrap();
+
+        nodes.iter().for_each(|idx| {
+            if *idx == root_idx {
+                return;
+            }
+
+            let computed = self.node_state_mut(idx).unwrap();
+            if child_mode {
+                computed.selected_child = true;
+                return;
+            }
+            computed.selected_parent = true;
+        });
+
+        edges.iter().for_each(|idx| {
+            let mut computed = self.edge_state_mut(idx).unwrap();
+            if child_mode {
+                computed.selected_child = true;
+                return;
+            }
+            computed.selected_parent = true;
+        });
     }
 
     pub fn node_state(&self, idx: &NodeIndex) -> Option<&StateComputedNode> {
