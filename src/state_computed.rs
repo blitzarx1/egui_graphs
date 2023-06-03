@@ -62,7 +62,14 @@ impl StateComputed {
                 root_n,
                 settings_interaction.selection_depth > 0,
                 settings_interaction.selection_depth,
-            )
+            );
+            state.compute_folding(
+                g,
+                &mut foldings,
+                root_idx,
+                root_n,
+                settings_interaction.folding_depth,
+            );
         });
 
         state.selections = Some(selections);
@@ -116,6 +123,42 @@ impl StateComputed {
         });
     }
 
+    fn compute_folding<'a, N: Clone, E: Clone, Ty: EdgeType>(
+        &mut self,
+        g: &GraphWrapper<'a, N, E, Ty>,
+        foldings: &mut SubGraphs,
+        root_idx: NodeIndex,
+        root: &Node<N>,
+        depth: usize,
+    ) {
+        if !root.folded {
+            return;
+        }
+
+        foldings.add_subgraph(&g, root_idx, depth as i32);
+
+        let elements = foldings.elements_by_root(root_idx);
+        if elements.is_none() {
+            return;
+        }
+
+        let (nodes, edges) = elements.unwrap();
+
+        nodes.iter().for_each(|idx| {
+            if *idx == root_idx {
+                return;
+            }
+
+            let computed = self.node_state_mut(idx).unwrap();
+            computed.folded_child = true;
+        });
+
+        edges.iter().for_each(|idx| {
+            let mut computed = self.edge_state_mut(idx).unwrap();
+            computed.folded_child = true;
+        });
+    }
+
     pub fn node_state(&self, idx: &NodeIndex) -> Option<&StateComputedNode> {
         self.nodes.get(idx)
     }
@@ -137,6 +180,7 @@ impl StateComputed {
 pub struct StateComputedNode {
     pub selected_child: bool,
     pub selected_parent: bool,
+    pub folded_child: bool,
     radius: f32,
 }
 
@@ -145,6 +189,7 @@ impl Default for StateComputedNode {
         Self {
             selected_child: Default::default(),
             selected_parent: Default::default(),
+            folded_child: Default::default(),
             radius: 5.,
         }
     }
@@ -168,10 +213,15 @@ impl StateComputedNode {
 pub struct StateComputedEdge {
     pub selected_child: bool,
     pub selected_parent: bool,
+    pub folded_child: bool,
 }
 
 impl StateComputedEdge {
     pub fn subselected(&self) -> bool {
         self.selected_child || self.selected_parent
+    }
+
+    pub fn subfolded(&self) -> bool {
+        self.folded_child
     }
 }
