@@ -400,6 +400,8 @@ impl ConfigurableApp {
                 }).response.on_disabled_hover_text("node click is enabled when any of the interaction is also enabled");
             });
 
+            ui.add_space(5.);
+
             if ui.checkbox(&mut self.settings_interaction.node_drag, "node_drag").clicked() {
                 if self.settings_interaction.node_drag {
                     self.settings_interaction.node_click = true;
@@ -407,12 +409,22 @@ impl ConfigurableApp {
             };
             ui.label("To drag use LMB click + drag on a node.");
 
+            ui.add_space(5.);
+
             if ui.checkbox(&mut self.settings_interaction.node_fold, "node_fold").clicked() {
                 if self.settings_interaction.node_fold{
                     self.settings_interaction.node_click = true;
                 }
             };
             ui.label("To fold use LMB double click on a node.");
+
+            ui.add_space(5.);
+
+            ui.add_enabled_ui(self.settings_interaction.node_fold, |ui| {
+                ui.add(Slider::new(&mut self.settings_interaction.folding_depth, 0..=10)
+                .text("folding_depth"));
+                ui.label("How deep to fold childrens of the selected for folding node.");
+            });
 
             ui.add_space(5.);
 
@@ -426,15 +438,7 @@ impl ConfigurableApp {
                     ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
                 }).response.on_disabled_hover_text("node_multiselect enables select");
             });
-
-            ui.add_space(5.);
-
-            ui.add(Slider::new(&mut self.settings_interaction.selection_depth, -10..=10)
-            .text("selection_depth"));
-            ui.label("How deep into the neighbours of selected nodes should the selection go.");
-            
-            ui.add_space(5.);
-
+          
             if ui.checkbox(&mut self.settings_interaction.node_multiselect, "node_multiselect").changed() {
                 if self.settings_interaction.node_multiselect {
                     self.settings_interaction.node_click = true;
@@ -442,6 +446,12 @@ impl ConfigurableApp {
                 }
             }
             ui.label("Enable multiselect to select multiple nodes.");
+
+            ui.add_enabled_ui(self.settings_interaction.node_select || self.settings_interaction.node_multiselect, |ui| {
+                ui.add(Slider::new(&mut self.settings_interaction.selection_depth, -10..=10)
+                    .text("selection_depth"));
+                ui.label("How deep into the neighbours of selected nodes should the selection go.");
+            });
 
             ui.add_space(5.);
 
