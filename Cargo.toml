@@ -8,10 +8,16 @@ repository = "https://github.com/blitzarx1/egui_graphs"
 description = "Interactive graph visualization widget for rust powered by egui"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 egui = "0.22"
 rand = "0.8"
 petgraph = "0.6"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
 
 [workspace]
 members = ["examples/*"]

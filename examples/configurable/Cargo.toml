@@ -5,10 +5,22 @@ authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 edition = "2021"
 
+[lib]
+name = "configurable"
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 egui_graphs = { path = "../../" }
 egui = "0.22"
 eframe = "0.22"
+instant = "0.1"
 petgraph = "0.6"
 fdg-sim = "0.9"
 rand = "0.8"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1"
+getrandom = { version = "0.2", features = ["js"] }
+tracing-wasm = "0.2"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"

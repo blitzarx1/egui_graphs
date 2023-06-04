@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurable Example</title>
+</head>
+
+<body>
+    <canvas id="configurable_canvas" />
+    <script type="module">
+        import init, {web_start} from "./pkg/configurable.js";
+        init().then(async () => {
+            console.log("WASM initialized");
+            try {
+                console.log("Starting web");
+                web_start();
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    </script>
+</body>
+
+</html>
