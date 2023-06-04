@@ -409,10 +409,8 @@ impl ConfigurableApp {
 
             ui.add_space(5.);
 
-            if ui.checkbox(&mut self.settings_interaction.node_drag, "node_drag").clicked() {
-                if self.settings_interaction.node_drag {
-                    self.settings_interaction.node_click = true;
-                }
+            if ui.checkbox(&mut self.settings_interaction.node_drag, "node_drag").clicked() && self.settings_interaction.node_drag {
+                self.settings_interaction.node_click = true;
             };
             ui.label("To drag use LMB click + drag on a node.");
 
@@ -420,20 +418,16 @@ impl ConfigurableApp {
 
             ui.add_enabled_ui(!self.settings_interaction.node_multiselect, |ui| {
                 ui.vertical(|ui| {
-                    if ui.checkbox(&mut self.settings_interaction.node_select, "node_select").clicked() {
-                        if self.settings_interaction.node_select {
-                            self.settings_interaction.node_click = true;
-                        }
+                    if ui.checkbox(&mut self.settings_interaction.node_select, "node_select").clicked() && self.settings_interaction.node_select {
+                        self.settings_interaction.node_click = true;
                     };
                     ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
                 }).response.on_disabled_hover_text("node_multiselect enables select");
             });
 
-            if ui.checkbox(&mut self.settings_interaction.node_multiselect, "node_multiselect").changed() {
-                if self.settings_interaction.node_multiselect {
-                    self.settings_interaction.node_click = true;
-                    self.settings_interaction.node_select = true;
-                }
+            if ui.checkbox(&mut self.settings_interaction.node_multiselect, "node_multiselect").changed() && self.settings_interaction.node_multiselect {
+                self.settings_interaction.node_click = true;
+                self.settings_interaction.node_select = true;
             }
             ui.label("Enable multiselect to select multiple nodes.");
 
@@ -445,12 +439,10 @@ impl ConfigurableApp {
 
             ui.add_space(5.);
 
-            if ui.checkbox(&mut self.settings_interaction.node_fold, "node_fold").clicked() {
-                if self.settings_interaction.node_fold{
-                    self.settings_interaction.node_click = true;
-                }
+            if ui.checkbox(&mut self.settings_interaction.node_fold, "node_fold").clicked() && self.settings_interaction.node_fold {
+                self.settings_interaction.node_click = true;
             };
-            ui.label("To fold use LMB double click on a node.");
+            ui.label("To fold use LMB double click on a node. Currenly supports only one node folded at a time.");
 
             ui.add_enabled_ui(self.settings_interaction.node_fold, |ui| {
                 ui.add(Slider::new(&mut self.settings_interaction.folding_depth, 0..=10)

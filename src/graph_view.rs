@@ -178,13 +178,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         // then double click
         let node_idx = node.unwrap().0;
         if resp.double_clicked() {
-            self.handle_node_double_click(node_idx);
+            self.handle_node_double_click(node_idx, comp);
             return;
         }
         self.handle_node_click(node_idx, comp);
     }
 
-    fn handle_node_double_click(&mut self, idx: NodeIndex) {
+    fn handle_node_double_click(&mut self, idx: NodeIndex, comp: &mut StateComputed) {
         if !self.settings_interaction.node_click && !self.settings_interaction.node_fold {
             return;
         }
@@ -197,9 +197,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        let n = self.g.node(idx).unwrap();
-        if n.folded {
-            self.set_node_folded(idx, false);
+        if comp.foldings.is_some() && comp.foldings.as_ref().unwrap().len() > 0 {
+            comp.foldings
+                .as_ref()
+                .unwrap()
+                .roots()
+                .iter()
+                .for_each(|root_idx| {
+                    self.set_node_folded(*root_idx, false);
+                });
             return;
         }
 

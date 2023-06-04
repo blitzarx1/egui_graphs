@@ -21,9 +21,8 @@ pub struct StateComputed {
 
 impl StateComputed {
     // TODO: try to use rayon for parallelization of list iterations
-    // TODO: compute foldings
-    pub fn compute<'a, N: Clone, E: Clone, Ty: EdgeType>(
-        g: &GraphWrapper<'a, N, E, Ty>,
+    pub fn compute<N: Clone, E: Clone, Ty: EdgeType>(
+        g: &GraphWrapper<'_, N, E, Ty>,
         settings_interaction: &SettingsInteraction,
         settings_style: &SettingsStyle,
     ) -> Self {
@@ -82,9 +81,9 @@ impl StateComputed {
         state
     }
 
-    fn compute_selection<'a, N: Clone, E: Clone, Ty: EdgeType>(
+    fn compute_selection<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        g: &GraphWrapper<'a, N, E, Ty>,
+        g: &GraphWrapper<'_, N, E, Ty>,
         selections: &mut SubGraphs,
         root_idx: NodeIndex,
         root: &Node<N>,
@@ -95,7 +94,7 @@ impl StateComputed {
             return;
         }
 
-        selections.add_subgraph(&g, root_idx, depth);
+        selections.add_subgraph(g, root_idx, depth);
 
         let elements = selections.elements_by_root(root_idx);
         if elements.is_none() {
@@ -127,9 +126,9 @@ impl StateComputed {
         });
     }
 
-    fn compute_folding<'a, N: Clone, E: Clone, Ty: EdgeType>(
+    fn compute_folding<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        g: &GraphWrapper<'a, N, E, Ty>,
+        g: &GraphWrapper<'_, N, E, Ty>,
         foldings: &mut SubGraphs,
         root_idx: NodeIndex,
         root: &Node<N>,
@@ -139,7 +138,7 @@ impl StateComputed {
             return;
         }
 
-        foldings.add_subgraph(&g, root_idx, depth as i32);
+        foldings.add_subgraph(g, root_idx, depth as i32);
 
         let elements = foldings.elements_by_root(root_idx);
         if elements.is_none() {
@@ -147,7 +146,7 @@ impl StateComputed {
         }
 
         let (nodes, _) = elements.unwrap();
-        self.node_state_mut(&root_idx).unwrap().num_folded = nodes.len();
+        self.node_state_mut(&root_idx).unwrap().num_folded = nodes.len() - 1; // dont't count root node
 
         nodes.iter().for_each(|idx| {
             if *idx == root_idx {

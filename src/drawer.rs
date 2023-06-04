@@ -65,6 +65,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             .nodes_with_context(self.comp)
             .for_each(|(idx, n, comp_node)| {
                 // TODO: dont count graph bounds here. Count in computed state instead.
+
                 // update graph bounds on the fly
                 // we shall account for the node radius
                 // so that the node is fully visible
@@ -283,6 +284,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let mut comp_end = self.comp.node_state(end_idx).unwrap();
         let mut start_node = self.g.node(*start_idx).unwrap();
         let mut end_node = self.g.node(*end_idx).unwrap();
+        let mut transparent = false;
 
         if (start_node.folded || comp_start.subfolded()) && comp_end.subfolded() {
             return (vec![], vec![]);
@@ -300,6 +302,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 .unwrap();
             comp_start = self.comp.node_state(new_start_idx).unwrap();
             start_node = self.g.node(*new_start_idx).unwrap();
+            transparent = true;
         }
 
         if !comp_start.subfolded() && comp_end.subfolded() {
@@ -314,6 +317,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 .unwrap();
             comp_end = self.comp.node_state(new_end_idx).unwrap();
             end_node = self.g.node(*new_end_idx).unwrap();
+            transparent = true;
         }
 
         let pos_start = start_node.screen_transform(self.meta).location.to_pos2();
@@ -331,7 +335,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let tip_point = pos_start + vec - end_node_radius_vec;
         let start_point = pos_start + start_node_radius_vec;
 
-        let stroke = Stroke::new(e.width, self.settings_style.color_edge(self.p.ctx(), e));
+        let mut color = self.settings_style.color_edge(self.p.ctx(), e);
+        if transparent {
+            color = color.gamma_multiply(0.15);
+        }
+        let stroke = Stroke::new(e.width, color);
 
         // draw straight edge
         if order == 0 {

@@ -50,10 +50,14 @@ impl SubGraphs {
             return Some((vec![root], vec![]));
         }
 
-        Some((
-            g.node_weights().cloned().collect(),
-            g.edge_weights().cloned().collect(),
-        ))
+        let mut nodes = g.node_weights().cloned().collect::<Vec<_>>();
+        let mut edges = g.edge_weights().cloned().collect::<Vec<_>>();
+
+        nodes.sort();
+        nodes.dedup();
+        edges.sort();
+        edges.dedup();
+        Some((nodes, edges))
     }
 
     /// Returns root nodes of the given node if it is a part of any subgraph.
@@ -142,6 +146,10 @@ impl SubGraphs {
 
             next_start = next_next_start;
         }
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.data.len()
     }
 }
 

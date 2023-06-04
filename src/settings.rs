@@ -113,7 +113,7 @@ impl Default for SettingsStyle {
             color_drag: Color32::from_rgba_unmultiplied(240, 128, 128, 153), // Light Coral
             color_text_light: Color32::WHITE,
             color_text_dark: Color32::BLACK,
-            labels_always: false,
+            labels_always: Default::default(),
         }
     }
 }
