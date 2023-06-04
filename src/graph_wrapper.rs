@@ -78,14 +78,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         }
     }
 
-    pub fn node_count(&self) -> usize {
-        self.g.node_count()
-    }
-
-    pub fn edge_count(&self) -> usize {
-        self.g.edge_count()
-    }
-
     pub fn edges_directed(
         &self,
         idx: NodeIndex,
