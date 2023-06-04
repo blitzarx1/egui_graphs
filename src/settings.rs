@@ -88,6 +88,13 @@ pub struct SettingsStyle {
 
     /// Color of nodes being dragged.
     pub color_drag: Color32,
+
+    pub color_text_light: Color32,
+
+    pub color_text_dark: Color32,
+
+    /// Whether to show labels only for selected nodes or for all. Default is true.
+    pub label_selected_only: bool,
 }
 
 impl Default for SettingsStyle {
@@ -100,6 +107,9 @@ impl Default for SettingsStyle {
             color_node: Color32::from_rgb(200, 200, 200), // Light Gray
             color_edge: Color32::from_rgb(128, 128, 128), // Gray
             color_drag: Color32::from_rgba_unmultiplied(240, 128, 128, 153), // Light Coral
+            color_text_light: Color32::WHITE,
+            color_text_dark: Color32::BLACK,
+            label_selected_only: true,
         }
     }
 }
@@ -115,6 +125,13 @@ impl SettingsStyle {
         }
 
         self.color_edge
+    }
+
+    pub(crate) fn color_label(&self, ctx: &egui::Context) -> Color32 {
+        match ctx.style().visuals.dark_mode {
+            true => self.color_text_light,
+            false => self.color_text_dark,
+        }
     }
 
     pub(crate) fn color_node_highlight<N: Clone>(

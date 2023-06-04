@@ -200,6 +200,10 @@ impl StateComputedNode {
         self.selected_child || self.selected_parent
     }
 
+    pub fn subfolded(&self) -> bool {
+        self.folded_child
+    }
+
     pub fn radius(&self, meta: &Metadata) -> f32 {
         self.radius * meta.zoom
     }

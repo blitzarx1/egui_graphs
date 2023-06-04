@@ -3,12 +3,14 @@ use egui::{Color32, Vec2};
 use crate::metadata::Metadata;
 
 /// Stores properties of a node that can be changed. Used to apply changes to the graph.
-#[derive(Clone, Debug, Copy, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Node<N: Clone> {
     /// Client data
     pub data: Option<N>,
 
     pub location: Vec2,
+
+    pub label: Option<String>,
 
     /// If `color` is None default color is used.
     pub color: Option<Color32>,
@@ -23,6 +25,7 @@ impl<N: Clone> Default for Node<N> {
         Self {
             location: Default::default(),
             data: Default::default(),
+            label: Default::default(),
             color: Default::default(),
             folded: Default::default(),
             selected: Default::default(),
@@ -41,6 +44,12 @@ impl<N: Clone> Node<N> {
         }
     }
 
+    pub fn with_label(&mut self, label: String) -> Self {
+        let mut res = self.clone();
+        res.label = Some(label);
+        res
+    }
+
     pub fn screen_transform(&self, meta: &Metadata) -> Self {
         Self {
             location: self.location * meta.zoom + meta.pan,
@@ -48,6 +57,7 @@ impl<N: Clone> Node<N> {
             color: self.color,
             dragged: self.dragged,
 
+            label: self.label.clone(),
             folded: self.folded,
             selected: self.selected,
             data: self.data.clone(),

@@ -145,7 +145,7 @@ impl ConfigurableApp {
             g_n.location = Vec2::new(loc.x, loc.y);
 
             if g_n.selected {
-                self.selected_nodes.push(*g_n);
+                self.selected_nodes.push(g_n.clone());
             }
         });
     }
@@ -231,7 +231,9 @@ impl ConfigurableApp {
         );
 
         let idx = self.g.add_node(Node::new(location, ()));
-        let mut sim_node = fdg_sim::Node::new(format!("{}", idx.index()).as_str(), ());
+        let n = self.g.node_weight_mut(idx).unwrap();
+        *n = n.with_label(format!("{:?}", idx));
+        let mut sim_node = fdg_sim::Node::new(idx.index().to_string().as_str(), ());
         sim_node.location = Vec3::new(location.x, location.y, 0.);
         self.sim.get_graph_mut().add_node(sim_node);
     }
@@ -639,7 +641,9 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> StableGraph<No
 
     // add nodes
     for _ in 0..node_count {
-        graph.add_node(Node::new(random_point(rect), ()));
+        let idx = graph.add_node(Node::new(random_point(rect), ()));
+        let n = graph.node_weight_mut(idx).unwrap();
+        *n = n.with_label(format!("{:?}", idx));
     }
 
     // add random edges
