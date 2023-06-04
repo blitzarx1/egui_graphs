@@ -390,6 +390,11 @@ impl ConfigurableApp {
             .text("edge_radius_weight"));
             ui.label("For every edge connected to node its radius is getting bigger by this value.");
 
+            ui.add_space(5.);
+
+            ui.checkbox(&mut self.settings_style.label_selected_only, "label_selected_only");
+            ui.label("Wheter to show labels for selected nodes or for all");
+
             ui.add_space(10.);
 
             ui.label("SettingsInteraction");
