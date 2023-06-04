@@ -392,8 +392,8 @@ impl ConfigurableApp {
 
             ui.add_space(5.);
 
-            ui.checkbox(&mut self.settings_style.label_selected_only, "label_selected_only");
-            ui.label("Wheter to show labels for selected nodes or for all");
+            ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
+            ui.label("Wheter to show labels always or when interacted only.");
 
             ui.add_space(10.);
 
@@ -415,23 +415,6 @@ impl ConfigurableApp {
                 }
             };
             ui.label("To drag use LMB click + drag on a node.");
-
-            ui.add_space(5.);
-
-            if ui.checkbox(&mut self.settings_interaction.node_fold, "node_fold").clicked() {
-                if self.settings_interaction.node_fold{
-                    self.settings_interaction.node_click = true;
-                }
-            };
-            ui.label("To fold use LMB double click on a node.");
-
-            ui.add_space(5.);
-
-            ui.add_enabled_ui(self.settings_interaction.node_fold, |ui| {
-                ui.add(Slider::new(&mut self.settings_interaction.folding_depth, 0..=10)
-                .text("folding_depth"));
-                ui.label("How deep to fold childrens of the selected for folding node.");
-            });
 
             ui.add_space(5.);
 
@@ -458,6 +441,21 @@ impl ConfigurableApp {
                 ui.add(Slider::new(&mut self.settings_interaction.selection_depth, -10..=10)
                     .text("selection_depth"));
                 ui.label("How deep into the neighbours of selected nodes should the selection go.");
+            });
+
+            ui.add_space(5.);
+
+            if ui.checkbox(&mut self.settings_interaction.node_fold, "node_fold").clicked() {
+                if self.settings_interaction.node_fold{
+                    self.settings_interaction.node_click = true;
+                }
+            };
+            ui.label("To fold use LMB double click on a node.");
+
+            ui.add_enabled_ui(self.settings_interaction.node_fold, |ui| {
+                ui.add(Slider::new(&mut self.settings_interaction.folding_depth, 0..=10)
+                .text("folding_depth"));
+                ui.label("How deep to fold childrens of the selected for folding node.");
             });
 
             ui.add_space(5.);

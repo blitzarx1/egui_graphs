@@ -47,13 +47,9 @@ impl StateComputed {
         let mut selections = SubGraphs::default();
         let mut foldings = SubGraphs::default();
         g.nodes().for_each(|(root_idx, root_n)| {
-            // TODO: remove raddii comp from subgraphs iter
             // compute radii
             let num = g.edges_num(root_idx);
-            state
-                .node_state_mut(&root_idx)
-                .unwrap()
-                .inc_radius(settings_style.edge_radius_weight * num as f32);
+            let mut radius_addition = settings_style.edge_radius_weight * num as f32;
 
             state.compute_selection(
                 g,
@@ -70,6 +66,14 @@ impl StateComputed {
                 root_n,
                 settings_interaction.folding_depth,
             );
+
+            radius_addition += state.node_state(&root_idx).unwrap().num_folded as f32
+                * settings_style.folded_node_radius_weight;
+
+            state
+                .node_state_mut(&root_idx)
+                .unwrap()
+                .inc_radius(radius_addition);
         });
 
         state.selections = Some(selections);
@@ -142,7 +146,8 @@ impl StateComputed {
             return;
         }
 
-        let (nodes, edges) = elements.unwrap();
+        let (nodes, _) = elements.unwrap();
+        self.node_state_mut(&root_idx).unwrap().num_folded = nodes.len();
 
         nodes.iter().for_each(|idx| {
             if *idx == root_idx {
@@ -150,11 +155,6 @@ impl StateComputed {
             }
 
             let computed = self.node_state_mut(idx).unwrap();
-            computed.folded_child = true;
-        });
-
-        edges.iter().for_each(|idx| {
-            let mut computed = self.edge_state_mut(idx).unwrap();
             computed.folded_child = true;
         });
     }
@@ -181,6 +181,7 @@ pub struct StateComputedNode {
     pub selected_child: bool,
     pub selected_parent: bool,
     pub folded_child: bool,
+    pub num_folded: usize,
     radius: f32,
 }
 
@@ -190,6 +191,7 @@ impl Default for StateComputedNode {
             selected_child: Default::default(),
             selected_parent: Default::default(),
             folded_child: Default::default(),
+            num_folded: Default::default(),
             radius: 5.,
         }
     }
@@ -217,15 +219,10 @@ impl StateComputedNode {
 pub struct StateComputedEdge {
     pub selected_child: bool,
     pub selected_parent: bool,
-    pub folded_child: bool,
 }
 
 impl StateComputedEdge {
     pub fn subselected(&self) -> bool {
         self.selected_child || self.selected_parent
-    }
-
-    pub fn subfolded(&self) -> bool {
-        self.folded_child
     }
 }
