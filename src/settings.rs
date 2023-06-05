@@ -29,6 +29,7 @@ pub struct SettingsInteraction {
     /// `selection_depth == 0` means only selected nodes are selected.
     /// `selection_depth > 0` means children of selected nodes are selected up to `selection_depth` generation.
     /// `selection_depth < 0` means parents of selected nodes are selected up to `selection_depth` generation.
+    /// You can pass `i32::MAX` and `i32::MIN` to select all available generations of children or parents.
     pub selection_depth: i32,
 
     /// Defines the depth up to which the children of the folded node will be folded.
