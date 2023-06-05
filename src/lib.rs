@@ -13,4 +13,4 @@ pub use self::change::{Change, ChangeEdge, ChangeNode};
 pub use self::elements::{Edge, Node};
 pub use self::graph_view::GraphView;
 pub use self::settings::{SettingsInteraction, SettingsNavigation, SettingsStyle};
-pub use self::transform::transform_weighted_stable_graph;
+pub use self::transform::to_input_graph;

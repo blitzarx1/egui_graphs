@@ -1,9 +1,7 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Edge, GraphView, Node};
+use egui_graphs::{to_input_graph, Edge, GraphView, Node};
 use petgraph::stable_graph::StableGraph;
-
-const SIDE_SIZE: f32 = 50.;
 
 pub struct BasicApp {
     g: StableGraph<Node<()>, Edge<()>>,
@@ -25,17 +23,17 @@ impl App for BasicApp {
 }
 
 fn generate_graph() -> StableGraph<Node<()>, Edge<()>> {
-    let mut g: StableGraph<Node<()>, Edge<()>> = StableGraph::new();
+    let mut g: StableGraph<(), ()> = StableGraph::new();
 
-    let a = g.add_node(Node::new(egui::Vec2::new(0., SIDE_SIZE), ()));
-    let b = g.add_node(Node::new(egui::Vec2::new(-SIDE_SIZE, 0.), ()));
-    let c = g.add_node(Node::new(egui::Vec2::new(SIDE_SIZE, 0.), ()));
+    let a = g.add_node(());
+    let b = g.add_node(());
+    let c = g.add_node(());
 
-    g.add_edge(a, b, Edge::new(()));
-    g.add_edge(b, c, Edge::new(()));
-    g.add_edge(c, a, Edge::new(()));
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(c, a, ());
 
-    g
+    to_input_graph(&g)
 }
 
 fn main() {
