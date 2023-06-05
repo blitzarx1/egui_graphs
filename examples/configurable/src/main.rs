@@ -31,6 +31,10 @@ pub struct ConfigurableApp {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
 
+    min_for_select: bool,
+    max_for_select: bool,
+    max_for_fold: bool,
+
     selected_nodes: Vec<Node<()>>,
     selected_edges: Vec<Edge<()>>,
     last_changes: Vec<Change>,
@@ -64,6 +68,10 @@ impl ConfigurableApp {
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
             settings_style: Default::default(),
+
+            min_for_select: Default::default(),
+            max_for_select: Default::default(),
+            max_for_fold: Default::default(),
 
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
@@ -432,6 +440,16 @@ impl ConfigurableApp {
             ui.label("Enable multiselect to select multiple nodes.");
 
             ui.add_enabled_ui(self.settings_interaction.node_select || self.settings_interaction.node_multiselect, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.checkbox(&mut self.max_for_select, "all children").clicked() {
+                        self.settings_interaction.selection_depth = i32::MAX;
+                    }; 
+                    if ui.checkbox(&mut self.min_for_select, "all parents").clicked() {
+                        self.settings_interaction.selection_depth = i32::MIN;
+                    };
+                });
+            });
+            ui.add_enabled_ui((self.settings_interaction.node_select || self.settings_interaction.node_multiselect) && !(self.min_for_select || self.max_for_select), |ui| {
                 ui.add(Slider::new(&mut self.settings_interaction.selection_depth, -10..=10)
                     .text("selection_depth"));
                 ui.label("How deep into the neighbours of selected nodes should the selection go.");
@@ -445,6 +463,13 @@ impl ConfigurableApp {
             ui.label("To fold use LMB double click on a node. Currenly supports only one node folded at a time.");
 
             ui.add_enabled_ui(self.settings_interaction.node_fold, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.checkbox(&mut self.max_for_fold, "all children").clicked() {
+                        self.settings_interaction.folding_depth = usize::MAX;
+                    };
+                });
+            });
+            ui.add_enabled_ui(self.settings_interaction.node_fold && !self.max_for_fold, |ui| {
                 ui.add(Slider::new(&mut self.settings_interaction.folding_depth, 0..=10)
                 .text("folding_depth"));
                 ui.label("How deep to fold childrens of the selected for folding node.");

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
@@ -80,18 +80,12 @@ impl SubGraphs {
         depth: i32,
     ) {
         let mut subgraph = Graph::<NodeIndex, EdgeIndex>::new();
-        if depth == 0 {
-            self.data.insert(root, subgraph);
-            return;
-        }
-
         let dir = match depth > 0 {
             true => petgraph::Direction::Outgoing,
             false => petgraph::Direction::Incoming,
         };
-
-        self.collect_generations(g, &mut subgraph, root, depth.unsigned_abs() as usize, dir);
-
+        let steps = depth.unsigned_abs() as usize;
+        self.collect_generations(g, &mut subgraph, root, steps, dir);
         self.data.insert(root, subgraph);
     }
 
@@ -113,38 +107,45 @@ impl SubGraphs {
         idx
     }
 
+    /// Bfs implementation which collects subgraph from `src_subgraph` starting from the `root` node
+    /// travelling `steps` generations in the provided direction `dir`.
     fn collect_generations<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        g: &GraphWrapper<N, E, Ty>,
-        subgraph: &mut Graph<NodeIndex, EdgeIndex>,
+        src_subgraph: &GraphWrapper<N, E, Ty>,
+        dst_subgraph: &mut Graph<NodeIndex, EdgeIndex>,
         root: NodeIndex,
-        n: usize,
+        steps: usize,
         dir: Direction,
     ) {
-        if n == 0 {
-            return;
-        }
+        let mut visited = HashSet::new();
+        let mut steps_left = steps;
+        let mut nodes = vec![root];
+        while steps_left > 0 && !nodes.is_empty() {
+            steps_left -= 1;
 
-        let mut depth = n;
-        let mut next_start = vec![root];
-        while depth > 0 {
-            depth -= 1;
+            let mut next_nodes = vec![];
+            nodes.iter().for_each(|src_root_idx| {
+                let dst_root_idx = self.add_node(dst_subgraph, root, *src_root_idx);
+                src_subgraph
+                    .edges_directed(*src_root_idx, dir)
+                    .for_each(|edge| {
+                        let src_next_idx = match dir {
+                            Direction::Incoming => edge.source(),
+                            Direction::Outgoing => edge.target(),
+                        };
 
-            let mut next_next_start = vec![];
-            next_start.iter().for_each(|g_idx| {
-                let s_idx = self.add_node(subgraph, root, *g_idx);
-                g.edges_directed(*g_idx, dir).for_each(|edge| {
-                    let next = match dir {
-                        Direction::Incoming => edge.source(),
-                        Direction::Outgoing => edge.target(),
-                    };
-                    let next_idx = self.add_node(subgraph, root, next);
-                    subgraph.add_edge(s_idx, next_idx, edge.id());
-                    next_next_start.push(next);
-                });
+                        if !visited.insert(src_next_idx) {
+                            return;
+                        }
+
+                        let src_edge_idx = edge.id();
+                        let dst_next_idx = self.add_node(dst_subgraph, root, src_next_idx);
+                        dst_subgraph.add_edge(dst_root_idx, dst_next_idx, src_edge_idx);
+                        next_nodes.push(src_next_idx);
+                    });
             });
 
-            next_start = next_next_start;
+            nodes = next_nodes;
         }
     }
 
@@ -218,6 +219,19 @@ mod tests {
 
         subgraphs.add_subgraph(&graph, NodeIndex::new(1), 1);
         assert_eq!(subgraphs.data.len(), 2);
+    }
+
+    #[test]
+    fn subgraphs_add_looped_subgraph() {
+        let g = &mut create_test_graph();
+        let a_idx = NodeIndex::new(1);
+        g.add_edge(a_idx, a_idx, Edge::new(()));
+
+        let graph = GraphWrapper::new(g);
+        let mut subgraphs = SubGraphs::default();
+
+        subgraphs.add_subgraph(&graph, NodeIndex::new(1), i32::MAX);
+        assert_eq!(subgraphs.data.len(), 1);
     }
 
     #[test]

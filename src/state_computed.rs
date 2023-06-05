@@ -138,7 +138,12 @@ impl StateComputed {
             return;
         }
 
-        foldings.add_subgraph(g, root_idx, depth as i32);
+        let depth_normalized = match depth {
+            usize::MAX => i32::MAX,
+            _ => depth as i32,
+        };
+
+        foldings.add_subgraph(g, root_idx, depth_normalized);
 
         let elements = foldings.elements_by_root(root_idx);
         if elements.is_none() {
