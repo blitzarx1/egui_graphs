@@ -17,6 +17,9 @@ pub struct SettingsInteraction {
     /// Allows clicking on nodes.
     pub node_click: bool,
 
+    /// Allows to fold nodes.
+    pub node_fold: bool,
+
     /// Selects clicked node, enables node_click.
     /// Select by clicking on node, deselect by clicking again.
     /// Clicking on empty space deselects all nodes.
@@ -27,6 +30,9 @@ pub struct SettingsInteraction {
     /// `selection_depth > 0` means children of selected nodes are selected up to `selection_depth` generation.
     /// `selection_depth < 0` means parents of selected nodes are selected up to `selection_depth` generation.
     pub selection_depth: i32,
+
+    /// Defines the depth up to which the children of the folded node will be folded.
+    pub folding_depth: usize,
 
     /// Multiselection for nodes, enables node_click and node_select.
     pub node_multiselect: bool,
@@ -71,6 +77,9 @@ pub struct SettingsStyle {
     /// For every edge connected to node its radius is getting bigger by this value.
     pub edge_radius_weight: f32,
 
+    /// For every node folded the folding root node radius is getting bigger by this value.
+    pub folded_node_radius_weight: f32,
+
     /// Used to color children of the selected nodes.
     pub color_selection_child: Color32,
 
@@ -82,18 +91,29 @@ pub struct SettingsStyle {
 
     /// Color of nodes being dragged.
     pub color_drag: Color32,
+
+    pub color_text_light: Color32,
+
+    pub color_text_dark: Color32,
+
+    /// Whether to show labels always or when interacted. Default is false.
+    pub labels_always: bool,
 }
 
 impl Default for SettingsStyle {
     fn default() -> Self {
         Self {
             edge_radius_weight: 1.,
+            folded_node_radius_weight: 2.,
             color_selection: Color32::from_rgba_unmultiplied(0, 255, 127, 153), // Spring Green
             color_selection_child: Color32::from_rgba_unmultiplied(100, 149, 237, 153), // Cornflower Blue
             color_selection_parent: Color32::from_rgba_unmultiplied(255, 105, 180, 153), // Hot Pink
             color_node: Color32::from_rgb(200, 200, 200), // Light Gray
             color_edge: Color32::from_rgb(128, 128, 128), // Gray
             color_drag: Color32::from_rgba_unmultiplied(240, 128, 128, 153), // Light Coral
+            color_text_light: Color32::WHITE,
+            color_text_dark: Color32::BLACK,
+            labels_always: Default::default(),
         }
     }
 }
@@ -109,6 +129,13 @@ impl SettingsStyle {
         }
 
         self.color_edge
+    }
+
+    pub(crate) fn color_label(&self, ctx: &egui::Context) -> Color32 {
+        match ctx.style().visuals.dark_mode {
+            true => self.color_text_light,
+            false => self.color_text_dark,
+        }
     }
 
     pub(crate) fn color_node_highlight<N: Clone>(

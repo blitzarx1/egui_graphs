@@ -7,11 +7,17 @@ pub enum ChangeNode {
     /// Node has been clicked
     Clicked { id: NodeIndex },
 
+    /// Node has been clicked
+    DoubleClicked { id: NodeIndex },
+
     /// Node has changed its location
     Location { id: NodeIndex, old: Vec2, new: Vec2 },
 
     /// Node has been selected or deselected
     Selected { id: NodeIndex, old: bool, new: bool },
+
+    /// Node has been folded or unfolded
+    Folded { id: NodeIndex, old: bool, new: bool },
 
     /// Node is dragged or ceased to be dragged
     Dragged { id: NodeIndex, old: bool, new: bool },
@@ -22,12 +28,20 @@ impl ChangeNode {
         Self::Clicked { id }
     }
 
+    pub(crate) fn double_clicked(id: NodeIndex) -> Self {
+        Self::DoubleClicked { id }
+    }
+
     pub(crate) fn change_location(id: NodeIndex, old: Vec2, new: Vec2) -> Self {
         Self::Location { id, old, new }
     }
 
     pub(crate) fn change_selected(id: NodeIndex, old: bool, new: bool) -> Self {
         Self::Selected { id, old, new }
+    }
+
+    pub(crate) fn change_folded(id: NodeIndex, old: bool, new: bool) -> Self {
+        Self::Folded { id, old, new }
     }
 
     pub(crate) fn change_dragged(id: NodeIndex, old: bool, new: bool) -> Self {

@@ -11,14 +11,12 @@ use crate::{
     graph_wrapper::GraphWrapper,
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsStyle},
-    state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
-    subgraphs::SubGraphs,
+    state_computed::StateComputed,
     Edge, SettingsNavigation,
 };
 use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{
     stable_graph::{NodeIndex, StableGraph},
-    visit::EdgeRef,
     EdgeType,
 };
 
@@ -48,7 +46,8 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut meta = Metadata::get(ui);
-        let mut computed = self.precompute_state();
+        let mut computed =
+            StateComputed::compute(&self.g, &self.settings_interaction, &self.settings_style);
 
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
@@ -81,7 +80,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
-    /// Makes widget interactive sending changes. Events which
+    /// Makes widget interactive sending changes if interaction has occured. Interaction events which
     /// are configured in `settings_interaction` are sent to the channel as soon as the occured.
     pub fn with_interactions(mut self, settings_interaction: &SettingsInteraction) -> Self {
         self.settings_interaction = settings_interaction.clone();
@@ -150,13 +149,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn handle_click(&mut self, resp: &Response, comp: &mut StateComputed, meta: &mut Metadata) {
-        if !resp.clicked() {
+        if !resp.clicked() && !resp.double_clicked() {
             return;
         }
 
         let clickable = self.settings_interaction.node_click
             || self.settings_interaction.node_select
-            || self.settings_interaction.node_multiselect;
+            || self.settings_interaction.node_multiselect
+            || self.settings_interaction.node_fold;
 
         if !(clickable) {
             return;
@@ -173,10 +173,50 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        self.handle_node_click(node.unwrap().0, comp);
+        // first clickf of double click is accepted as single click
+        // so if you double click a node it will handle it as click and
+        // then double click
+        let node_idx = node.unwrap().0;
+        if resp.double_clicked() {
+            self.handle_node_double_click(node_idx, comp);
+            return;
+        }
+        self.handle_node_click(node_idx, comp);
+    }
+
+    fn handle_node_double_click(&mut self, idx: NodeIndex, comp: &mut StateComputed) {
+        if !self.settings_interaction.node_click && !self.settings_interaction.node_fold {
+            return;
+        }
+
+        if self.settings_interaction.node_click {
+            self.set_node_double_clicked(idx);
+        }
+
+        if !self.settings_interaction.node_fold {
+            return;
+        }
+
+        if comp.foldings.is_some() && comp.foldings.as_ref().unwrap().len() > 0 {
+            comp.foldings
+                .as_ref()
+                .unwrap()
+                .roots()
+                .iter()
+                .for_each(|root_idx| {
+                    self.set_node_folded(*root_idx, false);
+                });
+            return;
+        }
+
+        self.set_node_folded(idx, true);
     }
 
     fn handle_node_click(&mut self, idx: NodeIndex, state: &StateComputed) {
+        if !self.settings_interaction.node_click && !self.settings_interaction.node_select {
+            return;
+        }
+
         if self.settings_interaction.node_click {
             self.set_node_clicked(idx);
         }
@@ -311,8 +351,20 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.send_changes(Change::node(change));
     }
 
+    fn set_node_folded(&mut self, idx: NodeIndex, val: bool) {
+        let n = self.g.node_mut(idx).unwrap();
+        let change = ChangeNode::change_folded(idx, n.folded, val);
+        n.folded = val;
+        self.send_changes(Change::node(change));
+    }
+
     fn set_node_clicked(&mut self, idx: NodeIndex) {
         let change = ChangeNode::clicked(idx);
+        self.send_changes(Change::node(change));
+    }
+
+    fn set_node_double_clicked(&mut self, idx: NodeIndex) {
+        let change = ChangeNode::double_clicked(idx);
         self.send_changes(Change::node(change));
     }
 
@@ -343,77 +395,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let change = ChangeNode::change_location(idx, n.location, new_loc);
         n.location = new_loc;
         self.send_changes(Change::node(change));
-    }
-
-    // TODO: try to use rayon for parallelization of list iterations
-    fn precompute_state(&mut self) -> StateComputed {
-        let mut selections = SubGraphs::default();
-        let nodes_computed = self.g.nodes().map(|(idx, _)| {
-            let node_state = StateComputedNode::default();
-            (idx, node_state)
-        });
-
-        let edges_computed = self.g.edges().map(|e| {
-            let edge_state = StateComputedEdge::default();
-            (e.id(), edge_state)
-        });
-
-        let mut state = StateComputed {
-            nodes: nodes_computed.collect(),
-            edges: edges_computed.collect(),
-            ..Default::default()
-        };
-
-        // compute radii and selections
-        let child_mode = self.settings_interaction.selection_depth > 0;
-        self.g.nodes().for_each(|(root_idx, root_n)| {
-            // compute radii
-            let num = self.g.edges_num(root_idx);
-            state
-                .node_state_mut(&root_idx)
-                .unwrap()
-                .inc_radius(self.settings_style.edge_radius_weight * num as f32);
-
-            // compute selections
-            if !root_n.selected {
-                return;
-            }
-
-            selections.add_subgraph(&self.g, root_idx, self.settings_interaction.selection_depth);
-
-            let elements = selections.elements_by_root(root_idx);
-            if elements.is_none() {
-                return;
-            }
-
-            let (nodes, edges) = elements.unwrap();
-
-            nodes.iter().for_each(|idx| {
-                if *idx == root_idx {
-                    return;
-                }
-
-                let computed = state.node_state_mut(idx).unwrap();
-                if child_mode {
-                    computed.selected_child = true;
-                    return;
-                }
-                computed.selected_parent = true;
-            });
-
-            edges.iter().for_each(|idx| {
-                let mut computed = state.edge_state_mut(idx).unwrap();
-                if child_mode {
-                    computed.selected_child = true;
-                    return;
-                }
-                computed.selected_parent = true;
-            });
-        });
-
-        state.selections = Some(selections);
-
-        state
     }
 
     fn draw(&self, p: &Painter, comp: &mut StateComputed, meta: &mut Metadata) {
