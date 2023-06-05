@@ -5,5 +5,3 @@
 * Changed basic examples to use `transform::to_input_graph` [#41](https://github.com/blitzarx1/egui_graphs/pull/41)
 * Support min and max cases for fold/select depth [#43](https://github.com/blitzarx1/egui_graphs/pull/43)
 ### Fixes
-# History
-For the full history check [changelog](https://github.com/blitzarx1/egui_graphs/blob/master/CHANGELOG.md)
