@@ -77,12 +77,13 @@ pub fn to_input_graph<N: Clone, E: Clone, Ty: petgraph::EdgeType>(
         .collect::<HashMap<NodeIndex, NodeIndex>>();
 
     for user_e in g.edge_references() {
-        let input_e = Edge {
-            data: Some(user_e.weight().clone()),
-            ..Default::default()
-        };
+        let data = user_e.weight().clone();
+
+        let input_e = Edge::new(data);
+
         let input_source_n = *input_by_user.get(&user_e.source()).unwrap();
         let input_target_n = *input_by_user.get(&user_e.target()).unwrap();
+
         input_g.add_edge(input_source_n, input_target_n, input_e);
     }
 
@@ -106,6 +107,7 @@ mod tests {
 
         assert_eq!(user_g.node_count(), input_g.node_count());
         assert_eq!(user_g.edge_count(), input_g.edge_count());
+        assert_eq!(user_g.is_directed(), input_g.is_directed());
 
         for (user_idx, input_idx) in input_g.node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
@@ -133,6 +135,7 @@ mod tests {
 
         assert_eq!(user_g.node_count(), input_g.node_count());
         assert_eq!(user_g.edge_count(), input_g.edge_count());
+        assert_eq!(user_g.is_directed(), input_g.is_directed());
 
         for (user_idx, input_idx) in input_g.node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
