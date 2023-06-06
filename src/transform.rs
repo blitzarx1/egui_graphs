@@ -14,7 +14,7 @@ const SIDE_SIZE: f32 = 250.;
 /// The users  graph, `g`, can have any data type for nodes and edges, and can be either directed
 /// or undirected. The function creates a new StableGraph where the nodes and edges are encapsulated into
 /// Node and Edge structs respectively. Node struct contains the original node data, a randomly generated
-/// location (Vec2), and default values for color, selected and dragged attributes. The Edge struct encapsulates
+/// location, and default values for color, selected and dragged attributes. The Edge struct encapsulates
 /// the original edge data from the users graph.
 ///
 /// # Arguments
@@ -29,45 +29,65 @@ const SIDE_SIZE: f32 = 250.;
 /// ```
 /// use petgraph::stable_graph::StableGraph;
 /// use egui_graphs::to_input_graph;
+/// use egui::Vec2;
 ///
-/// let mut graph: StableGraph<&str, &str> = StableGraph::new();
-/// let node1 = graph.add_node("A");
-/// let node2 = graph.add_node("B");
-/// graph.add_edge(node1, node2, "edge1");
+/// let mut user_graph: StableGraph<&str, &str> = StableGraph::new();
+/// let node1 = user_graph.add_node("A");
+/// let node2 = user_graph.add_node("B");
+/// user_graph.add_edge(node1, node2, "edge1");
 ///
-/// let new_graph = to_input_graph(&graph);
+/// let input_graph = to_input_graph(&user_graph);
+///
+/// assert_eq!(input_graph.node_count(), 2);
+/// assert_eq!(input_graph.edge_count(), 1);
+///
+/// let mut input_indices = input_graph.node_indices();
+/// let input_node_1 = input_indices.next().unwrap();
+/// let input_node_2 = input_indices.next().unwrap();
+/// assert_eq!(input_graph.node_weight(input_node_1).unwrap().data, Some("A"));
+/// assert_eq!(input_graph.node_weight(input_node_2).unwrap().data, Some("B"));
+///
+/// assert_eq!(input_graph.edge_weight(input_graph.edge_indices().next().unwrap()).unwrap().data, Some("edge1"));
+///
+/// let loc_1 = input_graph.node_weight(input_node_1).unwrap().location;
+/// let loc_2 = input_graph.node_weight(input_node_2).unwrap().location;
+/// assert!(loc_1 != Vec2::ZERO);
+/// assert!(loc_2 != Vec2::ZERO);
 /// ```
 pub fn to_input_graph<N: Clone, E: Clone, Ty: petgraph::EdgeType>(
     g: &StableGraph<N, E, Ty>,
 ) -> StableGraph<Node<N>, Edge<E>, Ty> {
-    let mut new_graph = StableGraph::<Node<N>, Edge<E>, Ty>::default();
     let mut rng = rand::thread_rng();
+    let mut input_g = StableGraph::<Node<N>, Edge<E>, Ty>::default();
 
-    let node_mapping: HashMap<NodeIndex, NodeIndex> = g
+    let input_by_user = g
         .node_indices()
-        .map(|old_node_index| {
-            let old_node = &g[old_node_index];
-            let new_node = Node {
-                data: Some(old_node.clone()),
-                location: Vec2::new(rng.gen_range(0. ..SIDE_SIZE), rng.gen_range(0. ..SIDE_SIZE)),
-                ..Default::default()
-            };
-            let new_node_index = new_graph.add_node(new_node);
-            (old_node_index, new_node_index)
-        })
-        .collect();
+        .map(|user_n_index| {
+            let user_n = &g[user_n_index];
 
-    for edge in g.edge_references() {
-        let new_edge = Edge {
-            data: Some(edge.weight().clone()),
-            ..Default::default()
-        };
-        let source_node = *node_mapping.get(&edge.source()).unwrap();
-        let target_node = *node_mapping.get(&edge.target()).unwrap();
-        new_graph.add_edge(source_node, target_node, new_edge);
+            let data = user_n.clone();
+            let location = Vec2::new(rng.gen_range(0. ..SIDE_SIZE), rng.gen_range(0. ..SIDE_SIZE));
+
+            let input_n = Node::new(location, data);
+
+            let input_n_index = input_g.add_node(input_n);
+
+            (user_n_index, input_n_index)
+        })
+        .collect::<HashMap<NodeIndex, NodeIndex>>();
+
+    for user_e in g.edge_references() {
+        let data = user_e.weight().clone();
+
+        let input_e = Edge::new(data);
+
+        let input_source_n = *input_by_user.get(&user_e.source()).unwrap();
+        let input_target_n = *input_by_user.get(&user_e.target()).unwrap();
+
+        input_g.add_edge(input_source_n, input_target_n, input_e);
     }
 
-    new_graph
+    input_g
 }
 
 #[cfg(test)]
@@ -78,59 +98,57 @@ mod tests {
 
     #[test]
     fn test_to_input_graph_directed() {
-        let mut old_graph: StableGraph<_, _, Directed> = StableGraph::new();
-        let n1 = old_graph.add_node("Node1");
-        let n2 = old_graph.add_node("Node2");
-        old_graph.add_edge(n1, n2, "Edge1");
+        let mut user_g: StableGraph<_, _, Directed> = StableGraph::new();
+        let n1 = user_g.add_node("Node1");
+        let n2 = user_g.add_node("Node2");
+        user_g.add_edge(n1, n2, "Edge1");
 
-        let new_graph = to_input_graph(&old_graph);
+        let input_g = to_input_graph(&user_g);
 
-        assert_eq!(old_graph.node_count(), new_graph.node_count());
-        assert_eq!(old_graph.edge_count(), new_graph.edge_count());
+        assert_eq!(user_g.node_count(), input_g.node_count());
+        assert_eq!(user_g.edge_count(), input_g.edge_count());
+        assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (old_node_index, new_node_index) in
-            new_graph.node_indices().zip(old_graph.node_indices())
-        {
-            let old_node = old_graph.node_weight(old_node_index).unwrap();
-            let new_node = new_graph.node_weight(new_node_index).unwrap();
+        for (user_idx, input_idx) in input_g.node_indices().zip(user_g.node_indices()) {
+            let user_n = user_g.node_weight(user_idx).unwrap();
+            let input_n = input_g.node_weight(input_idx).unwrap();
 
-            assert_eq!(new_node.data, Some(old_node.clone()));
+            assert_eq!(input_n.data, Some(*user_n));
 
-            assert!(new_node.location.x >= 0.0 && new_node.location.x <= SIDE_SIZE);
-            assert!(new_node.location.y >= 0.0 && new_node.location.y <= SIDE_SIZE);
+            assert!(input_n.location.x >= 0.0 && input_n.location.x <= SIDE_SIZE);
+            assert!(input_n.location.y >= 0.0 && input_n.location.y <= SIDE_SIZE);
 
-            assert_eq!(new_node.color, None);
-            assert_eq!(new_node.selected, false);
-            assert_eq!(new_node.dragged, false);
+            assert_eq!(input_n.color, None);
+            assert!(!input_n.selected);
+            assert!(!input_n.dragged);
         }
     }
 
     #[test]
     fn test_to_input_graph_undirected() {
-        let mut old_graph: StableGraph<_, _, Undirected> = StableGraph::default();
-        let n1 = old_graph.add_node("Node1");
-        let n2 = old_graph.add_node("Node2");
-        old_graph.add_edge(n1, n2, "Edge1");
+        let mut user_g: StableGraph<_, _, Undirected> = StableGraph::default();
+        let n1 = user_g.add_node("Node1");
+        let n2 = user_g.add_node("Node2");
+        user_g.add_edge(n1, n2, "Edge1");
 
-        let new_graph = to_input_graph(&old_graph);
+        let input_g = to_input_graph(&user_g);
 
-        assert_eq!(old_graph.node_count(), new_graph.node_count());
-        assert_eq!(old_graph.edge_count(), new_graph.edge_count());
+        assert_eq!(user_g.node_count(), input_g.node_count());
+        assert_eq!(user_g.edge_count(), input_g.edge_count());
+        assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (old_node_index, new_node_index) in
-            new_graph.node_indices().zip(old_graph.node_indices())
-        {
-            let old_node = old_graph.node_weight(old_node_index).unwrap();
-            let new_node = new_graph.node_weight(new_node_index).unwrap();
+        for (user_idx, input_idx) in input_g.node_indices().zip(user_g.node_indices()) {
+            let user_n = user_g.node_weight(user_idx).unwrap();
+            let input_n = input_g.node_weight(input_idx).unwrap();
 
-            assert_eq!(new_node.data, Some(old_node.clone()));
+            assert_eq!(input_n.data, Some(*user_n));
 
-            assert!(new_node.location.x >= 0.0 && new_node.location.x <= SIDE_SIZE);
-            assert!(new_node.location.y >= 0.0 && new_node.location.y <= SIDE_SIZE);
+            assert!(input_n.location.x >= 0.0 && input_n.location.x <= SIDE_SIZE);
+            assert!(input_n.location.y >= 0.0 && input_n.location.y <= SIDE_SIZE);
 
-            assert_eq!(new_node.color, None);
-            assert_eq!(new_node.selected, false);
-            assert_eq!(new_node.dragged, false);
+            assert_eq!(input_n.color, None);
+            assert!(!input_n.selected);
+            assert!(!input_n.dragged);
         }
     }
 }
