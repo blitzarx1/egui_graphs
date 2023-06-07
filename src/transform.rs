@@ -43,16 +43,16 @@ pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 /// let mut input_indices = input_graph.node_indices();
 /// let input_node_1 = input_indices.next().unwrap();
 /// let input_node_2 = input_indices.next().unwrap();
-/// assert_eq!(input_graph.node_weight(input_node_1).unwrap().data, Some("A"));
-/// assert_eq!(input_graph.node_weight(input_node_2).unwrap().data, Some("B"));
+/// assert_eq!(*input_graph.node_weight(input_node_1).unwrap().data().clone().unwrap(), "A");
+/// assert_eq!(*input_graph.node_weight(input_node_2).unwrap().data().clone().unwrap(), "B");
 ///
-/// assert_eq!(input_graph.edge_weight(input_graph.edge_indices().next().unwrap()).unwrap().data, Some("edge1"));
+/// assert_eq!(*input_graph.edge_weight(input_graph.edge_indices().next().unwrap()).unwrap().data().clone().unwrap(), "edge1");
 ///
-/// assert_eq!(input_graph.node_weight(input_node_1).unwrap().label.clone().unwrap(), input_node_1.index().to_string());
-/// assert_eq!(input_graph.node_weight(input_node_2).unwrap().label.clone().unwrap(), input_node_2.index().to_string());
+/// assert_eq!(*input_graph.node_weight(input_node_1).unwrap().label().clone().unwrap(), input_node_1.index().to_string());
+/// assert_eq!(*input_graph.node_weight(input_node_2).unwrap().label().clone().unwrap(), input_node_2.index().to_string());
 ///
-/// let loc_1 = input_graph.node_weight(input_node_1).unwrap().location;
-/// let loc_2 = input_graph.node_weight(input_node_2).unwrap().location;
+/// let loc_1 = input_graph.node_weight(input_node_1).unwrap().location();
+/// let loc_2 = input_graph.node_weight(input_node_2).unwrap().location();
 /// assert!(loc_1 != Vec2::ZERO);
 /// assert!(loc_2 != Vec2::ZERO);
 /// ```
@@ -147,16 +147,19 @@ mod tests {
             let user_n = user_g.node_weight(user_idx).unwrap();
             let input_n = input_g.node_weight(input_idx).unwrap();
 
-            assert_eq!(input_n.data, Some(*user_n));
+            assert_eq!(*input_n.data().clone().unwrap(), *user_n);
 
-            assert!(input_n.location.x >= 0.0 && input_n.location.x <= DEFAULT_SPAWN_SIZE);
-            assert!(input_n.location.y >= 0.0 && input_n.location.y <= DEFAULT_SPAWN_SIZE);
+            assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
+            assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
 
-            assert_eq!(input_n.label.clone().unwrap(), user_idx.index().to_string());
+            assert_eq!(
+                *input_n.label().clone().unwrap(),
+                user_idx.index().to_string()
+            );
 
-            assert_eq!(input_n.color, None);
-            assert!(!input_n.selected);
-            assert!(!input_n.dragged);
+            assert_eq!(input_n.color(), None);
+            assert!(!input_n.selected());
+            assert!(!input_n.dragged());
         }
     }
 
@@ -177,16 +180,19 @@ mod tests {
             let user_n = user_g.node_weight(user_idx).unwrap();
             let input_n = input_g.node_weight(input_idx).unwrap();
 
-            assert_eq!(input_n.data, Some(*user_n));
+            assert_eq!(*input_n.data().clone().unwrap(), *user_n);
 
-            assert!(input_n.location.x >= 0.0 && input_n.location.x <= DEFAULT_SPAWN_SIZE);
-            assert!(input_n.location.y >= 0.0 && input_n.location.y <= DEFAULT_SPAWN_SIZE);
+            assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
+            assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
 
-            assert_eq!(input_n.label.clone().unwrap(), user_idx.index().to_string());
+            assert_eq!(
+                *input_n.label().clone().unwrap(),
+                user_idx.index().to_string()
+            );
 
-            assert_eq!(input_n.color, None);
-            assert!(!input_n.selected);
-            assert!(!input_n.dragged);
+            assert_eq!(input_n.color(), None);
+            assert!(!input_n.selected());
+            assert!(!input_n.dragged());
         }
     }
 }

@@ -121,8 +121,8 @@ impl Default for SettingsStyle {
 
 impl SettingsStyle {
     pub(crate) fn color_node<N: Clone>(&self, ctx: &egui::Context, n: &Node<N>) -> Color32 {
-        if n.color.is_some() {
-            return n.color.unwrap();
+        if n.color().is_some() {
+            return n.color().unwrap();
         }
 
         if ctx.style().visuals.dark_mode {
@@ -144,11 +144,11 @@ impl SettingsStyle {
         n: &Node<N>,
         comp: &StateComputedNode,
     ) -> Option<Color32> {
-        if n.dragged {
+        if n.dragged() {
             return Some(self.color_drag);
         }
 
-        if n.selected {
+        if n.selected() {
             return Some(self.color_selection);
         }
 
@@ -164,8 +164,8 @@ impl SettingsStyle {
     }
 
     pub(crate) fn color_edge<E: Clone>(&self, ctx: &egui::Context, e: &Edge<E>) -> Color32 {
-        if e.color.is_some() {
-            return e.color.unwrap();
+        if e.color().is_some() {
+            return e.color().unwrap();
         }
 
         if ctx.style().visuals.dark_mode {

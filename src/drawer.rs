@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    f32::{MAX, MIN},
+    f32::{consts::PI, MAX, MIN},
 };
 
 use egui::{
@@ -70,27 +70,27 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 // we shall account for the node radius
                 // so that the node is fully visible
 
-                let x_minus_rad = n.location.x - comp_node.radius(self.meta);
+                let x_minus_rad = n.location().x - comp_node.radius(self.meta);
                 if x_minus_rad < min_x {
                     min_x = x_minus_rad;
                 };
 
-                let y_minus_rad = n.location.y - comp_node.radius(self.meta);
+                let y_minus_rad = n.location().y - comp_node.radius(self.meta);
                 if y_minus_rad < min_y {
                     min_y = y_minus_rad;
                 };
 
-                let x_plus_rad = n.location.x + comp_node.radius(self.meta);
+                let x_plus_rad = n.location().x + comp_node.radius(self.meta);
                 if x_plus_rad > max_x {
                     max_x = x_plus_rad;
                 };
 
-                let y_plus_rad = n.location.y + comp_node.radius(self.meta);
+                let y_plus_rad = n.location().y + comp_node.radius(self.meta);
                 if y_plus_rad > max_y {
                     max_y = y_plus_rad;
                 };
 
-                if n.dragged {
+                if n.dragged() {
                     new_dragged = Some(idx);
                 }
 
@@ -221,27 +221,33 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return vec![];
         }
 
-        let pos_start_and_end = n.location.to_pos2();
+        let center_horizont_angle = PI / 4.;
+        let center = n.location();
+        let y_intersect = center.y - comp_node.radius(self.meta) * center_horizont_angle.sin();
+
+        let left_intersect = Pos2::new(
+            center.x - comp_node.radius(self.meta) * center_horizont_angle.cos(),
+            y_intersect,
+        );
+        let right_intersect = Pos2::new(
+            center.x + comp_node.radius(self.meta) * center_horizont_angle.cos(),
+            y_intersect,
+        );
+
         let loop_size = comp_node.radius(self.meta) * (4. + 1. + order as f32);
 
-        let control_point1 = Pos2::new(
-            pos_start_and_end.x + loop_size,
-            pos_start_and_end.y - loop_size,
-        );
-        let control_point2 = Pos2::new(
-            pos_start_and_end.x - loop_size,
-            pos_start_and_end.y - loop_size,
-        );
+        let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
+        let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
 
-        let stroke = Stroke::new(e.width, self.settings_style.color_edge(self.p.ctx(), e));
+        let stroke = Stroke::new(e.width(), self.settings_style.color_edge(self.p.ctx(), e));
         let shape_basic = CubicBezierShape::from_points_stroke(
             [
-                pos_start_and_end,
+                right_intersect,
                 control_point1,
                 control_point2,
-                pos_start_and_end,
+                left_intersect,
             ],
-            true,
+            false,
             Color32::TRANSPARENT,
             stroke,
         );
@@ -254,17 +260,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let mut shapes = vec![shape_basic];
 
         let highlighted_stroke = Stroke::new(
-            e.width * 2.,
+            e.width() * 2.,
             self.settings_style.color_edge_highlight(comp_edge).unwrap(),
         );
         shapes.push(CubicBezierShape::from_points_stroke(
             [
-                pos_start_and_end,
+                right_intersect,
                 control_point1,
                 control_point2,
-                pos_start_and_end,
+                left_intersect,
             ],
-            true,
+            false,
             Color32::TRANSPARENT,
             highlighted_stroke,
         ));
@@ -286,7 +292,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let mut end_node = self.g.node(*end_idx).unwrap();
         let mut transparent = false;
 
-        if (start_node.folded || comp_start.subfolded()) && comp_end.subfolded() {
+        if (start_node.folded() || comp_start.subfolded()) && comp_end.subfolded() {
             return (vec![], vec![]);
         }
 
@@ -320,8 +326,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             transparent = true;
         }
 
-        let pos_start = start_node.screen_transform(self.meta).location.to_pos2();
-        let pos_end = end_node.screen_transform(self.meta).location.to_pos2();
+        let pos_start = start_node.screen_transform(self.meta).location().to_pos2();
+        let pos_end = end_node.screen_transform(self.meta).location().to_pos2();
 
         let vec = pos_end - pos_start;
         let l = vec.length();
@@ -339,13 +345,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         if transparent {
             color = color.gamma_multiply(0.15);
         }
-        let stroke = Stroke::new(e.width, color);
+        let stroke = Stroke::new(e.width(), color);
 
         // draw straight edge
         if order == 0 {
             let mut shapes = vec![];
-            let head_point_1 = tip_point - e.tip_size * rotate_vector(dir, e.tip_angle);
-            let head_point_2 = tip_point - e.tip_size * rotate_vector(dir, -e.tip_angle);
+            let head_point_1 = tip_point - e.tip_size() * rotate_vector(dir, e.tip_angle());
+            let head_point_2 = tip_point - e.tip_size() * rotate_vector(dir, -e.tip_angle());
 
             shapes.push(Shape::line_segment([start_point, tip_point], stroke));
 
@@ -364,7 +370,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             }
 
             let highlighted_stroke = Stroke::new(
-                e.width * 2.,
+                e.width() * 2.,
                 self.settings_style.color_edge_highlight(comp_edge).unwrap(),
             );
             shapes.push(Shape::line_segment(
@@ -391,14 +397,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let dir_perpendicular = Vec2::new(-dir.y, dir.x);
         let center_point = (start_point + tip_point.to_vec2()).to_vec2() / 2.0;
         let control_point =
-            (center_point + dir_perpendicular * e.curve_size * order as f32).to_pos2();
+            (center_point + dir_perpendicular * e.curve_size() * order as f32).to_pos2();
 
         let tip_vec = control_point - tip_point;
         let tip_dir = tip_vec / tip_vec.length();
-        let tip_size = e.tip_size;
+        let tip_size = e.tip_size();
 
-        let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle) * tip_size;
-        let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle) * tip_size;
+        let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle()) * tip_size;
+        let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle()) * tip_size;
 
         let head_point_1 = tip_point + arrow_tip_dir_1;
         let head_point_2 = tip_point + arrow_tip_dir_2;
@@ -424,7 +430,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
 
         let highlighted_stroke = Stroke::new(
-            e.width * 2.,
+            e.width() * 2.,
             self.settings_style.color_edge_highlight(comp_edge).unwrap(),
         );
         quadratic_shapes.push(QuadraticBezierShape::from_points_stroke(
@@ -451,7 +457,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         comp_node: &StateComputedNode,
     ) -> (Vec<CircleShape>, Vec<TextShape>) {
         let node = &n.screen_transform(self.meta);
-        let loc = node.location.to_pos2();
+        let loc = node.location().to_pos2();
 
         let (mut circles, mut texts) = self.draw_node_basic(loc, node, comp_node);
         let (circles_interacted, texts_interacted) =
@@ -463,10 +469,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
     fn shape_label(&self, node_radius: f32, n: &Node<N>) -> Option<TextShape> {
         let color_label = self.settings_style.color_label(self.p.ctx());
-        let label_pos = Pos2::new(n.location.x, n.location.y - node_radius * 2.);
+        let label_pos = Pos2::new(n.location().x, n.location().y - node_radius * 2.);
         let label_size = node_radius;
         let galley = self.p.layout_no_wrap(
-            n.label.as_ref()?.clone(),
+            n.label()?.clone(),
             FontId::new(label_size, FontFamily::Monospace),
             color_label,
         );
@@ -482,10 +488,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     ) -> (Vec<CircleShape>, Vec<TextShape>) {
         let color = self.settings_style.color_node(self.p.ctx(), node);
         let mut nodes = vec![];
-        if !(node.selected
+        if !(node.selected()
             || comp_node.subselected()
-            || node.dragged
-            || node.folded
+            || node.dragged()
+            || node.folded()
             || comp_node.subfolded())
         {
             // draw not interacted nodes in place
@@ -507,7 +513,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return (nodes, vec![]);
         }
 
-        if node.folded || comp_node.subfolded() {
+        if node.folded() || comp_node.subfolded() {
             return (nodes, vec![]);
         }
 
@@ -530,10 +536,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         node: &Node<N>,
         comp_node: &StateComputedNode,
     ) -> (Vec<CircleShape>, Vec<TextShape>) {
-        if !(node.selected
+        if !(node.selected()
             || comp_node.subselected()
-            || node.dragged
-            || node.folded
+            || node.dragged()
+            || node.folded()
             || comp_node.subfolded())
         {
             return (vec![], vec![]);
@@ -553,7 +559,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             texts.push(label_shape);
         };
 
-        if node.folded {
+        if node.folded() {
             shape = CircleShape::stroke(
                 loc,
                 node_radius,

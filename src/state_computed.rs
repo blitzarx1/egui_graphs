@@ -90,7 +90,7 @@ impl StateComputed {
         child_mode: bool,
         depth: i32,
     ) {
-        if !root.selected {
+        if !root.selected() {
             return;
         }
 
@@ -134,7 +134,7 @@ impl StateComputed {
         root: &Node<N>,
         depth: usize,
     ) {
-        if !root.folded {
+        if !root.folded() {
             return;
         }
 

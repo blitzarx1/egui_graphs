@@ -142,16 +142,16 @@ impl ConfigurableApp {
             let g_n = self.g.node_weight_mut(*g_n_idx).unwrap();
             let sim_n = self.sim.get_graph_mut().node_weight_mut(*g_n_idx).unwrap();
 
-            if g_n.dragged {
-                let loc = g_n.location;
+            if g_n.dragged() {
+                let loc = g_n.location();
                 sim_n.location = Vec3::new(loc.x, loc.y, 0.);
                 return;
             }
 
             let loc = sim_n.location;
-            g_n.location = Vec2::new(loc.x, loc.y);
+            g_n.set_location(Vec2::new(loc.x, loc.y));
 
-            if g_n.selected {
+            if g_n.selected() {
                 self.selected_nodes.push(g_n.clone());
             }
         });
@@ -233,8 +233,8 @@ impl ConfigurableApp {
         // location of new node is in surrounging of random existing node
         let mut rng = rand::thread_rng();
         let location = Vec2::new(
-            random_n.location.x + 10. + rng.gen_range(0. ..50.),
-            random_n.location.y + 10. + rng.gen_range(0. ..50.),
+            random_n.location().x + 10. + rng.gen_range(0. ..50.),
+            random_n.location().y + 10. + rng.gen_range(0. ..50.),
         );
 
         let idx = self.g.add_node(Node::new(location, ()));

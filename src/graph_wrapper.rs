@@ -31,7 +31,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         // transform pos to graph coordinates
         let pos_in_graph = (pos - meta.pan).to_vec2() / meta.zoom;
         self.nodes_with_context(comp)
-            .find(|(_, n, comp)| (n.location - pos_in_graph).length() <= comp.radius(meta))
+            .find(|(_, n, comp)| (n.location() - pos_in_graph).length() <= comp.radius(meta))
     }
 
     pub fn nodes_with_context(
