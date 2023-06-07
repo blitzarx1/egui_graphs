@@ -113,22 +113,22 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
 
         self.g.nodes_with_context(state).for_each(|(_, n, comp)| {
-            let x_minus_rad = n.location.x - comp.radius(meta);
+            let x_minus_rad = n.location().x - comp.radius(meta);
             if x_minus_rad < min_x {
                 min_x = x_minus_rad;
             };
 
-            let y_minus_rad = n.location.y - comp.radius(meta);
+            let y_minus_rad = n.location().y - comp.radius(meta);
             if y_minus_rad < min_y {
                 min_y = y_minus_rad;
             };
 
-            let x_plus_rad = n.location.x + comp.radius(meta);
+            let x_plus_rad = n.location().x + comp.radius(meta);
             if x_plus_rad > max_x {
                 max_x = x_plus_rad;
             };
 
-            let y_plus_rad = n.location.y + comp.radius(meta);
+            let y_plus_rad = n.location().y + comp.radius(meta);
             if y_plus_rad > max_y {
                 max_y = y_plus_rad;
             };
@@ -226,7 +226,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
 
         let n = self.g.node(idx).unwrap();
-        if n.selected {
+        if n.selected() {
             self.set_node_selected(idx, false);
             return;
         }
@@ -346,15 +346,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     fn set_node_selected(&mut self, idx: NodeIndex, val: bool) {
         let n = self.g.node_mut(idx).unwrap();
-        let change = ChangeNode::change_selected(idx, n.selected, val);
-        n.selected = val;
+        let change = ChangeNode::change_selected(idx, n.selected(), val);
+        n.set_selected(val);
         self.send_changes(Change::node(change));
     }
 
     fn set_node_folded(&mut self, idx: NodeIndex, val: bool) {
         let n = self.g.node_mut(idx).unwrap();
-        let change = ChangeNode::change_folded(idx, n.folded, val);
-        n.folded = val;
+        let change = ChangeNode::change_folded(idx, n.folded(), val);
+        n.set_folded(val);
         self.send_changes(Change::node(change));
     }
 
@@ -384,16 +384,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
         let n = self.g.node_mut(idx).unwrap();
-        let change = ChangeNode::change_dragged(idx, n.dragged, val);
-        n.dragged = val;
+        let change = ChangeNode::change_dragged(idx, n.dragged(), val);
+        n.set_dragged(val);
         self.send_changes(Change::node(change));
     }
 
     fn move_node(&mut self, idx: NodeIndex, delta: Vec2) {
         let n = self.g.node_mut(idx).unwrap();
-        let new_loc = n.location + delta;
-        let change = ChangeNode::change_location(idx, n.location, new_loc);
-        n.location = new_loc;
+        let new_loc = n.location() + delta;
+        let change = ChangeNode::change_location(idx, n.location(), new_loc);
+        n.set_location(new_loc);
         self.send_changes(Change::node(change));
     }
 

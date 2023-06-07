@@ -6,18 +6,18 @@ use crate::metadata::Metadata;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Node<N: Clone> {
     /// Client data
-    pub data: Option<N>,
+    data: Option<N>,
 
-    pub location: Vec2,
+    location: Vec2,
 
-    pub label: Option<String>,
+    label: Option<String>,
 
     /// If `color` is None default color is used.
-    pub color: Option<Color32>,
+    color: Option<Color32>,
 
-    pub folded: bool,
-    pub selected: bool,
-    pub dragged: bool,
+    folded: bool,
+    selected: bool,
+    dragged: bool,
 }
 
 impl<N: Clone> Default for Node<N> {
@@ -44,9 +44,59 @@ impl<N: Clone> Node<N> {
         }
     }
 
+    pub fn data(&self) -> Option<&N> {
+        self.data.as_ref()
+    }
+
+    pub fn location(&self) -> Vec2 {
+        self.location
+    }
+
+    pub fn set_location(&mut self, loc: Vec2) {
+        self.location = loc
+    }
+
+    pub fn folded(&self) -> bool {
+        self.folded
+    }
+
+    pub fn set_folded(&mut self, folded: bool) {
+        self.folded = folded;
+    }
+
+    pub fn selected(&self) -> bool {
+        self.selected
+    }
+
+    pub fn set_selected(&mut self, selected: bool) {
+        self.selected = selected;
+    }
+
+    pub fn dragged(&self) -> bool {
+        self.dragged
+    }
+
+    pub fn set_dragged(&mut self, dragged: bool) {
+        self.dragged = dragged;
+    }
+
+    pub fn label(&self) -> Option<&String> {
+        self.label.as_ref()
+    }
+
     pub fn with_label(&mut self, label: String) -> Self {
         let mut res = self.clone();
         res.label = Some(label);
+        res
+    }
+
+    pub fn color(&self) -> Option<Color32> {
+        self.color
+    }
+
+    pub fn with_color(&mut self, color: Color32) -> Self {
+        let mut res = self.clone();
+        res.color = Some(color);
         res
     }
 
@@ -69,15 +119,15 @@ impl<N: Clone> Node<N> {
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct Edge<E: Clone> {
     /// Client data
-    pub data: Option<E>,
+    data: Option<E>,
 
-    pub width: f32,
-    pub tip_size: f32,
-    pub tip_angle: f32,
-    pub curve_size: f32,
+    width: f32,
+    tip_size: f32,
+    tip_angle: f32,
+    curve_size: f32,
 
     /// If `color` is None default color is used.
-    pub color: Option<Color32>,
+    color: Option<Color32>,
 }
 
 impl<E: Clone> Default for Edge<E> {
@@ -101,6 +151,36 @@ impl<E: Clone> Edge<E> {
 
             ..Default::default()
         }
+    }
+
+    pub fn width(&self) -> f32 {
+        self.width
+    }
+
+    pub fn tip_size(&self) -> f32 {
+        self.tip_size
+    }
+
+    pub fn tip_angle(&self) -> f32 {
+        self.tip_angle
+    }
+
+    pub fn curve_size(&self) -> f32 {
+        self.curve_size
+    }
+
+    pub fn data(&self) -> Option<&E> {
+        self.data.as_ref()
+    }
+
+    pub fn color(&self) -> Option<Color32> {
+        self.color
+    }
+
+    pub fn with_color(&mut self, color: Color32) -> Self {
+        let mut res = self.clone();
+        res.color = Some(color);
+        res
     }
 
     pub(crate) fn screen_transform(&self, meta: &Metadata) -> Self {
