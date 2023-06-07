@@ -1,6 +1,6 @@
 [package]
 name = "basic_undirected"
-version = "0.5.2"
+version = "0.5.3"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 edition = "2021"
