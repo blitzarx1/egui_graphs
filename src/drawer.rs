@@ -461,6 +461,19 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         (circles, texts)
     }
 
+    fn shape_label(&self, node_radius: f32, n: &Node<N>) -> Option<TextShape> {
+        let color_label = self.settings_style.color_label(self.p.ctx());
+        let label_pos = Pos2::new(n.location.x, n.location.y - node_radius * 2.);
+        let label_size = node_radius;
+        let galley = self.p.layout_no_wrap(
+            n.label.as_ref()?.clone(),
+            FontId::new(label_size, FontFamily::Monospace),
+            color_label,
+        );
+
+        Some(TextShape::new(label_pos, galley))
+    }
+
     fn draw_node_basic(
         &self,
         loc: Pos2,
@@ -468,14 +481,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         comp_node: &StateComputedNode,
     ) -> (Vec<CircleShape>, Vec<TextShape>) {
         let color = self.settings_style.color_node(self.p.ctx(), node);
-        let (mut nodes, mut texts) = (vec![], vec![]);
+        let mut nodes = vec![];
         if !(node.selected
             || comp_node.subselected()
             || node.dragged
             || node.folded
             || comp_node.subfolded())
         {
-            // draw the node in place
+            // draw not interacted nodes in place
             let node_radius = comp_node.radius(self.meta);
             self.p.circle_filled(
                 loc,
@@ -483,29 +496,22 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 self.settings_style.color_node(self.p.ctx(), node),
             );
 
-            if let Some(label) = node.label.as_ref() {
-                if !self.settings_style.labels_always {
-                    return (nodes, texts);
-                }
+            if !self.settings_style.labels_always {
+                return (nodes, vec![]);
+            }
 
-                let color_label = self.settings_style.color_label(self.p.ctx());
-                let label_pos = Pos2::new(node.location.x, node.location.y - node_radius * 2.);
-                let label_size = node_radius;
-                let galley = self.p.layout_no_wrap(
-                    label.clone(),
-                    FontId::new(label_size, FontFamily::Monospace),
-                    color_label,
-                );
-                self.p.add(TextShape::new(label_pos, galley));
-            };
+            if let Some(label_shape) = self.shape_label(node_radius, node) {
+                self.p.add(label_shape);
+            }
 
-            return (nodes, texts);
+            return (nodes, vec![]);
         }
 
         if node.folded || comp_node.subfolded() {
-            return (nodes, texts);
+            return (nodes, vec![]);
         }
 
+        // generate selected node shapes
         let node_radius = comp_node.radius(self.meta);
         nodes.push(CircleShape {
             center: loc,
@@ -514,23 +520,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             stroke: Stroke::new(1., color),
         });
 
-        if let Some(label) = node.label.as_ref() {
-            if !(node.selected || comp_node.subselected()) && self.settings_style.labels_always {
-                return (nodes, texts);
-            }
-
-            let color_label = self.settings_style.color_label(self.p.ctx());
-            let label_pos = Pos2::new(node.location.x, node.location.y - node_radius * 2.);
-            let label_size = node_radius;
-            let galley = self.p.layout_no_wrap(
-                label.clone(),
-                FontId::new(label_size, FontFamily::Monospace),
-                color_label,
-            );
-            texts.push(TextShape::new(label_pos, galley));
-        };
         // draw the node later if it's selected or dragged to make sure it's on top
-        (nodes, texts)
+        (nodes, vec![])
     }
 
     fn draw_node_interacted(
@@ -552,22 +543,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return (vec![], vec![]);
         }
 
-        let mut circles = vec![];
         let mut texts = vec![];
         let node_radius = comp_node.radius(self.meta);
         let highlight_radius = node_radius * 1.5;
         let text_size = node_radius / 2.;
         let shape: CircleShape;
 
-        if let Some(label) = node.label.as_ref() {
-            let color_label = self.settings_style.color_label(self.p.ctx());
-            let label_pos = Pos2::new(node.location.x, node.location.y - node_radius * 2.);
-            let galley = self.p.layout_no_wrap(
-                label.clone(),
-                FontId::new(text_size, FontFamily::Monospace),
-                color_label,
-            );
-            texts.push(TextShape::new(label_pos, galley));
+        if let Some(label_shape) = self.shape_label(node_radius, node) {
+            texts.push(label_shape);
         };
 
         if node.folded {
@@ -576,30 +559,29 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 node_radius,
                 Stroke::new(1., self.settings_style.color_node(self.p.ctx(), node)),
             );
-            texts.push(TextShape::new(
-                Pos2::new(loc.x - node_radius / 4., loc.y - node_radius / 4.),
-                self.p.layout_no_wrap(
-                    comp_node.num_folded.to_string(),
-                    FontId::monospace(text_size),
-                    self.settings_style.color_label(self.p.ctx()),
-                ),
-            ));
-        } else {
-            shape = CircleShape {
-                center: loc,
-                radius: highlight_radius,
-                fill: Color32::TRANSPARENT,
-                stroke: Stroke::new(
-                    node_radius,
-                    self.settings_style
-                        .color_node_highlight(node, comp_node)
-                        .unwrap(),
-                ),
-            };
+            let galley = self.p.layout_no_wrap(
+                comp_node.num_folded.to_string(),
+                FontId::monospace(text_size),
+                self.settings_style.color_label(self.p.ctx()),
+            );
+            let galley_pos = Pos2::new(loc.x - node_radius / 4., loc.y - node_radius / 4.);
+            texts.push(TextShape::new(galley_pos, galley));
+            return (vec![shape], texts);
         }
 
-        circles.push(shape);
-        (circles, texts)
+        shape = CircleShape {
+            center: loc,
+            radius: highlight_radius,
+            fill: Color32::TRANSPARENT,
+            stroke: Stroke::new(
+                node_radius,
+                self.settings_style
+                    .color_node_highlight(node, comp_node)
+                    .unwrap(),
+            ),
+        };
+
+        (vec![shape], texts)
     }
 }
 

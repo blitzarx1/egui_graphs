@@ -3,9 +3,9 @@ use std::time::Instant;
 
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
-use egui::{CollapsingHeader, Color32, Context, Pos2, Rect, ScrollArea, Slider, Ui, Vec2, Visuals};
+use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2, Visuals};
 use egui_graphs::{
-    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle,
+    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle, to_input_graph,
 };
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -18,7 +18,6 @@ use settings::SettingsGraph;
 mod settings;
 
 const SIMULATION_DT: f32 = 0.035;
-const INITIAL_RECT_SIZE: f32 = 200.;
 const FPS_LINE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
 const CHANGES_LIMIT: usize = 100;
 
@@ -654,16 +653,10 @@ fn construct_simulation(g: &StableGraph<Node<()>, Edge<()>>) -> Simulation<(), (
 fn generate_random_graph(node_count: usize, edge_count: usize) -> StableGraph<Node<()>, Edge<()>> {
     let mut rng = rand::thread_rng();
     let mut graph = StableGraph::new();
-    let rect = &Rect::from_min_max(
-        Pos2::new(-INITIAL_RECT_SIZE, -INITIAL_RECT_SIZE),
-        Pos2::new(INITIAL_RECT_SIZE, INITIAL_RECT_SIZE),
-    );
 
     // add nodes
     for _ in 0..node_count {
-        let idx = graph.add_node(Node::new(random_point(rect), ()));
-        let n = graph.node_weight_mut(idx).unwrap();
-        *n = n.with_label(format!("{:?}", idx));
+        graph.add_node(());
     }
 
     // add random edges
@@ -674,20 +667,11 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> StableGraph<No
         graph.add_edge(
             NodeIndex::new(source),
             NodeIndex::new(target),
-            Edge::new(()),
+            (),
         );
     }
 
-    graph
-}
-
-fn random_point(rect: &Rect) -> Vec2 {
-    let mut rng = rand::thread_rng();
-
-    let x = rng.gen_range(rect.left()..rect.right());
-    let y = rng.gen_range(rect.top()..rect.bottom());
-
-    Vec2::new(x, y)
+    to_input_graph(&graph)
 }
 
 fn main() {

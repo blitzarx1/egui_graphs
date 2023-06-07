@@ -1,21 +1,20 @@
 use crate::{Edge, Node};
 use egui::Vec2;
 use petgraph::{
-    stable_graph::{NodeIndex, StableGraph},
-    visit::{EdgeRef, IntoEdgeReferences},
+    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
+    visit::IntoNodeReferences,
+    EdgeType,
 };
 use rand::Rng;
 use std::collections::HashMap;
 
-const SIDE_SIZE: f32 = 250.;
+pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 
 /// Helper function which transforms users `petgraph::StableGraph` isntance into the version required by the `GraphView` widget.
 ///
-/// The users  graph, `g`, can have any data type for nodes and edges, and can be either directed
-/// or undirected. The function creates a new StableGraph where the nodes and edges are encapsulated into
-/// Node and Edge structs respectively. Node struct contains the original node data, a randomly generated
-/// location, and default values for color, selected and dragged attributes. The Edge struct encapsulates
-/// the original edge data from the users graph.
+/// The function creates a new StableGraph where the nodes and edges are encapsulated into
+/// Node and Edge structs respectively. New nodes and edges are created with `default_node_transform` and `default_edge_transform`
+/// functions. If you want to define custom transformation procedures (e.g. to use custom label for nodes), use `to_input_graph_custom` instead.
 ///
 /// # Arguments
 /// * `g` - A reference to a `petgraph::StableGraph`. The graph can have any data type for nodes and edges, and
@@ -49,43 +48,78 @@ const SIDE_SIZE: f32 = 250.;
 ///
 /// assert_eq!(input_graph.edge_weight(input_graph.edge_indices().next().unwrap()).unwrap().data, Some("edge1"));
 ///
+/// assert_eq!(input_graph.node_weight(input_node_1).unwrap().label.clone().unwrap(), input_node_1.index().to_string());
+/// assert_eq!(input_graph.node_weight(input_node_2).unwrap().label.clone().unwrap(), input_node_2.index().to_string());
+///
 /// let loc_1 = input_graph.node_weight(input_node_1).unwrap().location;
 /// let loc_2 = input_graph.node_weight(input_node_2).unwrap().location;
 /// assert!(loc_1 != Vec2::ZERO);
 /// assert!(loc_2 != Vec2::ZERO);
 /// ```
-pub fn to_input_graph<N: Clone, E: Clone, Ty: petgraph::EdgeType>(
+pub fn to_input_graph<N: Clone, E: Clone, Ty: EdgeType>(
     g: &StableGraph<N, E, Ty>,
 ) -> StableGraph<Node<N>, Edge<E>, Ty> {
+    transform(g, default_node_transform, default_edge_transform)
+}
+
+/// The same as `to_input_graph`, but allows to define custom transformation procedures for nodes and edges.
+pub fn to_input_graph_custom<N: Clone, E: Clone, Ty: EdgeType>(
+    g: &StableGraph<N, E, Ty>,
+    node_transform: impl Fn(&StableGraph<N, E, Ty>, NodeIndex, &N) -> Node<N>,
+    edge_transform: impl Fn(&StableGraph<N, E, Ty>, EdgeIndex, &E) -> Edge<E>,
+) -> StableGraph<Node<N>, Edge<E>, Ty> {
+    transform(g, node_transform, edge_transform)
+}
+
+pub fn default_node_transform<N: Clone, E: Clone, Ty: EdgeType>(
+    _: &StableGraph<N, E, Ty>,
+    idx: NodeIndex,
+    data: &N,
+) -> Node<N> {
     let mut rng = rand::thread_rng();
+    let location = Vec2::new(
+        rng.gen_range(0. ..DEFAULT_SPAWN_SIZE),
+        rng.gen_range(0. ..DEFAULT_SPAWN_SIZE),
+    );
+    Node::new(location, data.clone()).with_label(idx.index().to_string())
+}
+
+pub fn default_edge_transform<N: Clone, E: Clone, Ty: EdgeType>(
+    _: &StableGraph<N, E, Ty>,
+    _: EdgeIndex,
+    data: &E,
+) -> Edge<E> {
+    Edge::new(data.clone())
+}
+
+fn transform<N: Clone, E: Clone, Ty: EdgeType>(
+    g: &StableGraph<N, E, Ty>,
+    node_transform: impl Fn(&StableGraph<N, E, Ty>, NodeIndex, &N) -> Node<N>,
+    edge_transform: impl Fn(&StableGraph<N, E, Ty>, EdgeIndex, &E) -> Edge<E>,
+) -> StableGraph<Node<N>, Edge<E>, Ty> {
     let mut input_g = StableGraph::<Node<N>, Edge<E>, Ty>::default();
 
     let input_by_user = g
-        .node_indices()
-        .map(|user_n_index| {
-            let user_n = &g[user_n_index];
-
-            let data = user_n.clone();
-            let location = Vec2::new(rng.gen_range(0. ..SIDE_SIZE), rng.gen_range(0. ..SIDE_SIZE));
-
-            let input_n = Node::new(location, data);
-
-            let input_n_index = input_g.add_node(input_n);
-
-            (user_n_index, input_n_index)
+        .node_references()
+        .map(|(user_n_idx, user_n)| {
+            let input_n_index = input_g.add_node(node_transform(g, user_n_idx, user_n));
+            (user_n_idx, input_n_index)
         })
         .collect::<HashMap<NodeIndex, NodeIndex>>();
 
-    for user_e in g.edge_references() {
-        let data = user_e.weight().clone();
+    g.edge_indices().for_each(|user_e_idx| {
+        let (user_source_n_idx, user_target_n_idx) = g.edge_endpoints(user_e_idx).unwrap();
+        let user_e = g.edge_weight(user_e_idx).unwrap();
 
-        let input_e = Edge::new(data);
+        let input_source_n = *input_by_user.get(&user_source_n_idx).unwrap();
+        let input_target_n = *input_by_user.get(&user_target_n_idx).unwrap();
 
-        let input_source_n = *input_by_user.get(&user_e.source()).unwrap();
-        let input_target_n = *input_by_user.get(&user_e.target()).unwrap();
-
-        input_g.add_edge(input_source_n, input_target_n, input_e);
-    }
+        input_g.add_edge(
+            input_source_n,
+            input_target_n,
+            edge_transform(g, user_e_idx, user_e),
+        );
+    });
 
     input_g
 }
@@ -115,8 +149,10 @@ mod tests {
 
             assert_eq!(input_n.data, Some(*user_n));
 
-            assert!(input_n.location.x >= 0.0 && input_n.location.x <= SIDE_SIZE);
-            assert!(input_n.location.y >= 0.0 && input_n.location.y <= SIDE_SIZE);
+            assert!(input_n.location.x >= 0.0 && input_n.location.x <= DEFAULT_SPAWN_SIZE);
+            assert!(input_n.location.y >= 0.0 && input_n.location.y <= DEFAULT_SPAWN_SIZE);
+
+            assert_eq!(input_n.label.clone().unwrap(), user_idx.index().to_string());
 
             assert_eq!(input_n.color, None);
             assert!(!input_n.selected);
@@ -143,8 +179,10 @@ mod tests {
 
             assert_eq!(input_n.data, Some(*user_n));
 
-            assert!(input_n.location.x >= 0.0 && input_n.location.x <= SIDE_SIZE);
-            assert!(input_n.location.y >= 0.0 && input_n.location.y <= SIDE_SIZE);
+            assert!(input_n.location.x >= 0.0 && input_n.location.x <= DEFAULT_SPAWN_SIZE);
+            assert!(input_n.location.y >= 0.0 && input_n.location.y <= DEFAULT_SPAWN_SIZE);
+
+            assert_eq!(input_n.label.clone().unwrap(), user_idx.index().to_string());
 
             assert_eq!(input_n.color, None);
             assert!(!input_n.selected);
