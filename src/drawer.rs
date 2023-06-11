@@ -25,8 +25,8 @@ type ShapesNodes = (Vec<CircleShape>, Vec<TextShape>);
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     g: &'a GraphWrapper<'a, N, E, Ty>,
     p: &'a Painter,
-    meta: &'a mut Metadata,
-    comp: &'a mut StateComputed,
+    meta: &'a Metadata,
+    comp: &'a StateComputed,
     settings_style: &'a SettingsStyle,
 }
 
@@ -34,8 +34,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     pub fn new(
         g: &'a GraphWrapper<N, E, Ty>,
         p: &'a Painter,
-        meta: &'a mut Metadata,
-        comp: &'a mut StateComputed,
+        meta: &'a Metadata,
+        comp: &'a StateComputed,
         settings_style: &'a SettingsStyle,
     ) -> Self {
         Drawer {
@@ -49,56 +49,21 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
     pub fn draw(&mut self) {
         let e_shapes = self.shapes_edges();
-        let (new_dragged, new_rect, n_shapes) = self.shapes_nodes();
+        let n_shapes = self.shapes_nodes();
 
         // drawing priority: edges, nodes, interacted edges, interacted nodes
         self.draw_edges_shapes(e_shapes.0);
         self.draw_nodes_shapes(n_shapes.0);
         self.draw_edges_shapes(e_shapes.1);
         self.draw_nodes_shapes(n_shapes.1);
-
-        self.comp.dragged = new_dragged;
-        self.meta.graph_bounds = new_rect;
     }
 
-    fn shapes_nodes(&self) -> (Option<NodeIndex>, Rect, (ShapesNodes, ShapesNodes)) {
+    fn shapes_nodes(&self) -> (ShapesNodes, ShapesNodes) {
         let (mut shapes_first, mut shapes_second) =
             (ShapesNodes::default(), ShapesNodes::default());
-        let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
-        let mut new_dragged = None;
         self.g
             .nodes_with_context(self.comp)
             .for_each(|(idx, n, comp_node)| {
-                // TODO: dont count graph bounds here. Count in computed state instead.
-
-                // update graph bounds on the fly
-                // we shall account for the node radius
-                // so that the node is fully visible
-
-                let x_minus_rad = n.location().x - comp_node.radius(self.meta);
-                if x_minus_rad < min_x {
-                    min_x = x_minus_rad;
-                };
-
-                let y_minus_rad = n.location().y - comp_node.radius(self.meta);
-                if y_minus_rad < min_y {
-                    min_y = y_minus_rad;
-                };
-
-                let x_plus_rad = n.location().x + comp_node.radius(self.meta);
-                if x_plus_rad > max_x {
-                    max_x = x_plus_rad;
-                };
-
-                let y_plus_rad = n.location().y + comp_node.radius(self.meta);
-                if y_plus_rad > max_y {
-                    max_y = y_plus_rad;
-                };
-
-                if n.dragged() {
-                    new_dragged = Some(idx);
-                }
-
                 let shapes = self.shapes_node(n, comp_node);
                 shapes_first.0.extend(shapes.0 .0);
                 shapes_first.1.extend(shapes.0 .1);
@@ -107,11 +72,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 shapes_second.1.extend(shapes.1 .1);
             });
 
-        (
-            new_dragged,
-            Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y)),
-            (shapes_first, shapes_second),
-        )
+        (shapes_first, shapes_second)
     }
 
     fn shapes_edges(&self) -> (ShapesEdges, ShapesEdges) {
