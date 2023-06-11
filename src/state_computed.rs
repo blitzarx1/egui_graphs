@@ -1,9 +1,5 @@
-use std::{
-    collections::HashMap,
-    f32::{MAX, MIN},
-};
+use std::collections::HashMap;
 
-use egui::{Pos2, Rect};
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
@@ -29,7 +25,6 @@ impl StateComputed {
         g: &GraphWrapper<'_, N, E, Ty>,
         settings_interaction: &SettingsInteraction,
         settings_style: &SettingsStyle,
-        meta: &mut Metadata,
     ) -> Self {
         let nodes_computed = g.nodes().map(|(idx, _)| {
             let node_state = StateComputedNode::default();
@@ -51,7 +46,6 @@ impl StateComputed {
         let mut selections = SubGraphs::default();
         let mut foldings = SubGraphs::default();
         let mut new_dragged = None;
-        let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
         g.nodes().for_each(|(root_idx, root_n)| {
             // compute radii
             let num = g.edges_num(root_idx);
@@ -84,35 +78,11 @@ impl StateComputed {
                 .node_state_mut(&root_idx)
                 .unwrap()
                 .inc_radius(radius_addition);
-
-            let comp_node = state.node_state(&root_idx).unwrap();
-
-            let x_minus_rad = root_n.location().x - comp_node.radius(meta);
-            if x_minus_rad < min_x {
-                min_x = x_minus_rad;
-            };
-
-            let y_minus_rad = root_n.location().y - comp_node.radius(meta);
-            if y_minus_rad < min_y {
-                min_y = y_minus_rad;
-            };
-
-            let x_plus_rad = root_n.location().x + comp_node.radius(meta);
-            if x_plus_rad > max_x {
-                max_x = x_plus_rad;
-            };
-
-            let y_plus_rad = root_n.location().y + comp_node.radius(meta);
-            if y_plus_rad > max_y {
-                max_y = y_plus_rad;
-            };
         });
 
         state.dragged = new_dragged;
         state.selections = Some(selections);
         state.foldings = Some(foldings);
-
-        meta.graph_bounds = Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
 
         state
     }

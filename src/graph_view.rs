@@ -49,15 +49,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
 
         let mut meta = Metadata::get(ui);
 
-        let mut computed = StateComputed::compute(
-            &self.g,
-            &self.settings_interaction,
-            &self.settings_style,
-            &mut meta,
-        );
+        let mut computed =
+            StateComputed::compute(&self.g, &self.settings_interaction, &self.settings_style);
 
         self.fit_if_first(&resp, &computed, &mut meta);
 
+        // TODO: create walkers for nodes and edges for drawing and computing state
         // let drawer = Drawer::new(&self.g, &p, &mut meta, &mut computed, &self.settings_style);
         // self.g.walk(|idx: &NodeIndex, n: &Node<N>| {});
         self.draw(&p, &meta, &computed);
@@ -145,13 +142,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     /// Fits the graph to the screen if it is the first frame
-    fn fit_if_first(&self, r: &Response, state: &StateComputed, meta: &mut Metadata) {
+    fn fit_if_first(&self, r: &Response, comp: &StateComputed, meta: &mut Metadata) {
         if !meta.first_frame {
             return;
         }
 
-        meta.graph_bounds = self.bounding_rect(state, meta);
-        self.fit_to_screen(&r.rect, meta);
+        self.fit_to_screen(&r.rect, comp, meta);
         meta.first_frame = false;
     }
 
@@ -268,7 +264,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata) {
+    fn fit_to_screen(&self, rect: &Rect, comp: &StateComputed, meta: &mut Metadata) {
+        meta.graph_bounds = self.bounding_rect(comp, meta);
+
         // calculate graph dimensions with decorative padding
         let diag = meta.graph_bounds.max - meta.graph_bounds.min;
         let graph_size = diag * (1. + self.setings_navigation.screen_padding);
@@ -301,15 +299,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         &self,
         ui: &Ui,
         resp: &Response,
-        state: &StateComputed,
+        comp: &StateComputed,
         meta: &mut Metadata,
     ) {
         if self.setings_navigation.fit_to_screen {
-            return self.fit_to_screen(&resp.rect, meta);
+            return self.fit_to_screen(&resp.rect, comp, meta);
         }
 
         self.handle_zoom(ui, resp, meta);
-        self.handle_pan(resp, state, meta);
+        self.handle_pan(resp, comp, meta);
     }
 
     fn handle_zoom(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
