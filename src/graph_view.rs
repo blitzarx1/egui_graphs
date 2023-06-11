@@ -91,6 +91,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self
     }
 
+    /// Provide a channel to which changes will be sent.
     pub fn with_changes(mut self, changes_sender: &'a Sender<Change>) -> Self {
         self.changes_sender = Some(changes_sender);
         self
@@ -102,6 +103,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self
     }
 
+    /// Modifies default style settings.
     pub fn with_styles(mut self, settings_style: &SettingsStyle) -> Self {
         self.settings_style = settings_style.clone();
         self
