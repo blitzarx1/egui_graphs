@@ -4,7 +4,7 @@ use std::{
 };
 
 use egui::{Pos2, Rect};
-use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, visit::EdgeRef, EdgeType};
+use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
     graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Node,

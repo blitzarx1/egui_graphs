@@ -1,11 +1,8 @@
-use std::{
-    collections::HashMap,
-    f32::{consts::PI, MAX, MIN},
-};
+use std::{collections::HashMap, f32::consts::PI};
 
 use egui::{
     epaint::{CircleShape, CubicBezierShape, QuadraticBezierShape, TextShape},
-    Color32, FontFamily, FontId, Painter, Pos2, Rect, Shape, Stroke, Vec2,
+    Color32, FontFamily, FontId, Painter, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
@@ -63,7 +60,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             (ShapesNodes::default(), ShapesNodes::default());
         self.g
             .nodes_with_context(self.comp)
-            .for_each(|(idx, n, comp_node)| {
+            .for_each(|(_, n, comp_node)| {
                 let shapes = self.shapes_node(n, comp_node);
                 shapes_first.0.extend(shapes.0 .0);
                 shapes_first.1.extend(shapes.0 .1);
