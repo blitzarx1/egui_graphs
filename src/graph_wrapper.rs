@@ -1,7 +1,7 @@
 use egui::Pos2;
 use petgraph::{
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
-    visit::{IntoEdgeReferences, IntoNodeReferences},
+    visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences},
     Direction::{self, Incoming, Outgoing},
     EdgeType,
 };
@@ -20,6 +20,15 @@ pub struct GraphWrapper<'a, N: Clone, E: Clone, Ty: EdgeType> {
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
     pub fn new(g: &'a mut StableGraph<Node<N>, Edge<E>, Ty>) -> Self {
         Self { g }
+    }
+
+    pub fn walk(
+        &self,
+        mut walker_node: impl FnMut(&NodeIndex, &Node<N>),
+        mut walker_edge: impl FnMut(&EdgeIndex, &Edge<E>),
+    ) {
+        self.nodes().for_each(|(idx, n)| walker_node(&idx, n));
+        self.edges().for_each(|(idx, e)| walker_edge(&idx, e));
     }
 
     pub fn node_by_pos(
@@ -47,8 +56,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         self.g.node_references()
     }
 
-    pub fn edges(&'a self) -> impl Iterator<Item = EdgeReference<Edge<E>>> {
-        self.g.edge_references()
+    pub fn edges(&'a self) -> impl Iterator<Item = (EdgeIndex, &Edge<E>)> {
+        self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
 
     pub fn node(&self, i: NodeIndex) -> Option<&Node<N>> {
@@ -57,6 +66,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
 
     pub fn edge(&self, i: EdgeIndex) -> Option<&Edge<E>> {
         self.g.edge_weight(i)
+    }
+
+    pub fn edge_endpoints(&self, i: EdgeIndex) -> Option<(NodeIndex, NodeIndex)> {
+        self.g.edge_endpoints(i)
     }
 
     pub fn node_mut(&mut self, i: NodeIndex) -> Option<&mut Node<N>> {

@@ -9,7 +9,6 @@ use egui::{
 };
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
-    visit::EdgeRef,
     EdgeType,
 };
 
@@ -19,6 +18,8 @@ use crate::{
     state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
     Edge, Node, SettingsStyle,
 };
+
+type EdgesShapes = (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>);
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     g: &'a GraphWrapper<'a, N, E, Ty>,
@@ -46,10 +47,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     }
 
     pub fn draw(&mut self) {
-        let edges_shapes = self.draw_edges();
+        self.draw_edges();
         let (new_dragged, new_rect, nodes_shapes) = self.draw_nodes();
 
-        self.draw_edges_shapes(edges_shapes);
         self.draw_nodes_shapes(nodes_shapes);
 
         self.comp.dragged = new_dragged;
@@ -106,51 +106,45 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         )
     }
 
-    fn draw_edges(&self) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
-        let mut shapes = (Vec::new(), Vec::new(), Vec::new());
-
+    fn draw_edges(&self) {
         let mut edge_map: HashMap<
             (NodeIndex, NodeIndex),
             Vec<(EdgeIndex, Edge<E>, &StateComputedEdge)>,
         > = HashMap::new();
 
-        self.g.edges().for_each(|e| {
-            let source = e.source();
-            let target = e.target();
-            let edge = self.g.edge(e.id()).unwrap();
-
+        self.g.edges().for_each(|(idx, e)| {
+            let (source, target) = self.g.edge_endpoints(idx).unwrap();
             edge_map
                 .entry((source, target))
                 .or_insert_with(Vec::new)
-                .push((e.id(), edge.clone(), self.comp.edge_state(&e.id()).unwrap()));
+                .push((idx, e.clone(), self.comp.edge_state(&idx).unwrap()));
         });
 
-        let edges_by_nodes = edge_map
-            .iter()
-            .map(|entry| (*entry.0, entry.1.clone()))
-            .collect::<Vec<_>>();
-
-        edges_by_nodes.iter().for_each(|((start, end), edges)| {
+        let (mut shapes_first, mut shapes_second) =
+            (EdgesShapes::default(), EdgesShapes::default());
+        edge_map.iter().for_each(|((start, end), edges)| {
             let mut order = edges.len();
             edges.iter().for_each(|(_, e, comp)| {
                 order -= 1;
 
                 let edge = e.screen_transform(self.meta);
 
-                let selected = self.draw_edge(&edge, comp, start, end, order);
-                shapes.0.extend(selected.0);
-                shapes.1.extend(selected.1);
-                shapes.2.extend(selected.2);
+                let shapes = self.shape_edge(&edge, comp, start, end, order);
+
+                shapes_first.0.extend(shapes.0 .0);
+                shapes_first.1.extend(shapes.0 .1);
+                shapes_first.2.extend(shapes.0 .2);
+                shapes_second.0.extend(shapes.1 .0);
+                shapes_second.1.extend(shapes.1 .1);
+                shapes_second.2.extend(shapes.1 .2);
             });
         });
 
-        shapes
+        self.draw_edges_shapes(shapes_first);
+        self.draw_edges_shapes(shapes_second);
     }
 
-    fn draw_edges_shapes(
-        &self,
-        shapes: (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>),
-    ) {
+    fn draw_edges_shapes(&self, shapes: EdgesShapes) {
         shapes.0.into_iter().for_each(|shape| {
             self.p.add(shape);
         });
@@ -172,39 +166,34 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         });
     }
 
-    fn draw_edge(
+    fn shape_edge(
         &self,
         edge: &Edge<E>,
         comp_edge: &StateComputedEdge,
         start: &NodeIndex,
         end: &NodeIndex,
         order: usize,
-    ) -> (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>) {
-        let mut selected_shapes = vec![];
-        let mut selected_quadratic = vec![];
-        let mut selected_cubic = vec![];
+    ) -> (EdgesShapes, EdgesShapes) {
+        let mut res = (EdgesShapes::default(), EdgesShapes::default());
 
         if start == end {
-            self.draw_edge_looped(start, edge, comp_edge, order)
-                .into_iter()
-                .for_each(|c| {
-                    selected_cubic.push(c);
-                });
+            let (edge_looped_fitst, edge_looped_last) =
+                self.draw_edge_looped(start, edge, comp_edge, order);
 
-            return (selected_shapes, selected_cubic, selected_quadratic);
+            res.0 .1.extend(edge_looped_fitst);
+            res.1 .1.extend(edge_looped_last);
+
+            return res;
         }
 
         let shapes = self.draw_edge_basic(start, end, edge, comp_edge, order);
-        shapes
-            .0
-            .into_iter()
-            .for_each(|shape| selected_shapes.push(shape));
-        shapes
-            .1
-            .into_iter()
-            .for_each(|shape| selected_quadratic.push(shape));
+        res.0 .0.extend(shapes.0 .0);
+        res.0 .2.extend(shapes.0 .1);
 
-        (selected_shapes, selected_cubic, selected_quadratic)
+        res.1 .0.extend(shapes.1 .0);
+        res.1 .2.extend(shapes.1 .1);
+
+        res
     }
 
     fn draw_edge_looped(
@@ -213,12 +202,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         e: &Edge<E>,
         comp_edge: &StateComputedEdge,
         order: usize,
-    ) -> Vec<CubicBezierShape> {
+    ) -> (Vec<CubicBezierShape>, Vec<CubicBezierShape>) {
+        let mut res = (vec![], vec![]);
+
         let n: Node<N> = self.g.node(*n_idx).unwrap().screen_transform(self.meta);
         let comp_node = self.comp.node_state(n_idx).unwrap();
 
+        // we do not draw edges which are folded
         if comp_node.subfolded() {
-            return vec![];
+            return res;
         }
 
         let center_horizont_angle = PI / 4.;
@@ -253,17 +245,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         );
 
         if !comp_edge.subselected() {
-            self.p.add(shape_basic);
-            return vec![];
+            res.0.push(shape_basic);
+            return res;
         }
-
-        let mut shapes = vec![shape_basic];
 
         let highlighted_stroke = Stroke::new(
             e.width() * 2.,
             self.settings_style.color_edge_highlight(comp_edge).unwrap(),
         );
-        shapes.push(CubicBezierShape::from_points_stroke(
+        res.1.push(CubicBezierShape::from_points_stroke(
             [
                 right_intersect,
                 control_point1,
@@ -275,7 +265,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             highlighted_stroke,
         ));
 
-        shapes
+        res
     }
 
     fn draw_edge_basic(
@@ -285,7 +275,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         e: &Edge<E>,
         comp_edge: &StateComputedEdge,
         order: usize,
-    ) -> (Vec<Shape>, Vec<QuadraticBezierShape>) {
+    ) -> (
+        (Vec<Shape>, Vec<QuadraticBezierShape>),
+        (Vec<Shape>, Vec<QuadraticBezierShape>),
+    ) {
+        let mut res = ((vec![], vec![]), (vec![], vec![]));
         let mut comp_start = self.comp.node_state(start_idx).unwrap();
         let mut comp_end = self.comp.node_state(end_idx).unwrap();
         let mut start_node = self.g.node(*start_idx).unwrap();
@@ -293,7 +287,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let mut transparent = false;
 
         if (start_node.folded() || comp_start.subfolded()) && comp_end.subfolded() {
-            return (vec![], vec![]);
+            return res;
         }
 
         if comp_start.subfolded() && !comp_end.subfolded() {
@@ -349,51 +343,50 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         // draw straight edge
         if order == 0 {
-            let mut shapes = vec![];
             let head_point_1 = tip_point - e.tip_size() * rotate_vector(dir, e.tip_angle());
             let head_point_2 = tip_point - e.tip_size() * rotate_vector(dir, -e.tip_angle());
 
-            shapes.push(Shape::line_segment([start_point, tip_point], stroke));
-
-            // draw tips for directed edges
-            if self.g.is_directed() {
-                shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
-                shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
-            }
-
             if !comp_edge.subselected() {
-                shapes.into_iter().for_each(|shape| {
-                    self.p.add(shape);
-                });
+                res.0
+                     .0
+                    .push(Shape::line_segment([start_point, tip_point], stroke));
 
-                return (vec![], vec![]);
+                // draw tips for directed edges
+                if self.g.is_directed() {
+                    res.0
+                         .0
+                        .push(Shape::line_segment([tip_point, head_point_1], stroke));
+                    res.0
+                         .0
+                        .push(Shape::line_segment([tip_point, head_point_2], stroke));
+                }
+
+                return res;
             }
 
             let highlighted_stroke = Stroke::new(
                 e.width() * 2.,
                 self.settings_style.color_edge_highlight(comp_edge).unwrap(),
             );
-            shapes.push(Shape::line_segment(
+            res.1 .0.push(Shape::line_segment(
                 [start_point, tip_point],
                 highlighted_stroke,
             ));
 
             if self.g.is_directed() {
-                shapes.push(Shape::line_segment(
+                res.1 .0.push(Shape::line_segment(
                     [tip_point, head_point_1],
                     highlighted_stroke,
                 ));
-                shapes.push(Shape::line_segment(
+                res.1 .0.push(Shape::line_segment(
                     [tip_point, head_point_2],
                     highlighted_stroke,
                 ));
             }
 
-            return (shapes, vec![]);
+            return res;
         }
 
-        let mut shapes = vec![];
-        let mut quadratic_shapes = vec![];
         let dir_perpendicular = Vec2::new(-dir.y, dir.x);
         let center_point = (start_point + tip_point.to_vec2()).to_vec2() / 2.0;
         let control_point =
@@ -409,46 +402,43 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let head_point_1 = tip_point + arrow_tip_dir_1;
         let head_point_2 = tip_point + arrow_tip_dir_2;
 
-        quadratic_shapes.push(QuadraticBezierShape::from_points_stroke(
-            [start_point, control_point, tip_point],
-            false,
-            Color32::TRANSPARENT,
-            stroke,
-        ));
-        shapes.push(Shape::line_segment([tip_point, head_point_1], stroke));
-        shapes.push(Shape::line_segment([tip_point, head_point_2], stroke));
-
         if !comp_edge.subselected() {
-            quadratic_shapes.into_iter().for_each(|shape| {
-                self.p.add(shape);
-            });
-            shapes.into_iter().for_each(|shape| {
-                self.p.add(shape);
-            });
+            res.0 .1.push(QuadraticBezierShape::from_points_stroke(
+                [start_point, control_point, tip_point],
+                false,
+                Color32::TRANSPARENT,
+                stroke,
+            ));
+            res.0
+                 .0
+                .push(Shape::line_segment([tip_point, head_point_1], stroke));
+            res.0
+                 .0
+                .push(Shape::line_segment([tip_point, head_point_2], stroke));
 
-            return (vec![], vec![]);
+            return res;
         }
 
         let highlighted_stroke = Stroke::new(
             e.width() * 2.,
             self.settings_style.color_edge_highlight(comp_edge).unwrap(),
         );
-        quadratic_shapes.push(QuadraticBezierShape::from_points_stroke(
+        res.1 .1.push(QuadraticBezierShape::from_points_stroke(
             [start_point, control_point, tip_point],
             false,
             Color32::TRANSPARENT,
             highlighted_stroke,
         ));
-        shapes.push(Shape::line_segment(
+        res.0 .0.push(Shape::line_segment(
             [tip_point, head_point_1],
             highlighted_stroke,
         ));
-        shapes.push(Shape::line_segment(
+        res.0 .0.push(Shape::line_segment(
             [tip_point, head_point_2],
             highlighted_stroke,
         ));
 
-        (shapes, quadratic_shapes)
+        res
     }
 
     fn draw_node(

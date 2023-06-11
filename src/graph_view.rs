@@ -45,21 +45,23 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
     fn ui(self, ui: &mut Ui) -> Response {
+        let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+
         let mut meta = Metadata::get(ui);
         let mut computed =
             StateComputed::compute(&self.g, &self.settings_interaction, &self.settings_style);
 
-        let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
-
         self.fit_if_first(&resp, &computed, &mut meta);
 
+        // let drawer = Drawer::new(&self.g, &p, &mut meta, &mut computed, &self.settings_style);
+        // self.g.walk(|idx: &NodeIndex, n: &Node<N>| {});
         self.draw(&p, &mut computed, &mut meta);
 
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
         self.handle_navigation(ui, &resp, &computed, &mut meta);
 
-        meta.store(ui);
+        meta.store_into_ui(ui);
         ui.ctx().request_repaint();
 
         resp
@@ -105,7 +107,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
-        Metadata::default().store(ui);
+        Metadata::default().store_into_ui(ui);
     }
 
     /// Gets rect in which graph is contained including node radius

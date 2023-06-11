@@ -31,9 +31,9 @@ impl StateComputed {
             (idx, node_state)
         });
 
-        let edges_computed = g.edges().map(|e| {
+        let edges_computed = g.edges().map(|(idx, _)| {
             let edge_state = StateComputedEdge::default();
-            (e.id(), edge_state)
+            (idx, edge_state)
         });
 
         let mut state = StateComputed {

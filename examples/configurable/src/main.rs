@@ -440,12 +440,16 @@ impl ConfigurableApp {
 
             ui.add_enabled_ui(self.settings_interaction.node_select || self.settings_interaction.node_multiselect, |ui| {
                 ui.horizontal(|ui| {
-                    if ui.checkbox(&mut self.max_for_select, "all children").clicked() {
-                        self.settings_interaction.selection_depth = i32::MAX;
-                    }; 
-                    if ui.checkbox(&mut self.min_for_select, "all parents").clicked() {
-                        self.settings_interaction.selection_depth = i32::MIN;
-                    };
+                    ui.add_enabled_ui(!self.min_for_select, |ui| {
+                        if ui.checkbox(&mut self.max_for_select, "all_children").clicked() {
+                            self.settings_interaction.selection_depth = i32::MAX;
+                        }; 
+                    });
+                    ui.add_enabled_ui(!self.max_for_select, |ui| {
+                        if ui.checkbox(&mut self.min_for_select, "all_parents").clicked() {
+                            self.settings_interaction.selection_depth = i32::MIN;
+                        };
+                    });
                 });
             });
             ui.add_enabled_ui((self.settings_interaction.node_select || self.settings_interaction.node_multiselect) && !(self.min_for_select || self.max_for_select), |ui| {

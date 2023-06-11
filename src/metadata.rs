@@ -37,7 +37,7 @@ impl Metadata {
         })
     }
 
-    pub fn store(self, ui: &mut egui::Ui) {
+    pub fn store_into_ui(self, ui: &mut egui::Ui) {
         ui.data_mut(|data| {
             data.insert_persisted(Id::null(), self);
         });
