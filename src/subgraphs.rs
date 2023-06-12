@@ -41,6 +41,10 @@ impl SubGraphs {
         (nodes, edges)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
     /// Walks the entire graph and collect node weights to `nodes`
     /// and edges weights to `edges`
     pub fn elements_by_root(&self, root: NodeIndex) -> Option<Elements> {
@@ -147,10 +151,6 @@ impl SubGraphs {
 
             nodes = next_nodes;
         }
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.data.len()
     }
 }
 

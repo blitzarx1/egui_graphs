@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, visit::EdgeRef, EdgeType};
+use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
     graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Node,
@@ -13,78 +13,80 @@ use crate::{
 #[derive(Default, Debug, Clone)]
 pub struct StateComputed {
     pub dragged: Option<NodeIndex>,
-    pub selections: Option<SubGraphs>,
-    pub foldings: Option<SubGraphs>,
+    pub selections: SubGraphs,
+    pub foldings: SubGraphs,
     pub nodes: HashMap<NodeIndex, StateComputedNode>,
     pub edges: HashMap<EdgeIndex, StateComputedEdge>,
 }
 
 impl StateComputed {
-    // TODO: try to use rayon for parallelization of list iterations
-    pub fn compute<N: Clone, E: Clone, Ty: EdgeType>(
+    pub fn compute_for_edge(&mut self, idx: EdgeIndex) {
+        self.edges.entry(idx).or_default();
+    }
+
+    pub fn compute_for_node<N: Clone, E: Clone, Ty: EdgeType>(
+        &mut self,
         g: &GraphWrapper<'_, N, E, Ty>,
+        meta: &mut Metadata,
+        idx: NodeIndex,
+        n: &Node<N>,
         settings_interaction: &SettingsInteraction,
         settings_style: &SettingsStyle,
-    ) -> Self {
-        let nodes_computed = g.nodes().map(|(idx, _)| {
-            let node_state = StateComputedNode::default();
-            (idx, node_state)
-        });
+    ) {
+        self.nodes.entry(idx).or_default();
 
-        let edges_computed = g.edges().map(|e| {
-            let edge_state = StateComputedEdge::default();
-            (e.id(), edge_state)
-        });
+        // compute radii
+        let num = g.edges_num(idx);
+        let mut radius_addition = settings_style.edge_radius_weight * num as f32;
 
-        let mut state = StateComputed {
-            nodes: nodes_computed.collect(),
-            edges: edges_computed.collect(),
-            ..Default::default()
-        };
+        if n.dragged() {
+            self.dragged = Some(idx);
+        }
 
-        // compute radii and selections
-        let mut selections = SubGraphs::default();
-        let mut foldings = SubGraphs::default();
-        g.nodes().for_each(|(root_idx, root_n)| {
-            // compute radii
-            let num = g.edges_num(root_idx);
-            let mut radius_addition = settings_style.edge_radius_weight * num as f32;
+        self.compute_selection(
+            g,
+            idx,
+            n,
+            settings_interaction.selection_depth > 0,
+            settings_interaction.selection_depth,
+        );
+        self.compute_folding(g, idx, n, settings_interaction.folding_depth);
 
-            state.compute_selection(
-                g,
-                &mut selections,
-                root_idx,
-                root_n,
-                settings_interaction.selection_depth > 0,
-                settings_interaction.selection_depth,
-            );
-            state.compute_folding(
-                g,
-                &mut foldings,
-                root_idx,
-                root_n,
-                settings_interaction.folding_depth,
-            );
+        radius_addition += self.node_state(&idx).unwrap().num_folded as f32
+            * settings_style.folded_node_radius_weight;
 
-            radius_addition += state.node_state(&root_idx).unwrap().num_folded as f32
-                * settings_style.folded_node_radius_weight;
-
-            state
-                .node_state_mut(&root_idx)
+        {
+            self.nodes
+                .get_mut(&idx)
                 .unwrap()
                 .inc_radius(radius_addition);
-        });
+        }
 
-        state.selections = Some(selections);
-        state.foldings = Some(foldings);
+        let comp = self.node_state(&idx).unwrap();
+        let x_minus_rad = n.location().x - comp.radius(meta);
+        if x_minus_rad < meta.min_x {
+            meta.min_x = x_minus_rad;
+        };
 
-        state
+        let y_minus_rad = n.location().y - comp.radius(meta);
+        if y_minus_rad < meta.min_y {
+            meta.min_y = y_minus_rad;
+        };
+
+        let x_plus_rad = n.location().x + comp.radius(meta);
+        if x_plus_rad > meta.max_x {
+            meta.max_x = x_plus_rad;
+        };
+
+        let y_plus_rad = n.location().y + comp.radius(meta);
+        if y_plus_rad > meta.max_y {
+            meta.max_y = y_plus_rad;
+        };
     }
 
     fn compute_selection<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
         g: &GraphWrapper<'_, N, E, Ty>,
-        selections: &mut SubGraphs,
         root_idx: NodeIndex,
         root: &Node<N>,
         child_mode: bool,
@@ -94,9 +96,9 @@ impl StateComputed {
             return;
         }
 
-        selections.add_subgraph(g, root_idx, depth);
+        self.selections.add_subgraph(g, root_idx, depth);
 
-        let elements = selections.elements_by_root(root_idx);
+        let elements = self.selections.elements_by_root(root_idx);
         if elements.is_none() {
             return;
         }
@@ -108,7 +110,7 @@ impl StateComputed {
                 return;
             }
 
-            let computed = self.node_state_mut(idx).unwrap();
+            let computed = self.nodes.entry(*idx).or_default();
             if child_mode {
                 computed.selected_child = true;
                 return;
@@ -117,7 +119,7 @@ impl StateComputed {
         });
 
         edges.iter().for_each(|idx| {
-            let mut computed = self.edge_state_mut(idx).unwrap();
+            let mut computed = self.edges.entry(*idx).or_default();
             if child_mode {
                 computed.selected_child = true;
                 return;
@@ -129,7 +131,6 @@ impl StateComputed {
     fn compute_folding<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
         g: &GraphWrapper<'_, N, E, Ty>,
-        foldings: &mut SubGraphs,
         root_idx: NodeIndex,
         root: &Node<N>,
         depth: usize,
@@ -143,23 +144,22 @@ impl StateComputed {
             _ => depth as i32,
         };
 
-        foldings.add_subgraph(g, root_idx, depth_normalized);
+        self.foldings.add_subgraph(g, root_idx, depth_normalized);
 
-        let elements = foldings.elements_by_root(root_idx);
+        let elements = self.foldings.elements_by_root(root_idx);
         if elements.is_none() {
             return;
         }
 
         let (nodes, _) = elements.unwrap();
-        self.node_state_mut(&root_idx).unwrap().num_folded = nodes.len() - 1; // dont't count root node
+        self.nodes.entry(root_idx).or_default().num_folded = nodes.len() - 1; // dont't count root node
 
         nodes.iter().for_each(|idx| {
             if *idx == root_idx {
                 return;
             }
 
-            let computed = self.node_state_mut(idx).unwrap();
-            computed.folded_child = true;
+            self.nodes.entry(*idx).or_default().folded_child = true;
         });
     }
 
@@ -167,16 +167,8 @@ impl StateComputed {
         self.nodes.get(idx)
     }
 
-    pub fn node_state_mut(&mut self, idx: &NodeIndex) -> Option<&mut StateComputedNode> {
-        self.nodes.get_mut(idx)
-    }
-
     pub fn edge_state(&self, idx: &EdgeIndex) -> Option<&StateComputedEdge> {
         self.edges.get(idx)
-    }
-
-    pub fn edge_state_mut(&mut self, idx: &EdgeIndex) -> Option<&mut StateComputedEdge> {
-        self.edges.get_mut(idx)
     }
 }
 

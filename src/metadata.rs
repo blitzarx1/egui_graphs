@@ -1,4 +1,4 @@
-use egui::{Id, Rect, Vec2};
+use egui::{Id, Pos2, Rect, Vec2};
 
 #[derive(Clone)]
 pub struct Metadata {
@@ -14,6 +14,10 @@ pub struct Metadata {
     pub down_right_pos: Vec2,
     /// Stores the bounds of the graph
     pub graph_bounds: Rect,
+    pub min_x: f32,
+    pub min_y: f32,
+    pub max_x: f32,
+    pub max_y: f32,
 }
 
 impl Default for Metadata {
@@ -25,6 +29,10 @@ impl Default for Metadata {
             top_left_pos: Default::default(),
             down_right_pos: Default::default(),
             graph_bounds: Rect::from_two_pos(egui::Pos2::default(), egui::Pos2::default()),
+            min_x: f32::MAX,
+            min_y: f32::MAX,
+            max_x: f32::MIN,
+            max_y: f32::MIN,
         }
     }
 }
@@ -37,9 +45,16 @@ impl Metadata {
         })
     }
 
-    pub fn store(self, ui: &mut egui::Ui) {
+    pub fn store_into_ui(self, ui: &mut egui::Ui) {
         ui.data_mut(|data| {
             data.insert_persisted(Id::null(), self);
         });
+    }
+
+    pub(crate) fn build_bounds(&mut self) {
+        self.graph_bounds = Rect::from_min_max(
+            Pos2::new(self.min_x, self.min_y),
+            Pos2::new(self.max_x, self.max_y),
+        );
     }
 }
