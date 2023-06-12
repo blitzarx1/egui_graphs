@@ -6,11 +6,7 @@ use petgraph::{
     EdgeType,
 };
 
-use crate::{
-    metadata::Metadata,
-    state_computed::{StateComputed, StateComputedNode},
-    Edge, Node,
-};
+use crate::{metadata::Metadata, state_computed::StateComputed, Edge, Node};
 
 /// Encapsulates graph access and traversal methods.
 pub struct GraphWrapper<'a, N: Clone, E: Clone, Ty: EdgeType> {
@@ -36,20 +32,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         comp: &'a StateComputed,
         meta: &'a Metadata,
         pos: Pos2,
-    ) -> Option<(NodeIndex, &Node<N>, &StateComputedNode)> {
+    ) -> Option<(NodeIndex, &Node<N>)> {
         // transform pos to graph coordinates
         let pos_in_graph = (pos - meta.pan).to_vec2() / meta.zoom;
-        self.nodes_with_context(comp)
-            .find(|(_, n, comp)| (n.location() - pos_in_graph).length() <= comp.radius(meta))
-    }
-
-    pub fn nodes_with_context(
-        &'a self,
-        comp: &'a StateComputed,
-    ) -> impl Iterator<Item = (NodeIndex, &Node<N>, &StateComputedNode)> {
-        self.g
-            .node_references()
-            .map(|(i, n)| (i, n, comp.node_state(&i).unwrap()))
+        self.nodes().find(|(idx, n)| {
+            let comp_node = comp.node_state(idx).unwrap();
+            (n.location() - pos_in_graph).length() <= comp_node.radius(meta)
+        })
     }
 
     pub fn nodes(&'a self) -> impl Iterator<Item = (NodeIndex, &Node<N>)> {
@@ -141,6 +130,7 @@ mod tests {
             },
         );
 
+        //expecting n for every node and e for every edge in the graph
         assert_eq!(mutable_string.into_inner(), "nnnneeee".to_string());
     }
 }

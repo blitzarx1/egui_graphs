@@ -15,7 +15,7 @@ use crate::{
     state_computed::StateComputed,
     Edge, SettingsNavigation,
 };
-use egui::{Painter, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{
     stable_graph::{NodeIndex, StableGraph},
     EdgeType,
@@ -50,7 +50,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
 
         let mut meta = Metadata::get(ui);
 
+        // we need ref cell guard to mutate state in different closures
         let computed_guarded = RefCell::new(StateComputed::default());
+
+        // walk first time to compute state
         self.g.walk(
             |g, idx, n| {
                 computed_guarded.borrow_mut().compute_for_node(
@@ -65,17 +68,19 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
                 computed_guarded.borrow_mut().compute_for_edge(*idx);
             },
         );
-
         let mut computed = computed_guarded.into_inner();
+
+        // walk second time to compute meta and node by pos
         self.fit_if_first(&resp, &computed, &mut meta);
 
-        // TODO: create walkers for nodes and edges for drawing and computing state
-        // let drawer = Drawer::new(&self.g, &p, &mut meta, &mut computed, &self.settings_style);
-        // self.g.walk(|idx: &NodeIndex, n: &Node<N>| {});
-        self.draw(&p, &meta, &computed);
+        let drawer = Drawer::new(&self.g, &p, &meta, &computed, &self.settings_style);
+        drawer.draw();
 
+        // mut ref
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
+
+        // shared ref
         self.handle_navigation(ui, &resp, &computed, &mut meta);
 
         meta.store_into_ui(ui);
@@ -129,11 +134,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         Metadata::default().store_into_ui(ui);
     }
 
+    // FIXME: do inside walk when state computed is available
     /// Gets rect in which graph is contained including node radius
     fn bounding_rect(&self, state: &StateComputed, meta: &mut Metadata) -> Rect {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
 
-        self.g.nodes_with_context(state).for_each(|(_, n, comp)| {
+        self.g.nodes().for_each(|(idx, n)| {
+            let comp = state.node_state(&idx).unwrap();
             let x_minus_rad = n.location().x - comp.radius(meta);
             if x_minus_rad < min_x {
                 min_x = x_minus_rad;
@@ -259,7 +266,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
 
         if resp.drag_started() {
-            if let Some((idx, _, _)) = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap()) {
+            if let Some((idx, _)) = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap()) {
                 self.set_dragged(idx, true);
             }
         }
@@ -412,10 +419,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let change = ChangeNode::change_location(idx, n.location(), new_loc);
         n.set_location(new_loc);
         self.send_changes(Change::node(change));
-    }
-
-    fn draw(&self, p: &Painter, meta: &Metadata, comp: &StateComputed) {
-        Drawer::new(&self.g, p, meta, comp, &self.settings_style).draw();
     }
 
     fn send_changes(&self, changes: Change) {

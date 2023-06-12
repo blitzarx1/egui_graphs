@@ -51,8 +51,8 @@ impl StateComputed {
         );
         self.compute_folding(g, idx, n, settings_interaction.folding_depth);
 
-        radius_addition += self.node_state(&idx).unwrap().num_folded as f32
-            * settings_style.folded_node_radius_weight;
+        let comp = self.node_state(&idx).unwrap();
+        radius_addition += comp.num_folded as f32 * settings_style.folded_node_radius_weight;
 
         self.nodes
             .get_mut(&idx)

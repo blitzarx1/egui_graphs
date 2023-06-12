@@ -44,7 +44,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
     }
 
-    pub fn draw(&mut self) {
+    pub fn draw(&self) {
         let e_shapes = self.shapes_edges();
         let n_shapes = self.shapes_nodes();
 
@@ -58,16 +58,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     fn shapes_nodes(&self) -> (ShapesNodes, ShapesNodes) {
         let (mut shapes_first, mut shapes_second) =
             (ShapesNodes::default(), ShapesNodes::default());
-        self.g
-            .nodes_with_context(self.comp)
-            .for_each(|(_, n, comp_node)| {
-                let shapes = self.shapes_node(n, comp_node);
-                shapes_first.0.extend(shapes.0 .0);
-                shapes_first.1.extend(shapes.0 .1);
+        self.g.nodes().for_each(|(idx, n)| {
+            let comp_node = self.comp.node_state(&idx).unwrap();
+            let shapes = self.shapes_node(n, comp_node);
+            shapes_first.0.extend(shapes.0 .0);
+            shapes_first.1.extend(shapes.0 .1);
 
-                shapes_second.0.extend(shapes.1 .0);
-                shapes_second.1.extend(shapes.1 .1);
-            });
+            shapes_second.0.extend(shapes.1 .0);
+            shapes_second.1.extend(shapes.1 .1);
+        });
 
         (shapes_first, shapes_second)
     }
