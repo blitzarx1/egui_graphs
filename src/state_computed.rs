@@ -27,6 +27,7 @@ impl StateComputed {
     pub fn compute_for_node<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
         g: &GraphWrapper<'_, N, E, Ty>,
+        meta: &mut Metadata,
         idx: NodeIndex,
         n: &Node<N>,
         settings_interaction: &SettingsInteraction,
@@ -51,13 +52,36 @@ impl StateComputed {
         );
         self.compute_folding(g, idx, n, settings_interaction.folding_depth);
 
-        let comp = self.node_state(&idx).unwrap();
-        radius_addition += comp.num_folded as f32 * settings_style.folded_node_radius_weight;
+        radius_addition += self.node_state(&idx).unwrap().num_folded as f32
+            * settings_style.folded_node_radius_weight;
 
-        self.nodes
-            .get_mut(&idx)
-            .unwrap()
-            .inc_radius(radius_addition);
+        {
+            self.nodes
+                .get_mut(&idx)
+                .unwrap()
+                .inc_radius(radius_addition);
+        }
+
+        let comp = self.node_state(&idx).unwrap();
+        let x_minus_rad = n.location().x - comp.radius(meta);
+        if x_minus_rad < meta.min_x {
+            meta.min_x = x_minus_rad;
+        };
+
+        let y_minus_rad = n.location().y - comp.radius(meta);
+        if y_minus_rad < meta.min_y {
+            meta.min_y = y_minus_rad;
+        };
+
+        let x_plus_rad = n.location().x + comp.radius(meta);
+        if x_plus_rad > meta.max_x {
+            meta.max_x = x_plus_rad;
+        };
+
+        let y_plus_rad = n.location().y + comp.radius(meta);
+        if y_plus_rad > meta.max_y {
+            meta.max_y = y_plus_rad;
+        };
     }
 
     fn compute_selection<N: Clone, E: Clone, Ty: EdgeType>(

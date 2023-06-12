@@ -1,9 +1,4 @@
-use std::{
-    borrow::BorrowMut,
-    cell::RefCell,
-    f32::{MAX, MIN},
-    sync::mpsc::Sender,
-};
+use std::{cell::RefCell, sync::mpsc::Sender};
 
 use crate::{
     change::Change,
@@ -49,16 +44,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
     fn ui(self, ui: &mut Ui) -> Response {
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
-        let mut meta = Metadata::get(ui);
-
-        // we need ref cell guard to mutate state in different closures
         let computed_guarded = RefCell::new(StateComputed::default());
+        let mut meta = Metadata::get(ui);
 
         // walk first time to compute state
         self.g.walk(
             |g, idx, n| {
                 computed_guarded.borrow_mut().compute_for_node(
                     g,
+                    &mut meta,
                     *idx,
                     n,
                     &self.settings_interaction,
@@ -70,37 +64,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
             },
         );
 
+        meta.build_bounds();
         let mut computed = computed_guarded.into_inner();
-
-        let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
-
-        // walk second time for jobs which need computed state ready
-        self.g.walk(
-            |_, idx, n| {
-                let comp = computed.node_state(idx).unwrap();
-                let x_minus_rad = n.location().x - comp.radius(&meta);
-                if x_minus_rad < min_x {
-                    min_x = x_minus_rad;
-                };
-
-                let y_minus_rad = n.location().y - comp.radius(&meta);
-                if y_minus_rad < min_y {
-                    min_y = y_minus_rad;
-                };
-
-                let x_plus_rad = n.location().x + comp.radius(&meta);
-                if x_plus_rad > max_x {
-                    max_x = x_plus_rad;
-                };
-
-                let y_plus_rad = n.location().y + comp.radius(&meta);
-                if y_plus_rad > max_y {
-                    max_y = y_plus_rad;
-                };
-            },
-            |_, _, _| {},
-        );
-        meta.graph_bounds = Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
 
         // walk second time to compute meta and node by pos
         self.fit_if_first(&resp, &mut meta);
