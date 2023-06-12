@@ -1,6 +1,7 @@
 use std::{
+    cell::RefCell,
     f32::{MAX, MIN},
-    sync::{mpsc::Sender, Mutex},
+    sync::mpsc::Sender,
 };
 
 use crate::{
@@ -49,19 +50,23 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
 
         let mut meta = Metadata::get(ui);
 
-        let mut computed =
-            StateComputed::compute(&self.g, &self.settings_interaction, &self.settings_style);
-        // let mut guarded_computed = Mutex::new(&mut computed);
-        // {
-        //     let (n_walker, e_walker) = StateComputed::provide_compute_walkers::<N, E, Ty>(
-        //         guarded_computed,
-        //         &self.settings_interaction,
-        //         &self.settings_style,
-        //     );
+        let computed_guarded = RefCell::new(StateComputed::default());
+        self.g.walk(
+            |g, idx, n| {
+                computed_guarded.borrow_mut().compute_for_node(
+                    g,
+                    *idx,
+                    n,
+                    &self.settings_interaction,
+                    &self.settings_style,
+                );
+            },
+            |_, idx, _| {
+                computed_guarded.borrow_mut().compute_for_edge(*idx);
+            },
+        );
 
-        //     self.g.walk(n_walker, e_walker);
-        // }
-
+        let mut computed = computed_guarded.into_inner();
         self.fit_if_first(&resp, &computed, &mut meta);
 
         // TODO: create walkers for nodes and edges for drawing and computing state

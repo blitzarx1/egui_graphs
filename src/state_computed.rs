@@ -1,13 +1,9 @@
-use std::{collections::HashMap, rc::Rc, sync::Mutex};
+use std::collections::HashMap;
 
-use petgraph::{
-    stable_graph::NodeIndex,
-    stable_graph::{EdgeIndex, StableGraph},
-    EdgeType,
-};
+use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
-    graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Edge, Node,
+    graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Node,
     SettingsInteraction, SettingsStyle,
 };
 
@@ -24,100 +20,44 @@ pub struct StateComputed {
 }
 
 impl StateComputed {
-    // pub fn provide_compute_walkers<'a, N: Clone, E: Clone, Ty: EdgeType>(
-    //     state: &'a mut StateComputed,
-    //     settings_interaction: &'a SettingsInteraction,
-    //     settings_style: &'a SettingsStyle,
-    // ) -> (
-    //     impl FnMut(&'a GraphWrapper<'_, N, E, Ty>, &'a NodeIndex, &'a Node<N>),
-    //     impl FnMut(&'a GraphWrapper<'_, N, E, Ty>, &'a EdgeIndex, &'a Edge<E>),
-    // ) {
-    //     let mut guarded_state = RefCell::new(*state);
-    //     (
-    //         |g, idx, n| {
-    //             guarded_state.get_mut().nodes.entry(*idx).or_default();
+    pub fn compute_for_edge(&mut self, idx: EdgeIndex) {
+        self.edges.entry(idx).or_default();
+    }
 
-    //             // compute radii
-    //             let num = g.edges_num(*idx);
-    //             let mut radius_addition = settings_style.edge_radius_weight * num as f32;
-
-    //             if n.dragged() {
-    //                 guarded_state.get_mut().dragged = Some(*idx);
-    //             }
-
-    //             guarded_state.get_mut().compute_selection(
-    //                 g,
-    //                 *idx,
-    //                 n,
-    //                 settings_interaction.selection_depth > 0,
-    //                 settings_interaction.selection_depth,
-    //             );
-    //             guarded_state.get_mut().compute_folding(
-    //                 g,
-    //                 *idx,
-    //                 n,
-    //                 settings_interaction.folding_depth,
-    //             );
-
-    //             radius_addition += guarded_state.get_mut().node_state(&idx).unwrap().num_folded
-    //                 as f32
-    //                 * settings_style.folded_node_radius_weight;
-
-    //             guarded_state
-    //                 .get_mut()
-    //                 .nodes
-    //                 .get_mut(&idx)
-    //                 .unwrap()
-    //                 .inc_radius(radius_addition);
-    //         },
-    //         |_, idx, _| {
-    //             guarded_state.get_mut().edges.entry(*idx).or_default();
-    //         },
-    //     )
-    // }
-
-    // TODO: try to use rayon for parallelization of list iterations
-    pub fn compute<N: Clone, E: Clone, Ty: EdgeType>(
+    pub fn compute_for_node<N: Clone, E: Clone, Ty: EdgeType>(
+        &mut self,
         g: &GraphWrapper<'_, N, E, Ty>,
+        idx: NodeIndex,
+        n: &Node<N>,
         settings_interaction: &SettingsInteraction,
         settings_style: &SettingsStyle,
-    ) -> Self {
-        let mut state = StateComputed::default();
-        g.nodes().for_each(|(idx, n)| {
-            state.nodes.entry(idx).or_default();
+    ) {
+        self.nodes.entry(idx).or_default();
 
-            // compute radii
-            let num = g.edges_num(idx);
-            let mut radius_addition = settings_style.edge_radius_weight * num as f32;
+        // compute radii
+        let num = g.edges_num(idx);
+        let mut radius_addition = settings_style.edge_radius_weight * num as f32;
 
-            if n.dragged() {
-                state.dragged = Some(idx);
-            }
+        if n.dragged() {
+            self.dragged = Some(idx);
+        }
 
-            state.compute_selection(
-                g,
-                idx,
-                n,
-                settings_interaction.selection_depth > 0,
-                settings_interaction.selection_depth,
-            );
-            state.compute_folding(g, idx, n, settings_interaction.folding_depth);
+        self.compute_selection(
+            g,
+            idx,
+            n,
+            settings_interaction.selection_depth > 0,
+            settings_interaction.selection_depth,
+        );
+        self.compute_folding(g, idx, n, settings_interaction.folding_depth);
 
-            radius_addition += state.node_state(&idx).unwrap().num_folded as f32
-                * settings_style.folded_node_radius_weight;
+        radius_addition += self.node_state(&idx).unwrap().num_folded as f32
+            * settings_style.folded_node_radius_weight;
 
-            state
-                .nodes
-                .get_mut(&idx)
-                .unwrap()
-                .inc_radius(radius_addition);
-        });
-
-        g.edges().for_each(|(idx, _)| {
-            state.edges.entry(idx).or_default();
-        });
-
-        state
+        self.nodes
+            .get_mut(&idx)
+            .unwrap()
+            .inc_radius(radius_addition);
     }
 
     fn compute_selection<N: Clone, E: Clone, Ty: EdgeType>(
