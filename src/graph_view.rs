@@ -1,6 +1,6 @@
 use std::{
     f32::{MAX, MIN},
-    sync::mpsc::Sender,
+    sync::{mpsc::Sender, Mutex},
 };
 
 use crate::{
@@ -51,6 +51,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
 
         let mut computed =
             StateComputed::compute(&self.g, &self.settings_interaction, &self.settings_style);
+        // let mut guarded_computed = Mutex::new(&mut computed);
+        // {
+        //     let (n_walker, e_walker) = StateComputed::provide_compute_walkers::<N, E, Ty>(
+        //         guarded_computed,
+        //         &self.settings_interaction,
+        //         &self.settings_style,
+        //     );
+
+        //     self.g.walk(n_walker, e_walker);
+        // }
 
         self.fit_if_first(&resp, &computed, &mut meta);
 
@@ -202,15 +212,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        if comp.foldings.is_some() && comp.foldings.as_ref().unwrap().len() > 0 {
-            comp.foldings
-                .as_ref()
-                .unwrap()
-                .roots()
-                .iter()
-                .for_each(|root_idx| {
-                    self.set_node_folded(*root_idx, false);
-                });
+        if !comp.foldings.is_empty() {
+            comp.foldings.roots().iter().for_each(|root_idx| {
+                self.set_node_folded(*root_idx, false);
+            });
             return;
         }
 
@@ -376,13 +381,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn deselect_all(&mut self, state: &StateComputed) {
-        if state.selections.is_none() {
+        if state.selections.is_empty() {
             return;
         }
 
         // dont need to deselect edges because they are not selectable
         // and subselections are dropped on every frame
-        let (selected_nodes, _) = state.selections.as_ref().unwrap().elements();
+        let (selected_nodes, _) = state.selections.elements();
 
         selected_nodes.iter().for_each(|idx| {
             self.set_node_selected(*idx, false);

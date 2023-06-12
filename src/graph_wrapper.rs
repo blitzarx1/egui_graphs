@@ -24,11 +24,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
 
     pub fn walk(
         &self,
-        mut walker_node: impl FnMut(&NodeIndex, &Node<N>),
-        mut walker_edge: impl FnMut(&EdgeIndex, &Edge<E>),
+        mut walker_node: impl FnMut(&Self, &NodeIndex, &Node<N>),
+        mut walker_edge: impl FnMut(&Self, &EdgeIndex, &Edge<E>),
     ) {
-        self.nodes().for_each(|(idx, n)| walker_node(&idx, n));
-        self.edges().for_each(|(idx, e)| walker_edge(&idx, e));
+        self.nodes().for_each(|(idx, n)| walker_node(self, &idx, n));
+        self.edges().for_each(|(idx, e)| walker_edge(self, &idx, e));
     }
 
     pub fn node_by_pos(
@@ -97,5 +97,50 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         dir: Direction,
     ) -> impl Iterator<Item = EdgeReference<Edge<E>>> {
         self.g.edges_directed(idx, dir)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use super::*;
+    use egui::Vec2;
+
+    fn create_test_graph() -> StableGraph<Node<()>, Edge<()>> {
+        let mut graph = StableGraph::<Node<()>, Edge<()>>::new();
+        let a = graph.add_node(Node::new(Vec2::default(), ()));
+        let b = graph.add_node(Node::new(Vec2::default(), ()));
+        let c = graph.add_node(Node::new(Vec2::default(), ()));
+        let d = graph.add_node(Node::new(Vec2::default(), ()));
+
+        graph.add_edge(a, b, Edge::new(()));
+        graph.add_edge(b, c, Edge::new(()));
+        graph.add_edge(c, d, Edge::new(()));
+        graph.add_edge(a, d, Edge::new(()));
+
+        graph
+    }
+
+    #[test]
+    fn test_walk() {
+        let mut graph = create_test_graph();
+        let graph_wrapped = GraphWrapper::new(&mut graph);
+        let mutable_string = RefCell::new(String::new());
+
+        graph_wrapped.walk(
+            |g, idx, n| {
+                assert_eq!(g.node(*idx), Some(n));
+
+                mutable_string.borrow_mut().push('n');
+            },
+            |g, idx, e| {
+                assert_eq!(g.edge(*idx), Some(e));
+
+                mutable_string.borrow_mut().push('e');
+            },
+        );
+
+        assert_eq!(mutable_string.into_inner(), "nnnneeee".to_string());
     }
 }

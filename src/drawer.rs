@@ -243,8 +243,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             let new_start_idx = self
                 .comp
                 .foldings
-                .as_ref()
-                .unwrap()
                 .roots_by_node(*start_idx)
                 .unwrap()
                 .first()
@@ -258,8 +256,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             let new_end_idx = self
                 .comp
                 .foldings
-                .as_ref()
-                .unwrap()
                 .roots_by_node(*end_idx)
                 .unwrap()
                 .first()
