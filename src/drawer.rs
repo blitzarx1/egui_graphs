@@ -79,6 +79,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         self.g.edges().for_each(|(idx, e)| {
             let (source, target) = self.g.edge_endpoints(idx).unwrap();
+            // compute map with edges between 2 nodes
             edge_map
                 .entry((source, target))
                 .or_insert_with(Vec::new)
