@@ -1,4 +1,5 @@
 use std::{
+    borrow::BorrowMut,
     cell::RefCell,
     f32::{MAX, MIN},
     sync::mpsc::Sender,
@@ -69,11 +70,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
             },
         );
 
+        let mut computed = computed_guarded.into_inner();
+
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (MAX, MAX, MIN, MIN);
+
+        // walk second time for jobs which need computed state ready
         self.g.walk(
             |_, idx, n| {
-                let state = computed_guarded.borrow();
-                let comp = state.node_state(idx).unwrap();
+                let comp = computed.node_state(idx).unwrap();
                 let x_minus_rad = n.location().x - comp.radius(&meta);
                 if x_minus_rad < min_x {
                     min_x = x_minus_rad;
@@ -98,19 +102,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         );
         meta.graph_bounds = Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y));
 
-        let mut computed = computed_guarded.into_inner();
-
         // walk second time to compute meta and node by pos
-        self.fit_if_first(&resp, &computed, &mut meta);
+        self.fit_if_first(&resp, &mut meta);
 
         let drawer = Drawer::new(&self.g, &p, &meta, &computed, &self.settings_style);
         drawer.draw();
 
-        // mut ref
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
-
-        // shared ref
         self.handle_navigation(ui, &resp, &computed, &mut meta);
 
         meta.store_into_ui(ui);
@@ -165,12 +164,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     /// Fits the graph to the screen if it is the first frame
-    fn fit_if_first(&self, r: &Response, comp: &StateComputed, meta: &mut Metadata) {
+    fn fit_if_first(&self, r: &Response, meta: &mut Metadata) {
         if !meta.first_frame {
             return;
         }
 
-        self.fit_to_screen(&r.rect, comp, meta);
+        self.fit_to_screen(&r.rect, meta);
         meta.first_frame = false;
     }
 
@@ -282,7 +281,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, comp: &StateComputed, meta: &mut Metadata) {
+    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata) {
         // calculate graph dimensions with decorative padding
         let diag = meta.graph_bounds.max - meta.graph_bounds.min;
         let graph_size = diag * (1. + self.setings_navigation.screen_padding);
@@ -319,7 +318,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         meta: &mut Metadata,
     ) {
         if self.setings_navigation.fit_to_screen {
-            return self.fit_to_screen(&resp.rect, comp, meta);
+            return self.fit_to_screen(&resp.rect, meta);
         }
 
         self.handle_zoom(ui, resp, meta);

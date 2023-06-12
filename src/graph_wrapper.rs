@@ -27,6 +27,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         self.edges().for_each(|(idx, e)| walker_edge(self, &idx, e));
     }
 
+    // TODO: optimize with quad-tree
     pub fn node_by_pos(
         &self,
         comp: &'a StateComputed,
