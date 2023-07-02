@@ -1,4 +1,4 @@
-use std::{cell::RefCell, sync::mpsc::Sender};
+use std::sync::mpsc::Sender;
 
 use crate::{
     change::Change,
@@ -44,28 +44,27 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
     fn ui(self, ui: &mut Ui) -> Response {
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
-        let computed_guarded = RefCell::new(StateComputed::default());
+        let mut computed = StateComputed::default();
         let mut meta = Metadata::get(ui);
 
         // walk first time to compute state
-        self.g.walk(
-            |g, idx, n| {
-                computed_guarded.borrow_mut().compute_for_node(
+        self.g.walk(|g, n_idx, n, e_idx, _| {
+            if let Some(idx) = n_idx {
+                computed.compute_for_node(
                     g,
                     &mut meta,
                     *idx,
-                    n,
+                    n.unwrap(),
                     &self.settings_interaction,
                     &self.settings_style,
                 );
-            },
-            |_, idx, _| {
-                computed_guarded.borrow_mut().compute_for_edge(*idx);
-            },
-        );
+            };
+            if let Some(idx) = e_idx {
+                computed.compute_for_edge(*idx);
+            };
+        });
 
         meta.build_bounds();
-        let mut computed = computed_guarded.into_inner();
 
         // walk second time to compute meta and node by pos
         self.fit_if_first(&resp, &mut meta);

@@ -20,11 +20,18 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
 
     pub fn walk(
         &self,
-        mut walker_node: impl FnMut(&Self, &NodeIndex, &Node<N>),
-        mut walker_edge: impl FnMut(&Self, &EdgeIndex, &Edge<E>),
+        mut walker: impl FnMut(
+            &Self,
+            Option<&NodeIndex>,
+            Option<&Node<N>>,
+            Option<&EdgeIndex>,
+            Option<&Edge<E>>,
+        ),
     ) {
-        self.nodes().for_each(|(idx, n)| walker_node(self, &idx, n));
-        self.edges().for_each(|(idx, e)| walker_edge(self, &idx, e));
+        self.nodes()
+            .for_each(|(idx, n)| walker(self, Some(&idx), Some(n), None, None));
+        self.edges()
+            .for_each(|(idx, e)| walker(self, None, None, Some(&idx), Some(e)));
     }
 
     // TODO: optimize with quad-tree
@@ -92,8 +99,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-
     use super::*;
     use egui::Vec2;
 
@@ -116,22 +121,21 @@ mod tests {
     fn test_walk() {
         let mut graph = create_test_graph();
         let graph_wrapped = GraphWrapper::new(&mut graph);
-        let mutable_string = RefCell::new(String::new());
+        let mut s = String::new();
 
-        graph_wrapped.walk(
-            |g, idx, n| {
-                assert_eq!(g.node(*idx), Some(n));
+        graph_wrapped.walk(|g, n_idx, n, e_idx, e| {
+            if let Some(idx) = n_idx {
+                assert_eq!(g.node(*idx), Some(n.unwrap()));
+                s.push('n');
+            };
 
-                mutable_string.borrow_mut().push('n');
-            },
-            |g, idx, e| {
-                assert_eq!(g.edge(*idx), Some(e));
-
-                mutable_string.borrow_mut().push('e');
-            },
-        );
+            if let Some(idx) = e_idx {
+                assert_eq!(g.edge(*idx), Some(e.unwrap()));
+                s.push('e');
+            };
+        });
 
         //expecting n for every node and e for every edge in the graph
-        assert_eq!(mutable_string.into_inner(), "nnnneeee".to_string());
+        assert_eq!(s, "nnnneeee".to_string());
     }
 }
