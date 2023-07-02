@@ -2,7 +2,12 @@ use egui::{Color32, Vec2};
 
 use crate::metadata::Metadata;
 
-/// Stores properties of a node that can be changed. Used to apply changes to the graph.
+/// Stores transient properties of a node that are dependent on pan and zoom.
+pub struct NodeScreenProps {
+    pub location: Vec2,
+}
+
+/// Stores properties of a node.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Node<N: Clone> {
     /// Client data
@@ -100,19 +105,19 @@ impl<N: Clone> Node<N> {
         res
     }
 
-    pub fn screen_transform(&self, meta: &Metadata) -> Self {
-        Self {
+    /// Returns properties of the node that are dependent on pan and zoom.
+    pub fn screen_props(&self, meta: &Metadata) -> NodeScreenProps {
+        NodeScreenProps {
             location: self.location * meta.zoom + meta.pan,
-
-            color: self.color,
-            dragged: self.dragged,
-
-            label: self.label.clone(),
-            folded: self.folded,
-            selected: self.selected,
-            data: self.data.clone(),
         }
     }
+}
+
+/// Stores transient properties of an edge that are dependent on pan and zoom.
+pub struct EdgeScreenProps {
+    pub width: f32,
+    pub tip_size: f32,
+    pub curve_size: f32,
 }
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
@@ -153,20 +158,8 @@ impl<E: Clone> Edge<E> {
         }
     }
 
-    pub fn width(&self) -> f32 {
-        self.width
-    }
-
-    pub fn tip_size(&self) -> f32 {
-        self.tip_size
-    }
-
     pub fn tip_angle(&self) -> f32 {
         self.tip_angle
-    }
-
-    pub fn curve_size(&self) -> f32 {
-        self.curve_size
     }
 
     pub fn data(&self) -> Option<&E> {
@@ -183,16 +176,12 @@ impl<E: Clone> Edge<E> {
         res
     }
 
-    pub(crate) fn screen_transform(&self, meta: &Metadata) -> Self {
-        Self {
+    /// Returns properties of the edge that are dependent on pan and zoom.
+    pub(crate) fn screen_props(&self, meta: &Metadata) -> EdgeScreenProps {
+        EdgeScreenProps {
             width: self.width * meta.zoom,
             tip_size: self.tip_size * meta.zoom,
             curve_size: self.curve_size * meta.zoom,
-
-            color: self.color,
-            tip_angle: self.tip_angle,
-
-            data: self.data.clone(),
         }
     }
 }
@@ -223,19 +212,15 @@ mod tests {
 
     #[test]
     fn node_screen_transform() {
-        let mut node = Node::new(Vec2::new(1., 2.), "data");
+        let node = Node::new(Vec2::new(1., 2.), "data");
         let meta = Metadata {
             zoom: 2.,
             pan: Vec2::new(3., 4.),
             ..Default::default()
         };
 
-        node = node.screen_transform(&meta);
-        assert_eq!(node.location, Vec2::new(5., 8.));
-        assert_eq!(node.data, Some("data"));
-        assert_eq!(node.color, None);
-        assert!(!node.selected);
-        assert!(!node.dragged);
+        let screen_props = node.screen_props(&meta);
+        assert_eq!(screen_props.location, Vec2::new(5., 8.));
     }
 
     #[test]
@@ -262,19 +247,16 @@ mod tests {
 
     #[test]
     fn edge_screen_transform() {
-        let mut edge = Edge::new("data");
+        let edge = Edge::new("data");
         let meta = Metadata {
             zoom: 2.,
             pan: Vec2::new(3., 4.),
             ..Default::default()
         };
 
-        edge = edge.screen_transform(&meta);
-        assert_eq!(edge.width, 4.);
-        assert_eq!(edge.tip_size, 30.);
-        assert_eq!(edge.tip_angle, std::f32::consts::TAU / 50.);
-        assert_eq!(edge.curve_size, 40.);
-        assert_eq!(edge.data, Some("data"));
-        assert_eq!(edge.color, None);
+        let screen_props = edge.screen_props(&meta);
+        assert_eq!(screen_props.width, 4.);
+        assert_eq!(screen_props.tip_size, 30.);
+        assert_eq!(screen_props.curve_size, 40.);
     }
 }
