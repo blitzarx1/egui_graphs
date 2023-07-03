@@ -41,7 +41,7 @@ impl Default for Metadata {
 }
 
 impl Metadata {
-    pub fn get(ui: &mut egui::Ui) -> Self {
+    pub fn get(ui: &egui::Ui) -> Self {
         ui.data_mut(|data| {
             data.get_persisted::<Metadata>(Id::null())
                 .unwrap_or_default()

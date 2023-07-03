@@ -44,57 +44,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
     fn ui(self, ui: &mut Ui) -> Response {
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
-        let mut computed = StateComputed::default();
-        let mut meta = Metadata::get(ui);
-
-        // compute meta
-        self.g.walk(|_g, _n_idx, n, _e_idx, _e| {
-            if let Some(n) = n {
-                if n.dragged() {
-                    meta.has_dragged_node = true;
-                }
-
-                let (x, y) = (n.location().x, n.location().y);
-
-                if x < meta.min_x {
-                    meta.min_x = x;
-                };
-
-                if y < meta.min_y {
-                    meta.min_y = y;
-                };
-
-                if x > meta.max_x {
-                    meta.max_x = x;
-                };
-
-                if y > meta.max_y {
-                    meta.max_y = y;
-                };
-            }
-        });
-        meta.build_bounds();
-
+        let mut meta = self.compute_meta(ui);
         self.handle_fit_to_screen(&resp, &mut meta);
         self.handle_navigation(ui, &resp, &mut meta);
 
-        self.g.walk(|g, n_idx, n, e_idx, e| {
-            if let Some(idx) = n_idx {
-                computed.compute_for_node(
-                    g,
-                    *idx,
-                    n.unwrap(),
-                    &meta,
-                    &self.settings_interaction,
-                    &self.settings_style,
-                );
-            };
-
-            if let Some(idx) = e_idx {
-                computed.compute_for_edge(*idx, e.unwrap(), &meta);
-            };
-        });
-
+        let mut computed = self.compute_computed(&meta);
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
@@ -150,6 +104,60 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
         Metadata::default().store_into_ui(ui);
+    }
+
+    fn compute_meta(&self, ui: &Ui) -> Metadata {
+        let mut meta = Metadata::get(ui);
+        self.g.walk(|_g, _n_idx, n, _e_idx, _e| {
+            if let Some(n) = n {
+                if n.dragged() {
+                    meta.has_dragged_node = true;
+                }
+
+                let (x, y) = (n.location().x, n.location().y);
+
+                if x < meta.min_x {
+                    meta.min_x = x;
+                };
+
+                if y < meta.min_y {
+                    meta.min_y = y;
+                };
+
+                if x > meta.max_x {
+                    meta.max_x = x;
+                };
+
+                if y > meta.max_y {
+                    meta.max_y = y;
+                };
+            }
+        });
+        meta.build_bounds();
+
+        meta
+    }
+
+    fn compute_computed(&self, meta: &Metadata) -> StateComputed {
+        let mut computed = StateComputed::default();
+        self.g.walk(|g, n_idx, n, e_idx, e| {
+            if let Some(idx) = n_idx {
+                computed.compute_for_node(
+                    g,
+                    *idx,
+                    n.unwrap(),
+                    meta,
+                    &self.settings_interaction,
+                    &self.settings_style,
+                );
+            };
+
+            if let Some(idx) = e_idx {
+                computed.compute_for_edge(*idx, e.unwrap(), &meta);
+            };
+        });
+
+        computed
     }
 
     /// Fits the graph to the screen if it is the first frame or
