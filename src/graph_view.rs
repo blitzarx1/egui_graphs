@@ -47,34 +47,59 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         let mut computed = StateComputed::default();
         let mut meta = Metadata::get(ui);
 
-        // walk first time to compute state
-        self.g.walk(|g, n_idx, n, e_idx, _| {
+        // compute meta
+        self.g.walk(|_g, _n_idx, n, _e_idx, _e| {
+            if let Some(n) = n {
+                if n.dragged() {
+                    meta.has_dragged_node = true;
+                }
+
+                let (x, y) = (n.location().x, n.location().y);
+
+                if x < meta.min_x {
+                    meta.min_x = x;
+                };
+
+                if y < meta.min_y {
+                    meta.min_y = y;
+                };
+
+                if x > meta.max_x {
+                    meta.max_x = x;
+                };
+
+                if y > meta.max_y {
+                    meta.max_y = y;
+                };
+            }
+        });
+        meta.build_bounds();
+
+        self.handle_fit_to_screen(&resp, &mut meta);
+        self.handle_navigation(ui, &resp, &mut meta);
+
+        self.g.walk(|g, n_idx, n, e_idx, e| {
             if let Some(idx) = n_idx {
                 computed.compute_for_node(
                     g,
-                    &mut meta,
                     *idx,
                     n.unwrap(),
+                    &meta,
                     &self.settings_interaction,
                     &self.settings_style,
                 );
             };
+
             if let Some(idx) = e_idx {
-                computed.compute_for_edge(*idx);
+                computed.compute_for_edge(*idx, e.unwrap(), &meta);
             };
         });
 
-        meta.build_bounds();
-
-        // walk second time to compute meta and node by pos
-        self.fit_if_first(&resp, &mut meta);
+        self.handle_node_drag(&resp, &mut computed, &mut meta);
+        self.handle_click(&resp, &mut computed, &mut meta);
 
         let drawer = Drawer::new(&self.g, &p, &meta, &computed, &self.settings_style);
         drawer.draw();
-
-        self.handle_node_drag(&resp, &mut computed, &mut meta);
-        self.handle_click(&resp, &mut computed, &mut meta);
-        self.handle_navigation(ui, &resp, &computed, &mut meta);
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -127,9 +152,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         Metadata::default().store_into_ui(ui);
     }
 
-    /// Fits the graph to the screen if it is the first frame
-    fn fit_if_first(&self, r: &Response, meta: &mut Metadata) {
-        if !meta.first_frame {
+    /// Fits the graph to the screen if it is the first frame or
+    /// fit to screen setting is enabled;
+    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata) {
+        if !meta.first_frame && !self.setings_navigation.fit_to_screen {
             return;
         }
 
@@ -274,19 +300,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         meta.pan = rect.center().to_vec2() - graph_center * new_zoom;
     }
 
-    fn handle_navigation(
-        &self,
-        ui: &Ui,
-        resp: &Response,
-        comp: &StateComputed,
-        meta: &mut Metadata,
-    ) {
-        if self.setings_navigation.fit_to_screen {
-            return self.fit_to_screen(&resp.rect, meta);
-        }
-
+    fn handle_navigation(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
         self.handle_zoom(ui, resp, meta);
-        self.handle_pan(resp, comp, meta);
+        self.handle_pan(resp, meta);
     }
 
     fn handle_zoom(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
@@ -305,12 +321,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         });
     }
 
-    fn handle_pan(&self, resp: &Response, state: &StateComputed, meta: &mut Metadata) {
+    fn handle_pan(&self, resp: &Response, meta: &mut Metadata) {
         if !self.setings_navigation.zoom_and_pan {
             return;
         }
 
-        if resp.dragged() && state.dragged.is_none() {
+        if resp.dragged() && !meta.has_dragged_node {
             meta.pan += resp.drag_delta();
         }
     }

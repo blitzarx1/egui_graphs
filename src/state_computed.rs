@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
+use egui::Vec2;
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
-    graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Node,
+    graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Edge, Node,
     SettingsInteraction, SettingsStyle,
 };
+
+const DEFAULT_NODE_RADIUS: f32 = 5.;
 
 /// `StateComputed` is a utility struct for managing ephemerial state which is created and destroyed in one frame.
 ///
@@ -20,20 +23,21 @@ pub struct StateComputed {
 }
 
 impl StateComputed {
-    pub fn compute_for_edge(&mut self, idx: EdgeIndex) {
-        self.edges.entry(idx).or_default();
+    pub fn compute_for_edge<E: Clone>(&mut self, idx: EdgeIndex, e: &Edge<E>, m: &Metadata) {
+        let comp = self.edges.entry(idx).or_insert(StateComputedEdge::new(e));
+        comp.apply_screen_transform(m);
     }
 
     pub fn compute_for_node<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
         g: &GraphWrapper<'_, N, E, Ty>,
-        meta: &mut Metadata,
         idx: NodeIndex,
         n: &Node<N>,
+        meta: &Metadata,
         settings_interaction: &SettingsInteraction,
         settings_style: &SettingsStyle,
     ) {
-        self.nodes.entry(idx).or_default();
+        self.nodes.entry(idx).or_insert(StateComputedNode::new(n));
 
         // compute radii
         let num = g.edges_num(idx);
@@ -55,33 +59,10 @@ impl StateComputed {
         radius_addition += self.node_state(&idx).unwrap().num_folded as f32
             * settings_style.folded_node_radius_weight;
 
-        {
-            self.nodes
-                .get_mut(&idx)
-                .unwrap()
-                .inc_radius(radius_addition);
-        }
+        let comp = self.nodes.get_mut(&idx).unwrap();
 
-        let comp = self.node_state(&idx).unwrap();
-        let x_minus_rad = n.location().x - comp.radius(meta);
-        if x_minus_rad < meta.min_x {
-            meta.min_x = x_minus_rad;
-        };
-
-        let y_minus_rad = n.location().y - comp.radius(meta);
-        if y_minus_rad < meta.min_y {
-            meta.min_y = y_minus_rad;
-        };
-
-        let x_plus_rad = n.location().x + comp.radius(meta);
-        if x_plus_rad > meta.max_x {
-            meta.max_x = x_plus_rad;
-        };
-
-        let y_plus_rad = n.location().y + comp.radius(meta);
-        if y_plus_rad > meta.max_y {
-            meta.max_y = y_plus_rad;
-        };
+        comp.inc_radius(radius_addition);
+        comp.apply_screen_transform(meta);
     }
 
     fn compute_selection<N: Clone, E: Clone, Ty: EdgeType>(
@@ -110,7 +91,10 @@ impl StateComputed {
                 return;
             }
 
-            let computed = self.nodes.entry(*idx).or_default();
+            let computed = self
+                .nodes
+                .entry(*idx)
+                .or_insert(StateComputedNode::new(g.node(*idx).unwrap()));
             if child_mode {
                 computed.selected_child = true;
                 return;
@@ -119,7 +103,10 @@ impl StateComputed {
         });
 
         edges.iter().for_each(|idx| {
-            let mut computed = self.edges.entry(*idx).or_default();
+            let mut computed = self
+                .edges
+                .entry(*idx)
+                .or_insert(StateComputedEdge::new(g.edge(*idx).unwrap()));
             if child_mode {
                 computed.selected_child = true;
                 return;
@@ -152,14 +139,20 @@ impl StateComputed {
         }
 
         let (nodes, _) = elements.unwrap();
-        self.nodes.entry(root_idx).or_default().num_folded = nodes.len() - 1; // dont't count root node
+        self.nodes
+            .entry(root_idx)
+            .or_insert(StateComputedNode::new(root))
+            .num_folded = nodes.len() - 1; // dont't count root node
 
         nodes.iter().for_each(|idx| {
             if *idx == root_idx {
                 return;
             }
 
-            self.nodes.entry(*idx).or_default().folded_child = true;
+            self.nodes
+                .entry(*idx)
+                .or_insert(StateComputedNode::new(g.node(*idx).unwrap()))
+                .folded_child = true;
         });
     }
 
@@ -178,22 +171,23 @@ pub struct StateComputedNode {
     pub selected_parent: bool,
     pub folded_child: bool,
     pub num_folded: usize,
-    radius: f32,
+    pub location: Vec2,
+    pub radius: f32,
 }
 
-impl Default for StateComputedNode {
-    fn default() -> Self {
+impl StateComputedNode {
+    pub fn new<N: Clone>(n: &Node<N>) -> Self {
         Self {
+            radius: DEFAULT_NODE_RADIUS,
+            location: n.location(),
+
             selected_child: Default::default(),
             selected_parent: Default::default(),
             folded_child: Default::default(),
             num_folded: Default::default(),
-            radius: 5.,
         }
     }
-}
 
-impl StateComputedNode {
     pub fn subselected(&self) -> bool {
         self.selected_child || self.selected_parent
     }
@@ -202,23 +196,44 @@ impl StateComputedNode {
         self.folded_child
     }
 
-    pub fn radius(&self, meta: &Metadata) -> f32 {
-        self.radius * meta.zoom
-    }
-
     pub fn inc_radius(&mut self, inc: f32) {
         self.radius += inc;
     }
+
+    pub fn apply_screen_transform(&mut self, m: &Metadata) {
+        self.location = self.location * m.zoom + m.pan;
+        self.radius *= m.zoom;
+    }
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StateComputedEdge {
     pub selected_child: bool,
     pub selected_parent: bool,
+    pub width: f32,
+    pub tip_size: f32,
+    pub curve_size: f32,
 }
 
 impl StateComputedEdge {
+    pub fn new<E: Clone>(e: &Edge<E>) -> Self {
+        Self {
+            width: e.width(),
+            tip_size: e.tip_size(),
+            curve_size: e.curve_size(),
+
+            selected_child: Default::default(),
+            selected_parent: Default::default(),
+        }
+    }
+
     pub fn subselected(&self) -> bool {
         self.selected_child || self.selected_parent
+    }
+
+    pub fn apply_screen_transform(&mut self, m: &Metadata) {
+        self.width = self.width * m.zoom;
+        self.tip_size = self.tip_size * m.zoom;
+        self.curve_size = self.curve_size * m.zoom;
     }
 }

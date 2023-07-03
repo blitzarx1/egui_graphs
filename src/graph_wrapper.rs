@@ -45,7 +45,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         let pos_in_graph = (pos - meta.pan).to_vec2() / meta.zoom;
         self.nodes().find(|(idx, n)| {
             let comp_node = comp.node_state(idx).unwrap();
-            (n.location() - pos_in_graph).length() <= comp_node.radius(meta)
+            (n.location() - pos_in_graph).length() <= comp_node.radius
         })
     }
 
