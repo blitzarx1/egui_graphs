@@ -4,7 +4,7 @@ use egui::Vec2;
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
-    graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Node,
+    graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Edge, Node,
     SettingsInteraction, SettingsStyle,
 };
 
@@ -23,8 +23,9 @@ pub struct StateComputed {
 }
 
 impl StateComputed {
-    pub fn compute_for_edge(&mut self, idx: EdgeIndex) {
-        self.edges.entry(idx).or_default();
+    pub fn compute_for_edge<E: Clone>(&mut self, idx: EdgeIndex, e: &Edge<E>, m: &Metadata) {
+        let comp = self.edges.entry(idx).or_insert(StateComputedEdge::new(e));
+        comp.apply_screen_transform(m);
     }
 
     pub fn compute_for_node<N: Clone, E: Clone, Ty: EdgeType>(
@@ -102,7 +103,10 @@ impl StateComputed {
         });
 
         edges.iter().for_each(|idx| {
-            let mut computed = self.edges.entry(*idx).or_default();
+            let mut computed = self
+                .edges
+                .entry(*idx)
+                .or_insert(StateComputedEdge::new(g.edge(*idx).unwrap()));
             if child_mode {
                 computed.selected_child = true;
                 return;
@@ -202,14 +206,34 @@ impl StateComputedNode {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StateComputedEdge {
     pub selected_child: bool,
     pub selected_parent: bool,
+    pub width: f32,
+    pub tip_size: f32,
+    pub curve_size: f32,
 }
 
 impl StateComputedEdge {
+    pub fn new<E: Clone>(e: &Edge<E>) -> Self {
+        Self {
+            width: e.width(),
+            tip_size: e.tip_size(),
+            curve_size: e.curve_size(),
+
+            selected_child: Default::default(),
+            selected_parent: Default::default(),
+        }
+    }
+
     pub fn subselected(&self) -> bool {
         self.selected_child || self.selected_parent
+    }
+
+    pub fn apply_screen_transform(&mut self, m: &Metadata) {
+        self.width = self.width * m.zoom;
+        self.tip_size = self.tip_size * m.zoom;
+        self.curve_size = self.curve_size * m.zoom;
     }
 }

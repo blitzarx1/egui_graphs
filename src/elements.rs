@@ -101,13 +101,6 @@ impl<N: Clone> Node<N> {
     }
 }
 
-/// Stores transient properties of an edge that are dependent on pan and zoom.
-pub struct EdgeScreenProps {
-    pub width: f32,
-    pub tip_size: f32,
-    pub curve_size: f32,
-}
-
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct Edge<E: Clone> {
@@ -164,13 +157,16 @@ impl<E: Clone> Edge<E> {
         res
     }
 
-    /// Returns properties of the edge that are dependent on pan and zoom.
-    pub(crate) fn screen_props(&self, meta: &Metadata) -> EdgeScreenProps {
-        EdgeScreenProps {
-            width: self.width * meta.zoom,
-            tip_size: self.tip_size * meta.zoom,
-            curve_size: self.curve_size * meta.zoom,
-        }
+    pub fn width(&self) -> f32 {
+        self.width
+    }
+
+    pub fn curve_size(&self) -> f32 {
+        self.curve_size
+    }
+
+    pub fn tip_size(&self) -> f32 {
+        self.tip_size
     }
 }
 
@@ -218,20 +214,5 @@ mod tests {
         assert_eq!(edge.curve_size, 20.);
         assert_eq!(edge.data, Some("data"));
         assert_eq!(edge.color, None);
-    }
-
-    #[test]
-    fn edge_screen_transform() {
-        let edge = Edge::new("data");
-        let meta = Metadata {
-            zoom: 2.,
-            pan: Vec2::new(3., 4.),
-            ..Default::default()
-        };
-
-        let screen_props = edge.screen_props(&meta);
-        assert_eq!(screen_props.width, 4.);
-        assert_eq!(screen_props.tip_size, 30.);
-        assert_eq!(screen_props.curve_size, 40.);
     }
 }

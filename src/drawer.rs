@@ -10,7 +10,6 @@ use petgraph::{
 };
 
 use crate::{
-    elements::EdgeScreenProps,
     graph_wrapper::GraphWrapper,
     metadata::Metadata,
     state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
@@ -94,8 +93,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             edges.iter().for_each(|(_, e, comp)| {
                 order -= 1;
 
-                let screen_props = e.screen_props(self.meta);
-                let shapes = self.shapes_edge(e, screen_props, comp, start, end, order);
+                let shapes = self.shapes_edge(e, comp, start, end, order);
 
                 shapes_first.0.extend(shapes.0 .0);
                 shapes_first.1.extend(shapes.0 .1);
@@ -134,7 +132,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     fn shapes_edge(
         &self,
         edge: &Edge<E>,
-        props: EdgeScreenProps,
         comp_edge: &StateComputedEdge,
         start: &NodeIndex,
         end: &NodeIndex,
@@ -143,11 +140,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let mut res = (ShapesEdges::default(), ShapesEdges::default());
 
         if start == end {
-            self.draw_edge_looped(&mut res, start, edge, props, comp_edge, order);
+            self.draw_edge_looped(&mut res, start, edge, comp_edge, order);
             return res;
         }
 
-        self.draw_edge_basic(&mut res, start, end, edge, props, comp_edge, order);
+        self.draw_edge_basic(&mut res, start, end, edge, comp_edge, order);
 
         res
     }
@@ -157,7 +154,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         res: &mut (ShapesEdges, ShapesEdges),
         n_idx: &NodeIndex,
         e: &Edge<E>,
-        props: EdgeScreenProps,
         comp_edge: &StateComputedEdge,
         order: usize,
     ) {
@@ -186,7 +182,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
         let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
 
-        let stroke = Stroke::new(props.width, self.settings_style.color_edge(self.p.ctx(), e));
+        let stroke = Stroke::new(
+            comp_edge.width,
+            self.settings_style.color_edge(self.p.ctx(), e),
+        );
         let shape_basic = CubicBezierShape::from_points_stroke(
             [
                 right_intersect,
@@ -205,7 +204,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
 
         let highlighted_stroke = Stroke::new(
-            props.width * 2.,
+            comp_edge.width * 2.,
             self.settings_style.color_edge_highlight(comp_edge).unwrap(),
         );
         res.1 .1.push(CubicBezierShape::from_points_stroke(
@@ -227,7 +226,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         start_idx: &NodeIndex,
         end_idx: &NodeIndex,
         e: &Edge<E>,
-        props: EdgeScreenProps,
         comp_edge: &StateComputedEdge,
         order: usize,
     ) {
@@ -284,12 +282,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         if transparent {
             color = color.gamma_multiply(0.15);
         }
-        let stroke = Stroke::new(props.width, color);
+        let stroke = Stroke::new(comp_edge.width, color);
 
         // draw straight edge
         if order == 0 {
-            let head_point_1 = tip_point - props.tip_size * rotate_vector(dir, e.tip_angle());
-            let head_point_2 = tip_point - props.tip_size * rotate_vector(dir, -e.tip_angle());
+            let head_point_1 = tip_point - comp_edge.tip_size * rotate_vector(dir, e.tip_angle());
+            let head_point_2 = tip_point - comp_edge.tip_size * rotate_vector(dir, -e.tip_angle());
 
             if !comp_edge.subselected() {
                 res.0
@@ -310,7 +308,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             }
 
             let highlighted_stroke = Stroke::new(
-                props.width * 2.,
+                comp_edge.width * 2.,
                 self.settings_style.color_edge_highlight(comp_edge).unwrap(),
             );
             res.1 .0.push(Shape::line_segment(
@@ -335,11 +333,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let dir_perpendicular = Vec2::new(-dir.y, dir.x);
         let center_point = (start_point + tip_point.to_vec2()).to_vec2() / 2.0;
         let control_point =
-            (center_point + dir_perpendicular * props.curve_size * order as f32).to_pos2();
+            (center_point + dir_perpendicular * comp_edge.curve_size * order as f32).to_pos2();
 
         let tip_vec = control_point - tip_point;
         let tip_dir = tip_vec / tip_vec.length();
-        let tip_size = props.tip_size;
+        let tip_size = comp_edge.tip_size;
 
         let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle()) * tip_size;
         let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle()) * tip_size;
@@ -365,7 +363,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
 
         let highlighted_stroke = Stroke::new(
-            props.width * 2.,
+            comp_edge.width * 2.,
             self.settings_style.color_edge_highlight(comp_edge).unwrap(),
         );
         res.1 .2.push(QuadraticBezierShape::from_points_stroke(

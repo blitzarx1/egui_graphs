@@ -78,7 +78,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_fit_to_screen(&resp, &mut meta);
         self.handle_navigation(ui, &resp, &mut meta);
 
-        self.g.walk(|g, n_idx, n, e_idx, _| {
+        self.g.walk(|g, n_idx, n, e_idx, e| {
             if let Some(idx) = n_idx {
                 computed.compute_for_node(
                     g,
@@ -91,7 +91,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
             };
 
             if let Some(idx) = e_idx {
-                computed.compute_for_edge(*idx);
+                computed.compute_for_edge(*idx, e.unwrap(), &meta);
             };
         });
 
