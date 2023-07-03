@@ -161,7 +161,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         comp_edge: &StateComputedEdge,
         order: usize,
     ) {
-        let n_props = self.g.node(*n_idx).unwrap().screen_props(self.meta);
         let comp_node = self.comp.node_state(n_idx).unwrap();
 
         // we do not draw edges which are folded
@@ -170,19 +169,19 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
 
         let center_horizont_angle = PI / 4.;
-        let center = n_props.location;
-        let y_intersect = center.y - comp_node.radius(self.meta) * center_horizont_angle.sin();
+        let center = comp_node.location;
+        let y_intersect = center.y - comp_node.radius * center_horizont_angle.sin();
 
         let left_intersect = Pos2::new(
-            center.x - comp_node.radius(self.meta) * center_horizont_angle.cos(),
+            center.x - comp_node.radius * center_horizont_angle.cos(),
             y_intersect,
         );
         let right_intersect = Pos2::new(
-            center.x + comp_node.radius(self.meta) * center_horizont_angle.cos(),
+            center.x + comp_node.radius * center_horizont_angle.cos(),
             y_intersect,
         );
 
-        let loop_size = comp_node.radius(self.meta) * (4. + 1. + order as f32);
+        let loop_size = comp_node.radius * (4. + 1. + order as f32);
 
         let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
         let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
@@ -268,17 +267,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             transparent = true;
         }
 
-        let pos_start = start_node.screen_props(self.meta).location.to_pos2();
-        let pos_end = end_node.screen_props(self.meta).location.to_pos2();
+        let pos_start = comp_start.location.to_pos2();
+        let pos_end = comp_end.location.to_pos2();
 
         let vec = pos_end - pos_start;
         let l = vec.length();
         let dir = vec / l;
 
-        let start_node_radius_vec =
-            Vec2::new(comp_start.radius(self.meta), comp_start.radius(self.meta)) * dir;
-        let end_node_radius_vec =
-            Vec2::new(comp_end.radius(self.meta), comp_end.radius(self.meta)) * dir;
+        let start_node_radius_vec = Vec2::new(comp_start.radius, comp_start.radius) * dir;
+        let end_node_radius_vec = Vec2::new(comp_end.radius, comp_end.radius) * dir;
 
         let tip_point = pos_start + vec - end_node_radius_vec;
         let start_point = pos_start + start_node_radius_vec;
@@ -393,7 +390,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         comp_node: &StateComputedNode,
     ) -> (ShapesNodes, ShapesNodes) {
         let mut res = (ShapesNodes::default(), ShapesNodes::default());
-        let loc = n.screen_props(self.meta).location.to_pos2();
+        let loc = comp_node.location.to_pos2();
 
         self.draw_node_basic(&mut res, loc, n, comp_node);
         self.draw_node_interacted(&mut res, loc, n, comp_node);
@@ -422,7 +419,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         comp_node: &StateComputedNode,
     ) {
         let color = self.settings_style.color_node(self.p.ctx(), node);
-        let node_radius = comp_node.radius(self.meta);
+        let node_radius = comp_node.radius;
         let shape = CircleShape {
             center: loc,
             radius: node_radius,
@@ -476,7 +473,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return;
         }
 
-        let node_radius = comp_node.radius(self.meta);
+        let node_radius = comp_node.radius;
         let highlight_radius = node_radius * 1.5;
         let text_size = node_radius / 2.;
 

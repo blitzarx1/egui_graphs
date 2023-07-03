@@ -2,11 +2,6 @@ use egui::{Color32, Vec2};
 
 use crate::metadata::Metadata;
 
-/// Stores transient properties of a node that are dependent on pan and zoom.
-pub struct NodeScreenProps {
-    pub location: Vec2,
-}
-
 /// Stores properties of a node.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Node<N: Clone> {
@@ -103,13 +98,6 @@ impl<N: Clone> Node<N> {
         let mut res = self.clone();
         res.color = Some(color);
         res
-    }
-
-    /// Returns properties of the node that are dependent on pan and zoom.
-    pub fn screen_props(&self, meta: &Metadata) -> NodeScreenProps {
-        NodeScreenProps {
-            location: self.location * meta.zoom + meta.pan,
-        }
     }
 }
 
@@ -208,19 +196,6 @@ mod tests {
         assert_eq!(node.color, None);
         assert!(!node.selected);
         assert!(!node.dragged);
-    }
-
-    #[test]
-    fn node_screen_transform() {
-        let node = Node::new(Vec2::new(1., 2.), "data");
-        let meta = Metadata {
-            zoom: 2.,
-            pan: Vec2::new(3., 4.),
-            ..Default::default()
-        };
-
-        let screen_props = node.screen_props(&meta);
-        assert_eq!(screen_props.location, Vec2::new(5., 8.));
     }
 
     #[test]
