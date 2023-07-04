@@ -23,7 +23,12 @@ This project represents a `Widget` implementation for egui framework. It allows 
 - [x] Changes reporting;
 
 ## Status
-The project is on the track to v1.0.0 and there will be some releases prior. So stay tuned!
+The project is on the track to v1.0.0 and there will be some releases prior. 
+
+After all features are added I will create demo project for wikipedia article connections demonstration. This project will serve several goals:
+* usage demonstration of the widget;
+* find and polish final pre-release issues;
+* increase discoverability of the project.
 
 ### Docs
 Docs can be found [here](https://docs.rs/egui_graphs/latest/egui_graphs/)
