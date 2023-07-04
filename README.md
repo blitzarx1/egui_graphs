@@ -25,9 +25,10 @@ This project represents a `Widget` implementation for egui framework. It allows 
 ## Status
 The project is on the track to v1.0.0 and there will be some releases prior. 
 
-After all features are added I will create demo project for wikipedia article connections demonstration. This project will serve several goals:
+After all features are added I will create demo project for wikipedia article connections demonstration with web-assembly support. This project will serve several goals:
 * usage demonstration of the widget;
 * find and polish final pre-release issues;
+* demonstrate web-assembly compatibility;
 * increase discoverability of the project.
 
 ### Docs
