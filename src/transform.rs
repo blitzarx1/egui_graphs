@@ -10,19 +10,19 @@ use std::collections::HashMap;
 
 pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 
-/// Helper function which transforms users `petgraph::StableGraph` isntance into the version required by the `GraphView` widget.
+/// Helper function which transforms users [`StableGraph`] isntance into the version required by the [`super::GraphView`] widget.
 ///
 /// The function creates a new StableGraph where the nodes and edges are encapsulated into
-/// Node and Edge structs respectively. New nodes and edges are created with `default_node_transform` and `default_edge_transform`
-/// functions. If you want to define custom transformation procedures (e.g. to use custom label for nodes), use `to_input_graph_custom` instead.
+/// Node and Edge structs respectively. New nodes and edges are created with [`default_node_transform`] and [`default_edge_transform`]
+/// functions. If you want to define custom transformation procedures (e.g. to use custom label for nodes), use [`to_input_graph_custom`] instead.
 ///
 /// # Arguments
-/// * `g` - A reference to a `petgraph::StableGraph`. The graph can have any data type for nodes and edges, and
+/// * `g` - A reference to a [`StableGraph`]. The graph can have any data type for nodes and edges, and
 /// can be either directed or undirected.
 ///
 /// # Returns
-/// * A new `petgrhap::StableGraph` with the same topology as the input graph, but the nodes and edges encapsulated
-/// into Node and Edge structs compatible as an input to `GraphView` widget.
+/// * A new [`StableGraph`] with the same topology as the input graph, but the nodes and edges encapsulated
+/// into Node and Edge structs compatible as an input to [`super::GraphView`] widget.
 ///
 /// # Example
 /// ```
@@ -62,7 +62,7 @@ pub fn to_input_graph<N: Clone, E: Clone, Ty: EdgeType>(
     transform(g, default_node_transform, default_edge_transform)
 }
 
-/// The same as `to_input_graph`, but allows to define custom transformation procedures for nodes and edges.
+/// The same as [`to_input_graph`], but allows to define custom transformation procedures for nodes and edges.
 pub fn to_input_graph_custom<N: Clone, E: Clone, Ty: EdgeType>(
     g: &StableGraph<N, E, Ty>,
     node_transform: impl Fn(&StableGraph<N, E, Ty>, NodeIndex, &N) -> Node<N>,
@@ -71,6 +71,8 @@ pub fn to_input_graph_custom<N: Clone, E: Clone, Ty: EdgeType>(
     transform(g, node_transform, edge_transform)
 }
 
+/// Default node transform function. Keeps original data and creates a new node with a random location and
+/// label equal to the index of the node in the graph.
 pub fn default_node_transform<N: Clone, E: Clone, Ty: EdgeType>(
     _: &StableGraph<N, E, Ty>,
     idx: NodeIndex,
@@ -84,6 +86,7 @@ pub fn default_node_transform<N: Clone, E: Clone, Ty: EdgeType>(
     Node::new(location, data.clone()).with_label(idx.index().to_string())
 }
 
+/// Default edge transform function. Keeps original data and creates a new edge.
 pub fn default_edge_transform<N: Clone, E: Clone, Ty: EdgeType>(
     _: &StableGraph<N, E, Ty>,
     _: EdgeIndex,
