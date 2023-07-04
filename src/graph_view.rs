@@ -52,8 +52,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
-        let drawer = Drawer::new(&self.g, &p, &meta, &computed, &self.settings_style);
-        drawer.draw();
+        Drawer::new(&self.g, &p, &computed, &self.settings_style).draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -153,7 +152,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             };
 
             if let Some(idx) = e_idx {
-                computed.compute_for_edge(*idx, e.unwrap(), &meta);
+                computed.compute_for_edge(*idx, e.unwrap(), meta);
             };
         });
 

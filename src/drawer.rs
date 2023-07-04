@@ -11,7 +11,6 @@ use petgraph::{
 
 use crate::{
     graph_wrapper::GraphWrapper,
-    metadata::Metadata,
     state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
     Edge, Node, SettingsStyle,
 };
@@ -22,7 +21,6 @@ type ShapesNodes = (Vec<CircleShape>, Vec<TextShape>);
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     g: &'a GraphWrapper<'a, N, E, Ty>,
     p: &'a Painter,
-    meta: &'a Metadata,
     comp: &'a StateComputed,
     settings_style: &'a SettingsStyle,
 }
@@ -31,14 +29,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     pub fn new(
         g: &'a GraphWrapper<N, E, Ty>,
         p: &'a Painter,
-        meta: &'a Metadata,
         comp: &'a StateComputed,
         settings_style: &'a SettingsStyle,
     ) -> Self {
         Drawer {
             g,
             p,
-            meta,
             comp,
             settings_style,
         }
@@ -231,8 +227,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     ) {
         let mut comp_start = self.comp.node_state(start_idx).unwrap();
         let mut comp_end = self.comp.node_state(end_idx).unwrap();
-        let mut start_node = self.g.node(*start_idx).unwrap();
-        let mut end_node = self.g.node(*end_idx).unwrap();
+        let start_node = self.g.node(*start_idx).unwrap();
         let mut transparent = false;
 
         if (start_node.folded() || comp_start.subfolded()) && comp_end.subfolded() {
@@ -248,7 +243,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 .first()
                 .unwrap();
             comp_start = self.comp.node_state(new_start_idx).unwrap();
-            start_node = self.g.node(*new_start_idx).unwrap();
             transparent = true;
         }
 
@@ -261,7 +255,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 .first()
                 .unwrap();
             comp_end = self.comp.node_state(new_end_idx).unwrap();
-            end_node = self.g.node(*new_end_idx).unwrap();
             transparent = true;
         }
 

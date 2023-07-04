@@ -232,8 +232,8 @@ impl StateComputedEdge {
     }
 
     pub fn apply_screen_transform(&mut self, m: &Metadata) {
-        self.width = self.width * m.zoom;
-        self.tip_size = self.tip_size * m.zoom;
-        self.curve_size = self.curve_size * m.zoom;
+        self.width *= m.zoom;
+        self.tip_size *= m.zoom;
+        self.curve_size *= m.zoom;
     }
 }
