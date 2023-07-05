@@ -1,9 +1,7 @@
 use egui::{Color32, Vec2};
 
-use crate::metadata::Metadata;
-
 /// Stores properties of a node.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Node<N: Clone> {
     /// Client data
     data: Option<N>,

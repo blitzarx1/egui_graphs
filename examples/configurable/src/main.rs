@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Instant;
 
@@ -5,7 +6,7 @@ use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2, Visuals};
 use egui_graphs::{
-    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle, to_input_graph,
+    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle, to_input_graph, SubGraph, ChangeNode,
 };
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -48,6 +49,7 @@ pub struct ConfigurableApp {
 
     changes_receiver: Receiver<Change>,
     changes_sender: Sender<Change>,
+    last_foldings: HashMap<NodeIndex, SubGraph>,
 }
 
 impl ConfigurableApp {
@@ -75,6 +77,7 @@ impl ConfigurableApp {
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
             last_changes: Default::default(),
+            last_foldings: Default::default(),
 
             simulation_stopped: false,
             dark_mode: true,
@@ -189,13 +192,28 @@ impl ConfigurableApp {
     }
 
     fn handle_changes(&mut self) {
-        self.changes_receiver.try_iter().for_each(|changes| {
+        let mut foldings = HashMap::new();
+        self.changes_receiver.try_iter().for_each(|ch| {
             if self.last_changes.len() > CHANGES_LIMIT {
                 self.last_changes.remove(0);
             }
 
-            self.last_changes.push(changes);
+
+
+            match ch.clone() {
+                Change::Node(n_ch) => match n_ch {
+                    ChangeNode::FoldedChildren { id, children } => {
+                        foldings.insert(id, children);
+                    },
+                    _ => (),
+                },
+                _ => (),
+            };
+
+            self.last_changes.push(ch);
         });
+
+        self.last_foldings = foldings;
     }
 
     fn random_node_idx(&self) -> Option<NodeIndex> {

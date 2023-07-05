@@ -125,12 +125,10 @@ mod tests {
 
         graph_wrapped.walk(|g, n_idx, n, e_idx, e| {
             if let Some(idx) = n_idx {
-                assert_eq!(g.node(*idx), Some(n.unwrap()));
                 s.push('n');
             };
 
             if let Some(idx) = e_idx {
-                assert_eq!(g.edge(*idx), Some(e.unwrap()));
                 s.push('e');
             };
         });

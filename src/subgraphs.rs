@@ -8,11 +8,12 @@ use petgraph::{
 
 use crate::graph_wrapper::GraphWrapper;
 
-/// This type is representing a subgraph of the graph. Node and edges are holding
+/// A subgraph of a graph. Node and edges are holding
 /// references to the elements of the original graph.
 pub type SubGraph = Graph<NodeIndex, EdgeIndex>;
 pub type Elements = (Vec<NodeIndex>, Vec<EdgeIndex>);
 
+/// A collection of [`SubGraph`]s. Each subgraph is identified by its root node.
 #[derive(Default, Debug, Clone)]
 pub struct SubGraphs {
     data: HashMap<NodeIndex, SubGraph>,
@@ -82,7 +83,7 @@ impl SubGraphs {
         g: &GraphWrapper<N, E, Ty>,
         root: NodeIndex,
         depth: i32,
-    ) {
+    ) -> SubGraph {
         let mut subgraph = Graph::<NodeIndex, EdgeIndex>::new();
         let dir = match depth > 0 {
             true => petgraph::Direction::Outgoing,
@@ -90,7 +91,13 @@ impl SubGraphs {
         };
         let steps = depth.unsigned_abs() as usize;
         self.collect_generations(g, &mut subgraph, root, steps, dir);
-        self.data.insert(root, subgraph);
+
+        self.data.insert(root, subgraph.clone());
+        subgraph
+    }
+
+    pub fn subgraphs(&self) -> impl Iterator<Item = (&NodeIndex, &SubGraph)> {
+        self.data.iter()
     }
 
     fn add_node(&mut self, g: &mut SubGraph, root: NodeIndex, node: NodeIndex) -> NodeIndex {
