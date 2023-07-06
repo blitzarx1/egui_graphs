@@ -206,8 +206,14 @@ impl ConfigurableApp {
 
             if let Change::Node(n_ch) = ch.clone() {
                 if let ChangeNode::FoldedChildren { id, children } = n_ch {
-                    // TODO: add only edges that has both ends folded
-                    new_folded_edges = new_folded_edges.union(&children.edge_weights().cloned().collect::<HashSet<_>>()).cloned().collect();
+                    children.edge_references().for_each(|e| {
+                        new_folded_edges = new_folded_edges.union(&[
+                            self.sim.get_graph().find_edge(
+                                *children.node_weight(e.source()).unwrap(), 
+                                *children.node_weight(e.target()).unwrap(),
+                            ).unwrap(),
+                        ].into_iter().collect::<HashSet<_>>()).cloned().collect();
+                    });
                 }
             };
 
