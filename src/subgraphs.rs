@@ -8,11 +8,12 @@ use petgraph::{
 
 use crate::graph_wrapper::GraphWrapper;
 
-/// This type is representing a subgraph of the graph. Node and edges are holding
+/// A subgraph of a graph. Node and edges are holding
 /// references to the elements of the original graph.
 pub type SubGraph = Graph<NodeIndex, EdgeIndex>;
 pub type Elements = (Vec<NodeIndex>, Vec<EdgeIndex>);
 
+/// A collection of [`SubGraph`]s. Each subgraph is identified by its root node.
 #[derive(Default, Debug, Clone)]
 pub struct SubGraphs {
     data: HashMap<NodeIndex, SubGraph>,
@@ -90,7 +91,12 @@ impl SubGraphs {
         };
         let steps = depth.unsigned_abs() as usize;
         self.collect_generations(g, &mut subgraph, root, steps, dir);
+
         self.data.insert(root, subgraph);
+    }
+
+    pub fn subgraphs(&self) -> impl Iterator<Item = (&NodeIndex, &SubGraph)> {
+        self.data.iter()
     }
 
     fn add_node(&mut self, g: &mut SubGraph, root: NodeIndex, node: NodeIndex) -> NodeIndex {
@@ -128,10 +134,10 @@ impl SubGraphs {
             steps_left -= 1;
 
             let mut next_nodes = vec![];
-            nodes.iter().for_each(|src_root_idx| {
-                let dst_root_idx = self.add_node(dst_subgraph, root, *src_root_idx);
+            nodes.iter().for_each(|src_start_idx| {
+                let dst_start_idx = self.add_node(dst_subgraph, root, *src_start_idx);
                 src_subgraph
-                    .edges_directed(*src_root_idx, dir)
+                    .edges_directed(*src_start_idx, dir)
                     .for_each(|edge| {
                         let src_next_idx = match dir {
                             Direction::Incoming => edge.source(),
@@ -144,7 +150,7 @@ impl SubGraphs {
 
                         let src_edge_idx = edge.id();
                         let dst_next_idx = self.add_node(dst_subgraph, root, src_next_idx);
-                        dst_subgraph.add_edge(dst_root_idx, dst_next_idx, src_edge_idx);
+                        dst_subgraph.add_edge(dst_start_idx, dst_next_idx, src_edge_idx);
                         next_nodes.push(src_next_idx);
                     });
             });

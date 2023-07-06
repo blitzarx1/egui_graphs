@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Instant;
 
@@ -5,7 +6,7 @@ use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2, Visuals};
 use egui_graphs::{
-    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle, to_input_graph,
+    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle, to_input_graph, ChangeNode,
 };
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -23,7 +24,7 @@ const CHANGES_LIMIT: usize = 100;
 
 pub struct ConfigurableApp {
     g: StableGraph<Node<()>, Edge<()>>,
-    sim: Simulation<(), ()>,
+    sim: Simulation<(), f32>,
 
     settings_graph: SettingsGraph,
     settings_interaction: SettingsInteraction,
@@ -48,6 +49,8 @@ pub struct ConfigurableApp {
 
     changes_receiver: Receiver<Change>,
     changes_sender: Sender<Change>,
+
+    folded_edges: HashSet<EdgeIndex>,
 }
 
 impl ConfigurableApp {
@@ -75,6 +78,7 @@ impl ConfigurableApp {
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
             last_changes: Default::default(),
+            folded_edges: Default::default(),
 
             simulation_stopped: false,
             dark_mode: true,
@@ -118,13 +122,13 @@ impl ConfigurableApp {
 
             self.sim.update(SIMULATION_DT);
 
-            looped_nodes
+                        looped_nodes
         };
 
         // restore looped edges
         let graph = self.sim.get_graph_mut();
         for (idx, _) in looped_nodes.iter() {
-            graph.add_edge(*idx, *idx, ());
+            graph.add_edge(*idx, *idx, 1.);
         }
     }
 
@@ -153,6 +157,18 @@ impl ConfigurableApp {
 
             if g_n.selected() {
                 self.selected_nodes.push(g_n.clone());
+            }
+        });
+
+        
+        // reset the weights of the edges
+        self.sim.get_graph_mut().edge_weights_mut().for_each(|w| {
+            *w = 1.;
+        });
+        // update the weights of the edges that are folded
+        self.g.edge_indices().for_each(|idx| {
+            if let Some(f_e_idx) = self.folded_edges.get(&idx) {
+                *self.sim.get_graph_mut().edge_weight_mut(*f_e_idx).unwrap() = 0.
             }
         });
     }
@@ -186,13 +202,27 @@ impl ConfigurableApp {
     }
 
     fn handle_changes(&mut self) {
-        self.changes_receiver.try_iter().for_each(|changes| {
+        let mut new_folded_edges = HashSet::new();
+        self.changes_receiver.try_iter().for_each(|ch| {
             if self.last_changes.len() > CHANGES_LIMIT {
                 self.last_changes.remove(0);
             }
 
-            self.last_changes.push(changes);
+            if let Change::Node(ChangeNode::FoldedChildren { id: _, children }) = ch.clone() {
+                    children.edge_references().for_each(|e| {
+                        new_folded_edges = new_folded_edges.union(&[
+                            self.sim.get_graph().find_edge(
+                                *children.node_weight(e.source()).unwrap(), 
+                                *children.node_weight(e.target()).unwrap(),
+                            ).unwrap(),
+                        ].into_iter().collect::<HashSet<_>>()).cloned().collect();
+                    });
+            };
+
+            self.last_changes.push(ch);
         });
+
+        self.folded_edges= new_folded_edges;
     }
 
     fn random_node_idx(&self) -> Option<NodeIndex> {
@@ -269,7 +299,7 @@ impl ConfigurableApp {
 
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
         self.g.add_edge(start, end, Edge::new(()));
-        self.sim.get_graph_mut().add_edge(start, end, ());
+        self.sim.get_graph_mut().add_edge(start, end, 1.);
     }
 
     fn remove_random_edge(&mut self) {
@@ -627,14 +657,14 @@ impl App for ConfigurableApp {
     }
 }
 
-fn generate(settings: &SettingsGraph) -> (StableGraph<Node<()>, Edge<()>>, Simulation<(), ()>) {
+fn generate(settings: &SettingsGraph) -> (StableGraph<Node<()>, Edge<()>>, Simulation<(), f32>) {
     let g = generate_random_graph(settings.count_node, settings.count_edge);
     let sim = construct_simulation(&g);
 
     (g, sim)
 }
 
-fn construct_simulation(g: &StableGraph<Node<()>, Edge<()>>) -> Simulation<(), ()> {
+fn construct_simulation(g: &StableGraph<Node<()>, Edge<()>>) -> Simulation<(), f32> {
     // create force graph
     let mut force_graph = ForceGraph::with_capacity(g.node_count(), g.edge_count());
     g.node_indices().for_each(|idx| {
@@ -643,12 +673,12 @@ fn construct_simulation(g: &StableGraph<Node<()>, Edge<()>>) -> Simulation<(), (
     });
     g.edge_indices().for_each(|idx| {
         let (source, target) = g.edge_endpoints(idx).unwrap();
-        force_graph.add_edge(source, target, ());
+        force_graph.add_edge(source, target, 1.);
     });
 
     // initialize simulation
     let mut params = SimulationParameters::default();
-    let force = fdg_sim::force::fruchterman_reingold(100., 0.5);
+    let force = fdg_sim::force::fruchterman_reingold_weighted(100., 0.5);
     params.set_force(force);
 
     Simulation::from_graph(force_graph, params)
