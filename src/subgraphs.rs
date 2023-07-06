@@ -83,7 +83,7 @@ impl SubGraphs {
         g: &GraphWrapper<N, E, Ty>,
         root: NodeIndex,
         depth: i32,
-    ) -> SubGraph {
+    ) {
         let mut subgraph = Graph::<NodeIndex, EdgeIndex>::new();
         let dir = match depth > 0 {
             true => petgraph::Direction::Outgoing,
@@ -92,8 +92,7 @@ impl SubGraphs {
         let steps = depth.unsigned_abs() as usize;
         self.collect_generations(g, &mut subgraph, root, steps, dir);
 
-        self.data.insert(root, subgraph.clone());
-        subgraph
+        self.data.insert(root, subgraph);
     }
 
     pub fn subgraphs(&self) -> impl Iterator<Item = (&NodeIndex, &SubGraph)> {
@@ -135,10 +134,10 @@ impl SubGraphs {
             steps_left -= 1;
 
             let mut next_nodes = vec![];
-            nodes.iter().for_each(|src_root_idx| {
-                let dst_root_idx = self.add_node(dst_subgraph, root, *src_root_idx);
+            nodes.iter().for_each(|src_start_idx| {
+                let dst_start_idx = self.add_node(dst_subgraph, root, *src_start_idx);
                 src_subgraph
-                    .edges_directed(*src_root_idx, dir)
+                    .edges_directed(*src_start_idx, dir)
                     .for_each(|edge| {
                         let src_next_idx = match dir {
                             Direction::Incoming => edge.source(),
@@ -151,7 +150,7 @@ impl SubGraphs {
 
                         let src_edge_idx = edge.id();
                         let dst_next_idx = self.add_node(dst_subgraph, root, src_next_idx);
-                        dst_subgraph.add_edge(dst_root_idx, dst_next_idx, src_edge_idx);
+                        dst_subgraph.add_edge(dst_start_idx, dst_next_idx, src_edge_idx);
                         next_nodes.push(src_next_idx);
                     });
             });
