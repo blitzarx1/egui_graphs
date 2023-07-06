@@ -160,11 +160,15 @@ impl ConfigurableApp {
             }
         });
 
-        // FIXME: panic when change edges num
+        
+        // reset the weights of the edges
+        self.sim.get_graph_mut().edge_weights_mut().for_each(|w| {
+            *w = 1.;
+        });
+        // update the weights of the edges that are folded
         self.g.edge_indices().for_each(|idx| {
-            match self.folded_edges.get(&idx) {
-                Some(_) => *self.sim.get_graph_mut().edge_weight_mut(idx).unwrap() = 0.,
-                None => *self.sim.get_graph_mut().edge_weight_mut(idx).unwrap() = 1.,
+            if let Some(f_e_idx) = self.folded_edges.get(&idx) {
+                *self.sim.get_graph_mut().edge_weight_mut(*f_e_idx).unwrap() = 0.
             }
         });
     }
@@ -204,8 +208,7 @@ impl ConfigurableApp {
                 self.last_changes.remove(0);
             }
 
-            if let Change::Node(n_ch) = ch.clone() {
-                if let ChangeNode::FoldedChildren { id, children } = n_ch {
+            if let Change::Node(ChangeNode::FoldedChildren { id: _, children }) = ch.clone() {
                     children.edge_references().for_each(|e| {
                         new_folded_edges = new_folded_edges.union(&[
                             self.sim.get_graph().find_edge(
@@ -214,7 +217,6 @@ impl ConfigurableApp {
                             ).unwrap(),
                         ].into_iter().collect::<HashSet<_>>()).cloned().collect();
                     });
-                }
             };
 
             self.last_changes.push(ch);
