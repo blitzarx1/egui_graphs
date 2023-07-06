@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Instant;
 
@@ -6,7 +6,7 @@ use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2, Visuals};
 use egui_graphs::{
-    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle, to_input_graph, SubGraph, ChangeNode,
+    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle, to_input_graph, ChangeNode,
 };
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -49,7 +49,8 @@ pub struct ConfigurableApp {
 
     changes_receiver: Receiver<Change>,
     changes_sender: Sender<Change>,
-    last_foldings: HashMap<NodeIndex, SubGraph>,
+
+    folded_edges: HashSet<EdgeIndex>,
 }
 
 impl ConfigurableApp {
@@ -77,7 +78,7 @@ impl ConfigurableApp {
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
             last_changes: Default::default(),
-            last_foldings: Default::default(),
+            folded_edges: Default::default(),
 
             simulation_stopped: false,
             dark_mode: true,
@@ -157,9 +158,14 @@ impl ConfigurableApp {
             if g_n.selected() {
                 self.selected_nodes.push(g_n.clone());
             }
+        });
 
-            // TODO: if node is folded make edge weight = 0.
-            // if node is foldign root make edge weigh = num_folded_children (add num_folded_children to node fields)
+        // FIXME: panic when change edges num
+        self.g.edge_indices().for_each(|idx| {
+            match self.folded_edges.get(&idx) {
+                Some(_) => *self.sim.get_graph_mut().edge_weight_mut(idx).unwrap() = 0.,
+                None => *self.sim.get_graph_mut().edge_weight_mut(idx).unwrap() = 1.,
+            }
         });
     }
 
@@ -192,28 +198,23 @@ impl ConfigurableApp {
     }
 
     fn handle_changes(&mut self) {
-        let mut foldings = HashMap::new();
+        let mut new_folded_edges = HashSet::new();
         self.changes_receiver.try_iter().for_each(|ch| {
             if self.last_changes.len() > CHANGES_LIMIT {
                 self.last_changes.remove(0);
             }
 
-
-
-            match ch.clone() {
-                Change::Node(n_ch) => match n_ch {
-                    ChangeNode::FoldedChildren { id, children } => {
-                        foldings.insert(id, children);
-                    },
-                    _ => (),
-                },
-                _ => (),
+            if let Change::Node(n_ch) = ch.clone() {
+                if let ChangeNode::FoldedChildren { id, children } = n_ch {
+                    // TODO: add only edges that has both ends folded
+                    new_folded_edges = new_folded_edges.union(&children.edge_weights().cloned().collect::<HashSet<_>>()).cloned().collect();
+                }
             };
 
             self.last_changes.push(ch);
         });
 
-        self.last_foldings = foldings;
+        self.folded_edges= new_folded_edges;
     }
 
     fn random_node_idx(&self) -> Option<NodeIndex> {
