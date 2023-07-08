@@ -14,4 +14,4 @@ rand = "0.8"
 petgraph = "0.6"
 
 [workspace]
-members = ["examples/*"]
+members = ["examples/*", "demos/*"]

@@ -1,0 +1,11 @@
+[package]
+name = "wikilinks"
+version = "0.5.4"
+authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+egui_graphs = { path = "../../" }
+egui = "0.22"
+eframe = "0.22"
