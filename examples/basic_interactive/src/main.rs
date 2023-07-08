@@ -17,15 +17,15 @@ impl BasicInteractiveApp {
 impl App for BasicInteractiveApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(
-                &mut GraphView::new(&mut self.g).with_interactions(&SettingsInteraction {
-                    node_drag: true,
-                    node_click: true,
-                    node_select: true,
-                    node_multiselect: true,
-                    ..Default::default()
-                }),
-            );
+            let interaction_settings = &SettingsInteraction::new()
+                .with_dragging_enabled(true)
+                .with_clicking_enabled(true)
+                .with_folding_enabled(true)
+                .with_selection_enabled(true)
+                .with_selection_multi_enabled(true)
+                .with_selection_depth(i32::MAX)
+                .with_folding_depth(usize::MAX);
+            ui.add(&mut GraphView::new(&mut self.g).with_interactions(interaction_settings));
         });
     }
 }

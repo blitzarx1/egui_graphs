@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
-use egui::Vec2;
+use egui::{Pos2, Rect, Vec2};
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
-    graph_wrapper::GraphWrapper, metadata::Metadata, subgraphs::SubGraphs, Edge, Node,
-    SettingsInteraction, SettingsStyle,
+    graph_wrapper::GraphWrapper,
+    metadata::Metadata,
+    settings::{SettingsInteraction, SettingsStyle},
+    subgraphs::SubGraphs,
+    Edge, Node,
 };
 
 const DEFAULT_NODE_RADIUS: f32 = 5.;
@@ -13,13 +16,41 @@ const DEFAULT_NODE_RADIUS: f32 = 5.;
 /// `StateComputed` is a utility struct for managing ephemerial state which is created and destroyed in one frame.
 ///
 /// The struct stores selections, dragged node and computed elements states.
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct StateComputed {
+    /// Whether we have a node being dragged
+    pub has_dragged_node: bool,
+    /// Stores the bounds of the graph
+    pub graph_bounds: Rect,
     pub dragged: Option<NodeIndex>,
     pub selections: SubGraphs,
     pub foldings: SubGraphs,
     pub nodes: HashMap<NodeIndex, StateComputedNode>,
     pub edges: HashMap<EdgeIndex, StateComputedEdge>,
+
+    min_x: f32,
+    min_y: f32,
+    max_x: f32,
+    max_y: f32,
+}
+
+impl Default for StateComputed {
+    fn default() -> Self {
+        Self {
+            has_dragged_node: false,
+            graph_bounds: Rect::from_two_pos(egui::Pos2::default(), egui::Pos2::default()),
+            dragged: None,
+            selections: SubGraphs::default(),
+            foldings: SubGraphs::default(),
+            nodes: HashMap::new(),
+            edges: HashMap::new(),
+
+            min_x: f32::MAX,
+            min_y: f32::MAX,
+            max_x: f32::MIN,
+            max_y: f32::MIN,
+        }
+    }
 }
 
 impl StateComputed {
@@ -47,6 +78,20 @@ impl StateComputed {
             self.dragged = Some(idx);
         }
 
+        let (x, y) = (n.location().x, n.location().y);
+        if x < self.min_x {
+            self.min_x = x;
+        };
+        if y < self.min_y {
+            self.min_y = y;
+        };
+        if x > self.max_x {
+            self.max_x = x;
+        };
+        if y > self.max_y {
+            self.max_y = y;
+        };
+
         self.compute_selection(
             g,
             idx,
@@ -56,13 +101,20 @@ impl StateComputed {
         );
         self.compute_folding(g, idx, n, settings_interaction.folding_depth);
 
-        radius_addition += self.node_state(&idx).unwrap().num_folded as f32
-            * settings_style.folded_node_radius_weight;
+        radius_addition +=
+            self.node_state(&idx).unwrap().num_folded as f32 * settings_style.folded_radius_weight;
 
         let comp = self.nodes.get_mut(&idx).unwrap();
 
         comp.inc_radius(radius_addition);
         comp.apply_screen_transform(meta);
+    }
+
+    pub fn compute_graph_bounds(&mut self) {
+        self.graph_bounds = Rect::from_min_max(
+            Pos2::new(self.min_x, self.min_y),
+            Pos2::new(self.max_x, self.max_y),
+        );
     }
 
     fn compute_selection<N: Clone, E: Clone, Ty: EdgeType>(

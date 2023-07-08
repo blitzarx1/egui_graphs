@@ -10,18 +10,18 @@ use std::collections::HashMap;
 
 pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 
-/// Helper function which transforms users [`StableGraph`] isntance into the version required by the [`super::GraphView`] widget.
+/// Helper function which transforms users [`petgraph::stable_graph::StableGraph`] isntance into the version required by the [`super::GraphView`] widget.
 ///
 /// The function creates a new StableGraph where the nodes and edges are encapsulated into
 /// Node and Edge structs respectively. New nodes and edges are created with [`default_node_transform`] and [`default_edge_transform`]
 /// functions. If you want to define custom transformation procedures (e.g. to use custom label for nodes), use [`to_input_graph_custom`] instead.
 ///
 /// # Arguments
-/// * `g` - A reference to a [`StableGraph`]. The graph can have any data type for nodes and edges, and
+/// * `g` - A reference to a [`petgraph::stable_graph::StableGraph`]. The graph can have any data type for nodes and edges, and
 /// can be either directed or undirected.
 ///
 /// # Returns
-/// * A new [`StableGraph`] with the same topology as the input graph, but the nodes and edges encapsulated
+/// * A new [`petgraph::stable_graph::StableGraph`] with the same topology as the input graph, but the nodes and edges encapsulated
 /// into Node and Edge structs compatible as an input to [`super::GraphView`] widget.
 ///
 /// # Example
