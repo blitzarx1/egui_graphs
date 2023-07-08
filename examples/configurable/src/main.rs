@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Instant;
 
@@ -5,7 +6,7 @@ use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2, Visuals};
 use egui_graphs::{
-    Change, Edge, GraphView, Node, SettingsInteraction, SettingsNavigation, SettingsStyle, to_input_graph,
+    Change, Edge, GraphView, Node, to_input_graph, ChangeSubgraph,
 };
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -13,7 +14,7 @@ use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 use petgraph::visit::EdgeRef;
 use petgraph::Directed;
 use rand::Rng;
-use settings::SettingsGraph;
+use settings::{SettingsGraph, SettingsInteraction, SettingsNavigation, SettingsStyle};
 
 mod settings;
 
@@ -23,7 +24,7 @@ const CHANGES_LIMIT: usize = 100;
 
 pub struct ConfigurableApp {
     g: StableGraph<Node<()>, Edge<()>>,
-    sim: Simulation<(), ()>,
+    sim: Simulation<(), f32>,
 
     settings_graph: SettingsGraph,
     settings_interaction: SettingsInteraction,
@@ -48,6 +49,8 @@ pub struct ConfigurableApp {
 
     changes_receiver: Receiver<Change>,
     changes_sender: Sender<Change>,
+
+    folded_edges: HashSet<EdgeIndex>,
 }
 
 impl ConfigurableApp {
@@ -75,6 +78,7 @@ impl ConfigurableApp {
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
             last_changes: Default::default(),
+            folded_edges: Default::default(),
 
             simulation_stopped: false,
             dark_mode: true,
@@ -92,8 +96,9 @@ impl ConfigurableApp {
         }
 
         // the following manipulations is a hack to avoid having looped edges in the simulation
-        // because they cause the simulation to blow up; this is the issue of the fdg_sim engine
-        // we use for the simulation
+        // because they cause the simulation to blow up; 
+        // this is the issue of the fdg_sim engine we use for the simulation
+        // https://github.com/grantshandy/fdg/issues/10
         // * remove loop edges
         // * update simulation
         // * restore loop edges
@@ -124,7 +129,7 @@ impl ConfigurableApp {
         // restore looped edges
         let graph = self.sim.get_graph_mut();
         for (idx, _) in looped_nodes.iter() {
-            graph.add_edge(*idx, *idx, ());
+            graph.add_edge(*idx, *idx, 1.);
         }
     }
 
@@ -142,17 +147,29 @@ impl ConfigurableApp {
             let g_n = self.g.node_weight_mut(*g_n_idx).unwrap();
             let sim_n = self.sim.get_graph_mut().node_weight_mut(*g_n_idx).unwrap();
 
-            if g_n.dragged {
-                let loc = g_n.location;
+            if g_n.dragged() {
+                let loc = g_n.location();
                 sim_n.location = Vec3::new(loc.x, loc.y, 0.);
                 return;
             }
 
             let loc = sim_n.location;
-            g_n.location = Vec2::new(loc.x, loc.y);
+            g_n.set_location(Vec2::new(loc.x, loc.y));
 
-            if g_n.selected {
+            if g_n.selected() {
                 self.selected_nodes.push(g_n.clone());
+            }
+        });
+
+        
+        // reset the weights of the edges
+        self.sim.get_graph_mut().edge_weights_mut().for_each(|w| {
+            *w = 1.;
+        });
+        // update the weights of the edges that are folded
+        self.g.edge_indices().for_each(|idx| {
+            if let Some(f_e_idx) = self.folded_edges.get(&idx) {
+                *self.sim.get_graph_mut().edge_weight_mut(*f_e_idx).unwrap() = 0.
             }
         });
     }
@@ -186,13 +203,27 @@ impl ConfigurableApp {
     }
 
     fn handle_changes(&mut self) {
-        self.changes_receiver.try_iter().for_each(|changes| {
+        let mut new_folded_edges = HashSet::new();
+        self.changes_receiver.try_iter().for_each(|ch| {
             if self.last_changes.len() > CHANGES_LIMIT {
                 self.last_changes.remove(0);
             }
 
-            self.last_changes.push(changes);
+            if let Change::SubGraph(ChangeSubgraph::Folded { root: _, subg }) = ch.clone() {
+                    subg.edge_references().for_each(|e| {
+                        new_folded_edges = new_folded_edges.union(&[
+                            self.sim.get_graph().find_edge(
+                                *subg.node_weight(e.source()).unwrap(), 
+                                *subg.node_weight(e.target()).unwrap(),
+                            ).unwrap(),
+                        ].into_iter().collect::<HashSet<_>>()).cloned().collect();
+                    });
+            };
+
+            self.last_changes.push(ch);
         });
+
+        self.folded_edges= new_folded_edges;
     }
 
     fn random_node_idx(&self) -> Option<NodeIndex> {
@@ -201,8 +232,7 @@ impl ConfigurableApp {
             return None;
         }
 
-        let mut rng = rand::thread_rng();
-        let random_n_idx = rng.gen_range(0..nodes_cnt);
+        let random_n_idx = rand::thread_rng().gen_range(0..nodes_cnt);
         self.g.node_indices().nth(random_n_idx)
     }
 
@@ -212,8 +242,7 @@ impl ConfigurableApp {
             return None;
         }
 
-        let mut rng = rand::thread_rng();
-        let random_e_idx = rng.gen_range(0..edges_cnt);
+        let random_e_idx = rand::thread_rng().gen_range(0..edges_cnt);
         self.g.edge_indices().nth(random_e_idx)
     }
 
@@ -233,8 +262,8 @@ impl ConfigurableApp {
         // location of new node is in surrounging of random existing node
         let mut rng = rand::thread_rng();
         let location = Vec2::new(
-            random_n.location.x + 10. + rng.gen_range(0. ..50.),
-            random_n.location.y + 10. + rng.gen_range(0. ..50.),
+            random_n.location().x + 10. + rng.gen_range(0. ..50.),
+            random_n.location().y + 10. + rng.gen_range(0. ..50.),
         );
 
         let idx = self.g.add_node(Node::new(location, ()));
@@ -269,7 +298,7 @@ impl ConfigurableApp {
 
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
         self.g.add_edge(start, end, Edge::new(()));
-        self.sim.get_graph_mut().add_edge(start, end, ());
+        self.sim.get_graph_mut().add_edge(start, end, 1.);
     }
 
     fn remove_random_edge(&mut self) {
@@ -371,19 +400,19 @@ impl ConfigurableApp {
             ui.separator();
 
             if ui
-                .checkbox(&mut self.settings_navigation.fit_to_screen, "fit_to_screen")
+                .checkbox(&mut self.settings_navigation.fit_to_screen_enabled, "fit_to_screen")
                 .changed()
-                && self.settings_navigation.fit_to_screen
+                && self.settings_navigation.fit_to_screen_enabled
             {
-                self.settings_navigation.zoom_and_pan = false
+                self.settings_navigation.zoom_and_pan_enabled = false
             };
             ui.label("Enable fit to screen to fit the graph to the screen on every frame.");
 
             ui.add_space(5.);
 
-            ui.add_enabled_ui(!self.settings_navigation.fit_to_screen, |ui| {
+            ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
                 ui.vertical(|ui| {
-                    ui.checkbox(&mut self.settings_navigation.zoom_and_pan, "zoom_and_pan");
+                    ui.checkbox(&mut self.settings_navigation.zoom_and_pan_enabled, "zoom_and_pan");
                     ui.label("Zoom with ctrl + mouse wheel, pan with mouse drag.");
                 }).response.on_disabled_hover_text("disable fit_to_screen to enable zoom_and_pan");
             });
@@ -407,48 +436,52 @@ impl ConfigurableApp {
             ui.label("SettingsInteraction");
             ui.separator();
 
-            ui.add_enabled_ui(!(self.settings_interaction.node_drag || self.settings_interaction.node_select || self.settings_interaction.node_multiselect || self.settings_interaction.node_fold), |ui| {
+            ui.add_enabled_ui(!(self.settings_interaction.dragging_enabled || self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled || self.settings_interaction.folding_enabled), |ui| {
                 ui.vertical(|ui| {
-                    ui.checkbox(&mut self.settings_interaction.node_click, "node_click");
+                    ui.checkbox(&mut self.settings_interaction.clicking_enabled, "clicking_enabled");
                     ui.label("Check click events in last changes");
                 }).response.on_disabled_hover_text("node click is enabled when any of the interaction is also enabled");
             });
 
             ui.add_space(5.);
 
-            if ui.checkbox(&mut self.settings_interaction.node_drag, "node_drag").clicked() && self.settings_interaction.node_drag {
-                self.settings_interaction.node_click = true;
+            if ui.checkbox(&mut self.settings_interaction.dragging_enabled, "dragging_enabled").clicked() && self.settings_interaction.dragging_enabled {
+                self.settings_interaction.clicking_enabled = true;
             };
             ui.label("To drag use LMB click + drag on a node.");
 
             ui.add_space(5.);
 
-            ui.add_enabled_ui(!self.settings_interaction.node_multiselect, |ui| {
+            ui.add_enabled_ui(!self.settings_interaction.selection_multi_enabled, |ui| {
                 ui.vertical(|ui| {
-                    if ui.checkbox(&mut self.settings_interaction.node_select, "node_select").clicked() && self.settings_interaction.node_select {
-                        self.settings_interaction.node_click = true;
+                    if ui.checkbox(&mut self.settings_interaction.selection_enabled, "selection_enabled").clicked() && self.settings_interaction.selection_enabled {
+                        self.settings_interaction.clicking_enabled = true;
                     };
                     ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
-                }).response.on_disabled_hover_text("node_multiselect enables select");
+                }).response.on_disabled_hover_text("selection_multi_enabled enables select");
             });
 
-            if ui.checkbox(&mut self.settings_interaction.node_multiselect, "node_multiselect").changed() && self.settings_interaction.node_multiselect {
-                self.settings_interaction.node_click = true;
-                self.settings_interaction.node_select = true;
+            if ui.checkbox(&mut self.settings_interaction.selection_multi_enabled, "selection_multi_enabled").changed() && self.settings_interaction.selection_multi_enabled {
+                self.settings_interaction.clicking_enabled = true;
+                self.settings_interaction.selection_enabled = true;
             }
             ui.label("Enable multiselect to select multiple nodes.");
 
-            ui.add_enabled_ui(self.settings_interaction.node_select || self.settings_interaction.node_multiselect, |ui| {
+            ui.add_enabled_ui(self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled, |ui| {
                 ui.horizontal(|ui| {
-                    if ui.checkbox(&mut self.max_for_select, "all children").clicked() {
-                        self.settings_interaction.selection_depth = i32::MAX;
-                    }; 
-                    if ui.checkbox(&mut self.min_for_select, "all parents").clicked() {
-                        self.settings_interaction.selection_depth = i32::MIN;
-                    };
+                    ui.add_enabled_ui(!self.min_for_select, |ui| {
+                        if ui.checkbox(&mut self.max_for_select, "all_children").clicked() {
+                            self.settings_interaction.selection_depth = i32::MAX;
+                        }; 
+                    });
+                    ui.add_enabled_ui(!self.max_for_select, |ui| {
+                        if ui.checkbox(&mut self.min_for_select, "all_parents").clicked() {
+                            self.settings_interaction.selection_depth = i32::MIN;
+                        };
+                    });
                 });
             });
-            ui.add_enabled_ui((self.settings_interaction.node_select || self.settings_interaction.node_multiselect) && !(self.min_for_select || self.max_for_select), |ui| {
+            ui.add_enabled_ui((self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled) && !(self.min_for_select || self.max_for_select), |ui| {
                 ui.add(Slider::new(&mut self.settings_interaction.selection_depth, -10..=10)
                     .text("selection_depth"));
                 ui.label("How deep into the neighbours of selected nodes should the selection go.");
@@ -456,19 +489,19 @@ impl ConfigurableApp {
 
             ui.add_space(5.);
 
-            if ui.checkbox(&mut self.settings_interaction.node_fold, "node_fold").clicked() && self.settings_interaction.node_fold {
-                self.settings_interaction.node_click = true;
+            if ui.checkbox(&mut self.settings_interaction.folding_enabled, "fold_enabled").clicked() && self.settings_interaction.folding_enabled {
+                self.settings_interaction.clicking_enabled = true;
             };
             ui.label("To fold use LMB double click on a node. Currenly supports only one node folded at a time.");
 
-            ui.add_enabled_ui(self.settings_interaction.node_fold, |ui| {
+            ui.add_enabled_ui(self.settings_interaction.folding_enabled, |ui| {
                 ui.horizontal(|ui| {
                     if ui.checkbox(&mut self.max_for_fold, "all children").clicked() {
                         self.settings_interaction.folding_depth = usize::MAX;
                     };
                 });
             });
-            ui.add_enabled_ui(self.settings_interaction.node_fold && !self.max_for_fold, |ui| {
+            ui.add_enabled_ui(self.settings_interaction.folding_enabled && !self.max_for_fold, |ui| {
                 ui.add(Slider::new(&mut self.settings_interaction.folding_depth, 0..=10)
                 .text("folding_depth"));
                 ui.label("How deep to fold childrens of the selected for folding node.");
@@ -606,11 +639,27 @@ impl App for ConfigurableApp {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            let settings_interaction = &egui_graphs::SettingsInteraction::new()
+                .with_folding_depth(self.settings_interaction.folding_depth)
+                .with_folding_enabled(self.settings_interaction.folding_enabled)
+                .with_selection_enabled(self.settings_interaction.selection_enabled)
+                .with_selection_multi_enabled(self.settings_interaction.selection_multi_enabled)
+                .with_selection_depth(self.settings_interaction.selection_depth)
+                .with_dragging_enabled(self.settings_interaction.dragging_enabled)
+                .with_clicking_enabled(self.settings_interaction.clicking_enabled);
+            let settings_navigation = &egui_graphs::SettingsNavigation::new()
+                .with_zoom_and_pan_enabled(self.settings_navigation.zoom_and_pan_enabled)
+                .with_fit_to_screen_enabled(self.settings_navigation.fit_to_screen_enabled)
+                .with_zoom_speed(self.settings_navigation.zoom_speed);
+            let settings_style = &egui_graphs::SettingsStyle::new()
+                .with_labels_always(self.settings_style.labels_always)
+                .with_edge_radius_weight(self.settings_style.edge_radius_weight)
+                .with_folded_radius_weight(self.settings_style.edge_radius_weight);
             ui.add(
                 &mut GraphView::new(&mut self.g)
-                    .with_interactions(&self.settings_interaction)
-                    .with_navigations(&self.settings_navigation)
-                    .with_styles(&self.settings_style)
+                    .with_interactions(settings_interaction)
+                    .with_navigations(settings_navigation)
+                    .with_styles(settings_style)
                     .with_changes(&self.changes_sender),
             );
         });
@@ -623,14 +672,14 @@ impl App for ConfigurableApp {
     }
 }
 
-fn generate(settings: &SettingsGraph) -> (StableGraph<Node<()>, Edge<()>>, Simulation<(), ()>) {
+fn generate(settings: &SettingsGraph) -> (StableGraph<Node<()>, Edge<()>>, Simulation<(), f32>) {
     let g = generate_random_graph(settings.count_node, settings.count_edge);
     let sim = construct_simulation(&g);
 
     (g, sim)
 }
 
-fn construct_simulation(g: &StableGraph<Node<()>, Edge<()>>) -> Simulation<(), ()> {
+fn construct_simulation(g: &StableGraph<Node<()>, Edge<()>>) -> Simulation<(), f32> {
     // create force graph
     let mut force_graph = ForceGraph::with_capacity(g.node_count(), g.edge_count());
     g.node_indices().for_each(|idx| {
@@ -639,12 +688,12 @@ fn construct_simulation(g: &StableGraph<Node<()>, Edge<()>>) -> Simulation<(), (
     });
     g.edge_indices().for_each(|idx| {
         let (source, target) = g.edge_endpoints(idx).unwrap();
-        force_graph.add_edge(source, target, ());
+        force_graph.add_edge(source, target, 1.);
     });
 
     // initialize simulation
     let mut params = SimulationParameters::default();
-    let force = fdg_sim::force::fruchterman_reingold(100., 0.5);
+    let force = fdg_sim::force::fruchterman_reingold_weighted(100., 0.5);
     params.set_force(force);
 
     Simulation::from_graph(force_graph, params)
