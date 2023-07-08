@@ -11,8 +11,9 @@ use petgraph::{
 
 use crate::{
     graph_wrapper::GraphWrapper,
+    settings::SettingsStyle,
     state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
-    Edge, Node, SettingsStyle,
+    Edge, Node,
 };
 
 type ShapesEdges = (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>);

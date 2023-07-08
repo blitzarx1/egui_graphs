@@ -1,25 +1,13 @@
-use egui::{Id, Pos2, Rect, Vec2};
+use egui::{Id, Vec2};
 
 #[derive(Clone)]
 pub struct Metadata {
-    /// Whether we have a node being dragged
-    pub has_dragged_node: bool,
     /// Whether the frame is the first one
     pub first_frame: bool,
     /// Current zoom factor
     pub zoom: f32,
     /// Current pan offset
     pub pan: Vec2,
-    /// Top left node position in the graph
-    pub top_left_pos: Vec2,
-    /// Bottom right node position in the graph
-    pub down_right_pos: Vec2,
-    /// Stores the bounds of the graph
-    pub graph_bounds: Rect,
-    pub min_x: f32,
-    pub min_y: f32,
-    pub max_x: f32,
-    pub max_y: f32,
 }
 
 impl Default for Metadata {
@@ -27,15 +15,7 @@ impl Default for Metadata {
         Self {
             first_frame: true,
             zoom: 1.,
-            graph_bounds: Rect::from_two_pos(egui::Pos2::default(), egui::Pos2::default()),
-            min_x: f32::MAX,
-            min_y: f32::MAX,
-            max_x: f32::MIN,
-            max_y: f32::MIN,
             pan: Default::default(),
-            top_left_pos: Default::default(),
-            down_right_pos: Default::default(),
-            has_dragged_node: Default::default(),
         }
     }
 }
@@ -52,12 +32,5 @@ impl Metadata {
         ui.data_mut(|data| {
             data.insert_persisted(Id::null(), self);
         });
-    }
-
-    pub(crate) fn build_bounds(&mut self) {
-        self.graph_bounds = Rect::from_min_max(
-            Pos2::new(self.min_x, self.min_y),
-            Pos2::new(self.max_x, self.max_y),
-        );
     }
 }

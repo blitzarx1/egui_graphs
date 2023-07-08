@@ -1,15 +1,16 @@
 use std::sync::mpsc::Sender;
 
 use crate::{
-    change::Change,
     change::ChangeNode,
+    change::{Change, ChangeSubgraph},
     drawer::Drawer,
     elements::Node,
     graph_wrapper::GraphWrapper,
     metadata::Metadata,
+    settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
     state_computed::StateComputed,
-    Edge, SettingsNavigation,
+    Edge,
 };
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{
@@ -34,7 +35,7 @@ use petgraph::{
 /// properties of the nodes or edges.
 pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_interaction: SettingsInteraction,
-    setings_navigation: SettingsNavigation,
+    settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
     g: GraphWrapper<'a, N, E, Ty>,
     changes_sender: Option<&'a Sender<Change>>,
@@ -44,18 +45,18 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
     fn ui(self, ui: &mut Ui) -> Response {
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
-        let mut meta = self.compute_meta(ui);
-        self.handle_fit_to_screen(&resp, &mut meta);
-        self.handle_navigation(ui, &resp, &mut meta);
-
+        let mut meta = Metadata::get(ui);
         let mut computed = self.compute_computed(&meta);
+
+        self.handle_fit_to_screen(&resp, &mut meta, &computed);
+        self.handle_navigation(ui, &resp, &mut meta, &computed);
+
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
         Drawer::new(&self.g, &p, &computed, &self.settings_style).draw();
 
-        self.send_selected_children(&computed);
-        self.send_folded_children(&computed);
+        self.send_comp_changes(&computed);
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -73,19 +74,20 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
             settings_style: Default::default(),
             settings_interaction: Default::default(),
-            setings_navigation: Default::default(),
+            settings_navigation: Default::default(),
             changes_sender: Default::default(),
         }
     }
 
-    /// Makes widget interactive sending changes if interaction has occured. Interaction events which
-    /// are configured in `settings_interaction` are sent to the channel as soon as the occured.
+    /// Makes widget interactive according to the provided settings.
     pub fn with_interactions(mut self, settings_interaction: &SettingsInteraction) -> Self {
         self.settings_interaction = settings_interaction.clone();
         self
     }
 
-    /// Provide a channel to which changes will be sent.
+    /// Make every interaction send [`Change`] to the provided [`std::sync::mpsc::Sender`] as soon as interaction happens.
+    ///
+    /// Change events can be used to handle interactions on the application side.
     pub fn with_changes(mut self, changes_sender: &'a Sender<Change>) -> Self {
         self.changes_sender = Some(changes_sender);
         self
@@ -93,7 +95,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     /// Modifies default behaviour of navigation settings.
     pub fn with_navigations(mut self, settings_navigation: &SettingsNavigation) -> Self {
-        self.setings_navigation = settings_navigation.clone();
+        self.settings_navigation = settings_navigation.clone();
         self
     }
 
@@ -106,38 +108,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
         Metadata::default().store_into_ui(ui);
-    }
-
-    fn compute_meta(&self, ui: &Ui) -> Metadata {
-        let mut meta = Metadata::get(ui);
-        self.g.walk(|_g, _n_idx, n, _e_idx, _e| {
-            if let Some(n) = n {
-                if n.dragged() {
-                    meta.has_dragged_node = true;
-                }
-
-                let (x, y) = (n.location().x, n.location().y);
-
-                if x < meta.min_x {
-                    meta.min_x = x;
-                };
-
-                if y < meta.min_y {
-                    meta.min_y = y;
-                };
-
-                if x > meta.max_x {
-                    meta.max_x = x;
-                };
-
-                if y > meta.max_y {
-                    meta.max_y = y;
-                };
-            }
-        });
-        meta.build_bounds();
-
-        meta
     }
 
     fn compute_computed(&self, meta: &Metadata) -> StateComputed {
@@ -158,18 +128,19 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
                 computed.compute_for_edge(*idx, e.unwrap(), meta);
             };
         });
+        computed.compute_graph_bounds();
 
         computed
     }
 
     /// Fits the graph to the screen if it is the first frame or
     /// fit to screen setting is enabled;
-    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata) {
-        if !meta.first_frame && !self.setings_navigation.fit_to_screen {
+    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata, comp: &StateComputed) {
+        if !meta.first_frame && !self.settings_navigation.fit_to_screen_enabled {
             return;
         }
 
-        self.fit_to_screen(&r.rect, meta);
+        self.fit_to_screen(&r.rect, meta, comp);
         meta.first_frame = false;
     }
 
@@ -178,10 +149,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        let clickable = self.settings_interaction.node_click
-            || self.settings_interaction.node_select
-            || self.settings_interaction.node_multiselect
-            || self.settings_interaction.node_fold;
+        let clickable = self.settings_interaction.clicking_enabled
+            || self.settings_interaction.selection_enabled
+            || self.settings_interaction.selection_multi_enabled
+            || self.settings_interaction.folding_enabled;
 
         if !(clickable) {
             return;
@@ -190,8 +161,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         // click on empty space
         let node = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap());
         if node.is_none() {
-            let selectable =
-                self.settings_interaction.node_select || self.settings_interaction.node_multiselect;
+            let selectable = self.settings_interaction.selection_enabled
+                || self.settings_interaction.selection_multi_enabled;
             if selectable {
                 self.deselect_all(comp);
             }
@@ -210,15 +181,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn handle_node_double_click(&mut self, idx: NodeIndex, comp: &mut StateComputed) {
-        if !self.settings_interaction.node_click && !self.settings_interaction.node_fold {
+        if !self.settings_interaction.clicking_enabled && !self.settings_interaction.folding_enabled
+        {
             return;
         }
 
-        if self.settings_interaction.node_click {
+        if self.settings_interaction.clicking_enabled {
             self.set_node_double_clicked(idx);
         }
 
-        if !self.settings_interaction.node_fold {
+        if !self.settings_interaction.folding_enabled {
             return;
         }
 
@@ -233,15 +205,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn handle_node_click(&mut self, idx: NodeIndex, comp: &StateComputed) {
-        if !self.settings_interaction.node_click && !self.settings_interaction.node_select {
+        if !self.settings_interaction.clicking_enabled
+            && !self.settings_interaction.selection_enabled
+        {
             return;
         }
 
-        if self.settings_interaction.node_click {
+        if self.settings_interaction.clicking_enabled {
             self.set_node_clicked(idx);
         }
 
-        if !self.settings_interaction.node_select {
+        if !self.settings_interaction.selection_enabled {
             return;
         }
 
@@ -251,7 +225,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        if !self.settings_interaction.node_multiselect {
+        if !self.settings_interaction.selection_multi_enabled {
             self.deselect_all(comp);
         }
 
@@ -259,7 +233,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn handle_node_drag(&mut self, resp: &Response, comp: &mut StateComputed, meta: &mut Metadata) {
-        if !self.settings_interaction.node_drag {
+        if !self.settings_interaction.dragging_enabled {
             return;
         }
 
@@ -281,10 +255,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata) {
+    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata, comp: &StateComputed) {
         // calculate graph dimensions with decorative padding
-        let diag = meta.graph_bounds.max - meta.graph_bounds.min;
-        let graph_size = diag * (1. + self.setings_navigation.screen_padding);
+        let diag = comp.graph_bounds.max - comp.graph_bounds.min;
+        let graph_size = diag * (1. + self.settings_navigation.screen_padding);
         let (width, height) = (graph_size.x, graph_size.y);
 
         // calculate canvas dimensions
@@ -304,19 +278,25 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
         // calculate the center of the graph and the canvas
         let graph_center =
-            (meta.graph_bounds.min.to_vec2() + meta.graph_bounds.max.to_vec2()) / 2.0;
+            (comp.graph_bounds.min.to_vec2() + comp.graph_bounds.max.to_vec2()) / 2.0;
 
         // adjust the pan value to align the centers of the graph and the canvas
         meta.pan = rect.center().to_vec2() - graph_center * new_zoom;
     }
 
-    fn handle_navigation(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
+    fn handle_navigation(
+        &self,
+        ui: &Ui,
+        resp: &Response,
+        meta: &mut Metadata,
+        comp: &StateComputed,
+    ) {
         self.handle_zoom(ui, resp, meta);
-        self.handle_pan(resp, meta);
+        self.handle_pan(resp, meta, comp);
     }
 
     fn handle_zoom(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
-        if !self.setings_navigation.zoom_and_pan {
+        if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
 
@@ -326,17 +306,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
                 return;
             }
 
-            let step = self.setings_navigation.zoom_step * (1. - delta).signum();
+            let step = self.settings_navigation.zoom_speed * (1. - delta).signum();
             self.zoom(&resp.rect, step, i.pointer.hover_pos(), meta);
         });
     }
 
-    fn handle_pan(&self, resp: &Response, meta: &mut Metadata) {
-        if !self.setings_navigation.zoom_and_pan {
+    fn handle_pan(&self, resp: &Response, meta: &mut Metadata, comp: &StateComputed) {
+        if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
 
-        if resp.dragged() && !meta.has_dragged_node {
+        if resp.dragged() && comp.dragged.is_none() {
             meta.pan += resp.drag_delta();
         }
     }
@@ -359,32 +339,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let change = ChangeNode::change_selected(idx, n.selected(), val);
         n.set_selected(val);
         self.send_changes(Change::node(change));
-    }
-
-    fn send_selected_children(&self, comp: &StateComputed) {
-        if comp.selections.is_empty() {
-            return;
-        }
-
-        comp.selections.subgraphs().for_each(|(root, subgraph)| {
-            self.send_changes(Change::Node(ChangeNode::select_children(
-                *root,
-                subgraph.clone(),
-            )))
-        })
-    }
-
-    fn send_folded_children(&self, comp: &StateComputed) {
-        if comp.foldings.is_empty() {
-            return;
-        }
-
-        comp.foldings.subgraphs().for_each(|(root, subgraph)| {
-            self.send_changes(Change::Node(ChangeNode::fold_children(
-                *root,
-                subgraph.clone(),
-            )))
-        })
     }
 
     fn set_node_folded(&mut self, idx: NodeIndex, val: bool) {
@@ -431,6 +385,38 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let change = ChangeNode::change_location(idx, n.location(), new_loc);
         n.set_location(new_loc);
         self.send_changes(Change::node(change));
+    }
+
+    /// Sends changes from computed state which should be reported to the application.
+    fn send_comp_changes(&self, comp: &StateComputed) {
+        self.send_selected(comp);
+        self.send_folded(comp);
+    }
+
+    fn send_selected(&self, comp: &StateComputed) {
+        if comp.selections.is_empty() {
+            return;
+        }
+
+        comp.selections.subgraphs().for_each(|(root, subgraph)| {
+            self.send_changes(Change::SubGraph(ChangeSubgraph::change_selected(
+                *root,
+                subgraph.clone(),
+            )))
+        })
+    }
+
+    fn send_folded(&self, comp: &StateComputed) {
+        if comp.foldings.is_empty() {
+            return;
+        }
+
+        comp.foldings.subgraphs().for_each(|(root, subgraph)| {
+            self.send_changes(Change::SubGraph(ChangeSubgraph::change_folded(
+                *root,
+                subgraph.clone(),
+            )))
+        })
     }
 
     fn send_changes(&self, changes: Change) {

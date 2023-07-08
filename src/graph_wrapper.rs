@@ -1,9 +1,9 @@
 use egui::Pos2;
+
 use petgraph::{
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
     visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences},
-    Direction::{self, Incoming, Outgoing},
-    EdgeType,
+    Direction, EdgeType,
 };
 
 use crate::{metadata::Metadata, state_computed::StateComputed, Edge, Node};
@@ -18,6 +18,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         Self { g }
     }
 
+    /// Iterates over all nodes and edges and calls the walker function.
     pub fn walk(
         &self,
         mut walker: impl FnMut(
@@ -34,7 +35,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
             .for_each(|(idx, e)| walker(self, None, None, Some(&idx), Some(e)));
     }
 
-    // TODO: optimize with quad-tree
+    /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
     pub fn node_by_pos(
         &self,
         comp: &'a StateComputed,
@@ -49,10 +50,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         })
     }
 
+    ///Provides iterator over all nodes and their indices.
     pub fn nodes(&'a self) -> impl Iterator<Item = (NodeIndex, &Node<N>)> {
         self.g.node_references()
     }
 
+    /// Provides iterator over all edges and their indices.
     pub fn edges(&'a self) -> impl Iterator<Item = (EdgeIndex, &Edge<E>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
@@ -78,14 +81,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
     }
 
     pub fn edges_num(&self, idx: NodeIndex) -> usize {
-        if self.is_directed() {
-            self.g
-                .edges_directed(idx, Outgoing)
-                .chain(self.g.edges_directed(idx, Incoming))
-                .count()
-        } else {
-            self.g.edges(idx).count()
-        }
+        self.g.edges(idx).count()
     }
 
     pub fn edges_directed(
@@ -123,12 +119,12 @@ mod tests {
         let graph_wrapped = GraphWrapper::new(&mut graph);
         let mut s = String::new();
 
-        graph_wrapped.walk(|g, n_idx, n, e_idx, e| {
-            if let Some(idx) = n_idx {
+        graph_wrapped.walk(|_g, n_idx, _n, e_idx, _e| {
+            if let Some(_idx) = n_idx {
                 s.push('n');
             };
 
-            if let Some(idx) = e_idx {
+            if let Some(_idx) = e_idx {
                 s.push('e');
             };
         });

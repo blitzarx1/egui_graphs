@@ -9,9 +9,12 @@ Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) 
 
 This project represents a `Widget` implementation for egui framework. It allows effortless interactive graph visualization with rust.
 
-## Features for v1.0.0
+## Features
 - [ ] Minimap;
-- [ ] Layouts;
+- [ ] Layouts (first one will be [force-directed layout](https://en.wikipedia.org/wiki/Force-directed_graph_drawing) using [fdg-sim](https://docs.rs/crate/fdg-sim/0.9.1) like in [configurable demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/configurable));
+
+--- release v1.0.0 ---
+
 - [x] Display node labels;
 - [x] Node folding;
 - [x] Arbitrarily complex graphs with self-references, multiple edges, loops, etc.;
