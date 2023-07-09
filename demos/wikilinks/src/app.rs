@@ -36,6 +36,8 @@ const COLOR_ERROR: Color32 = Color32::from_rgb(255, 64, 64);
 
 const CURSOR_WIDTH: f32 = 5.;
 
+const EDGE_WEIGHT: f32 = 0.05;
+
 #[derive(Default)]
 pub struct App {
     root_article_url: String,
@@ -140,6 +142,12 @@ impl App {
                                         n.clone(),
                                     )
                                     .with_label(n.url().val().to_string())
+                                    .with_color(
+                                        match n.url().is_wiki_article() {
+                                            true => COLOR_ACCENT,
+                                            false => Color32::GRAY,
+                                        },
+                                    )
                                 });
                             add_edge(&mut self.g, *parent, idx, &());
                         }
@@ -185,7 +193,7 @@ impl App {
 
     fn draw_graph_and_loading(&mut self, ui: &mut Ui) {
         let mut w = egui_graphs::GraphView::new(&mut self.g);
-        w = w.with_styles(&SettingsStyle::default().with_edge_radius_weight(0.01));
+        w = w.with_styles(&SettingsStyle::default().with_edge_radius_weight(EDGE_WEIGHT));
         ui.add(&mut w);
     }
 
@@ -202,7 +210,7 @@ impl App {
                 .with_fit_to_screen_enabled(false)
                 .with_zoom_and_pan_enabled(true),
         );
-        w = w.with_styles(&SettingsStyle::default().with_edge_radius_weight(0.01));
+        w = w.with_styles(&SettingsStyle::default().with_edge_radius_weight(EDGE_WEIGHT));
         ui.add(&mut w);
     }
 

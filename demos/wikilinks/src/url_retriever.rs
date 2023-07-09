@@ -81,6 +81,10 @@ impl UrlRetriever {
             );
         }
 
+        if !href_val_final.starts_with(protocol.as_str()) {
+            return None;
+        }
+
         let url = Url::new(href_val_final.as_str());
         match url {
             Ok(url) => Some(url),

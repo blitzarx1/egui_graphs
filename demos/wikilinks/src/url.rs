@@ -1,3 +1,5 @@
+use lazy_static::lazy_static;
+use regex::Regex;
 use url::{self, ParseError};
 
 const WIKIPEDIA_HOST: &str = "wikipedia.org";
@@ -16,6 +18,14 @@ impl Url {
 
     pub fn is_wiki(&self) -> bool {
         self.val.host_str().unwrap().contains(WIKIPEDIA_HOST)
+    }
+
+    pub fn is_wiki_article(&self) -> bool {
+        lazy_static! {
+            static ref RE: Regex =
+                Regex::new(r"https://[a-z]{2}\.wikipedia\.org/wiki/([^/.]+)$").unwrap();
+        }
+        RE.is_match(self.val())
     }
 
     pub fn val(&self) -> &str {
