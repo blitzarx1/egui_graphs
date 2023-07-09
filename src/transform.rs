@@ -1,14 +1,39 @@
-use crate::{Edge, Node, graph_view::Graph};
+use crate::{graph_view::Graph, Edge, Node};
 use egui::Vec2;
 use petgraph::{
+    data::Build,
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
     visit::IntoNodeReferences,
     EdgeType,
 };
-use rand::Rng;
+use rand::{seq::IteratorRandom, Rng};
 use std::collections::HashMap;
 
 pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
+
+/// Helper function which adds user's node to the [`egui_graphs::Graph`] instance.
+///
+/// If graph is not empty it picks any node position and adds new node in the vicinity of it.
+pub fn add_node<N: Clone, E: Clone, Ty: EdgeType>(g: &mut Graph<N, E, Ty>, n: N) -> NodeIndex {
+    let mut pos = random_location(DEFAULT_SPAWN_SIZE);
+    if g.node_count() > 0 {
+        let mut rng = rand::thread_rng();
+        let node = g.node_weights().choose(&mut rng).unwrap();
+        pos = node.location() + random_location(DEFAULT_SPAWN_SIZE);
+    }
+
+    g.add_node(Node::new(pos, n))
+}
+
+/// Helper function which adds user's edge to the [`egui_graphs::Graph`] instance.
+pub fn add_edge<N: Clone, E: Clone, Ty: EdgeType>(
+    g: &mut Graph<N, E, Ty>,
+    start: NodeIndex,
+    end: NodeIndex,
+    e: E,
+) -> EdgeIndex {
+    g.add_edge(start, end, Edge::new(e))
+}
 
 /// Helper function which transforms users [`petgraph::stable_graph::StableGraph`] isntance into the version required by the [`super::GraphView`] widget.
 ///
@@ -78,12 +103,8 @@ pub fn default_node_transform<N: Clone, E: Clone, Ty: EdgeType>(
     idx: NodeIndex,
     data: &N,
 ) -> Node<N> {
-    let mut rng = rand::thread_rng();
-    let location = Vec2::new(
-        rng.gen_range(0. ..DEFAULT_SPAWN_SIZE),
-        rng.gen_range(0. ..DEFAULT_SPAWN_SIZE),
-    );
-    Node::new(location, data.clone()).with_label(idx.index().to_string())
+    let loc = random_location(DEFAULT_SPAWN_SIZE);
+    Node::new(loc, data.clone()).with_label(idx.index().to_string())
 }
 
 /// Default edge transform function. Keeps original data and creates a new edge.
@@ -93,6 +114,11 @@ pub fn default_edge_transform<N: Clone, E: Clone, Ty: EdgeType>(
     data: &E,
 ) -> Edge<E> {
     Edge::new(data.clone())
+}
+
+fn random_location(size: f32) -> Vec2 {
+    let mut rng = rand::thread_rng();
+    Vec2::new(rng.gen_range(0. ..size), rng.gen_range(0. ..size))
 }
 
 fn transform<N: Clone, E: Clone, Ty: EdgeType>(

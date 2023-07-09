@@ -260,7 +260,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata, comp: &StateComputed) {
         // calculate graph dimensions with decorative padding
-        let diag = comp.graph_bounds.max - comp.graph_bounds.min;
+        let mut diag = comp.graph_bounds.max - comp.graph_bounds.min;
+
+        // if the graph is empty or consists from one node, use a default size
+        if diag == Vec2::ZERO {
+            diag = Vec2::new(1., 100.);
+        }
+
         let graph_size = diag * (1. + self.settings_navigation.screen_padding);
         let (width, height) = (graph_size.x, graph_size.y);
 
