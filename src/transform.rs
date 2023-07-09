@@ -21,22 +21,16 @@ pub fn add_node<N: Clone, E: Clone, Ty: EdgeType>(g: &mut Graph<N, E, Ty>, n: &N
     ))
 }
 
-// /// Helper function which adds user's node to the [`egui_graphs::Graph`] instance.
-// ///
-// /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-// pub fn add_node_custom<N: Clone, E: Clone, Ty: EdgeType>(
-//     g: &mut Graph<N, E, Ty>,
-//     n: N,
-// ) -> NodeIndex {
-//     let mut pos = random_location(DEFAULT_SPAWN_SIZE);
-//     if g.node_count() > 0 {
-//         let mut rng = rand::thread_rng();
-//         let node = g.node_weights().choose(&mut rng).unwrap();
-//         pos = node.location() + random_location(DEFAULT_SPAWN_SIZE);
-//     }
-
-//     g.add_node(Node::new(pos, n))
-// }
+/// Helper function which adds user's node to the [`egui_graphs::Graph`] instance.
+///
+/// If graph is not empty it picks any node position and adds new node in the vicinity of it.
+pub fn add_node_custom<N: Clone, E: Clone, Ty: EdgeType>(
+    g: &mut Graph<N, E, Ty>,
+    n: &N,
+    node_transform: impl Fn(NodeIndex, &N) -> Node<N>,
+) -> NodeIndex {
+    g.add_node(node_transform(NodeIndex::new(g.node_count() + 1), n))
+}
 
 /// Helper function which adds user's edge to the [`egui_graphs::Graph`] instance.
 pub fn add_edge<N: Clone, E: Clone, Ty: EdgeType>(

@@ -1,8 +1,6 @@
 # Examples
 This directory contains simple demo applications which are using egui_graphs.
 
-All demos support wasm builds.
-
 Demo version is corresponding to the minimal version of the library with which it works withous issues.
 
 ## Prerequisites

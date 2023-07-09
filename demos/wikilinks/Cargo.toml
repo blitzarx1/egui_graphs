@@ -1,6 +1,6 @@
 [package]
 name = "wikilinks"
-version = "0.5.4"
+version = "0.6.0"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 edition = "2021"
@@ -9,3 +9,12 @@ edition = "2021"
 egui_graphs = { path = "../../" }
 egui = "0.22"
 eframe = "0.22"
+reqwest = "0.11.18"
+url = "2.4.0"
+tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
+crossbeam = "0.8.0"
+petgraph = "0.6.3"
+log = "0.4"
+env_logger = "0.10"
+scraper = "0.17"
+rand = "0.8"

@@ -44,7 +44,7 @@ Docs can be found [here](https://docs.rs/egui_graphs/latest/egui_graphs/)
 First, let's define the `BasicApp` struct that will hold the graph.
 ```rust 
 pub struct BasicApp {
-    g: StableGraph<Node<()>, Edge<()>>,
+    g: Graph<(), ()>,
 }
 ```
 
@@ -64,8 +64,8 @@ impl BasicApp {
 
 Create a helper function called `generate_graph()`. In this example, we create three nodes with and three edges connecting them in a triangular pattern.
 ```rust 
-fn generate_graph() -> StableGraph<Node<()>, Edge<()>> {
-    let mut g: StableGraph<Node<()>, Edge<()>> = StableGraph::new();
+fn generate_graph() -> Graph<(), ()> {
+    let mut g: Graph<(), ()> = StableGraph::new();
 
     let a = g.add_node(Node::new(egui::Vec2::new(0., SIDE_SIZE), ()));
     let b = g.add_node(Node::new(egui::Vec2::new(-SIDE_SIZE, 0.), ()));
