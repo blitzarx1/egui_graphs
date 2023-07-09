@@ -18,6 +18,9 @@ use petgraph::{
     EdgeType,
 };
 
+// Represents graph type compatible with the widget.
+pub type Graph<N, E, Ty> = StableGraph<Node<N>, Edge<E>, Ty>;
+
 /// `GraphView` is a widget for visualizing and interacting with graphs.
 ///
 /// It implements `egui::Widget` and can be used like any other widget.
@@ -68,7 +71,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut StableGraph<Node<N>, Edge<E>, Ty>) -> Self {
+    pub fn new(g: &'a mut Graph<N, E, Ty>) -> Self {
         Self {
             g: GraphWrapper::new(g),
 

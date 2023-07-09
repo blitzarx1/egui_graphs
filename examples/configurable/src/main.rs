@@ -6,7 +6,7 @@ use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2, Visuals};
 use egui_graphs::{
-    Change, Edge, GraphView, Node, to_input_graph, ChangeSubgraph,
+    Change, Edge, GraphView, Node, to_input_graph, ChangeSubgraph, Graph,
 };
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
@@ -23,7 +23,7 @@ const FPS_LINE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
 const CHANGES_LIMIT: usize = 100;
 
 pub struct ConfigurableApp {
-    g: StableGraph<Node<()>, Edge<()>>,
+    g: Graph<(), (), Directed>,
     sim: Simulation<(), f32>,
 
     settings_graph: SettingsGraph,
@@ -672,14 +672,14 @@ impl App for ConfigurableApp {
     }
 }
 
-fn generate(settings: &SettingsGraph) -> (StableGraph<Node<()>, Edge<()>>, Simulation<(), f32>) {
+fn generate(settings: &SettingsGraph) -> (Graph<(), (), Directed>, Simulation<(), f32>) {
     let g = generate_random_graph(settings.count_node, settings.count_edge);
     let sim = construct_simulation(&g);
 
     (g, sim)
 }
 
-fn construct_simulation(g: &StableGraph<Node<()>, Edge<()>>) -> Simulation<(), f32> {
+fn construct_simulation(g: &Graph<(), (), Directed>) -> Simulation<(), f32> {
     // create force graph
     let mut force_graph = ForceGraph::with_capacity(g.node_count(), g.edge_count());
     g.node_indices().for_each(|idx| {
@@ -699,7 +699,7 @@ fn construct_simulation(g: &StableGraph<Node<()>, Edge<()>>) -> Simulation<(), f
     Simulation::from_graph(force_graph, params)
 }
 
-fn generate_random_graph(node_count: usize, edge_count: usize) -> StableGraph<Node<()>, Edge<()>> {
+fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph<(), (), Directed> {
     let mut rng = rand::thread_rng();
     let mut graph = StableGraph::new();
 

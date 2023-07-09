@@ -1,12 +1,12 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Edge, GraphView, Node};
-use petgraph::{stable_graph::StableGraph, stable_graph::StableUnGraph, Undirected};
+use egui_graphs::{Edge, Graph, GraphView, Node};
+use petgraph::{stable_graph::StableUnGraph, Undirected};
 
 const SIDE_SIZE: f32 = 50.;
 
 pub struct BasicUndirectedApp {
-    g: StableGraph<Node<()>, Edge<()>, Undirected>,
+    g: Graph<(), (), Undirected>,
 }
 
 impl BasicUndirectedApp {
@@ -24,8 +24,8 @@ impl App for BasicUndirectedApp {
     }
 }
 
-fn generate_graph() -> StableGraph<Node<()>, Edge<()>, Undirected> {
-    let mut g: StableGraph<Node<()>, Edge<()>, Undirected> = StableUnGraph::default();
+fn generate_graph() -> Graph<(), (), Undirected> {
+    let mut g: Graph<(), (), Undirected> = StableUnGraph::default();
 
     let a = g.add_node(Node::new(egui::Vec2::new(0., SIDE_SIZE), ()));
     let b = g.add_node(Node::new(egui::Vec2::new(-SIDE_SIZE, 0.), ()));

@@ -1,4 +1,4 @@
-use crate::{Edge, Node};
+use crate::{Edge, Node, graph_view::Graph};
 use egui::Vec2;
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
@@ -58,7 +58,7 @@ pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 /// ```
 pub fn to_input_graph<N: Clone, E: Clone, Ty: EdgeType>(
     g: &StableGraph<N, E, Ty>,
-) -> StableGraph<Node<N>, Edge<E>, Ty> {
+) -> Graph<N, E, Ty> {
     transform(g, default_node_transform, default_edge_transform)
 }
 
@@ -67,7 +67,7 @@ pub fn to_input_graph_custom<N: Clone, E: Clone, Ty: EdgeType>(
     g: &StableGraph<N, E, Ty>,
     node_transform: impl Fn(&StableGraph<N, E, Ty>, NodeIndex, &N) -> Node<N>,
     edge_transform: impl Fn(&StableGraph<N, E, Ty>, EdgeIndex, &E) -> Edge<E>,
-) -> StableGraph<Node<N>, Edge<E>, Ty> {
+) -> Graph<N, E, Ty> {
     transform(g, node_transform, edge_transform)
 }
 
@@ -99,7 +99,7 @@ fn transform<N: Clone, E: Clone, Ty: EdgeType>(
     g: &StableGraph<N, E, Ty>,
     node_transform: impl Fn(&StableGraph<N, E, Ty>, NodeIndex, &N) -> Node<N>,
     edge_transform: impl Fn(&StableGraph<N, E, Ty>, EdgeIndex, &E) -> Edge<E>,
-) -> StableGraph<Node<N>, Edge<E>, Ty> {
+) -> Graph<N, E, Ty> {
     let mut input_g = StableGraph::<Node<N>, Edge<E>, Ty>::default();
 
     let input_by_user = g

@@ -123,13 +123,17 @@ impl SettingsNavigation {
     ///
     /// With this enabled, the graph will be scaled and panned to fit the screen on every frame.
     ///
-    /// /// You can cofigure the padding around the graph with `screen_padding` setting.
+    /// You can configure the padding around the graph with `screen_padding` setting.
+    ///
+    /// Default: `true`
     pub fn with_fit_to_screen_enabled(mut self, enabled: bool) -> Self {
         self.fit_to_screen_enabled = enabled;
         self
     }
 
     /// Zoom with ctrl + mouse wheel, pan with mouse drag.
+    ///
+    /// Default: `false`
     pub fn with_zoom_and_pan_enabled(mut self, enabled: bool) -> Self {
         self.zoom_and_pan_enabled = enabled;
         self

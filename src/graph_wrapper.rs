@@ -1,20 +1,20 @@
 use egui::Pos2;
 
 use petgraph::{
-    stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
+    stable_graph::{EdgeIndex, EdgeReference, NodeIndex},
     visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences},
     Direction, EdgeType,
 };
 
-use crate::{metadata::Metadata, state_computed::StateComputed, Edge, Node};
+use crate::{graph_view::Graph, metadata::Metadata, state_computed::StateComputed, Edge, Node};
 
 /// Encapsulates graph access and traversal methods.
 pub struct GraphWrapper<'a, N: Clone, E: Clone, Ty: EdgeType> {
-    g: &'a mut StableGraph<Node<N>, Edge<E>, Ty>,
+    g: &'a mut Graph<N, E, Ty>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
-    pub fn new(g: &'a mut StableGraph<Node<N>, Edge<E>, Ty>) -> Self {
+    pub fn new(g: &'a mut Graph<N, E, Ty>) -> Self {
         Self { g }
     }
 
@@ -97,8 +97,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
 mod tests {
     use super::*;
     use egui::Vec2;
+    use petgraph::{stable_graph::StableGraph, Directed};
 
-    fn create_test_graph() -> StableGraph<Node<()>, Edge<()>> {
+    fn create_test_graph() -> Graph<(), (), Directed> {
         let mut graph = StableGraph::<Node<()>, Edge<()>>::new();
         let a = graph.add_node(Node::new(Vec2::default(), ()));
         let b = graph.add_node(Node::new(Vec2::default(), ()));
