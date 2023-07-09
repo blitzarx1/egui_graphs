@@ -14,25 +14,42 @@ pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 /// Helper function which adds user's node to the [`egui_graphs::Graph`] instance.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-pub fn add_node<N: Clone, E: Clone, Ty: EdgeType>(g: &mut Graph<N, E, Ty>, n: N) -> NodeIndex {
-    let mut pos = random_location(DEFAULT_SPAWN_SIZE);
-    if g.node_count() > 0 {
-        let mut rng = rand::thread_rng();
-        let node = g.node_weights().choose(&mut rng).unwrap();
-        pos = node.location() + random_location(DEFAULT_SPAWN_SIZE);
-    }
-
-    g.add_node(Node::new(pos, n))
+pub fn add_node<N: Clone, E: Clone, Ty: EdgeType>(g: &mut Graph<N, E, Ty>, n: &N) -> NodeIndex {
+    g.add_node(default_node_transform(
+        NodeIndex::new(g.node_count() + 1),
+        n,
+    ))
 }
+
+// /// Helper function which adds user's node to the [`egui_graphs::Graph`] instance.
+// ///
+// /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
+// pub fn add_node_custom<N: Clone, E: Clone, Ty: EdgeType>(
+//     g: &mut Graph<N, E, Ty>,
+//     n: N,
+// ) -> NodeIndex {
+//     let mut pos = random_location(DEFAULT_SPAWN_SIZE);
+//     if g.node_count() > 0 {
+//         let mut rng = rand::thread_rng();
+//         let node = g.node_weights().choose(&mut rng).unwrap();
+//         pos = node.location() + random_location(DEFAULT_SPAWN_SIZE);
+//     }
+
+//     g.add_node(Node::new(pos, n))
+// }
 
 /// Helper function which adds user's edge to the [`egui_graphs::Graph`] instance.
 pub fn add_edge<N: Clone, E: Clone, Ty: EdgeType>(
     g: &mut Graph<N, E, Ty>,
     start: NodeIndex,
     end: NodeIndex,
-    e: E,
+    e: &E,
 ) -> EdgeIndex {
-    g.add_edge(start, end, Edge::new(e))
+    g.add_edge(
+        start,
+        end,
+        default_edge_transform(EdgeIndex::new(g.edge_count() + 1), e),
+    )
 }
 
 /// Helper function which transforms users [`petgraph::stable_graph::StableGraph`] isntance into the version required by the [`super::GraphView`] widget.
@@ -90,29 +107,21 @@ pub fn to_input_graph<N: Clone, E: Clone, Ty: EdgeType>(
 /// The same as [`to_input_graph`], but allows to define custom transformation procedures for nodes and edges.
 pub fn to_input_graph_custom<N: Clone, E: Clone, Ty: EdgeType>(
     g: &StableGraph<N, E, Ty>,
-    node_transform: impl Fn(&StableGraph<N, E, Ty>, NodeIndex, &N) -> Node<N>,
-    edge_transform: impl Fn(&StableGraph<N, E, Ty>, EdgeIndex, &E) -> Edge<E>,
+    node_transform: impl Fn(NodeIndex, &N) -> Node<N>,
+    edge_transform: impl Fn(EdgeIndex, &E) -> Edge<E>,
 ) -> Graph<N, E, Ty> {
     transform(g, node_transform, edge_transform)
 }
 
 /// Default node transform function. Keeps original data and creates a new node with a random location and
 /// label equal to the index of the node in the graph.
-pub fn default_node_transform<N: Clone, E: Clone, Ty: EdgeType>(
-    _: &StableGraph<N, E, Ty>,
-    idx: NodeIndex,
-    data: &N,
-) -> Node<N> {
+pub fn default_node_transform<N: Clone>(idx: NodeIndex, data: &N) -> Node<N> {
     let loc = random_location(DEFAULT_SPAWN_SIZE);
     Node::new(loc, data.clone()).with_label(idx.index().to_string())
 }
 
 /// Default edge transform function. Keeps original data and creates a new edge.
-pub fn default_edge_transform<N: Clone, E: Clone, Ty: EdgeType>(
-    _: &StableGraph<N, E, Ty>,
-    _: EdgeIndex,
-    data: &E,
-) -> Edge<E> {
+pub fn default_edge_transform<E: Clone>(_: EdgeIndex, data: &E) -> Edge<E> {
     Edge::new(data.clone())
 }
 
@@ -123,15 +132,15 @@ fn random_location(size: f32) -> Vec2 {
 
 fn transform<N: Clone, E: Clone, Ty: EdgeType>(
     g: &StableGraph<N, E, Ty>,
-    node_transform: impl Fn(&StableGraph<N, E, Ty>, NodeIndex, &N) -> Node<N>,
-    edge_transform: impl Fn(&StableGraph<N, E, Ty>, EdgeIndex, &E) -> Edge<E>,
+    node_transform: impl Fn(NodeIndex, &N) -> Node<N>,
+    edge_transform: impl Fn(EdgeIndex, &E) -> Edge<E>,
 ) -> Graph<N, E, Ty> {
     let mut input_g = StableGraph::<Node<N>, Edge<E>, Ty>::default();
 
     let input_by_user = g
         .node_references()
         .map(|(user_n_idx, user_n)| {
-            let input_n_index = input_g.add_node(node_transform(g, user_n_idx, user_n));
+            let input_n_index = input_g.add_node(node_transform(user_n_idx, user_n));
             (user_n_idx, input_n_index)
         })
         .collect::<HashMap<NodeIndex, NodeIndex>>();
@@ -146,7 +155,7 @@ fn transform<N: Clone, E: Clone, Ty: EdgeType>(
         input_g.add_edge(
             input_source_n,
             input_target_n,
-            edge_transform(g, user_e_idx, user_e),
+            edge_transform(user_e_idx, user_e),
         );
     });
 
