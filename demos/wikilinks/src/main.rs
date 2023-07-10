@@ -8,6 +8,7 @@ mod node;
 mod state;
 mod url;
 mod url_retriever;
+mod views;
 
 pub struct WikiLinksApp {
     app: app::App,
@@ -23,7 +24,7 @@ impl WikiLinksApp {
 
 impl App for WikiLinksApp {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
-        CentralPanel::default().show(ctx, |ui| self.app.update(ctx, ui));
+        self.app.update(ctx);
     }
 }
 

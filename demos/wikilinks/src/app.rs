@@ -5,10 +5,12 @@ use egui::{
     text::LayoutJob, Align, Button, Color32, Context, CursorIcon, FontFamily, FontId, InputState,
     Label, Sense, Stroke, Style, TextEdit, TextFormat, TextStyle, Ui, WidgetText,
 };
+use egui::{Area, CentralPanel, Response, ScrollArea, SidePanel};
 use egui_graphs::{add_edge, add_node, Graph, Node, SettingsNavigation, SettingsStyle};
 use egui_graphs::{add_node_custom, SettingsInteraction};
 use log::error;
 use log::info;
+use petgraph::EdgeType;
 use petgraph::{
     stable_graph::{NodeIndex, StableGraph},
     Directed,
@@ -18,25 +20,16 @@ use rand::Rng;
 use reqwest::Error;
 use tokio::task::JoinHandle;
 
+use crate::views::graph::draw_view_graph;
+use crate::views::input::draw_view_input;
+use crate::views::style::{header_accent, COLOR_ACCENT, COLOR_SUB_ACCENT, CURSOR_WIDTH};
+use crate::views::toolbox::draw_view_toolbox;
 use crate::{
     node,
     state::{next, Fork, State},
     url::{self, Url},
     url_retriever::UrlRetriever,
 };
-
-const HEADING: &str = "Wiki Links";
-const DESCRIPTION : &str = "A demo application for egui_graphs widget. This application will display a graph of a wikipedia article links.";
-const TOOLTIP: &str = "enter a Wikipedia article url and hit enter";
-const ERROR_MSG: &str = "enter a valid wikipedia article url";
-
-const COLOR_ACCENT: Color32 = Color32::from_rgb(128, 128, 255);
-const COLOR_SUB_ACCENT: Color32 = Color32::from_rgb(64, 64, 128);
-const COLOR_ERROR: Color32 = Color32::from_rgb(255, 64, 64);
-
-const CURSOR_WIDTH: f32 = 5.;
-
-const EDGE_WEIGHT: f32 = 0.05;
 
 #[derive(Default)]
 pub struct App {
@@ -65,14 +58,11 @@ impl App {
         }
     }
 
-    pub fn update(&mut self, ctx: &Context, ui: &mut Ui) {
-        self.size_section = ui.available_height() / 5.;
-        self.size_margin = ui.available_height() / 20.;
-
-        ui.set_style(self.style.clone());
+    pub fn update(&mut self, ctx: &Context) {
+        ctx.set_style(self.style.clone());
 
         self.handle_state();
-        self.draw(ui);
+        self.draw(ctx);
         self.handle_keys(ctx);
     }
 
@@ -83,12 +73,12 @@ impl App {
         }
     }
 
-    fn draw(&mut self, ui: &mut Ui) {
+    fn draw(&mut self, ctx: &Context) {
         match self.state {
-            State::Input => self.draw_input(ui),
-            State::InputError => self.draw_input_error(ui),
-            State::GraphAndLoading => self.draw_graph_and_loading(ui),
-            State::Graph => self.draw_graph(ui),
+            State::Input => self.draw_input(ctx),
+            State::InputError => self.draw_input_error(ctx),
+            State::GraphAndLoading => self.draw_graph_and_loading(ctx),
+            State::Graph => self.draw_graph(ctx),
             State::GraphAndLoadingError => todo!(),
         }
     }
@@ -191,72 +181,49 @@ impl App {
         });
     }
 
-    fn draw_graph_and_loading(&mut self, ui: &mut Ui) {
-        let mut w = egui_graphs::GraphView::new(&mut self.g);
-        w = w.with_styles(&SettingsStyle::default().with_edge_radius_weight(EDGE_WEIGHT));
-        ui.add(&mut w);
+    fn draw_input_error(&mut self, ctx: &Context) {
+        let input_resp = CentralPanel::default().show(ctx, |ui| {
+            draw_view_input(
+                &mut self.root_article_url,
+                ui,
+                false,
+                ui.available_height() / 5.,
+                ui.available_height() / 20.,
+            )
+        });
+
+        if input_resp.inner.changed() {
+            self.state = next(&self.state, Fork::Success);
+        }
     }
 
-    fn draw_graph(&mut self, ui: &mut Ui) {
-        let mut w = egui_graphs::GraphView::new(&mut self.g);
-        w = w.with_interactions(
-            &SettingsInteraction::default()
-                .with_selection_enabled(true)
-                .with_dragging_enabled(true)
-                .with_selection_depth(1),
-        );
-        w = w.with_navigations(
-            &SettingsNavigation::default()
-                .with_fit_to_screen_enabled(false)
-                .with_zoom_and_pan_enabled(true),
-        );
-        w = w.with_styles(&SettingsStyle::default().with_edge_radius_weight(EDGE_WEIGHT));
-        ui.add(&mut w);
+    fn draw_input(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            draw_view_input(
+                &mut self.root_article_url,
+                ui,
+                true,
+                ui.available_height() / 5.,
+                ui.available_height() / 20.,
+            );
+        });
     }
 
-    fn draw_input_error(&mut self, ui: &mut Ui) {
-        self.draw_view_input(ui, false);
+    fn draw_graph_and_loading(&mut self, ctx: &Context) {
+        SidePanel::right("toolbox").resizable(true).show(ctx, |ui| {
+            ui.centered_and_justified(|ui| draw_view_toolbox(ui, true));
+        });
+        CentralPanel::default().show(ctx, |ui| {
+            draw_view_graph(&mut self.g, ui, true);
+        });
     }
 
-    fn draw_input(&mut self, ui: &mut Ui) {
-        self.draw_view_input(ui, true);
-    }
-
-    fn draw_view_input(&mut self, ui: &mut Ui, url_valid: bool) {
-        ui.vertical_centered(|ui| {
-            ui.add_space(self.size_section);
-            ui.label(header_accent(HEADING));
-
-            ui.add_space(self.size_margin);
-            ui.label(DESCRIPTION);
-
-            ui.add_space(self.size_section);
-            ui.label(TOOLTIP);
-
-            ui.add_space(self.size_margin);
-            let mut input = TextEdit::singleline(&mut self.root_article_url)
-                .frame(false)
-                .desired_rows(1)
-                .vertical_align(Align::Center)
-                .font(FontId::new(24., FontFamily::Monospace))
-                .horizontal_align(Align::Center)
-                .desired_width(f32::INFINITY);
-
-            if !url_valid {
-                input = input.text_color(COLOR_ERROR);
-            }
-
-            let input_response = input.show(ui).response;
-            input_response.request_focus();
-
-            if input_response.changed() {
-                self.state = State::Input;
-            }
-
-            if !url_valid {
-                ui.add_space(self.size_margin / 4.);
-                ui.label(ERROR_MSG);
-            }
+    fn draw_graph(&mut self, ctx: &Context) {
+        SidePanel::right("toolbox")
+            .resizable(true)
+            .show(ctx, |ui| draw_view_toolbox(ui, false));
+        CentralPanel::default().show(ctx, |ui| {
+            draw_view_graph(&mut self.g, ui, false);
         });
     }
 
@@ -298,18 +265,4 @@ impl App {
             };
         };
     }
-}
-
-fn header_accent(text: &str) -> impl Into<WidgetText> {
-    let mut job = LayoutJob::default();
-    job.append(
-        text,
-        0.0,
-        TextFormat {
-            font_id: FontId::new(24., FontFamily::Monospace),
-            color: COLOR_ACCENT,
-            ..Default::default()
-        },
-    );
-    WidgetText::from(job)
 }
