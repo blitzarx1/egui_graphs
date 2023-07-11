@@ -1,5 +1,3 @@
-use std::sync::mpsc::Sender;
-
 use crate::{
     change::ChangeNode,
     change::{Change, ChangeSubgraph},
@@ -12,6 +10,7 @@ use crate::{
     state_computed::StateComputed,
     Edge,
 };
+use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{
     stable_graph::{NodeIndex, StableGraph},
@@ -88,7 +87,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self
     }
 
-    /// Make every interaction send [`Change`] to the provided [`std::sync::mpsc::Sender`] as soon as interaction happens.
+    /// Make every interaction send [`Change`] to the provided [`crossbeam::channel::Sender`] as soon as interaction happens.
     ///
     /// Change events can be used to handle interactions on the application side.
     pub fn with_changes(mut self, changes_sender: &'a Sender<Change>) -> Self {

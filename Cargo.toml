@@ -1,6 +1,6 @@
 [package]
 name = "egui_graphs"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 homepage = "https://github.com/blitzarx1/egui_graphs"
@@ -12,6 +12,7 @@ edition = "2021"
 egui = "0.22"
 rand = "0.8"
 petgraph = "0.6"
+crossbeam = "0.8"
 
 [workspace]
 members = ["examples/*"]

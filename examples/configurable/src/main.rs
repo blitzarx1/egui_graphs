@@ -1,7 +1,7 @@
 use std::collections::HashSet;
-use std::sync::mpsc::{Receiver, Sender};
 use std::time::Instant;
 
+use crossbeam::channel::{Receiver, Sender, unbounded};
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2, Visuals};
@@ -57,7 +57,7 @@ impl ConfigurableApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let settings_graph = SettingsGraph::default();
         let (g, sim) = generate(&settings_graph);
-        let (changes_sender, changes_receiver) = std::sync::mpsc::channel();
+        let (changes_sender, changes_receiver) = unbounded();
         Self {
             g,
             sim,
