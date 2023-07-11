@@ -28,7 +28,7 @@ This project represents a `Widget` implementation for egui framework. It allows 
 ## Status
 The project is on the track to v1.0.0 and there will be some releases prior. 
 
-Now I am working on (demo project)[https://github.com/blitzarx1/wikilinks] for a wikipedia article connections demonstration. This project serves several goals:
+Now I am working on [demo project](https://github.com/blitzarx1/wikilinks) for a wikipedia article connections demonstration. This project serves several goals:
 * usage demonstration of the widget;
 * demonstration of web-assembly compatibility;
 * find and polish final pre-release issues;
