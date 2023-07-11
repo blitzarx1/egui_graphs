@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
-use crossbeam::channel::{unbounded, Receiver};
+use crossbeam::channel::{unbounded, Receiver, Sender};
 use egui::{
     text::LayoutJob, Align, Button, Color32, Context, CursorIcon, FontFamily, FontId, InputState,
     Label, Sense, Stroke, Style, TextEdit, TextFormat, TextStyle, Ui, WidgetText,
 };
 use egui::{Area, CentralPanel, Response, ScrollArea, SidePanel};
-use egui_graphs::{add_edge, add_node, Graph, Node, SettingsNavigation, SettingsStyle};
+use egui_graphs::{
+    add_edge, add_node, Change, Graph, GraphView, Node, SettingsNavigation, SettingsStyle,
+};
 use egui_graphs::{add_node_custom, SettingsInteraction};
 use log::error;
 use log::info;
@@ -20,10 +22,12 @@ use rand::Rng;
 use reqwest::Error;
 use tokio::task::JoinHandle;
 
-use crate::views::graph::draw_view_graph;
+use crate::views::graph::{self, draw_view_graph};
 use crate::views::input::draw_view_input;
-use crate::views::style::{header_accent, COLOR_ACCENT, COLOR_SUB_ACCENT, CURSOR_WIDTH};
-use crate::views::toolbox::draw_view_toolbox;
+use crate::views::style::{
+    header_accent, COLOR_ACCENT, COLOR_LEFT_LOW, COLOR_SUB_ACCENT, CURSOR_WIDTH,
+};
+use crate::views::toolbox::{self, draw_view_toolbox};
 use crate::{
     node,
     state::{next, Fork, State},
@@ -31,18 +35,18 @@ use crate::{
     url_retriever::UrlRetriever,
 };
 
-#[derive(Default)]
 pub struct App {
     root_article_url: String,
     state: State,
 
-    size_section: f32,
-    size_margin: f32,
     style: Style,
 
     active_tasks: HashMap<NodeIndex, (Receiver<Result<Url, Error>>, JoinHandle<()>)>,
 
     g: Graph<node::Node, (), Directed>,
+
+    changes_sender: Sender<Change>,
+    changes_receiver: Receiver<Change>,
 }
 
 impl App {
@@ -52,9 +56,17 @@ impl App {
         style.visuals.selection.stroke = Stroke::new(1., COLOR_ACCENT);
         style.visuals.selection.bg_fill = COLOR_SUB_ACCENT;
 
+        let (changes_sender, changes_receiver) = unbounded();
+
         App {
             style,
-            ..Default::default()
+            changes_sender,
+            changes_receiver,
+
+            root_article_url: Default::default(),
+            state: Default::default(),
+            g: Default::default(),
+            active_tasks: Default::default(),
         }
     }
 
@@ -124,20 +136,27 @@ impl App {
                             let idx =
                                 add_node_custom(&mut self.g, &node::Node::new(url), |_, n| {
                                     let mut rng = rand::thread_rng();
-                                    Node::new(
+
+                                    let color = match n.url().url_type() {
+                                        url::Type::Article => Some(COLOR_SUB_ACCENT),
+                                        url::Type::File => Some(COLOR_LEFT_LOW),
+                                        url::Type::Other => None,
+                                    };
+
+                                    let mut res = Node::new(
                                         egui::Vec2 {
                                             x: random_n_loc.x + rng.gen_range(-100.0..100.),
                                             y: random_n_loc.y + rng.gen_range(-100.0..100.),
                                         },
                                         n.clone(),
                                     )
-                                    .with_label(n.url().val().to_string())
-                                    .with_color(
-                                        match n.url().is_wiki_article() {
-                                            true => COLOR_ACCENT,
-                                            false => Color32::GRAY,
-                                        },
-                                    )
+                                    .with_label(n.url().val().to_string());
+
+                                    if let Some(c) = color {
+                                        res = res.with_color(c);
+                                    }
+
+                                    res
                                 });
                             add_edge(&mut self.g, *parent, idx, &());
                         }
@@ -211,19 +230,21 @@ impl App {
 
     fn draw_graph_and_loading(&mut self, ctx: &Context) {
         SidePanel::right("toolbox").resizable(true).show(ctx, |ui| {
-            ui.centered_and_justified(|ui| draw_view_toolbox(ui, true));
+            ui.centered_and_justified(|ui| {
+                draw_view_toolbox(ui, &mut self.generate_toolbox_state(ui, true))
+            });
         });
         CentralPanel::default().show(ctx, |ui| {
-            draw_view_graph(&mut self.g, ui, true);
+            draw_view_graph(ui, self.generate_graph_state(true));
         });
     }
 
     fn draw_graph(&mut self, ctx: &Context) {
-        SidePanel::right("toolbox")
-            .resizable(true)
-            .show(ctx, |ui| draw_view_toolbox(ui, false));
+        SidePanel::right("toolbox").resizable(true).show(ctx, |ui| {
+            draw_view_toolbox(ui, &mut self.generate_toolbox_state(ui, false))
+        });
         CentralPanel::default().show(ctx, |ui| {
-            draw_view_graph(&mut self.g, ui, false);
+            draw_view_graph(ui, self.generate_graph_state(false));
         });
     }
 
@@ -264,5 +285,21 @@ impl App {
                 }
             };
         };
+    }
+
+    fn generate_graph_state(&mut self, loading: bool) -> graph::State<node::Node, (), Directed> {
+        graph::State {
+            loading,
+            g: &mut self.g,
+            sender: self.changes_sender.clone(),
+            receiver: self.changes_receiver.clone(),
+        }
+    }
+
+    fn generate_toolbox_state(&mut self, ui: &Ui, loading: bool) -> toolbox::State {
+        toolbox::State {
+            loading,
+            spacing: ui.available_height() / 30.,
+        }
     }
 }

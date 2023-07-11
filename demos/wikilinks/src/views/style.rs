@@ -1,7 +1,11 @@
 use egui::{text::LayoutJob, Color32, FontFamily, FontId, TextFormat, WidgetText};
 
 pub const COLOR_ACCENT: Color32 = Color32::from_rgb(128, 128, 255);
-pub const COLOR_SUB_ACCENT: Color32 = Color32::from_rgb(64, 64, 128);
+pub const COLOR_SUB_ACCENT: Color32 = Color32::from_rgb(104, 138, 232);
+
+pub const COLOR_LEFT_LOW: Color32 = Color32::from_rgb(148, 174, 179);
+pub const COLOR_RIGHT_LOW: Color32 = Color32::from_rgb(175, 145, 179);
+
 pub const COLOR_ERROR: Color32 = Color32::from_rgb(255, 64, 64);
 
 pub const FONT_INPUT: FontId = FontId::new(24., FontFamily::Monospace);

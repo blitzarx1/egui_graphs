@@ -1,16 +1,20 @@
+use crossbeam::channel::{Receiver, Sender};
 use egui::Ui;
-use egui_graphs::{Graph, SettingsInteraction, SettingsNavigation, SettingsStyle};
+use egui_graphs::{Change, Graph, SettingsInteraction, SettingsNavigation, SettingsStyle};
 use petgraph::EdgeType;
 
 const EDGE_WEIGHT: f32 = 0.05;
 
-pub fn draw_view_graph<N: Clone, E: Clone, Ty: EdgeType>(
-    g: &mut Graph<N, E, Ty>,
-    ui: &mut Ui,
-    loading: bool,
-) {
-    let mut w = egui_graphs::GraphView::new(g);
-    match loading {
+pub struct State<'a, N: Clone, E: Clone, Ty: EdgeType> {
+    pub loading: bool,
+    pub g: &'a mut Graph<N, E, Ty>,
+    pub sender: Sender<Change>,
+    pub receiver: Receiver<Change>,
+}
+
+pub fn draw_view_graph<N: Clone, E: Clone, Ty: EdgeType>(ui: &mut Ui, state: State<N, E, Ty>) {
+    let mut w = egui_graphs::GraphView::new(state.g);
+    match state.loading {
         true => {
             w = w.with_styles(&SettingsStyle::default().with_edge_radius_weight(EDGE_WEIGHT));
         }

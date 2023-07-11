@@ -1,8 +1,6 @@
 # Examples
 This directory contains simple demo applications which are using egui_graphs.
 
-Demo version is corresponding to the minimal version of the library with which it works withous issues.
-
 ## Prerequisites
 All demos requires rust to be installed. Just follow easy one step install from the official site https://www.rust-lang.org/tools/install.
 
