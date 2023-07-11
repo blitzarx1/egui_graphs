@@ -1,10 +1,10 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{to_input_graph, Edge, GraphView, Node};
-use petgraph::stable_graph::StableGraph;
+use egui_graphs::{to_input_graph, Graph, GraphView};
+use petgraph::{stable_graph::StableGraph, Directed};
 
 pub struct BasicApp {
-    g: StableGraph<Node<()>, Edge<()>>,
+    g: Graph<(), (), Directed>,
 }
 
 impl BasicApp {
@@ -22,7 +22,7 @@ impl App for BasicApp {
     }
 }
 
-fn generate_graph() -> StableGraph<Node<()>, Edge<()>> {
+fn generate_graph() -> Graph<(), (), Directed> {
     let mut g: StableGraph<(), ()> = StableGraph::new();
 
     let a = g.add_node(());

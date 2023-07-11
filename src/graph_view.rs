@@ -18,6 +18,9 @@ use petgraph::{
     EdgeType,
 };
 
+// Represents graph type compatible with the widget.
+pub type Graph<N, E, Ty> = StableGraph<Node<N>, Edge<E>, Ty>;
+
 /// `GraphView` is a widget for visualizing and interacting with graphs.
 ///
 /// It implements `egui::Widget` and can be used like any other widget.
@@ -68,7 +71,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut StableGraph<Node<N>, Edge<E>, Ty>) -> Self {
+    pub fn new(g: &'a mut Graph<N, E, Ty>) -> Self {
         Self {
             g: GraphWrapper::new(g),
 
@@ -257,7 +260,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata, comp: &StateComputed) {
         // calculate graph dimensions with decorative padding
-        let diag = comp.graph_bounds.max - comp.graph_bounds.min;
+        let mut diag = comp.graph_bounds.max - comp.graph_bounds.min;
+
+        // if the graph is empty or consists from one node, use a default size
+        if diag == Vec2::ZERO {
+            diag = Vec2::new(1., 100.);
+        }
+
         let graph_size = diag * (1. + self.settings_navigation.screen_padding);
         let (width, height) = (graph_size.x, graph_size.y);
 
