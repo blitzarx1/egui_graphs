@@ -351,6 +351,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "basic_custom_drawing"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_graphs",
+ "petgraph",
+]
+
+[[package]]
 name = "basic_interactive"
 version = "0.1.0"
 dependencies = [
