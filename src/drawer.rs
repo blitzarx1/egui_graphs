@@ -16,14 +16,32 @@ use crate::{
     Edge, Node,
 };
 
-type ShapesEdges = (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>);
-type ShapesNodes = (Vec<CircleShape>, Vec<TextShape>);
+pub type ShapesEdges = (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>);
+pub type ShapesNodes = (Vec<Shape>, Vec<TextShape>);
+pub type CustomNodeDrawingFn<N> = Option<
+    fn(
+        res: &mut (ShapesNodes, ShapesNodes),
+        loc: Pos2,
+        node: &Node<N>,
+        comp_node: &StateComputedNode,
+    ),
+>;
+pub type CustomNodeInteractedDrawingFn<N> = Option<
+    fn(
+        res: &mut (ShapesNodes, ShapesNodes),
+        loc: Pos2,
+        node: &Node<N>,
+        comp_node: &StateComputedNode,
+    ),
+>;
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     g: &'a GraphWrapper<'a, N, E, Ty>,
     p: &'a Painter,
     comp: &'a StateComputed,
     settings_style: &'a SettingsStyle,
+    custom_node_drawing_fn: CustomNodeDrawingFn<N>,
+    custom_node_interacted_drawing_fn: CustomNodeInteractedDrawingFn<N>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
@@ -32,12 +50,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         p: &'a Painter,
         comp: &'a StateComputed,
         settings_style: &'a SettingsStyle,
+        custom_node_drawing_fn: CustomNodeDrawingFn<N>,
+        custom_node_interacted_drawing_fn: CustomNodeInteractedDrawingFn<N>,
     ) -> Self {
         Drawer {
             g,
             p,
             comp,
             settings_style,
+            custom_node_drawing_fn,
+            custom_node_interacted_drawing_fn,
         }
     }
 
@@ -384,8 +406,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let mut res = (ShapesNodes::default(), ShapesNodes::default());
         let loc = comp_node.location.to_pos2();
 
-        self.draw_node_basic(&mut res, loc, n, comp_node);
-        self.draw_node_interacted(&mut res, loc, n, comp_node);
+        if let Some(custom_drawing_function) = self.custom_node_drawing_fn {
+            custom_drawing_function(&mut res, loc, n, comp_node);
+        } else {
+            self.draw_node_basic(&mut res, loc, n, comp_node);
+        }
+
+        if let Some(custom_drawing_function) = self.custom_node_interacted_drawing_fn {
+            custom_drawing_function(&mut res, loc, n, comp_node);
+        } else {
+            self.draw_node_interacted(&mut res, loc, n, comp_node);
+        }
 
         res
     }
@@ -425,7 +456,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             || node.folded()
             || comp_node.subfolded())
         {
-            res.0 .0.push(shape);
+            res.0 .0.push(shape.into());
 
             if !self.settings_style.labels_always {
                 return;
@@ -442,7 +473,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return;
         }
 
-        res.1 .0.push(shape);
+        res.1 .0.push(shape.into());
     }
 
     fn draw_node_interacted(
@@ -485,7 +516,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 self.settings_style.color_label(self.p.ctx()),
             );
             let galley_pos = Pos2::new(loc.x - node_radius / 4., loc.y - node_radius / 4.);
-            res.1 .0.push(folded_shape);
+            res.1 .0.push(folded_shape.into());
             res.1 .1.push(TextShape::new(galley_pos, galley));
             return;
         }
@@ -502,7 +533,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             ),
         };
 
-        res.1 .0.push(shape);
+        res.1 .0.push(shape.into());
     }
 }
 
