@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext};
-use egui::{epaint::RectShape, Color32, Context, Pos2, Rect, Rounding, Stroke, Vec2};
-use egui_graphs::{to_input_graph, Graph, GraphView, ShapesNodes};
+use egui::{epaint::RectShape, Color32, Context, Rect, Rounding, Stroke, Vec2};
+use egui_graphs::{to_input_graph, Graph, GraphView};
 use petgraph::{stable_graph::StableGraph, Directed};
 
 pub struct BasicCustomDrawingApp {
