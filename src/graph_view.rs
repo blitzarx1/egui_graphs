@@ -68,8 +68,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         )
         .draw();
 
-        self.send_comp_changes(&computed);
-
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
 
@@ -237,7 +235,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.set_node_folded(idx, true);
     }
 
-    fn handle_node_click(&mut self, idx: NodeIndex, comp: &StateComputed) {
+    fn handle_node_click(&mut self, idx: NodeIndex, comp: &mut StateComputed) {
         if !self.settings_interaction.clicking_enabled
             && !self.settings_interaction.selection_enabled
         {
@@ -254,7 +252,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
         let n = self.g.node(idx).unwrap();
         if n.selected() {
-            self.set_node_selected(idx, false);
+            self.select_node(idx);
             return;
         }
 
@@ -262,7 +260,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             self.deselect_all(comp);
         }
 
-        self.set_node_selected(idx, true);
+        self.select_node(idx);
     }
 
     fn handle_node_drag(&mut self, resp: &Response, comp: &mut StateComputed, meta: &mut Metadata) {
@@ -373,11 +371,21 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         meta.zoom = new_zoom;
     }
 
-    fn set_node_selected(&mut self, idx: NodeIndex, val: bool) {
+    fn deselect_node(&mut self, idx: NodeIndex) {
         let n = self.g.node_mut(idx).unwrap();
-        let change = ChangeNode::change_selected(idx, n.selected(), val);
-        n.set_selected(val);
+        let change = ChangeNode::change_selected(idx, n.selected(), false);
+        n.set_selected(false);
+
         self.send_changes(Change::node(change));
+    }
+
+    fn select_node(&mut self, idx: NodeIndex) {
+        let c = {
+            let n = self.g.node_mut(idx).unwrap();
+            n.set_selected(true);
+            ChangeNode::change_selected(idx, n.selected(), true)
+        };
+        self.send_changes(Change::node(c));
     }
 
     fn set_node_folded(&mut self, idx: NodeIndex, val: bool) {
@@ -397,18 +405,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.send_changes(Change::node(change));
     }
 
-    fn deselect_all(&mut self, comp: &StateComputed) {
+    fn deselect_all(&mut self, comp: &mut StateComputed) {
         if comp.selections.is_empty() {
             return;
         }
 
-        // dont need to deselect edges because they are not selectable
-        // and subselections are dropped on every frame
-        let (selected_nodes, _) = comp.selections.elements();
-
-        selected_nodes.iter().for_each(|idx| {
-            self.set_node_selected(*idx, false);
-        });
+        let (subselected, _) = comp.selections.elements();
+        subselected.iter().for_each(|idx| self.deselect_node(*idx));
     }
 
     fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
@@ -424,12 +427,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let change = ChangeNode::change_location(idx, n.location(), new_loc);
         n.set_location(new_loc);
         self.send_changes(Change::node(change));
-    }
-
-    /// Sends changes from computed state which should be reported to the application.
-    fn send_comp_changes(&self, comp: &StateComputed) {
-        self.send_selected(comp);
-        self.send_folded(comp);
     }
 
     fn send_selected(&self, comp: &StateComputed) {
