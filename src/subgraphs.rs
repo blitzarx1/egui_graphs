@@ -23,6 +23,7 @@ pub struct SubGraphs {
 }
 
 impl SubGraphs {
+    /// returns all subgraphs elements including its roots
     pub fn elements(&self) -> Elements {
         let mut nodes = vec![];
         let mut edges = vec![];
@@ -74,6 +75,10 @@ impl SubGraphs {
     /// return all roots of the subgraphs
     pub fn roots(&self) -> Vec<NodeIndex> {
         self.data.keys().cloned().collect()
+    }
+
+    pub fn remove_subgraph(&mut self, root: &NodeIndex) {
+        self.data.remove(root);
     }
 
     /// Adds a subgraph to the collection. The subgraph is created by walking the graph
