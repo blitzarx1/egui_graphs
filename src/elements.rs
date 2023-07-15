@@ -46,6 +46,16 @@ impl<N: Clone> Node<N> {
         self.data.as_ref()
     }
 
+    pub fn set_data(&mut self, data: Option<N>) {
+        self.data = data;
+    }
+
+    pub fn with_data(&self, data: Option<N>) -> Self {
+        let mut res = self.clone();
+        res.data = data;
+        res
+    }
+
     pub fn location(&self) -> Vec2 {
         self.location
     }
