@@ -169,6 +169,12 @@ impl<E: Clone> Edge<E> {
         self.width
     }
 
+    pub fn with_width(&mut self, width: f32) -> Self {
+        let mut res = self.clone();
+        res.width = width;
+        res
+    }
+
     pub fn curve_size(&self) -> f32 {
         self.curve_size
     }
