@@ -46,6 +46,16 @@ impl<N: Clone> Node<N> {
         self.data.as_ref()
     }
 
+    pub fn set_data(&mut self, data: Option<N>) {
+        self.data = data;
+    }
+
+    pub fn with_data(&self, data: Option<N>) -> Self {
+        let mut res = self.clone();
+        res.data = data;
+        res
+    }
+
     pub fn location(&self) -> Vec2 {
         self.location
     }
@@ -157,6 +167,12 @@ impl<E: Clone> Edge<E> {
 
     pub fn width(&self) -> f32 {
         self.width
+    }
+
+    pub fn with_width(&mut self, width: f32) -> Self {
+        let mut res = self.clone();
+        res.width = width;
+        res
     }
 
     pub fn curve_size(&self) -> f32 {
