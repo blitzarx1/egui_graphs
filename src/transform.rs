@@ -1,27 +1,23 @@
 use crate::{graph_view::Graph, Edge, Node};
 use egui::Vec2;
 use petgraph::{
-    data::Build,
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
     visit::IntoNodeReferences,
     EdgeType,
 };
-use rand::{seq::IteratorRandom, Rng};
+use rand::Rng;
 use std::collections::HashMap;
 
 pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 
-/// Helper function which adds user's node to the [`egui_graphs::Graph`] instance.
+/// Helper function which adds user's node to the [`super::Graph`] instance.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
 pub fn add_node<N: Clone, E: Clone, Ty: EdgeType>(g: &mut Graph<N, E, Ty>, n: &N) -> NodeIndex {
-    g.add_node(default_node_transform(
-        NodeIndex::new(g.node_count() + 1),
-        n,
-    ))
+    add_node_custom(g, n, default_node_transform)
 }
 
-/// Helper function which adds user's node to the [`egui_graphs::Graph`] instance.
+/// Helper function which adds user's node to the [`super::Graph`] instance with custom node transform function.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
 pub fn add_node_custom<N: Clone, E: Clone, Ty: EdgeType>(
@@ -32,17 +28,28 @@ pub fn add_node_custom<N: Clone, E: Clone, Ty: EdgeType>(
     g.add_node(node_transform(NodeIndex::new(g.node_count() + 1), n))
 }
 
-/// Helper function which adds user's edge to the [`egui_graphs::Graph`] instance.
+/// Helper function which adds user's edge to the [`super::Graph`] instance.
 pub fn add_edge<N: Clone, E: Clone, Ty: EdgeType>(
     g: &mut Graph<N, E, Ty>,
     start: NodeIndex,
     end: NodeIndex,
     e: &E,
 ) -> EdgeIndex {
+    add_edge_custom(g, start, end, e, default_edge_transform)
+}
+
+/// Helper function which adds user's edge to the [`super::Graph`] instance with custom edge transform function.
+pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType>(
+    g: &mut Graph<N, E, Ty>,
+    start: NodeIndex,
+    end: NodeIndex,
+    e: &E,
+    edge_transform: impl Fn(EdgeIndex, &E) -> Edge<E>,
+) -> EdgeIndex {
     g.add_edge(
         start,
         end,
-        default_edge_transform(EdgeIndex::new(g.edge_count() + 1), e),
+        edge_transform(EdgeIndex::new(g.edge_count() + 1), e),
     )
 }
 
