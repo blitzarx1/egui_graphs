@@ -14,10 +14,7 @@ pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
 pub fn add_node<N: Clone, E: Clone, Ty: EdgeType>(g: &mut Graph<N, E, Ty>, n: &N) -> NodeIndex {
-    g.add_node(default_node_transform(
-        NodeIndex::new(g.node_count() + 1),
-        n,
-    ))
+    add_node_custom(g, n, default_node_transform)
 }
 
 /// Helper function which adds user's node to the [`super::Graph`] instance with custom node transform function.
@@ -38,11 +35,7 @@ pub fn add_edge<N: Clone, E: Clone, Ty: EdgeType>(
     end: NodeIndex,
     e: &E,
 ) -> EdgeIndex {
-    g.add_edge(
-        start,
-        end,
-        default_edge_transform(EdgeIndex::new(g.edge_count() + 1), e),
-    )
+    add_edge_custom(g, start, end, e, default_edge_transform)
 }
 
 /// Helper function which adds user's edge to the [`super::Graph`] instance with custom edge transform function.
