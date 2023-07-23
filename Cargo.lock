@@ -864,7 +864,7 @@ dependencies = [
 
 [[package]]
 name = "egui_graphs"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "crossbeam",
  "egui",
