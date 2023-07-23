@@ -233,6 +233,18 @@ impl SettingsStyle {
         self
     }
 
+    /// Sets default color for node.
+    pub fn with_node_color(mut self, color: Color32) -> Self {
+        self.color_node = color;
+        self
+    }
+
+    /// Sets default color for edge.
+    pub fn with_edge_color(mut self, color: Color32) -> Self {
+        self.color_edge = color;
+        self
+    }
+
     pub(crate) fn color_node<N: Clone>(&self, ctx: &egui::Context, n: &Node<N>) -> Color32 {
         if n.color().is_some() {
             return n.color().unwrap();
