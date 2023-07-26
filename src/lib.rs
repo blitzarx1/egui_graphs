@@ -17,6 +17,6 @@ pub use self::settings::{SettingsInteraction, SettingsNavigation, SettingsStyle}
 pub use self::state_computed::StateComputedNode;
 pub use self::subgraphs::SubGraph;
 pub use self::transform::{
-    add_edge, add_node, add_node_custom, default_edge_transform, default_node_transform,
-    to_input_graph, to_input_graph_custom,
+    add_edge, add_edge_custom, add_node, add_node_custom, default_edge_transform,
+    default_node_transform, to_input_graph, to_input_graph_custom,
 };
