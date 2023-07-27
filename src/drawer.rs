@@ -359,10 +359,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let tip_start_1 = tip_end + arrow_tip_dir_1;
         let tip_start_2 = tip_end + arrow_tip_dir_2;
 
-        // middle point between tip_start_1 and tip_start_2
-        let tip_base = tip_start_1 - tip_start_2;
-        let edge_end_curved =
-            tip_start_1 - (tip_base.length() / 2.) * (tip_base / tip_base.length());
+        let edge_end_curved = point_between(tip_start_1, tip_start_2);
 
         if !comp_edge.subselected() {
             // draw curved not selected
@@ -540,10 +537,19 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     }
 }
 
+/// rotates vector by angle
 fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
     let cos = angle.cos();
     let sin = angle.sin();
     Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
+}
+
+/// finds point exactly in the middle between 2 points
+fn point_between(p1: Pos2, p2: Pos2) -> Pos2 {
+    let base = p1 - p2;
+    let base_len = base.length();
+    let dir = base / base_len;
+    p1 - (base_len / 2.) * dir
 }
 
 #[cfg(test)]
@@ -557,5 +563,12 @@ mod tests {
         let rotated = rotate_vector(vec, angle);
         assert!((rotated.x - 0.0).abs() < 1e-6);
         assert!((rotated.y - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_point_between() {
+        let m = point_between(Pos2::new(0.0, 0.0), Pos2::new(2.0, 0.0));
+        assert!((m.x - 1.0).abs() < 1e-6);
+        assert!((m.y).abs() < 1e-6);
     }
 }

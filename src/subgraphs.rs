@@ -77,10 +77,6 @@ impl SubGraphs {
         self.data.keys().cloned().collect()
     }
 
-    pub fn remove_subgraph(&mut self, root: &NodeIndex) {
-        self.data.remove(root);
-    }
-
     /// Adds a subgraph to the collection. The subgraph is created by walking the graph
     /// from the root node to the given depth.
     pub fn add_subgraph<N: Clone, E: Clone, Ty: EdgeType>(
@@ -149,11 +145,12 @@ impl SubGraphs {
                             Direction::Outgoing => edge.target(),
                         };
 
-                        if !visited.insert(src_next_idx) {
+                        let src_edge_idx = edge.id();
+
+                        if !visited.insert((*src_start_idx, src_next_idx, src_edge_idx)) {
                             return;
                         }
 
-                        let src_edge_idx = edge.id();
                         let dst_next_idx = self.add_node(dst_subgraph, root, src_next_idx);
                         dst_subgraph.add_edge(dst_start_idx, dst_next_idx, src_edge_idx);
                         next_nodes.push(src_next_idx);
