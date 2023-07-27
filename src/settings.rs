@@ -177,6 +177,9 @@ pub struct SettingsStyle {
     /// Text color for dark background.
     pub(crate) color_text_dark: Color32,
 
+    /// Loop size for looped edges.
+    pub(crate) edge_looped_size: f32,
+
     color_node: Color32,
     color_edge: Color32,
 }
@@ -185,6 +188,7 @@ impl Default for SettingsStyle {
     fn default() -> Self {
         Self {
             edge_radius_weight: 1.,
+            edge_looped_size: 3.,
             folded_radius_weight: 2.,
             color_selection: Color32::from_rgba_unmultiplied(0, 255, 127, 153), // Spring Green
             color_selection_child: Color32::from_rgba_unmultiplied(100, 149, 237, 153), // Cornflower Blue

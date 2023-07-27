@@ -180,8 +180,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     ) {
         let comp_node = self.comp.node_state(n_idx).unwrap();
 
-        // we do not draw edges which are folded
         if comp_node.subfolded() {
+            // we do not draw edges which are folded
             return;
         }
 
@@ -189,16 +189,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let center = comp_node.location;
         let y_intersect = center.y - comp_node.radius * center_horizont_angle.sin();
 
-        let left_intersect = Pos2::new(
+        let edge_start = Pos2::new(
             center.x - comp_node.radius * center_horizont_angle.cos(),
             y_intersect,
         );
-        let right_intersect = Pos2::new(
+        let edge_end = Pos2::new(
             center.x + comp_node.radius * center_horizont_angle.cos(),
             y_intersect,
         );
 
-        let loop_size = comp_node.radius * (4. + 1. + order as f32);
+        let loop_size = comp_node.radius * (self.settings_style.edge_looped_size + order as f32);
 
         let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
         let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
@@ -208,36 +208,28 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             self.settings_style.color_edge(self.p.ctx(), e),
         );
         let shape_basic = CubicBezierShape::from_points_stroke(
-            [
-                right_intersect,
-                control_point1,
-                control_point2,
-                left_intersect,
-            ],
+            [edge_end, control_point1, control_point2, edge_start],
             false,
             Color32::TRANSPARENT,
             stroke,
         );
 
         if !comp_edge.subselected() {
+            // draw not selected
             res.0 .1.push(shape_basic);
             return;
         }
 
-        let highlighted_stroke = Stroke::new(
-            comp_edge.width * 2.,
+        // draw selected
+        let stroke_highlighted = Stroke::new(
+            comp_edge.width,
             self.settings_style.color_edge_highlight(comp_edge).unwrap(),
         );
         res.1 .1.push(CubicBezierShape::from_points_stroke(
-            [
-                right_intersect,
-                control_point1,
-                control_point2,
-                left_intersect,
-            ],
+            [edge_end, control_point1, control_point2, edge_start],
             false,
             Color32::TRANSPARENT,
-            highlighted_stroke,
+            stroke_highlighted,
         ));
     }
 
@@ -353,7 +345,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         // draw curved edge
         let dir_perpendicular = Vec2::new(-dir.y, dir.x);
-        let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
+        let center_point = (edge_start + edge_end.to_vec2()).to_vec2() / 2.0;
         let control_point =
             (center_point + dir_perpendicular * comp_edge.curve_size * order as f32).to_pos2();
 
@@ -367,17 +359,24 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let tip_start_1 = tip_end + arrow_tip_dir_1;
         let tip_start_2 = tip_end + arrow_tip_dir_2;
 
+        // middle point between tip_start_1 and tip_start_2
+        let tip_base = tip_start_1 - tip_start_2;
+        let edge_end_curved =
+            tip_start_1 - (tip_base.length() / 2.) * (tip_base / tip_base.length());
+
         if !comp_edge.subselected() {
             // draw curved not selected
             res.0 .2.push(QuadraticBezierShape::from_points_stroke(
-                [edge_start, control_point, tip_end],
+                [edge_start, control_point, edge_end_curved],
                 false,
                 Color32::TRANSPARENT,
                 stroke_edge,
             ));
-            let shape_tip =
-                Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_edge);
-            res.0 .0.push(shape_tip);
+            res.0 .0.push(Shape::convex_polygon(
+                vec![tip_end, tip_start_1, tip_start_2],
+                color,
+                stroke_tip,
+            ));
 
             return;
         }
@@ -387,19 +386,19 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         if transparent {
             color_highlighted = color_highlighted.gamma_multiply(0.15);
         }
-        let highlighted_stroke = Stroke::new(comp_edge.width * 2., color_highlighted);
+        let stroke_highlighted_edge = Stroke::new(comp_edge.width, color_highlighted);
+        let stroke_highlighted_tip = Stroke::new(0., color_highlighted);
         res.1 .2.push(QuadraticBezierShape::from_points_stroke(
-            [edge_start, control_point, tip_end],
+            [edge_start, control_point, edge_end_curved],
             false,
             Color32::TRANSPARENT,
-            highlighted_stroke,
+            stroke_highlighted_edge,
         ));
-        let shape_tip = Shape::convex_polygon(
+        res.1 .0.push(Shape::convex_polygon(
             vec![tip_end, tip_start_1, tip_start_2],
             color_highlighted,
-            highlighted_stroke,
-        );
-        res.1 .0.push(shape_tip);
+            stroke_highlighted_tip,
+        ));
     }
 
     fn shapes_node(
