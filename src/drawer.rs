@@ -547,8 +547,9 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
 /// finds point exactly in the middle between 2 points
 fn point_between(p1: Pos2, p2: Pos2) -> Pos2 {
     let base = p1 - p2;
-    let dir = base / base.length();
-    p1 - (base.length() / 2.) * dir
+    let base_len = base.length();
+    let dir = base / base_len;
+    p1 - (base_len / 2.) * dir
 }
 
 #[cfg(test)]
