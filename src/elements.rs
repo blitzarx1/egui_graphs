@@ -129,7 +129,7 @@ impl<E: Clone> Default for Edge<E> {
         Self {
             width: 2.,
             tip_size: 15.,
-            tip_angle: std::f32::consts::TAU / 50.,
+            tip_angle: std::f32::consts::TAU / 30.,
             curve_size: 20.,
 
             data: Default::default(),
@@ -213,7 +213,7 @@ mod tests {
         let edge: Edge<()> = Edge::default();
         assert_eq!(edge.width, 2.);
         assert_eq!(edge.tip_size, 15.);
-        assert_eq!(edge.tip_angle, std::f32::consts::TAU / 50.);
+        assert_eq!(edge.tip_angle, std::f32::consts::TAU / 30.);
         assert_eq!(edge.curve_size, 20.);
         assert_eq!(edge.data, None);
         assert_eq!(edge.color, None);
@@ -224,7 +224,7 @@ mod tests {
         let edge = Edge::new("data");
         assert_eq!(edge.width, 2.);
         assert_eq!(edge.tip_size, 15.);
-        assert_eq!(edge.tip_angle, std::f32::consts::TAU / 50.);
+        assert_eq!(edge.tip_angle, std::f32::consts::TAU / 30.);
         assert_eq!(edge.curve_size, 20.);
         assert_eq!(edge.data, Some("data"));
         assert_eq!(edge.color, None);

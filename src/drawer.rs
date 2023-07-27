@@ -35,6 +35,11 @@ pub type CustomNodeInteractedDrawingFn<N> = Option<
     ),
 >;
 
+/// Edge, its index and computed state
+type EdgeWithMeta<'a, E> = (EdgeIndex, Edge<E>, &'a StateComputedEdge);
+/// Mapping for 2 nodes and all edges between them
+type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<EdgeWithMeta<'a, E>>>;
+
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     g: &'a GraphWrapper<'a, N, E, Ty>,
     p: &'a Painter,
@@ -91,10 +96,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     }
 
     fn shapes_edges(&self) -> (ShapesEdges, ShapesEdges) {
-        let mut edge_map: HashMap<
-            (NodeIndex, NodeIndex),
-            Vec<(EdgeIndex, Edge<E>, &StateComputedEdge)>,
-        > = HashMap::new();
+        let mut edge_map: EdgeMap<E> = HashMap::new();
 
         self.g.edges().for_each(|(idx, e)| {
             let (source, target) = self.g.edge_endpoints(idx).unwrap();
@@ -291,111 +293,113 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let start_node_radius_vec = Vec2::new(comp_start.radius, comp_start.radius) * dir;
         let end_node_radius_vec = Vec2::new(comp_end.radius, comp_end.radius) * dir;
 
-        let tip_point = pos_start + vec - end_node_radius_vec;
-        let start_point = pos_start + start_node_radius_vec;
+        let tip_end = pos_start + vec - end_node_radius_vec;
+
+        let edge_start = pos_start + start_node_radius_vec;
+        let edge_end = tip_end - comp_edge.tip_size * dir;
 
         let mut color = self.settings_style.color_edge(self.p.ctx(), e);
         if transparent {
             color = color.gamma_multiply(0.15);
         }
-        let stroke = Stroke::new(comp_edge.width, color);
+
+        let stroke_edge = Stroke::new(comp_edge.width, color);
+        let stroke_tip = Stroke::new(0., color);
 
         // draw straight edge
         if order == 0 {
-            let head_point_1 = tip_point - comp_edge.tip_size * rotate_vector(dir, e.tip_angle());
-            let head_point_2 = tip_point - comp_edge.tip_size * rotate_vector(dir, -e.tip_angle());
+            let tip_start_1 = tip_end - comp_edge.tip_size * rotate_vector(dir, e.tip_angle());
+            let tip_start_2 = tip_end - comp_edge.tip_size * rotate_vector(dir, -e.tip_angle());
 
             if !comp_edge.subselected() {
+                //draw straight not selected
                 res.0
                      .0
-                    .push(Shape::line_segment([start_point, tip_point], stroke));
+                    .push(Shape::line_segment([edge_start, edge_end], stroke_edge));
 
                 // draw tips for directed edges
                 if self.g.is_directed() {
-                    res.0
-                         .0
-                        .push(Shape::line_segment([tip_point, head_point_1], stroke));
-                    res.0
-                         .0
-                        .push(Shape::line_segment([tip_point, head_point_2], stroke));
+                    let shape_tip = Shape::convex_polygon(
+                        vec![tip_end, tip_start_1, tip_start_2],
+                        color,
+                        stroke_tip,
+                    );
+                    res.0 .0.push(shape_tip);
                 }
 
                 return;
             }
 
-            let highlighted_stroke = Stroke::new(
-                comp_edge.width * 2.,
-                self.settings_style.color_edge_highlight(comp_edge).unwrap(),
-            );
+            // draw straight selected
+            let color_higlight = self.settings_style.color_edge_highlight(comp_edge).unwrap();
+            let stroke_edge_highlighted = Stroke::new(comp_edge.width, color_higlight);
+            let stroke_tip_highlighted = Stroke::new(0., color_higlight);
             res.1 .0.push(Shape::line_segment(
-                [start_point, tip_point],
-                highlighted_stroke,
+                [edge_start, edge_end],
+                stroke_edge_highlighted,
             ));
 
             if self.g.is_directed() {
-                res.1 .0.push(Shape::line_segment(
-                    [tip_point, head_point_1],
-                    highlighted_stroke,
-                ));
-                res.1 .0.push(Shape::line_segment(
-                    [tip_point, head_point_2],
-                    highlighted_stroke,
-                ));
+                let shape_tip = Shape::convex_polygon(
+                    vec![tip_end, tip_start_1, tip_start_2],
+                    color_higlight,
+                    stroke_tip_highlighted,
+                );
+                res.1 .0.push(shape_tip)
             }
 
             return;
         }
 
+        // draw curved edge
         let dir_perpendicular = Vec2::new(-dir.y, dir.x);
-        let center_point = (start_point + tip_point.to_vec2()).to_vec2() / 2.0;
+        let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
         let control_point =
             (center_point + dir_perpendicular * comp_edge.curve_size * order as f32).to_pos2();
 
-        let tip_vec = control_point - tip_point;
+        let tip_vec = control_point - tip_end;
         let tip_dir = tip_vec / tip_vec.length();
         let tip_size = comp_edge.tip_size;
 
         let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle()) * tip_size;
         let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle()) * tip_size;
 
-        let head_point_1 = tip_point + arrow_tip_dir_1;
-        let head_point_2 = tip_point + arrow_tip_dir_2;
+        let tip_start_1 = tip_end + arrow_tip_dir_1;
+        let tip_start_2 = tip_end + arrow_tip_dir_2;
 
         if !comp_edge.subselected() {
+            // draw curved not selected
             res.0 .2.push(QuadraticBezierShape::from_points_stroke(
-                [start_point, control_point, tip_point],
+                [edge_start, control_point, tip_end],
                 false,
                 Color32::TRANSPARENT,
-                stroke,
+                stroke_edge,
             ));
-            res.0
-                 .0
-                .push(Shape::line_segment([tip_point, head_point_1], stroke));
-            res.0
-                 .0
-                .push(Shape::line_segment([tip_point, head_point_2], stroke));
+            let shape_tip =
+                Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_edge);
+            res.0 .0.push(shape_tip);
 
             return;
         }
 
-        let highlighted_stroke = Stroke::new(
-            comp_edge.width * 2.,
-            self.settings_style.color_edge_highlight(comp_edge).unwrap(),
-        );
+        // draw curved selected
+        let mut color_highlighted = self.settings_style.color_edge_highlight(comp_edge).unwrap();
+        if transparent {
+            color_highlighted = color_highlighted.gamma_multiply(0.15);
+        }
+        let highlighted_stroke = Stroke::new(comp_edge.width * 2., color_highlighted);
         res.1 .2.push(QuadraticBezierShape::from_points_stroke(
-            [start_point, control_point, tip_point],
+            [edge_start, control_point, tip_end],
             false,
             Color32::TRANSPARENT,
             highlighted_stroke,
         ));
-        res.1 .0.push(Shape::line_segment(
-            [tip_point, head_point_1],
+        let shape_tip = Shape::convex_polygon(
+            vec![tip_end, tip_start_1, tip_start_2],
+            color_highlighted,
             highlighted_stroke,
-        ));
-        res.1 .0.push(Shape::line_segment(
-            [tip_point, head_point_2],
-            highlighted_stroke,
-        ));
+        );
+        res.1 .0.push(shape_tip);
     }
 
     fn shapes_node(
