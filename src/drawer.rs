@@ -288,7 +288,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let tip_end = pos_start + vec - end_node_radius_vec;
 
         let edge_start = pos_start + start_node_radius_vec;
-        let edge_end = tip_end - comp_edge.tip_size * dir;
+        let edge_end = match self.g.is_directed() {
+            true => tip_end - comp_edge.tip_size * dir,
+            false => tip_end,
+        };
 
         let mut color = self.settings_style.color_edge(self.p.ctx(), e);
         if transparent {
@@ -326,6 +329,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             let color_higlight = self.settings_style.color_edge_highlight(comp_edge).unwrap();
             let stroke_edge_highlighted = Stroke::new(comp_edge.width, color_higlight);
             let stroke_tip_highlighted = Stroke::new(0., color_higlight);
+
             res.1 .0.push(Shape::line_segment(
                 [edge_start, edge_end],
                 stroke_edge_highlighted,
