@@ -129,7 +129,7 @@ impl<E: Clone> Default for Edge<E> {
         Self {
             width: 2.,
             tip_size: 15.,
-            tip_angle: std::f32::consts::TAU / 50.,
+            tip_angle: std::f32::consts::TAU / 30.,
             curve_size: 20.,
 
             data: Default::default(),
