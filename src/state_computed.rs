@@ -155,7 +155,7 @@ impl StateComputed {
         });
 
         edges.iter().for_each(|idx| {
-            let mut computed = self
+            let computed = self
                 .edges
                 .entry(*idx)
                 .or_insert(StateComputedEdge::new(g.edge(*idx).unwrap()));

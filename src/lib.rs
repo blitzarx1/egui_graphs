@@ -10,7 +10,6 @@ mod subgraphs;
 mod transform;
 
 pub use self::change::{Change, ChangeEdge, ChangeNode, ChangeSubgraph};
-pub use self::drawer::{ShapesEdges, ShapesNodes};
 pub use self::elements::{Edge, Node};
 pub use self::graph_view::{Graph, GraphView};
 pub use self::settings::{SettingsInteraction, SettingsNavigation, SettingsStyle};

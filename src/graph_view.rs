@@ -1,7 +1,7 @@
 use crate::{
     change::ChangeNode,
     change::{Change, ChangeSubgraph},
-    drawer::{CustomNodeDrawingFn, CustomNodeInteractedDrawingFn, Drawer},
+    drawer::Drawer,
     elements::Node,
     graph_wrapper::GraphWrapper,
     metadata::Metadata,
@@ -41,8 +41,6 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_style: SettingsStyle,
     g: GraphWrapper<'a, N, E, Ty>,
     changes_sender: Option<&'a Sender<Change>>,
-    custom_node_drawing_fn: CustomNodeDrawingFn<N>,
-    custom_node_interacted_drawing_fn: CustomNodeInteractedDrawingFn<N>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
@@ -58,15 +56,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
-        Drawer::new(
-            &self.g,
-            &p,
-            &computed,
-            &self.settings_style,
-            self.custom_node_drawing_fn,
-            self.custom_node_interacted_drawing_fn,
-        )
-        .draw();
+        Drawer::new(&self.g, &p, &computed, &self.settings_style).draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -86,9 +76,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
             changes_sender: Default::default(),
-
-            custom_node_drawing_fn: None,
-            custom_node_interacted_drawing_fn: None,
         }
     }
 
@@ -115,24 +102,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Modifies default style settings.
     pub fn with_styles(mut self, settings_style: &SettingsStyle) -> Self {
         self.settings_style = settings_style.clone();
-        self
-    }
-
-    /// Ability to implement custom node drawing
-    pub fn with_custom_node_drawing(
-        mut self,
-        custom_node_drawing_fn: CustomNodeDrawingFn<N>,
-    ) -> Self {
-        self.custom_node_drawing_fn = custom_node_drawing_fn;
-        self
-    }
-
-    /// Ability to implement custom node drawing when interacted
-    pub fn with_custom_node_interacted_drawing(
-        mut self,
-        custom_node_interacted_drawing_fn: CustomNodeInteractedDrawingFn<N>,
-    ) -> Self {
-        self.custom_node_interacted_drawing_fn = custom_node_interacted_drawing_fn;
         self
     }
 
