@@ -61,7 +61,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             let comp_node = self.comp.node_state(&idx).unwrap();
             let loc = comp_node.location.to_pos2();
 
+            if !comp_node.visible() {
+                return;
+            }
             self.draw_node_basic(l, loc, n, comp_node);
+
+            if !(n.selected() || comp_node.subselected() || n.dragged() || n.folded()) {
+                return;
+            }
             self.draw_node_interacted(l, loc, n, comp_node);
         });
     }
@@ -107,16 +114,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return;
         }
 
-        let center_horizont_angle = PI / 4.;
+        let center_horizon_angle = PI / 4.;
         let center = comp_node.location;
-        let y_intersect = center.y - comp_node.radius * center_horizont_angle.sin();
+        let y_intersect = center.y - comp_node.radius * center_horizon_angle.sin();
 
         let edge_start = Pos2::new(
-            center.x - comp_node.radius * center_horizont_angle.cos(),
+            center.x - comp_node.radius * center_horizon_angle.cos(),
             y_intersect,
         );
         let edge_end = Pos2::new(
-            center.x + comp_node.radius * center_horizont_angle.cos(),
+            center.x + comp_node.radius * center_horizon_angle.cos(),
             y_intersect,
         );
 
@@ -174,6 +181,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return;
         }
 
+        // if start node is in folding tree and end node not we should draw edge transparent
+        // starting from the root of the folding tree
         if comp_start.subfolded() && !comp_end.subfolded() {
             let new_start_idx = self
                 .comp
@@ -186,6 +195,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             transparent = true;
         }
 
+        // if end node is in folding tree and start node not we should draw edge transparent
+        // ending at the root of the folding tree
         if !comp_start.subfolded() && comp_end.subfolded() {
             let new_end_idx = self
                 .comp
@@ -248,9 +259,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             }
 
             // draw straight selected
-            let color_higlight = self.settings_style.color_edge_highlight(comp_edge).unwrap();
-            let stroke_edge_highlighted = Stroke::new(comp_edge.width, color_higlight);
-            let stroke_tip_highlighted = Stroke::new(0., color_higlight);
+            let color_highlight = self.settings_style.color_edge_highlight(comp_edge).unwrap();
+            let stroke_edge_highlighted = Stroke::new(comp_edge.width, color_highlight);
+            let stroke_tip_highlighted = Stroke::new(0., color_highlight);
             let shape_selected =
                 Shape::line_segment([edge_start, edge_end], stroke_edge_highlighted);
 
@@ -259,7 +270,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             if self.g.is_directed() {
                 let shape_tip = Shape::convex_polygon(
                     vec![tip_end, tip_start_1, tip_start_2],
-                    color_higlight,
+                    color_highlight,
                     stroke_tip_highlighted,
                 );
                 l.add_top(shape_tip)
@@ -346,39 +357,31 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         node: &Node<N>,
         comp_node: &StateComputedNode,
     ) {
-        let color = self.settings_style.color_node(self.p.ctx(), node);
+        let color_fill = self
+            .settings_style
+            .color_node_fill(self.p.ctx(), node, comp_node);
+        let color_stroke = self.settings_style.color_node_stroke(self.p.ctx());
         let node_radius = comp_node.radius;
+        let stroke = Stroke::new(1., color_stroke);
         let shape = CircleShape {
             center: loc,
             radius: node_radius,
-            fill: color,
-            stroke: Stroke::new(1., color),
+            fill: color_fill,
+            stroke,
         };
+        l.add_bottom(shape);
 
-        if !(node.selected()
+        let show_label = self.settings_style.labels_always
+            || node.selected()
             || comp_node.subselected()
             || node.dragged()
-            || node.folded()
-            || comp_node.subfolded())
-        {
-            l.add_bottom(shape);
+            || node.folded();
 
-            if !self.settings_style.labels_always {
-                return;
-            }
-
+        if show_label {
             if let Some(shape_label) = self.shape_label(node_radius, loc, node) {
                 l.add_bottom(shape_label);
             }
-
-            return;
         }
-
-        if node.folded() || comp_node.subfolded() {
-            return;
-        }
-
-        l.add_top(shape)
     }
 
     fn draw_node_interacted(
@@ -388,61 +391,34 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         node: &Node<N>,
         comp_node: &StateComputedNode,
     ) {
-        if !(node.selected()
-            || comp_node.subselected()
-            || node.dragged()
-            || node.folded()
-            || comp_node.subfolded())
-        {
-            return;
-        }
+        let rad = comp_node.radius;
+        let highlight_radius = rad * 1.5;
+        let text_size = rad / 2.;
+        let color_stroke = self
+            .settings_style
+            .color_node_fill(self.p.ctx(), node, comp_node);
 
-        if comp_node.subfolded() {
-            return;
-        }
-
-        let node_radius = comp_node.radius;
-        let highlight_radius = node_radius * 1.5;
-        let text_size = node_radius / 2.;
-
-        if let Some(shape_label) = self.shape_label(node_radius, loc, node) {
-            l.add_top(shape_label);
+        let shape_highlight_outline = CircleShape {
+            center: loc,
+            radius: highlight_radius,
+            fill: Color32::TRANSPARENT,
+            stroke: Stroke::new(rad, color_stroke),
         };
 
-        // TODO: think of folded and selected visualisation
+        l.add_top(shape_highlight_outline);
 
         if node.folded() {
-            let shape_folded = CircleShape::stroke(
-                loc,
-                node_radius,
-                Stroke::new(1., self.settings_style.color_node(self.p.ctx(), node)),
-            );
             let galley = self.p.layout_no_wrap(
                 comp_node.num_folded.to_string(),
                 FontId::monospace(text_size),
                 self.settings_style.color_label(self.p.ctx()),
             );
-            let galley_offset = node_radius / 4.;
+            let galley_offset = rad / 4.;
             let galley_pos = Pos2::new(loc.x - galley_offset, loc.y - galley_offset);
             let shape_galley = TextShape::new(galley_pos, galley);
-            l.add_top(shape_folded);
+
             l.add_top(shape_galley);
-            return;
         }
-
-        let shape = CircleShape {
-            center: loc,
-            radius: highlight_radius,
-            fill: Color32::TRANSPARENT,
-            stroke: Stroke::new(
-                node_radius,
-                self.settings_style
-                    .color_node_highlight(node, comp_node)
-                    .unwrap(),
-            ),
-        };
-
-        l.add_top(shape);
     }
 }
 
@@ -468,7 +444,7 @@ mod tests {
     #[test]
     fn test_rotate_vector() {
         let vec = Vec2::new(1.0, 0.0);
-        let angle = std::f32::consts::PI / 2.0;
+        let angle = PI / 2.0;
         let rotated = rotate_vector(vec, angle);
         assert!((rotated.x - 0.0).abs() < 1e-6);
         assert!((rotated.y - 1.0).abs() < 1e-6);

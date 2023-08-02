@@ -240,6 +240,11 @@ impl StateComputedNode {
         }
     }
 
+    /// Indicates if node is visible and should be drawn
+    pub fn visible(&self) -> bool {
+        !self.subfolded()
+    }
+
     pub fn subselected(&self) -> bool {
         self.selected_child || self.selected_parent
     }
