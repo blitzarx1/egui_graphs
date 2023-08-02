@@ -1,7 +1,14 @@
+use crossbeam::channel::Sender;
+use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use petgraph::{
+    stable_graph::{NodeIndex, StableGraph},
+    EdgeType,
+};
+
 use crate::{
     change::ChangeNode,
     change::{Change, ChangeSubgraph},
-    drawer::Drawer,
+    draw::Drawer,
     elements::Node,
     graph_wrapper::GraphWrapper,
     metadata::Metadata,
@@ -9,12 +16,6 @@ use crate::{
     settings::{SettingsInteraction, SettingsStyle},
     state_computed::StateComputed,
     Edge,
-};
-use crossbeam::channel::Sender;
-use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{
-    stable_graph::{NodeIndex, StableGraph},
-    EdgeType,
 };
 
 // Represents graph type compatible with the widget.
@@ -56,7 +57,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
-        Drawer::new(&self.g, p, &computed, &self.settings_style).draw();
+        Drawer::new(p, &self.g, &computed, &self.settings_style).draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();

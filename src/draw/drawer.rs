@@ -23,18 +23,19 @@ type EdgeWithMeta<'a, E> = (EdgeIndex, Edge<E>, &'a StateComputedEdge);
 /// Mapping for 2 nodes and all edges between them
 type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<EdgeWithMeta<'a, E>>>;
 
-// TODO: support custom drawing functions
+// TODO: support custom drawing functions; check example/basic_custom_drawing for contract
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
-    g: &'a GraphWrapper<'a, N, E, Ty>,
     p: Painter,
+
+    g: &'a GraphWrapper<'a, N, E, Ty>,
     comp: &'a StateComputed,
     settings_style: &'a SettingsStyle,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     pub fn new(
-        g: &'a GraphWrapper<N, E, Ty>,
         p: Painter,
+        g: &'a GraphWrapper<N, E, Ty>,
         comp: &'a StateComputed,
         settings_style: &'a SettingsStyle,
     ) -> Self {
@@ -48,6 +49,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
     pub fn draw(self) {
         let mut l = Layers::default();
+
         self.fill_layers_edges(&mut l);
         self.fill_layers_nodes(&mut l);
 
