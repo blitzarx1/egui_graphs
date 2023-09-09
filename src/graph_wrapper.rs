@@ -29,9 +29,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
             Option<&Edge<E>>,
         ),
     ) {
-        self.nodes()
+        self.nodes_iter()
             .for_each(|(idx, n)| walker(self, Some(&idx), Some(n), None, None));
-        self.edges()
+        self.edges_iter()
             .for_each(|(idx, e)| walker(self, None, None, Some(&idx), Some(e)));
     }
 
@@ -44,19 +44,23 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
     ) -> Option<(NodeIndex, &Node<N>)> {
         // transform pos to graph coordinates
         let pos_in_graph = (pos - meta.pan).to_vec2() / meta.zoom;
-        self.nodes().find(|(idx, n)| {
+        self.nodes_iter().find(|(idx, n)| {
             let comp_node = comp.node_state(idx).unwrap();
             (n.location() - pos_in_graph).length() <= comp_node.radius
         })
     }
 
+    pub fn g(&mut self) -> &mut Graph<N, E, Ty> {
+        self.g
+    }
+
     ///Provides iterator over all nodes and their indices.
-    pub fn nodes(&'a self) -> impl Iterator<Item = (NodeIndex, &Node<N>)> {
+    pub fn nodes_iter(&'a self) -> impl Iterator<Item = (NodeIndex, &Node<N>)> {
         self.g.node_references()
     }
 
     /// Provides iterator over all edges and their indices.
-    pub fn edges(&'a self) -> impl Iterator<Item = (EdgeIndex, &Edge<E>)> {
+    pub fn edges_iter(&'a self) -> impl Iterator<Item = (EdgeIndex, &Edge<E>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
 

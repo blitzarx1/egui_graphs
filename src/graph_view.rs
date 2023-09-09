@@ -6,8 +6,7 @@ use petgraph::{
 };
 
 use crate::{
-    change::ChangeNode,
-    change::{Change, ChangeSubgraph},
+    change::{Change, ChangeNode, ChangeSubgraph},
     draw::Drawer,
     elements::Node,
     graph_wrapper::GraphWrapper,
@@ -15,23 +14,23 @@ use crate::{
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
     state_computed::StateComputed,
-    Edge,
+    Edge, SubGraph,
 };
 
-// Represents graph type compatible with the widget.
+// Graph type compatible with the widget.
 pub type Graph<N, E, Ty> = StableGraph<Node<N>, Edge<E>, Ty>;
 
-/// `GraphView` is a widget for visualizing and interacting with graphs.
+/// Widget for visualizing and interacting with graphs.
 ///
-/// It implements `egui::Widget` and can be used like any other widget.
+/// It implements [egui::Widget] and can be used like any other widget.
 ///
-/// The widget uses a mutable reference to the `petgraph::StableGraph<egui_graphs::Node<N>, egui_graphs::Edge<E>>`
+/// The widget uses a mutable reference to the [StableGraph<egui_graphs::Node<N>, egui_graphs::Edge<E>>]
 /// struct to visualize and interact with the graph. `N` and `E` is arbitrary client data associated with nodes and edges.
-/// You can customize the visualization and interaction behavior using `SettingsInteraction`, `SettingsNavigation` and `SettingsStyle` structs.
+/// You can customize the visualization and interaction behavior using [SettingsInteraction], [SettingsNavigation] and [SettingsStyle] structs.
 ///
-/// When any interaction or node propery change supported by the widget occurs, the widget sends `Changes` struct to the provided
-/// `Sender<Changes>` channel, which can be set via the `with_interactions` method. The `Changes` struct contains information about
-/// the changes that occured in the graph. Client can use this information to modify external state of the application if needed.
+/// When any interaction or node property change occurs, the widget sends [Change] struct to the provided
+/// [Sender<Change>] channel, which can be set via the `with_interactions` method. The [Change] struct contains information about
+/// a change that occurred in the graph. Client can use this information to modify external state of his application if needed.
 ///
 /// When the user performs navigation actions (zoom & pan, fit to screen), they do not
 /// produce changes. This is because these actions are performed on the global coordinates and do not change any

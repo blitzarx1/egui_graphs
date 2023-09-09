@@ -57,7 +57,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     }
 
     fn fill_layers_nodes(&self, l: &mut Layers) {
-        self.g.nodes().for_each(|(idx, n)| {
+        self.g.nodes_iter().for_each(|(idx, n)| {
             let comp_node = self.comp.node_state(&idx).unwrap();
             let loc = comp_node.location.to_pos2();
 
@@ -76,7 +76,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     fn fill_layers_edges(&self, l: &mut Layers) {
         let mut edge_map: EdgeMap<E> = HashMap::new();
 
-        self.g.edges().for_each(|(idx, e)| {
+        self.g.edges_iter().for_each(|(idx, e)| {
             let (source, target) = self.g.edge_endpoints(idx).unwrap();
             // compute map with edges between 2 nodes
             edge_map
