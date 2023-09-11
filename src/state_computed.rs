@@ -155,7 +155,7 @@ impl StateComputed {
         });
 
         edges.iter().for_each(|idx| {
-            let mut computed = self
+            let computed = self
                 .edges
                 .entry(*idx)
                 .or_insert(StateComputedEdge::new(g.edge(*idx).unwrap()));
@@ -238,6 +238,11 @@ impl StateComputedNode {
             folded_child: Default::default(),
             num_folded: Default::default(),
         }
+    }
+
+    /// Indicates if node is visible and should be drawn
+    pub fn visible(&self) -> bool {
+        !self.subfolded()
     }
 
     pub fn subselected(&self) -> bool {

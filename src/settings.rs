@@ -249,16 +249,49 @@ impl SettingsStyle {
         self
     }
 
-    pub(crate) fn color_node<N: Clone>(&self, ctx: &egui::Context, n: &Node<N>) -> Color32 {
+    pub fn color_node_stroke(&self, ctx: &egui::Context) -> Color32 {
+        if ctx.style().visuals.dark_mode {
+            self.color_node
+        } else {
+            self.color_edge
+        }
+    }
+
+    pub(crate) fn color_node_fill<N: Clone>(
+        &self,
+        ctx: &egui::Context,
+        n: &Node<N>,
+        comp: &StateComputedNode,
+    ) -> Color32 {
+        if n.folded() {
+            return Color32::TRANSPARENT;
+        }
+
         if n.color().is_some() {
             return n.color().unwrap();
         }
 
-        if ctx.style().visuals.dark_mode {
-            return self.color_node;
+        if n.dragged() {
+            return self.color_drag;
         }
 
-        self.color_edge
+        if n.selected() {
+            return self.color_selection;
+        }
+
+        if comp.selected_child {
+            return self.color_selection_child;
+        }
+
+        if comp.selected_parent {
+            return self.color_selection_parent;
+        }
+
+        if ctx.style().visuals.dark_mode {
+            self.color_node
+        } else {
+            self.color_edge
+        }
     }
 
     pub(crate) fn color_label(&self, ctx: &egui::Context) -> Color32 {
@@ -266,30 +299,6 @@ impl SettingsStyle {
             true => self.color_text_light,
             false => self.color_text_dark,
         }
-    }
-
-    pub(crate) fn color_node_highlight<N: Clone>(
-        &self,
-        n: &Node<N>,
-        comp: &StateComputedNode,
-    ) -> Option<Color32> {
-        if n.dragged() {
-            return Some(self.color_drag);
-        }
-
-        if n.selected() {
-            return Some(self.color_selection);
-        }
-
-        if comp.selected_child {
-            return Some(self.color_selection_child);
-        }
-
-        if comp.selected_parent {
-            return Some(self.color_selection_parent);
-        }
-
-        None
     }
 
     pub(crate) fn color_edge<E: Clone>(&self, ctx: &egui::Context, e: &Edge<E>) -> Color32 {
