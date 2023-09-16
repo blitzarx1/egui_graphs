@@ -1,24 +1,15 @@
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{
-    stable_graph::{NodeIndex, StableGraph},
-    EdgeType,
-};
+use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{
     change::{Change, ChangeNode, ChangeSubgraph},
-    draw::Drawer,
-    elements::Node,
-    graph_wrapper::GraphWrapper,
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
     state_computed::StateComputed,
-    Edge, SubGraph,
+    Drawer, Graph,
 };
-
-// Graph type compatible with the widget.
-pub type Graph<N, E, Ty> = StableGraph<Node<N>, Edge<E>, Ty>;
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -39,7 +30,7 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
-    g: GraphWrapper<'a, N, E, Ty>,
+    g: &'a mut Graph<N, E, Ty>,
     changes_sender: Option<&'a Sender<Change>>,
 }
 
@@ -56,7 +47,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
-        Drawer::new(p, &self.g, &computed, &self.settings_style).draw();
+        Drawer::new(p, self.g, &computed, &self.settings_style).draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -70,7 +61,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
     pub fn new(g: &'a mut Graph<N, E, Ty>) -> Self {
         Self {
-            g: GraphWrapper::new(g),
+            g,
 
             settings_style: Default::default(),
             settings_interaction: Default::default(),
@@ -158,9 +149,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        // click on empty space
         let node = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap());
         if node.is_none() {
+            // click on empty space
             let selectable = self.settings_interaction.selection_enabled
                 || self.settings_interaction.selection_multi_enabled;
             if selectable {
@@ -169,9 +160,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        // first clickf of double click is accepted as single click
-        // so if you double click a node it will handle it as click and
-        // then double click
+        // first click of double click is handleed by the lib as single click
+        // so if you double click a node it will handle it as single click at first
+        // and only after as double click
         let node_idx = node.unwrap().0;
         if resp.double_clicked() {
             self.handle_node_double_click(node_idx, comp);

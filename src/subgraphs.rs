@@ -3,14 +3,14 @@ use std::collections::{HashMap, HashSet};
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
     visit::EdgeRef,
-    Direction, EdgeType, Graph,
+    Direction, EdgeType,
 };
 
-use crate::graph_wrapper::GraphWrapper;
+use crate::graph::Graph;
 
 /// A subgraph of a graph. Node and edges are holding
 /// references to the elements of the original graph.
-pub type SubGraph = Graph<NodeIndex, EdgeIndex>;
+pub type SubGraph = petgraph::Graph<NodeIndex, EdgeIndex>;
 pub type Elements = (Vec<NodeIndex>, Vec<EdgeIndex>);
 
 /// A collection of [`SubGraph`]s. Each subgraph is identified by its root node.
@@ -81,11 +81,11 @@ impl SubGraphs {
     /// from the root node to the given depth.
     pub fn add_subgraph<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        g: &GraphWrapper<N, E, Ty>,
+        g: &Graph<N, E, Ty>,
         root: NodeIndex,
         depth: i32,
     ) {
-        let mut subgraph = Graph::<NodeIndex, EdgeIndex>::new();
+        let mut subgraph = petgraph::Graph::<NodeIndex, EdgeIndex>::new();
         let dir = match depth > 0 {
             true => petgraph::Direction::Outgoing,
             false => petgraph::Direction::Incoming,
@@ -122,8 +122,8 @@ impl SubGraphs {
     /// travelling `steps` generations in the provided direction `dir`.
     fn collect_generations<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        src_subgraph: &GraphWrapper<N, E, Ty>,
-        dst_subgraph: &mut Graph<NodeIndex, EdgeIndex>,
+        src_subgraph: &Graph<N, E, Ty>,
+        dst_subgraph: &mut petgraph::Graph<NodeIndex, EdgeIndex>,
         root: NodeIndex,
         steps: usize,
         dir: Direction,
@@ -189,14 +189,14 @@ mod tests {
 
     #[test]
     fn subgraphs_elements() {
-        let g = &mut create_test_graph();
-        let graph = GraphWrapper::new(g);
+        let g = create_test_graph();
+        let graph = &mut Graph::new(g);
         let mut subgraphs = SubGraphs::default();
 
         // a->b, a->d
-        subgraphs.add_subgraph(&graph, NodeIndex::new(0), 1);
+        subgraphs.add_subgraph(graph, NodeIndex::new(0), 1);
         // b->c
-        subgraphs.add_subgraph(&graph, NodeIndex::new(1), 1);
+        subgraphs.add_subgraph(graph, NodeIndex::new(1), 1);
 
         let (nodes, edges) = subgraphs.elements();
         assert_eq!(nodes.len(), 4);
@@ -205,11 +205,11 @@ mod tests {
 
     #[test]
     fn subgraphs_elements_by_root() {
-        let g = &mut create_test_graph();
-        let graph = GraphWrapper::new(g);
+        let g = create_test_graph();
+        let graph = &mut Graph::new(g);
         let mut subgraphs = SubGraphs::default();
 
-        subgraphs.add_subgraph(&graph, NodeIndex::new(0), 1);
+        subgraphs.add_subgraph(graph, NodeIndex::new(0), 1);
 
         let (nodes, edges) = subgraphs.elements_by_root(NodeIndex::new(0)).unwrap();
         assert_eq!(nodes.len(), 3);
@@ -218,24 +218,24 @@ mod tests {
 
     #[test]
     fn subgraphs_add_subgraph() {
-        let g = &mut create_test_graph();
-        let graph = GraphWrapper::new(g);
+        let g = create_test_graph();
+        let graph = &mut Graph::new(g);
         let mut subgraphs = SubGraphs::default();
 
-        subgraphs.add_subgraph(&graph, NodeIndex::new(0), 1);
+        subgraphs.add_subgraph(graph, NodeIndex::new(0), 1);
         assert_eq!(subgraphs.data.len(), 1);
 
-        subgraphs.add_subgraph(&graph, NodeIndex::new(1), 1);
+        subgraphs.add_subgraph(graph, NodeIndex::new(1), 1);
         assert_eq!(subgraphs.data.len(), 2);
     }
 
     #[test]
     fn subgraphs_add_looped_subgraph() {
-        let g = &mut create_test_graph();
+        let mut g = create_test_graph();
         let a_idx = NodeIndex::new(1);
         g.add_edge(a_idx, a_idx, Edge::new(()));
 
-        let graph = GraphWrapper::new(g);
+        let graph = Graph::new(g);
         let mut subgraphs = SubGraphs::default();
 
         subgraphs.add_subgraph(&graph, NodeIndex::new(1), i32::MAX);
@@ -244,8 +244,8 @@ mod tests {
 
     #[test]
     fn subgraphs_add_subgraph_zero_depth() {
-        let g = &mut create_test_graph();
-        let graph = GraphWrapper::new(g);
+        let g = create_test_graph();
+        let graph = Graph::new(g);
         let mut subgraphs = SubGraphs::default();
 
         subgraphs.add_subgraph(&graph, NodeIndex::new(0), 0);
@@ -258,8 +258,8 @@ mod tests {
 
     #[test]
     fn subgraphs_roots_by_node() {
-        let g = &mut create_test_graph();
-        let graph = GraphWrapper::new(g);
+        let g = create_test_graph();
+        let graph = Graph::new(g);
         let mut subgraphs = SubGraphs::default();
 
         // a->b, a->d
@@ -282,8 +282,8 @@ mod tests {
     fn subgraphs_roots_and_roots_by_node() {
         // Check that roots and roots_by_node are the same
 
-        let g = &mut create_test_graph();
-        let graph = GraphWrapper::new(g);
+        let g = create_test_graph();
+        let graph = Graph::new(g);
         let mut subgraphs = SubGraphs::default();
 
         // a->b, a->d

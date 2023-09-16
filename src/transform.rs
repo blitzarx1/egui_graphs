@@ -1,4 +1,4 @@
-use crate::{graph_view::Graph, Edge, Node};
+use crate::{Edge, Graph, Node};
 use egui::Vec2;
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
@@ -25,7 +25,7 @@ pub fn add_node_custom<N: Clone, E: Clone, Ty: EdgeType>(
     n: &N,
     node_transform: impl Fn(NodeIndex, &N) -> Node<N>,
 ) -> NodeIndex {
-    g.add_node(node_transform(NodeIndex::new(g.node_count() + 1), n))
+    g.g.add_node(node_transform(NodeIndex::new(g.g.node_count() + 1), n))
 }
 
 /// Helper function which adds user's edge to the [`super::Graph`] instance.
@@ -46,10 +46,10 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType>(
     e: &E,
     edge_transform: impl Fn(EdgeIndex, &E) -> Edge<E>,
 ) -> EdgeIndex {
-    g.add_edge(
+    g.g.add_edge(
         start,
         end,
-        edge_transform(EdgeIndex::new(g.edge_count() + 1), e),
+        edge_transform(EdgeIndex::new(g.g.edge_count() + 1), e),
     )
 }
 
@@ -57,7 +57,7 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType>(
 ///
 /// The function creates a new StableGraph where the nodes and edges are encapsulated into
 /// Node and Edge structs respectively. New nodes and edges are created with [`default_node_transform`] and [`default_edge_transform`]
-/// functions. If you want to define custom transformation procedures (e.g. to use custom label for nodes), use [`to_input_graph_custom`] instead.
+/// functions. If you want to define custom transformation procedures (e.g. to use custom label for nodes), use [`to_graph_custom`] instead.
 ///
 /// # Arguments
 /// * `g` - A reference to a [`petgraph::stable_graph::StableGraph`]. The graph can have any data type for nodes and edges, and
@@ -70,7 +70,7 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType>(
 /// # Example
 /// ```
 /// use petgraph::stable_graph::StableGraph;
-/// use egui_graphs::to_input_graph;
+/// use egui_graphs::to_graph;
 /// use egui::Vec2;
 ///
 /// let mut user_graph: StableGraph<&str, &str> = StableGraph::new();
@@ -78,35 +78,35 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType>(
 /// let node2 = user_graph.add_node("B");
 /// user_graph.add_edge(node1, node2, "edge1");
 ///
-/// let input_graph = to_input_graph(&user_graph);
+/// let input_graph = to_graph(&user_graph);
 ///
-/// assert_eq!(input_graph.node_count(), 2);
-/// assert_eq!(input_graph.edge_count(), 1);
+/// assert_eq!(input_graph.g.node_count(), 2);
+/// assert_eq!(input_graph.g.edge_count(), 1);
 ///
-/// let mut input_indices = input_graph.node_indices();
+/// let mut input_indices = input_graph.g.node_indices();
 /// let input_node_1 = input_indices.next().unwrap();
 /// let input_node_2 = input_indices.next().unwrap();
-/// assert_eq!(*input_graph.node_weight(input_node_1).unwrap().data().clone().unwrap(), "A");
-/// assert_eq!(*input_graph.node_weight(input_node_2).unwrap().data().clone().unwrap(), "B");
+/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().data().clone().unwrap(), "A");
+/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().data().clone().unwrap(), "B");
 ///
-/// assert_eq!(*input_graph.edge_weight(input_graph.edge_indices().next().unwrap()).unwrap().data().clone().unwrap(), "edge1");
+/// assert_eq!(*input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().data().clone().unwrap(), "edge1");
 ///
-/// assert_eq!(*input_graph.node_weight(input_node_1).unwrap().label().clone().unwrap(), input_node_1.index().to_string());
-/// assert_eq!(*input_graph.node_weight(input_node_2).unwrap().label().clone().unwrap(), input_node_2.index().to_string());
+/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().label().clone().unwrap(), input_node_1.index().to_string());
+/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().label().clone().unwrap(), input_node_2.index().to_string());
 ///
-/// let loc_1 = input_graph.node_weight(input_node_1).unwrap().location();
-/// let loc_2 = input_graph.node_weight(input_node_2).unwrap().location();
+/// let loc_1 = input_graph.g.node_weight(input_node_1).unwrap().location();
+/// let loc_2 = input_graph.g.node_weight(input_node_2).unwrap().location();
 /// assert!(loc_1 != Vec2::ZERO);
 /// assert!(loc_2 != Vec2::ZERO);
 /// ```
-pub fn to_input_graph<N: Clone, E: Clone, Ty: EdgeType>(
+pub fn to_graph<N: Clone, E: Clone, Ty: EdgeType>(
     g: &StableGraph<N, E, Ty>,
 ) -> Graph<N, E, Ty> {
     transform(g, default_node_transform, default_edge_transform)
 }
 
-/// The same as [`to_input_graph`], but allows to define custom transformation procedures for nodes and edges.
-pub fn to_input_graph_custom<N: Clone, E: Clone, Ty: EdgeType>(
+/// The same as [`to_graph`], but allows to define custom transformation procedures for nodes and edges.
+pub fn to_graph_custom<N: Clone, E: Clone, Ty: EdgeType>(
     g: &StableGraph<N, E, Ty>,
     node_transform: impl Fn(NodeIndex, &N) -> Node<N>,
     edge_transform: impl Fn(EdgeIndex, &E) -> Edge<E>,
@@ -160,7 +160,7 @@ fn transform<N: Clone, E: Clone, Ty: EdgeType>(
         );
     });
 
-    input_g
+    Graph::new(input_g)
 }
 
 #[cfg(test)]
@@ -170,21 +170,21 @@ mod tests {
     use petgraph::Undirected;
 
     #[test]
-    fn test_to_input_graph_directed() {
+    fn test_to_graph_directed() {
         let mut user_g: StableGraph<_, _, Directed> = StableGraph::new();
         let n1 = user_g.add_node("Node1");
         let n2 = user_g.add_node("Node2");
         user_g.add_edge(n1, n2, "Edge1");
 
-        let input_g = to_input_graph(&user_g);
+        let input_g = to_graph(&user_g);
 
-        assert_eq!(user_g.node_count(), input_g.node_count());
-        assert_eq!(user_g.edge_count(), input_g.edge_count());
+        assert_eq!(user_g.node_count(), input_g.g.node_count());
+        assert_eq!(user_g.edge_count(), input_g.g.edge_count());
         assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (user_idx, input_idx) in input_g.node_indices().zip(user_g.node_indices()) {
+        for (user_idx, input_idx) in input_g.g.node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.node_weight(input_idx).unwrap();
+            let input_n = input_g.g.node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.data().unwrap(), *user_n);
 
@@ -200,21 +200,21 @@ mod tests {
     }
 
     #[test]
-    fn test_to_input_graph_undirected() {
+    fn test_to_graph_undirected() {
         let mut user_g: StableGraph<_, _, Undirected> = StableGraph::default();
         let n1 = user_g.add_node("Node1");
         let n2 = user_g.add_node("Node2");
         user_g.add_edge(n1, n2, "Edge1");
 
-        let input_g = to_input_graph(&user_g);
+        let input_g = to_graph(&user_g);
 
-        assert_eq!(user_g.node_count(), input_g.node_count());
-        assert_eq!(user_g.edge_count(), input_g.edge_count());
+        assert_eq!(user_g.node_count(), input_g.g.node_count());
+        assert_eq!(user_g.edge_count(), input_g.g.edge_count());
         assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (user_idx, input_idx) in input_g.node_indices().zip(user_g.node_indices()) {
+        for (user_idx, input_idx) in input_g.g.node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.node_weight(input_idx).unwrap();
+            let input_n = input_g.g.node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.data().unwrap(), *user_n);
 

@@ -1,20 +1,33 @@
 use egui::Pos2;
 
 use petgraph::{
-    stable_graph::{EdgeIndex, EdgeReference, NodeIndex},
+    prelude::GraphMap,
+    stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
     visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences},
     Direction, EdgeType,
 };
 
-use crate::{graph_view::Graph, metadata::Metadata, state_computed::StateComputed, Edge, Node};
+use crate::{metadata::Metadata, state_computed::StateComputed, transform, Edge, Node};
 
-/// Encapsulates graph access and traversal methods.
-pub struct GraphWrapper<'a, N: Clone, E: Clone, Ty: EdgeType> {
-    g: &'a mut Graph<N, E, Ty>,
+/// Graph type compatible with [`super::GraphView`].
+pub struct Graph<N: Clone, E: Clone, Ty: EdgeType> {
+    pub g: StableGraph<Node<N>, Edge<E>, Ty>,
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
-    pub fn new(g: &'a mut Graph<N, E, Ty>) -> Self {
+impl<N: Clone, E: Clone, Ty: EdgeType> From<&StableGraph<N, E, Ty>> for Graph<N, E, Ty> {
+    fn from(value: &StableGraph<N, E, Ty>) -> Self {
+        transform::to_graph(value)
+    }
+}
+
+// impl<N: Clone, E: Clone, Ty: EdgeType> From<&GraphMap<N, E, Ty>> for Graph<N, E, Ty> {
+//     fn from(value: &GraphMap<N, E, Ty>) -> Self {
+//         transform::to_graph(value.into_graph())
+//     }
+// }
+
+impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<N, E, Ty> {
+    pub fn new(g: StableGraph<Node<N>, Edge<E>, Ty>) -> Self {
         Self { g }
     }
 
@@ -42,16 +55,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         meta: &'a Metadata,
         pos: Pos2,
     ) -> Option<(NodeIndex, &Node<N>)> {
-        // transform pos to graph coordinates
         let pos_in_graph = (pos - meta.pan).to_vec2() / meta.zoom;
         self.nodes_iter().find(|(idx, n)| {
             let comp_node = comp.node_state(idx).unwrap();
-            (n.location() - pos_in_graph).length() <= comp_node.radius
+            let dist_to_node = (n.location() - pos_in_graph).length();
+            let node_rad = comp_node.radius / meta.zoom;
+            dist_to_node <= node_rad
         })
     }
 
-    pub fn g(&mut self) -> &mut Graph<N, E, Ty> {
-        self.g
+    pub fn g(&mut self) -> &mut StableGraph<Node<N>, Edge<E>, Ty> {
+        &mut self.g
     }
 
     ///Provides iterator over all nodes and their indices.
@@ -94,47 +108,5 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphWrapper<'a, N, E, Ty> {
         dir: Direction,
     ) -> impl Iterator<Item = EdgeReference<Edge<E>>> {
         self.g.edges_directed(idx, dir)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use egui::Vec2;
-    use petgraph::{stable_graph::StableGraph, Directed};
-
-    fn create_test_graph() -> Graph<(), (), Directed> {
-        let mut graph = StableGraph::<Node<()>, Edge<()>>::new();
-        let a = graph.add_node(Node::new(Vec2::default(), ()));
-        let b = graph.add_node(Node::new(Vec2::default(), ()));
-        let c = graph.add_node(Node::new(Vec2::default(), ()));
-        let d = graph.add_node(Node::new(Vec2::default(), ()));
-
-        graph.add_edge(a, b, Edge::new(()));
-        graph.add_edge(b, c, Edge::new(()));
-        graph.add_edge(c, d, Edge::new(()));
-        graph.add_edge(a, d, Edge::new(()));
-
-        graph
-    }
-
-    #[test]
-    fn test_walk() {
-        let mut graph = create_test_graph();
-        let graph_wrapped = GraphWrapper::new(&mut graph);
-        let mut s = String::new();
-
-        graph_wrapped.walk(|_g, n_idx, _n, e_idx, _e| {
-            if let Some(_idx) = n_idx {
-                s.push('n');
-            };
-
-            if let Some(_idx) = e_idx {
-                s.push('e');
-            };
-        });
-
-        //expecting n for every node and e for every edge in the graph
-        assert_eq!(s, "nnnneeee".to_string());
     }
 }

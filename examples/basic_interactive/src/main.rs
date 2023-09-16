@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{to_input_graph, GraphView, SettingsInteraction, Graph};
+use egui_graphs::{Graph, GraphView, SettingsInteraction, SettingsStyle};
 use petgraph::{stable_graph::StableGraph, Directed};
 
 pub struct BasicInteractiveApp {
@@ -23,9 +23,13 @@ impl App for BasicInteractiveApp {
                 .with_folding_enabled(true)
                 .with_selection_enabled(true)
                 .with_selection_multi_enabled(true)
-                .with_selection_depth(i32::MAX)
                 .with_folding_depth(usize::MAX);
-            ui.add(&mut GraphView::new(&mut self.g).with_interactions(interaction_settings));
+            let style_settings = &SettingsStyle::new().with_labels_always(true);
+            ui.add(
+                &mut GraphView::new(&mut self.g)
+                    .with_styles(style_settings)
+                    .with_interactions(interaction_settings),
+            );
         });
     }
 }
@@ -41,7 +45,7 @@ fn generate_graph() -> Graph<(), (), Directed> {
     g.add_edge(b, c, ());
     g.add_edge(c, a, ());
 
-    to_input_graph(&g)
+    Graph::from(&g)
 }
 
 fn main() {
