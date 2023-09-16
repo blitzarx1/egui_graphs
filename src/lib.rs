@@ -1,5 +1,5 @@
 mod change;
-mod drawer;
+mod draw;
 mod elements;
 mod graph;
 mod graph_view;

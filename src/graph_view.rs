@@ -11,17 +11,17 @@ use crate::{
     Drawer, Graph,
 };
 
-/// `GraphView` is a widget for visualizing and interacting with graphs.
+/// Widget for visualizing and interacting with graphs.
 ///
-/// It implements `egui::Widget` and can be used like any other widget.
+/// It implements [egui::Widget] and can be used like any other widget.
 ///
-/// The widget uses a mutable reference to the `petgraph::StableGraph<egui_graphs::Node<N>, egui_graphs::Edge<E>>`
+/// The widget uses a mutable reference to the [StableGraph<egui_graphs::Node<N>, egui_graphs::Edge<E>>]
 /// struct to visualize and interact with the graph. `N` and `E` is arbitrary client data associated with nodes and edges.
-/// You can customize the visualization and interaction behavior using `SettingsInteraction`, `SettingsNavigation` and `SettingsStyle` structs.
+/// You can customize the visualization and interaction behavior using [SettingsInteraction], [SettingsNavigation] and [SettingsStyle] structs.
 ///
-/// When any interaction or node propery change supported by the widget occurs, the widget sends `Changes` struct to the provided
-/// `Sender<Changes>` channel, which can be set via the `with_interactions` method. The `Changes` struct contains information about
-/// the changes that occured in the graph. Client can use this information to modify external state of the application if needed.
+/// When any interaction or node property change occurs, the widget sends [Change] struct to the provided
+/// [Sender<Change>] channel, which can be set via the `with_interactions` method. The [Change] struct contains information about
+/// a change that occurred in the graph. Client can use this information to modify external state of his application if needed.
 ///
 /// When the user performs navigation actions (zoom & pan, fit to screen), they do not
 /// produce changes. This is because these actions are performed on the global coordinates and do not change any
@@ -32,8 +32,6 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_style: SettingsStyle,
     g: &'a mut Graph<N, E, Ty>,
     changes_sender: Option<&'a Sender<Change>>,
-    custom_node_drawing_fn: CustomNodeDrawingFn<N>,
-    custom_node_interacted_drawing_fn: CustomNodeInteractedDrawingFn<N>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
@@ -69,9 +67,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
             changes_sender: Default::default(),
-
-            custom_node_drawing_fn: None,
-            custom_node_interacted_drawing_fn: None,
         }
     }
 
@@ -98,24 +93,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Modifies default style settings.
     pub fn with_styles(mut self, settings_style: &SettingsStyle) -> Self {
         self.settings_style = settings_style.clone();
-        self
-    }
-
-    /// Ability to implement custom node drawing
-    pub fn with_custom_node_drawing(
-        mut self,
-        custom_node_drawing_fn: CustomNodeDrawingFn<N>,
-    ) -> Self {
-        self.custom_node_drawing_fn = custom_node_drawing_fn;
-        self
-    }
-
-    /// Ability to implement custom node drawing when interacted
-    pub fn with_custom_node_interacted_drawing(
-        mut self,
-        custom_node_interacted_drawing_fn: CustomNodeInteractedDrawingFn<N>,
-    ) -> Self {
-        self.custom_node_interacted_drawing_fn = custom_node_interacted_drawing_fn;
         self
     }
 

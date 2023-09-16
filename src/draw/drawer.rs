@@ -15,24 +15,7 @@ use crate::{
     Edge, Graph, Node,
 };
 
-pub type ShapesEdges = (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>);
-pub type ShapesNodes = (Vec<Shape>, Vec<TextShape>);
-pub type CustomNodeDrawingFn<N> = Option<
-    fn(
-        res: &mut (ShapesNodes, ShapesNodes),
-        loc: Pos2,
-        node: &Node<N>,
-        comp_node: &StateComputedNode,
-    ),
->;
-pub type CustomNodeInteractedDrawingFn<N> = Option<
-    fn(
-        res: &mut (ShapesNodes, ShapesNodes),
-        loc: Pos2,
-        node: &Node<N>,
-        comp_node: &StateComputedNode,
-    ),
->;
+use super::layers::Layers;
 
 /// Edge, its index and computed state
 type EdgeWithMeta<'a, E> = (EdgeIndex, Edge<E>, &'a StateComputedEdge);
@@ -45,8 +28,6 @@ pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     g: &'a Graph<N, E, Ty>,
     comp: &'a StateComputed,
     settings_style: &'a SettingsStyle,
-    custom_node_drawing_fn: CustomNodeDrawingFn<N>,
-    custom_node_interacted_drawing_fn: CustomNodeInteractedDrawingFn<N>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
@@ -55,50 +36,45 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         g: &'a Graph<N, E, Ty>,
         comp: &'a StateComputed,
         settings_style: &'a SettingsStyle,
-        custom_node_drawing_fn: CustomNodeDrawingFn<N>,
-        custom_node_interacted_drawing_fn: CustomNodeInteractedDrawingFn<N>,
     ) -> Self {
         Drawer {
             g,
             p,
             comp,
             settings_style,
-            custom_node_drawing_fn,
-            custom_node_interacted_drawing_fn,
         }
     }
 
-    pub fn draw(&self) {
-        let e_shapes = self.shapes_edges();
-        let n_shapes = self.shapes_nodes();
+    pub fn draw(self) {
+        let mut l = Layers::default();
 
-        // drawing priority: edges, nodes, interacted edges, interacted nodes
-        self.draw_edges_shapes(e_shapes.0);
-        self.draw_nodes_shapes(n_shapes.0);
-        self.draw_edges_shapes(e_shapes.1);
-        self.draw_nodes_shapes(n_shapes.1);
+        self.fill_layers_edges(&mut l);
+        self.fill_layers_nodes(&mut l);
+
+        l.draw(self.p)
     }
 
-    fn shapes_nodes(&self) -> (ShapesNodes, ShapesNodes) {
-        let (mut shapes_first, mut shapes_second) =
-            (ShapesNodes::default(), ShapesNodes::default());
-        self.g.nodes().for_each(|(idx, n)| {
+    fn fill_layers_nodes(&self, l: &mut Layers) {
+        self.g.nodes_iter().for_each(|(idx, n)| {
             let comp_node = self.comp.node_state(&idx).unwrap();
-            let shapes = self.shapes_node(n, comp_node);
-            shapes_first.0.extend(shapes.0 .0);
-            shapes_first.1.extend(shapes.0 .1);
+            let loc = comp_node.location.to_pos2();
 
-            shapes_second.0.extend(shapes.1 .0);
-            shapes_second.1.extend(shapes.1 .1);
+            if !comp_node.visible() {
+                return;
+            }
+            self.draw_node_basic(l, loc, n, comp_node);
+
+            if !(n.selected() || comp_node.subselected() || n.dragged() || n.folded()) {
+                return;
+            }
+            self.draw_node_interacted(l, loc, n, comp_node);
         });
-
-        (shapes_first, shapes_second)
     }
 
-    fn shapes_edges(&self) -> (ShapesEdges, ShapesEdges) {
+    fn fill_layers_edges(&self, l: &mut Layers) {
         let mut edge_map: EdgeMap<E> = HashMap::new();
 
-        self.g.edges().for_each(|(idx, e)| {
+        self.g.edges_iter().for_each(|(idx, e)| {
             let (source, target) = self.g.edge_endpoints(idx).unwrap();
             // compute map with edges between 2 nodes
             edge_map
@@ -107,72 +83,23 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 .push((idx, e.clone(), self.comp.edge_state(&idx).unwrap()));
         });
 
-        let (mut shapes_first, mut shapes_second) =
-            (ShapesEdges::default(), ShapesEdges::default());
         edge_map.iter().for_each(|((start, end), edges)| {
             let mut order = edges.len();
             edges.iter().for_each(|(_, e, comp)| {
                 order -= 1;
 
-                let shapes = self.shapes_edge(e, comp, start, end, order);
-
-                shapes_first.0.extend(shapes.0 .0);
-                shapes_first.1.extend(shapes.0 .1);
-                shapes_first.2.extend(shapes.0 .2);
-                shapes_second.0.extend(shapes.1 .0);
-                shapes_second.1.extend(shapes.1 .1);
-                shapes_second.2.extend(shapes.1 .2);
+                if start == end {
+                    self.draw_edge_looped(l, start, e, comp, order);
+                } else {
+                    self.draw_edge_basic(l, start, end, e, comp, order);
+                }
             });
         });
-
-        (shapes_first, shapes_second)
-    }
-
-    fn draw_edges_shapes(&self, shapes: ShapesEdges) {
-        shapes.0.into_iter().for_each(|shape| {
-            self.p.add(shape);
-        });
-        shapes.1.into_iter().for_each(|shape| {
-            self.p.add(shape);
-        });
-        shapes.2.into_iter().for_each(|shape| {
-            self.p.add(shape);
-        });
-    }
-
-    fn draw_nodes_shapes(&self, shapes: ShapesNodes) {
-        shapes.0.into_iter().for_each(|shape| {
-            self.p.add(shape);
-        });
-
-        shapes.1.into_iter().for_each(|shape| {
-            self.p.add(shape);
-        });
-    }
-
-    fn shapes_edge(
-        &self,
-        edge: &Edge<E>,
-        comp_edge: &StateComputedEdge,
-        start: &NodeIndex,
-        end: &NodeIndex,
-        order: usize,
-    ) -> (ShapesEdges, ShapesEdges) {
-        let mut res = (ShapesEdges::default(), ShapesEdges::default());
-
-        if start == end {
-            self.draw_edge_looped(&mut res, start, edge, comp_edge, order);
-            return res;
-        }
-
-        self.draw_edge_basic(&mut res, start, end, edge, comp_edge, order);
-
-        res
     }
 
     fn draw_edge_looped(
         &self,
-        res: &mut (ShapesEdges, ShapesEdges),
+        l: &mut Layers,
         n_idx: &NodeIndex,
         e: &Edge<E>,
         comp_edge: &StateComputedEdge,
@@ -185,16 +112,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return;
         }
 
-        let center_horizont_angle = PI / 4.;
+        let center_horizon_angle = PI / 4.;
         let center = comp_node.location;
-        let y_intersect = center.y - comp_node.radius * center_horizont_angle.sin();
+        let y_intersect = center.y - comp_node.radius * center_horizon_angle.sin();
 
         let edge_start = Pos2::new(
-            center.x - comp_node.radius * center_horizont_angle.cos(),
+            center.x - comp_node.radius * center_horizon_angle.cos(),
             y_intersect,
         );
         let edge_end = Pos2::new(
-            center.x + comp_node.radius * center_horizont_angle.cos(),
+            center.x + comp_node.radius * center_horizon_angle.cos(),
             y_intersect,
         );
 
@@ -207,7 +134,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             comp_edge.width,
             self.settings_style.color_edge(self.p.ctx(), e),
         );
-        let shape_basic = CubicBezierShape::from_points_stroke(
+        let shape = CubicBezierShape::from_points_stroke(
             [edge_end, control_point1, control_point2, edge_start],
             false,
             Color32::TRANSPARENT,
@@ -216,7 +143,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         if !comp_edge.subselected() {
             // draw not selected
-            res.0 .1.push(shape_basic);
+            l.add_bottom(shape);
             return;
         }
 
@@ -225,17 +152,18 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             comp_edge.width,
             self.settings_style.color_edge_highlight(comp_edge).unwrap(),
         );
-        res.1 .1.push(CubicBezierShape::from_points_stroke(
+        let shape_selected = CubicBezierShape::from_points_stroke(
             [edge_end, control_point1, control_point2, edge_start],
             false,
             Color32::TRANSPARENT,
             stroke_highlighted,
-        ));
+        );
+        l.add_top(shape_selected);
     }
 
     fn draw_edge_basic(
         &self,
-        res: &mut (ShapesEdges, ShapesEdges),
+        l: &mut Layers,
         start_idx: &NodeIndex,
         end_idx: &NodeIndex,
         e: &Edge<E>,
@@ -251,6 +179,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return;
         }
 
+        // if start node is in folding tree and end node not we should draw edge transparent
+        // starting from the root of the folding tree
         if comp_start.subfolded() && !comp_end.subfolded() {
             let new_start_idx = self
                 .comp
@@ -263,6 +193,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             transparent = true;
         }
 
+        // if end node is in folding tree and start node not we should draw edge transparent
+        // ending at the root of the folding tree
         if !comp_start.subfolded() && comp_end.subfolded() {
             let new_end_idx = self
                 .comp
@@ -279,8 +211,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let pos_end = comp_end.location.to_pos2();
 
         let vec = pos_end - pos_start;
-        let l = vec.length();
-        let dir = vec / l;
+        let dist: f32 = vec.length();
+        let dir = vec / dist;
 
         let start_node_radius_vec = Vec2::new(comp_start.radius, comp_start.radius) * dir;
         let end_node_radius_vec = Vec2::new(comp_end.radius, comp_end.radius) * dir;
@@ -308,9 +240,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
             if !comp_edge.subselected() {
                 //draw straight not selected
-                res.0
-                     .0
-                    .push(Shape::line_segment([edge_start, edge_end], stroke_edge));
+                let shape = Shape::line_segment([edge_start, edge_end], stroke_edge);
+                l.add_bottom(shape);
 
                 // draw tips for directed edges
                 if self.g.is_directed() {
@@ -319,29 +250,28 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                         color,
                         stroke_tip,
                     );
-                    res.0 .0.push(shape_tip);
+                    l.add_bottom(shape_tip);
                 }
 
                 return;
             }
 
             // draw straight selected
-            let color_higlight = self.settings_style.color_edge_highlight(comp_edge).unwrap();
-            let stroke_edge_highlighted = Stroke::new(comp_edge.width, color_higlight);
-            let stroke_tip_highlighted = Stroke::new(0., color_higlight);
+            let color_highlight = self.settings_style.color_edge_highlight(comp_edge).unwrap();
+            let stroke_edge_highlighted = Stroke::new(comp_edge.width, color_highlight);
+            let stroke_tip_highlighted = Stroke::new(0., color_highlight);
+            let shape_selected =
+                Shape::line_segment([edge_start, edge_end], stroke_edge_highlighted);
 
-            res.1 .0.push(Shape::line_segment(
-                [edge_start, edge_end],
-                stroke_edge_highlighted,
-            ));
+            l.add_top(shape_selected);
 
             if self.g.is_directed() {
                 let shape_tip = Shape::convex_polygon(
                     vec![tip_end, tip_start_1, tip_start_2],
-                    color_higlight,
+                    color_highlight,
                     stroke_tip_highlighted,
                 );
-                res.1 .0.push(shape_tip)
+                l.add_top(shape_tip)
             }
 
             return;
@@ -367,17 +297,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         if !comp_edge.subselected() {
             // draw curved not selected
-            res.0 .2.push(QuadraticBezierShape::from_points_stroke(
+            let shape_curved = QuadraticBezierShape::from_points_stroke(
                 [edge_start, control_point, edge_end_curved],
                 false,
                 Color32::TRANSPARENT,
                 stroke_edge,
-            ));
-            res.0 .0.push(Shape::convex_polygon(
-                vec![tip_end, tip_start_1, tip_start_2],
-                color,
-                stroke_tip,
-            ));
+            );
+            l.add_bottom(shape_curved);
+
+            let shape_tip_curved =
+                Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_tip);
+            l.add_bottom(shape_tip_curved);
 
             return;
         }
@@ -389,40 +319,20 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
         let stroke_highlighted_edge = Stroke::new(comp_edge.width, color_highlighted);
         let stroke_highlighted_tip = Stroke::new(0., color_highlighted);
-        res.1 .2.push(QuadraticBezierShape::from_points_stroke(
+        let shape_curved_selected = QuadraticBezierShape::from_points_stroke(
             [edge_start, control_point, edge_end_curved],
             false,
             Color32::TRANSPARENT,
             stroke_highlighted_edge,
-        ));
-        res.1 .0.push(Shape::convex_polygon(
+        );
+        l.add_top(shape_curved_selected);
+
+        let shape_curved_tip_selected = Shape::convex_polygon(
             vec![tip_end, tip_start_1, tip_start_2],
             color_highlighted,
             stroke_highlighted_tip,
-        ));
-    }
-
-    fn shapes_node(
-        &self,
-        n: &Node<N>,
-        comp_node: &StateComputedNode,
-    ) -> (ShapesNodes, ShapesNodes) {
-        let mut res = (ShapesNodes::default(), ShapesNodes::default());
-        let loc = comp_node.location.to_pos2();
-
-        if let Some(custom_drawing_function) = self.custom_node_drawing_fn {
-            custom_drawing_function(&mut res, loc, n, comp_node);
-        } else {
-            self.draw_node_basic(&mut res, loc, n, comp_node);
-        }
-
-        if let Some(custom_drawing_function) = self.custom_node_interacted_drawing_fn {
-            custom_drawing_function(&mut res, loc, n, comp_node);
-        } else {
-            self.draw_node_interacted(&mut res, loc, n, comp_node);
-        }
-
-        res
+        );
+        l.add_top(shape_curved_tip_selected);
     }
 
     fn shape_label(&self, node_radius: f32, loc: Pos2, n: &Node<N>) -> Option<TextShape> {
@@ -440,104 +350,73 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
     fn draw_node_basic(
         &self,
-        res: &mut (ShapesNodes, ShapesNodes),
+        l: &mut Layers,
         loc: Pos2,
         node: &Node<N>,
         comp_node: &StateComputedNode,
     ) {
-        let color = self.settings_style.color_node(self.p.ctx(), node);
+        let color_fill = self
+            .settings_style
+            .color_node_fill(self.p.ctx(), node, comp_node);
+        let color_stroke = self.settings_style.color_node_stroke(self.p.ctx());
         let node_radius = comp_node.radius;
+        let stroke = Stroke::new(1., color_stroke);
         let shape = CircleShape {
             center: loc,
             radius: node_radius,
-            fill: color,
-            stroke: Stroke::new(1., color),
+            fill: color_fill,
+            stroke,
         };
+        l.add_bottom(shape);
 
-        if !(node.selected()
+        let show_label = self.settings_style.labels_always
+            || node.selected()
             || comp_node.subselected()
             || node.dragged()
-            || node.folded()
-            || comp_node.subfolded())
-        {
-            res.0 .0.push(shape.into());
+            || node.folded();
 
-            if !self.settings_style.labels_always {
-                return;
+        if show_label {
+            if let Some(shape_label) = self.shape_label(node_radius, loc, node) {
+                l.add_bottom(shape_label);
             }
-
-            if let Some(label_shape) = self.shape_label(node_radius, loc, node) {
-                res.0 .1.push(label_shape);
-            }
-
-            return;
         }
-
-        if node.folded() || comp_node.subfolded() {
-            return;
-        }
-
-        res.1 .0.push(shape.into());
     }
 
     fn draw_node_interacted(
         &self,
-        res: &mut (ShapesNodes, ShapesNodes),
+        l: &mut Layers,
         loc: Pos2,
         node: &Node<N>,
         comp_node: &StateComputedNode,
     ) {
-        if !(node.selected()
-            || comp_node.subselected()
-            || node.dragged()
-            || node.folded()
-            || comp_node.subfolded())
-        {
-            return;
-        }
+        let rad = comp_node.radius;
+        let highlight_radius = rad * 1.5;
+        let text_size = rad / 2.;
+        let color_stroke = self
+            .settings_style
+            .color_node_fill(self.p.ctx(), node, comp_node);
 
-        if comp_node.subfolded() {
-            return;
-        }
-
-        let node_radius = comp_node.radius;
-        let highlight_radius = node_radius * 1.5;
-        let text_size = node_radius / 2.;
-
-        if let Some(label_shape) = self.shape_label(node_radius, loc, node) {
-            res.1 .1.push(label_shape);
+        let shape_highlight_outline = CircleShape {
+            center: loc,
+            radius: highlight_radius,
+            fill: Color32::TRANSPARENT,
+            stroke: Stroke::new(rad, color_stroke),
         };
 
+        l.add_top(shape_highlight_outline);
+
         if node.folded() {
-            let folded_shape = CircleShape::stroke(
-                loc,
-                node_radius,
-                Stroke::new(1., self.settings_style.color_node(self.p.ctx(), node)),
-            );
             let galley = self.p.layout_no_wrap(
                 comp_node.num_folded.to_string(),
                 FontId::monospace(text_size),
                 self.settings_style.color_label(self.p.ctx()),
             );
-            let galley_pos = Pos2::new(loc.x - node_radius / 4., loc.y - node_radius / 4.);
-            res.1 .0.push(folded_shape.into());
-            res.1 .1.push(TextShape::new(galley_pos, galley));
-            return;
+            let galley_offset = rad / 4.;
+            let galley_pos = Pos2::new(loc.x - galley_offset, loc.y - galley_offset);
+            let shape_galley = TextShape::new(galley_pos, galley);
+
+            l.add_top(shape_galley);
         }
-
-        let shape = CircleShape {
-            center: loc,
-            radius: highlight_radius,
-            fill: Color32::TRANSPARENT,
-            stroke: Stroke::new(
-                node_radius,
-                self.settings_style
-                    .color_node_highlight(node, comp_node)
-                    .unwrap(),
-            ),
-        };
-
-        res.1 .0.push(shape.into());
     }
 }
 
@@ -563,7 +442,7 @@ mod tests {
     #[test]
     fn test_rotate_vector() {
         let vec = Vec2::new(1.0, 0.0);
-        let angle = std::f32::consts::PI / 2.0;
+        let angle = PI / 2.0;
         let rotated = rotate_vector(vec, angle);
         assert!((rotated.x - 0.0).abs() < 1e-6);
         assert!((rotated.y - 1.0).abs() < 1e-6);
