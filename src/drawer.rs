@@ -10,10 +10,9 @@ use petgraph::{
 };
 
 use crate::{
-    graph_wrapper::GraphWrapper,
     settings::SettingsStyle,
     state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
-    Edge, Node,
+    Edge, Graph, Node,
 };
 
 pub type ShapesEdges = (Vec<Shape>, Vec<CubicBezierShape>, Vec<QuadraticBezierShape>);
@@ -41,8 +40,9 @@ type EdgeWithMeta<'a, E> = (EdgeIndex, Edge<E>, &'a StateComputedEdge);
 type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<EdgeWithMeta<'a, E>>>;
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
-    g: &'a GraphWrapper<'a, N, E, Ty>,
-    p: &'a Painter,
+    p: Painter,
+
+    g: &'a Graph<N, E, Ty>,
     comp: &'a StateComputed,
     settings_style: &'a SettingsStyle,
     custom_node_drawing_fn: CustomNodeDrawingFn<N>,
@@ -51,8 +51,8 @@ pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     pub fn new(
-        g: &'a GraphWrapper<N, E, Ty>,
-        p: &'a Painter,
+        p: Painter,
+        g: &'a Graph<N, E, Ty>,
         comp: &'a StateComputed,
         settings_style: &'a SettingsStyle,
         custom_node_drawing_fn: CustomNodeDrawingFn<N>,

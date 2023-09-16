@@ -4,11 +4,10 @@ use egui::{Pos2, Rect, Vec2};
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
-    graph_wrapper::GraphWrapper,
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsStyle},
     subgraphs::SubGraphs,
-    Edge, Node,
+    Edge, Graph, Node,
 };
 
 const DEFAULT_NODE_RADIUS: f32 = 5.;
@@ -61,7 +60,7 @@ impl StateComputed {
 
     pub fn compute_for_node<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        g: &GraphWrapper<'_, N, E, Ty>,
+        g: &Graph<N, E, Ty>,
         idx: NodeIndex,
         n: &Node<N>,
         meta: &Metadata,
@@ -119,7 +118,7 @@ impl StateComputed {
 
     fn compute_selection<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        g: &GraphWrapper<'_, N, E, Ty>,
+        g: &Graph<N, E, Ty>,
         root_idx: NodeIndex,
         root: &Node<N>,
         child_mode: bool,
@@ -169,7 +168,7 @@ impl StateComputed {
 
     fn compute_folding<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        g: &GraphWrapper<'_, N, E, Ty>,
+        g: &Graph<N, E, Ty>,
         root_idx: NodeIndex,
         root: &Node<N>,
         depth: usize,

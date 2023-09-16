@@ -1,13 +1,11 @@
 use std::collections::HashSet;
 use std::time::Instant;
 
-use crossbeam::channel::{Receiver, Sender, unbounded};
+use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2, Visuals};
-use egui_graphs::{
-    Change, Edge, GraphView, Node, to_input_graph, ChangeSubgraph, Graph,
-};
+use egui_graphs::{to_graph, Change, ChangeSubgraph, Edge, Graph, GraphView, Node};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
@@ -97,7 +95,7 @@ impl ConfigurableApp {
         }
 
         // the following manipulations is a hack to avoid having looped edges in the simulation
-        // because they cause the simulation to blow up; 
+        // because they cause the simulation to blow up;
         // this is the issue of the fdg_sim engine we use for the simulation
         // https://github.com/grantshandy/fdg/issues/10
         // * remove loop edges
@@ -143,9 +141,9 @@ impl ConfigurableApp {
     fn sync_graph_with_simulation(&mut self) {
         self.selected_nodes = vec![];
 
-        let g_indices = self.g.node_indices().collect::<Vec<_>>();
+        let g_indices = self.g.g.node_indices().collect::<Vec<_>>();
         g_indices.iter().for_each(|g_n_idx| {
-            let g_n = self.g.node_weight_mut(*g_n_idx).unwrap();
+            let g_n = self.g.g.node_weight_mut(*g_n_idx).unwrap();
             let sim_n = self.sim.get_graph_mut().node_weight_mut(*g_n_idx).unwrap();
 
             if g_n.dragged() {
@@ -162,13 +160,12 @@ impl ConfigurableApp {
             }
         });
 
-        
         // reset the weights of the edges
         self.sim.get_graph_mut().edge_weights_mut().for_each(|w| {
             *w = 1.;
         });
         // update the weights of the edges that are folded
-        self.g.edge_indices().for_each(|idx| {
+        self.g.g.edge_indices().for_each(|idx| {
             if let Some(f_e_idx) = self.folded_edges.get(&idx) {
                 *self.sim.get_graph_mut().edge_weight_mut(*f_e_idx).unwrap() = 0.
             }
@@ -211,40 +208,49 @@ impl ConfigurableApp {
             }
 
             if let Change::SubGraph(ChangeSubgraph::Folded { root: _, subg }) = ch.clone() {
-                    subg.edge_references().for_each(|e| {
-                        new_folded_edges = new_folded_edges.union(&[
-                            self.sim.get_graph().find_edge(
-                                *subg.node_weight(e.source()).unwrap(), 
-                                *subg.node_weight(e.target()).unwrap(),
-                            ).unwrap(),
-                        ].into_iter().collect::<HashSet<_>>()).cloned().collect();
-                    });
+                subg.edge_references().for_each(|e| {
+                    new_folded_edges = new_folded_edges
+                        .union(
+                            &[self
+                                .sim
+                                .get_graph()
+                                .find_edge(
+                                    *subg.node_weight(e.source()).unwrap(),
+                                    *subg.node_weight(e.target()).unwrap(),
+                                )
+                                .unwrap()]
+                            .into_iter()
+                            .collect::<HashSet<_>>(),
+                        )
+                        .cloned()
+                        .collect();
+                });
             };
 
             self.last_changes.push(ch);
         });
 
-        self.folded_edges= new_folded_edges;
+        self.folded_edges = new_folded_edges;
     }
 
     fn random_node_idx(&self) -> Option<NodeIndex> {
-        let nodes_cnt = self.g.node_count();
+        let nodes_cnt = self.g.g.node_count();
         if nodes_cnt == 0 {
             return None;
         }
 
         let random_n_idx = rand::thread_rng().gen_range(0..nodes_cnt);
-        self.g.node_indices().nth(random_n_idx)
+        self.g.g.node_indices().nth(random_n_idx)
     }
 
     fn random_edge_idx(&self) -> Option<EdgeIndex> {
-        let edges_cnt = self.g.edge_count();
+        let edges_cnt = self.g.g.edge_count();
         if edges_cnt == 0 {
             return None;
         }
 
         let random_e_idx = rand::thread_rng().gen_range(0..edges_cnt);
-        self.g.edge_indices().nth(random_e_idx)
+        self.g.g.edge_indices().nth(random_e_idx)
     }
 
     fn remove_random_node(&mut self) {
@@ -258,7 +264,7 @@ impl ConfigurableApp {
             return;
         }
 
-        let random_n = self.g.node_weight(random_n_idx.unwrap()).unwrap();
+        let random_n = self.g.g.node_weight(random_n_idx.unwrap()).unwrap();
 
         // location of new node is in surrounging of random existing node
         let mut rng = rand::thread_rng();
@@ -267,8 +273,8 @@ impl ConfigurableApp {
             random_n.location().y + 10. + rng.gen_range(0. ..50.),
         );
 
-        let idx = self.g.add_node(Node::new(location, ()));
-        let n = self.g.node_weight_mut(idx).unwrap();
+        let idx = self.g.g.add_node(Node::new(location, ()));
+        let n = self.g.g.node_weight_mut(idx).unwrap();
         *n = n.with_label(format!("{:?}", idx));
         let mut sim_node = fdg_sim::Node::new(idx.index().to_string().as_str(), ());
         sim_node.location = Vec3::new(location.x, location.y, 0.);
@@ -277,17 +283,17 @@ impl ConfigurableApp {
 
     fn remove_node(&mut self, idx: NodeIndex) {
         // before removing nodes we need to remove all edges connected to it
-        let neighbors = self.g.neighbors_undirected(idx).collect::<Vec<_>>();
+        let neighbors = self.g.g.neighbors_undirected(idx).collect::<Vec<_>>();
         neighbors.iter().for_each(|n| {
             self.remove_edges(idx, *n);
             self.remove_edges(*n, idx);
         });
 
-        self.g.remove_node(idx).unwrap();
+        self.g.g.remove_node(idx).unwrap();
         self.sim.get_graph_mut().remove_node(idx).unwrap();
 
         // update edges count
-        self.settings_graph.count_edge = self.g.edge_count();
+        self.settings_graph.count_edge = self.g.g.edge_count();
     }
 
     fn add_random_edge(&mut self) {
@@ -298,7 +304,7 @@ impl ConfigurableApp {
     }
 
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
-        self.g.add_edge(start, end, Edge::new(()));
+        self.g.g.add_edge(start, end, Edge::new(()));
         self.sim.get_graph_mut().add_edge(start, end, 1.);
     }
 
@@ -307,7 +313,7 @@ impl ConfigurableApp {
         if random_e_idx.is_none() {
             return;
         }
-        let endpoints = self.g.edge_endpoints(random_e_idx.unwrap()).unwrap();
+        let endpoints = self.g.g.edge_endpoints(random_e_idx.unwrap()).unwrap();
 
         self.remove_edge(endpoints.0, endpoints.1);
     }
@@ -316,12 +322,12 @@ impl ConfigurableApp {
     /// there can be multiple edges between two nodes in 2 graphs
     /// and we can't be sure that they are indexed the same way.
     fn remove_edge(&mut self, start: NodeIndex, end: NodeIndex) {
-        let g_idx = self.g.find_edge(start, end);
+        let g_idx = self.g.g.find_edge(start, end);
         if g_idx.is_none() {
             return;
         }
 
-        self.g.remove_edge(g_idx.unwrap()).unwrap();
+        self.g.g.remove_edge(g_idx.unwrap()).unwrap();
 
         let sim_idx = self.sim.get_graph_mut().find_edge(start, end).unwrap();
         self.sim.get_graph_mut().remove_edge(sim_idx).unwrap();
@@ -330,7 +336,7 @@ impl ConfigurableApp {
     /// Removes all edges between two nodes
     fn remove_edges(&mut self, start: NodeIndex, end: NodeIndex) {
         let g_idxs = self
-            .g
+            .g.g
             .edges_connecting(start, end)
             .map(|e| e.id())
             .collect::<Vec<_>>();
@@ -339,7 +345,7 @@ impl ConfigurableApp {
         }
 
         g_idxs.iter().for_each(|e| {
-            self.g.remove_edge(*e).unwrap();
+            self.g.g.remove_edge(*e).unwrap();
         });
 
         let sim_idxs = self
@@ -683,13 +689,13 @@ fn generate(settings: &SettingsGraph) -> (Graph<(), (), Directed>, Simulation<()
 
 fn construct_simulation(g: &Graph<(), (), Directed>) -> Simulation<(), f32> {
     // create force graph
-    let mut force_graph = ForceGraph::with_capacity(g.node_count(), g.edge_count());
-    g.node_indices().for_each(|idx| {
+    let mut force_graph = ForceGraph::with_capacity(g.g.node_count(), g.g.edge_count());
+    g.g.node_indices().for_each(|idx| {
         let idx = idx.index();
         force_graph.add_force_node(format!("{}", idx).as_str(), ());
     });
-    g.edge_indices().for_each(|idx| {
-        let (source, target) = g.edge_endpoints(idx).unwrap();
+    g.g.edge_indices().for_each(|idx| {
+        let (source, target) = g.g.edge_endpoints(idx).unwrap();
         force_graph.add_edge(source, target, 1.);
     });
 
@@ -715,14 +721,10 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph<(), (), 
         let source = rng.gen_range(0..node_count);
         let target = rng.gen_range(0..node_count);
 
-        graph.add_edge(
-            NodeIndex::new(source),
-            NodeIndex::new(target),
-            (),
-        );
+        graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
     }
 
-    to_input_graph(&graph)
+    to_graph(&graph)
 }
 
 fn main() {

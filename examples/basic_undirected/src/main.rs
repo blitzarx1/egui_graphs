@@ -1,9 +1,10 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Edge, Graph, GraphView, Node};
-use petgraph::{stable_graph::StableUnGraph, Undirected};
-
-const SIDE_SIZE: f32 = 50.;
+use egui_graphs::{Graph, GraphView};
+use petgraph::{
+    stable_graph::{StableGraph, StableUnGraph},
+    Undirected,
+};
 
 pub struct BasicUndirectedApp {
     g: Graph<(), (), Undirected>,
@@ -12,7 +13,9 @@ pub struct BasicUndirectedApp {
 impl BasicUndirectedApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
-        Self { g }
+        Self {
+            g: Graph::from(&g),
+        }
     }
 }
 
@@ -24,16 +27,16 @@ impl App for BasicUndirectedApp {
     }
 }
 
-fn generate_graph() -> Graph<(), (), Undirected> {
-    let mut g: Graph<(), (), Undirected> = StableUnGraph::default();
+fn generate_graph() -> StableGraph<(), (), Undirected> {
+    let mut g = StableUnGraph::default();
 
-    let a = g.add_node(Node::new(egui::Vec2::new(0., SIDE_SIZE), ()));
-    let b = g.add_node(Node::new(egui::Vec2::new(-SIDE_SIZE, 0.), ()));
-    let c = g.add_node(Node::new(egui::Vec2::new(SIDE_SIZE, 0.), ()));
+    let a = g.add_node(());
+    let b = g.add_node(());
+    let c = g.add_node(());
 
-    g.add_edge(a, b, Edge::new(()));
-    g.add_edge(b, c, Edge::new(()));
-    g.add_edge(c, a, Edge::new(()));
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(c, a, ());
 
     g
 }
