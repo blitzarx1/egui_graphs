@@ -44,7 +44,7 @@ Docs can be found [here](https://docs.rs/egui_graphs/latest/egui_graphs/)
 First, let's define the `BasicApp` struct that will hold the graph.
 ```rust 
 pub struct BasicApp {
-    g: Graph<(), ()>,
+    g: Graph<(), (), Directed>,
 }
 ```
 
@@ -55,7 +55,7 @@ Next, implement the `new()` function for the `BasicApp` struct.
 impl BasicApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
-        Self { g }
+        Self { g: Graph::from(&g) }
     }
 }
 ```
@@ -64,16 +64,16 @@ impl BasicApp {
 
 Create a helper function called `generate_graph()`. In this example, we create three nodes with and three edges connecting them in a triangular pattern.
 ```rust 
-fn generate_graph() -> Graph<(), ()> {
-    let mut g: Graph<(), ()> = StableGraph::new();
+fn generate_graph() -> StableGraph<(), (), Directed> {
+    let mut g: StableGraph<(), ()> = StableGraph::new();
 
-    let a = g.add_node(Node::new(egui::Vec2::new(0., SIDE_SIZE), ()));
-    let b = g.add_node(Node::new(egui::Vec2::new(-SIDE_SIZE, 0.), ()));
-    let c = g.add_node(Node::new(egui::Vec2::new(SIDE_SIZE, 0.), ()));
+    let a = g.add_node(());
+    let b = g.add_node(());
+    let c = g.add_node(());
 
-    g.add_edge(a, b, Edge::new(()));
-    g.add_edge(b, c, Edge::new(()));
-    g.add_edge(c, a, Edge::new(()));
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(c, a, ());
 
     g
 }
