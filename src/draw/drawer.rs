@@ -11,8 +11,8 @@ use petgraph::{
 
 use crate::{
     settings::SettingsStyle,
-    state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
-    Edge, Graph, Metadata, Node,
+    state_computed::{StateComputed, StateComputedEdge},
+    Edge, Graph, Node,
 };
 
 use super::layers::Layers;
@@ -25,7 +25,6 @@ type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<EdgeWithMeta<'a, E>>>;
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     p: Painter,
 
-    meta: &'a Metadata,
     g: &'a Graph<N, E, Ty>,
     comp: &'a StateComputed,
     settings_style: &'a SettingsStyle,
@@ -35,14 +34,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     pub fn new(
         p: Painter,
         g: &'a Graph<N, E, Ty>,
-        meta: &'a Metadata,
         comp: &'a StateComputed,
         settings_style: &'a SettingsStyle,
     ) -> Self {
         Drawer {
             g,
             p,
-            meta,
             comp,
             settings_style,
         }
@@ -65,12 +62,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             if !comp_node.visible() {
                 return;
             }
-            self.draw_node_basic(l, loc, n, comp_node);
+            self.draw_node_basic(l, loc, n);
 
-            if !(n.selected() || comp_node.subselected() || n.dragged() || n.folded()) {
+            if !(n.selected() || n.subselected() || n.dragged() || n.folded()) {
                 return;
             }
-            self.draw_node_interacted(l, loc, n, comp_node);
+            self.draw_node_interacted(l, loc, n);
         });
     }
 
@@ -355,16 +352,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         Some(TextShape::new(label_pos, galley))
     }
 
-    fn draw_node_basic(
-        &self,
-        l: &mut Layers,
-        loc: Pos2,
-        node: &Node<N>,
-        comp_node: &StateComputedNode,
-    ) {
-        let color_fill = self
-            .settings_style
-            .color_node_fill(self.p.ctx(), node, comp_node);
+    fn draw_node_basic(&self, l: &mut Layers, loc: Pos2, node: &Node<N>) {
+        let color_fill = self.settings_style.color_node_fill(self.p.ctx(), node);
         let color_stroke = self.settings_style.color_node_stroke(self.p.ctx());
         let node_radius = node.radius();
         let stroke = Stroke::new(1., color_stroke);
@@ -378,7 +367,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         let show_label = self.settings_style.labels_always
             || node.selected()
-            || comp_node.subselected()
+            || node.subselected()
             || node.dragged()
             || node.folded();
 
@@ -389,19 +378,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
     }
 
-    fn draw_node_interacted(
-        &self,
-        l: &mut Layers,
-        loc: Pos2,
-        node: &Node<N>,
-        comp_node: &StateComputedNode,
-    ) {
+    fn draw_node_interacted(&self, l: &mut Layers, loc: Pos2, node: &Node<N>) {
         let node_radius = node.radius();
         let highlight_radius = node_radius * 1.5;
         let text_size = node_radius / 2.;
-        let color_stroke = self
-            .settings_style
-            .color_node_fill(self.p.ctx(), node, comp_node);
+        let color_stroke = self.settings_style.color_node_fill(self.p.ctx(), node);
 
         let shape_highlight_outline = CircleShape {
             center: loc,
@@ -414,7 +395,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         if node.folded() {
             let galley = self.p.layout_no_wrap(
-                comp_node.num_folded.to_string(),
+                node.folded_num().to_string(),
                 FontId::monospace(text_size),
                 self.settings_style.color_label(self.p.ctx()),
             );

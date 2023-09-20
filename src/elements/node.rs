@@ -22,6 +22,7 @@ pub struct Node<N: Clone> {
     subselected_child: bool,
     subselected_parent: bool,
     subfolded: bool,
+    folded_num: usize,
     radius: f32,
 }
 
@@ -38,6 +39,7 @@ impl<N: Clone> Default for Node<N> {
             color: Default::default(),
             folded: Default::default(),
             selected: Default::default(),
+            folded_num: Default::default(),
             dragged: Default::default(),
         }
     }
@@ -77,28 +79,24 @@ impl<N: Clone> Node<N> {
         self.subfolded
     }
 
-    pub(crate) fn set_subfolded(&mut self, subfolded: bool) {
-        self.subfolded = subfolded;
-    }
-
     pub fn subselected_child(&self) -> bool {
         self.subselected_child
-    }
-
-    pub(crate) fn set_subselected_child(&mut self, subselected_child: bool) {
-        self.subselected_child = subselected_child;
     }
 
     pub fn subselected_parent(&self) -> bool {
         self.subselected_parent
     }
 
-    pub(crate) fn set_subselected_parent(&mut self, subselected_parent: bool) {
-        self.subselected_parent = subselected_parent;
-    }
-
     pub(crate) fn apply_computed_props(&mut self, comp: StateComputedNode) {
         self.radius = comp.radius;
+        self.subfolded = comp.subfolded();
+        self.subselected_child = comp.selected_child;
+        self.subselected_parent = comp.selected_parent;
+        self.folded_num = comp.num_folded;
+    }
+
+    pub fn folded_num(&self) -> usize {
+        self.folded_num
     }
 
     pub fn data(&self) -> Option<&N> {

@@ -47,7 +47,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
-        Drawer::new(p, self.g, &meta, &computed, &self.settings_style).draw();
+        Drawer::new(p, self.g, &computed, &self.settings_style).draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();

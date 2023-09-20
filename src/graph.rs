@@ -1,13 +1,12 @@
 use egui::Pos2;
 
 use petgraph::{
-    prelude::GraphMap,
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
     visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences},
     Direction, EdgeType,
 };
 
-use crate::{metadata::Metadata, state_computed::StateComputed, transform, Edge, Node};
+use crate::{metadata::Metadata, transform, Edge, Node};
 
 /// Graph type compatible with [`super::GraphView`].
 pub struct Graph<N: Clone, E: Clone, Ty: EdgeType> {

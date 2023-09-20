@@ -259,12 +259,7 @@ impl SettingsStyle {
         }
     }
 
-    pub(crate) fn color_node_fill<N: Clone>(
-        &self,
-        ctx: &egui::Context,
-        n: &Node<N>,
-        comp: &StateComputedNode,
-    ) -> Color32 {
+    pub(crate) fn color_node_fill<N: Clone>(&self, ctx: &egui::Context, n: &Node<N>) -> Color32 {
         if n.folded() {
             return Color32::TRANSPARENT;
         }
@@ -281,11 +276,11 @@ impl SettingsStyle {
             return self.color_selection;
         }
 
-        if comp.selected_child {
+        if n.subselected_child() {
             return self.color_selection_child;
         }
 
-        if comp.selected_parent {
+        if n.subselected_parent() {
             return self.color_selection_parent;
         }
 

@@ -5,7 +5,7 @@ use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
     metadata::Metadata,
-    settings::{self, SettingsInteraction, SettingsStyle},
+    settings::{SettingsInteraction, SettingsStyle},
     subgraphs::SubGraphs,
     Edge, Graph, Node,
 };
@@ -240,10 +240,6 @@ impl StateComputedNode {
     /// Indicates if node is visible and should be drawn
     pub fn visible(&self) -> bool {
         !self.subfolded()
-    }
-
-    pub fn subselected(&self) -> bool {
-        self.selected_child || self.selected_parent
     }
 
     pub fn subfolded(&self) -> bool {
