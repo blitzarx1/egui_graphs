@@ -5,7 +5,7 @@ use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
     metadata::Metadata,
-    settings::{SettingsInteraction, SettingsStyle},
+    settings::{self, SettingsInteraction, SettingsStyle},
     subgraphs::SubGraphs,
     Edge, Graph, Node,
 };
@@ -61,11 +61,13 @@ impl StateComputed {
         meta: &Metadata,
         settings_interaction: &SettingsInteraction,
         settings_style: &SettingsStyle,
-    ) -> f32 {
+    ) -> StateComputedNode {
         // compute radii
         let num = g.edges_num(idx);
         let n = g.node(idx).unwrap();
-        self.nodes.entry(idx).or_insert(StateComputedNode::new(n));
+        self.nodes
+            .entry(idx)
+            .or_insert(StateComputedNode::new(n, settings_style));
 
         let mut radius_addition = settings_style.edge_radius_weight * num as f32;
 
@@ -87,22 +89,16 @@ impl StateComputed {
             self.max_y = y;
         };
 
-        self.compute_selection(
-            g,
-            idx,
-            n,
-            settings_interaction.selection_depth > 0,
-            settings_interaction.selection_depth,
-        );
-        self.compute_folding(g, idx, n, settings_interaction.folding_depth);
+        self.compute_selection(g, idx, n, settings_interaction, settings_style);
+        self.compute_folding(g, idx, n, settings_interaction, settings_style);
 
         radius_addition +=
             self.node_state(&idx).unwrap().num_folded as f32 * settings_style.folded_radius_weight;
 
         let comp = self.nodes.get_mut(&idx).unwrap();
+        comp.inc_radius(radius_addition);
         comp.apply_screen_transform(meta);
-
-        settings_style.node_radius + radius_addition
+        *comp
     }
 
     pub fn compute_graph_bounds(&mut self) {
@@ -117,14 +113,16 @@ impl StateComputed {
         g: &Graph<N, E, Ty>,
         root_idx: NodeIndex,
         root: &Node<N>,
-        child_mode: bool,
-        depth: i32,
+        settings_interaction: &SettingsInteraction,
+        settings_style: &SettingsStyle,
     ) {
         if !root.selected() {
             return;
         }
 
-        self.selections.add_subgraph(g, root_idx, depth);
+        let child_mode = settings_interaction.selection_depth > 0;
+        self.selections
+            .add_subgraph(g, root_idx, settings_interaction.selection_depth);
 
         let elements = self.selections.elements_by_root(root_idx);
         if elements.is_none() {
@@ -138,10 +136,10 @@ impl StateComputed {
                 return;
             }
 
-            let computed = self
-                .nodes
-                .entry(*idx)
-                .or_insert(StateComputedNode::new(g.node(*idx).unwrap()));
+            let computed = self.nodes.entry(*idx).or_insert(StateComputedNode::new(
+                g.node(*idx).unwrap(),
+                settings_style,
+            ));
             if child_mode {
                 computed.selected_child = true;
                 return;
@@ -167,15 +165,16 @@ impl StateComputed {
         g: &Graph<N, E, Ty>,
         root_idx: NodeIndex,
         root: &Node<N>,
-        depth: usize,
+        settings_interaction: &SettingsInteraction,
+        settings_style: &SettingsStyle,
     ) {
         if !root.folded() {
             return;
         }
 
-        let depth_normalized = match depth {
+        let depth_normalized = match settings_interaction.folding_depth {
             usize::MAX => i32::MAX,
-            _ => depth as i32,
+            _ => settings_interaction.folding_depth as i32,
         };
 
         self.foldings.add_subgraph(g, root_idx, depth_normalized);
@@ -188,7 +187,7 @@ impl StateComputed {
         let (nodes, _) = elements.unwrap();
         self.nodes
             .entry(root_idx)
-            .or_insert(StateComputedNode::new(root))
+            .or_insert(StateComputedNode::new(root, settings_style))
             .num_folded = nodes.len() - 1; // dont't count root node
 
         nodes.iter().for_each(|idx| {
@@ -198,7 +197,10 @@ impl StateComputed {
 
             self.nodes
                 .entry(*idx)
-                .or_insert(StateComputedNode::new(g.node(*idx).unwrap()))
+                .or_insert(StateComputedNode::new(
+                    g.node(*idx).unwrap(),
+                    settings_style,
+                ))
                 .folded_child = true;
         });
     }
@@ -219,12 +221,14 @@ pub struct StateComputedNode {
     pub folded_child: bool,
     pub num_folded: usize,
     pub location: Vec2,
+    pub radius: f32,
 }
 
 impl StateComputedNode {
-    pub fn new<N: Clone>(n: &Node<N>) -> Self {
+    pub fn new<N: Clone>(n: &Node<N>, settings_style: &SettingsStyle) -> Self {
         Self {
             location: n.location(),
+            radius: settings_style.node_radius,
 
             selected_child: Default::default(),
             selected_parent: Default::default(),
@@ -246,8 +250,13 @@ impl StateComputedNode {
         self.folded_child
     }
 
+    pub fn inc_radius(&mut self, inc: f32) {
+        self.radius += inc;
+    }
+
     pub fn apply_screen_transform(&mut self, m: &Metadata) {
         self.location = self.location * m.zoom + m.pan;
+        self.radius *= m.zoom;
     }
 }
 

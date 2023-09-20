@@ -1,6 +1,6 @@
 use egui::{Color32, Vec2};
 
-use crate::metadata::Metadata;
+use crate::{metadata::Metadata, StateComputedNode};
 
 /// Stores properties of a node.
 #[derive(Clone, Debug)]
@@ -73,10 +73,6 @@ impl<N: Clone> Node<N> {
         self.radius
     }
 
-    pub(crate) fn set_radius(&mut self, radius: f32) {
-        self.radius = radius;
-    }
-
     pub fn subfolded(&self) -> bool {
         self.subfolded
     }
@@ -99,6 +95,10 @@ impl<N: Clone> Node<N> {
 
     pub(crate) fn set_subselected_parent(&mut self, subselected_parent: bool) {
         self.subselected_parent = subselected_parent;
+    }
+
+    pub(crate) fn apply_computed_props(&mut self, comp: StateComputedNode) {
+        self.radius = comp.radius;
     }
 
     pub fn data(&self) -> Option<&N> {

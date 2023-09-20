@@ -30,8 +30,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<N, E, Ty> {
         let pos_in_graph = (pos - meta.pan).to_vec2() / meta.zoom;
         self.nodes_iter().find(|(_, n)| {
             let dist_to_node = (n.location() - pos_in_graph).length();
-            let node_rad = n.radius();
-            dist_to_node <= node_rad
+            dist_to_node <= n.radius() / meta.zoom
         })
     }
 

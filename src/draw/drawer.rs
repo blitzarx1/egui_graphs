@@ -116,7 +116,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return;
         }
 
-        let node_radius = node.radius() * self.meta.zoom;
+        let node_radius = node.radius();
         let center_horizon_angle = PI / 4.;
         let center = comp_node.location;
         let y_intersect = center.y - node_radius * center_horizon_angle.sin();
@@ -366,7 +366,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             .settings_style
             .color_node_fill(self.p.ctx(), node, comp_node);
         let color_stroke = self.settings_style.color_node_stroke(self.p.ctx());
-        let node_radius = node.radius() * self.meta.zoom;
+        let node_radius = node.radius();
         let stroke = Stroke::new(1., color_stroke);
         let shape = CircleShape {
             center: loc,
@@ -396,7 +396,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         node: &Node<N>,
         comp_node: &StateComputedNode,
     ) {
-        let node_radius = node.radius() * self.meta.zoom;
+        let node_radius = node.radius();
         let highlight_radius = node_radius * 1.5;
         let text_size = node_radius / 2.;
         let color_stroke = self

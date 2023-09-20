@@ -1,10 +1,6 @@
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{
-    stable_graph::NodeIndex,
-    visit::{IntoNodeIdentifiers, IntoNodeReferences},
-    EdgeType,
-};
+use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{
     change::{Change, ChangeNode, ChangeSubgraph},
@@ -109,14 +105,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let mut computed = StateComputed::default();
         let idxs = self.g.g.node_indices().collect::<Vec<_>>();
         idxs.iter().for_each(|idx| {
-            let new_radius = computed.compute_for_node(
+            let comp = computed.compute_for_node(
                 self.g,
                 *idx,
                 meta,
                 &self.settings_interaction,
                 &self.settings_style,
             );
-            let n = self.g.node_mut(*idx).unwrap().set_radius(new_radius);
+            self.g.node_mut(*idx).unwrap().apply_computed_props(comp);
         });
 
         self.g
