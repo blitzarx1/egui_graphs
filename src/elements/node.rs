@@ -88,6 +88,7 @@ impl<N: Clone> Node<N> {
     }
 
     pub(crate) fn apply_computed_props(&mut self, comp: StateComputedNode) {
+        self.location = comp.location;
         self.radius = comp.radius;
         self.subfolded = comp.subfolded();
         self.subselected_child = comp.selected_child;

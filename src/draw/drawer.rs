@@ -55,19 +55,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     }
 
     fn fill_layers_nodes(&self, l: &mut Layers) {
-        self.g.nodes_iter().for_each(|(idx, n)| {
-            let comp_node = self.comp.node_state(&idx).unwrap();
-            let loc = comp_node.location.to_pos2();
-
-            if !comp_node.visible() {
+        self.g.nodes_iter().for_each(|(_, n)| {
+            if !n.visible() {
                 return;
             }
-            self.draw_node_basic(l, loc, n);
+            self.draw_node_basic(l, n);
 
             if !(n.selected() || n.subselected() || n.dragged() || n.folded()) {
                 return;
             }
-            self.draw_node_interacted(l, loc, n);
+            self.draw_node_interacted(l, n);
         });
     }
 
@@ -106,16 +103,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         order: usize,
     ) {
         let node = self.g.node(*n_idx).unwrap();
-        let comp_node = self.comp.node_state(n_idx).unwrap();
 
-        if comp_node.subfolded() {
+        if node.subfolded() {
             // we do not draw edges which are folded
             return;
         }
 
         let node_radius = node.radius();
         let center_horizon_angle = PI / 4.;
-        let center = comp_node.location;
+        let center = node.location();
         let y_intersect = center.y - node_radius * center_horizon_angle.sin();
 
         let edge_start = Pos2::new(
@@ -352,13 +348,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         Some(TextShape::new(label_pos, galley))
     }
 
-    fn draw_node_basic(&self, l: &mut Layers, loc: Pos2, node: &Node<N>) {
+    fn draw_node_basic(&self, l: &mut Layers, node: &Node<N>) {
         let color_fill = self.settings_style.color_node_fill(self.p.ctx(), node);
         let color_stroke = self.settings_style.color_node_stroke(self.p.ctx());
         let node_radius = node.radius();
         let stroke = Stroke::new(1., color_stroke);
         let shape = CircleShape {
-            center: loc,
+            center: node.location().to_pos2(),
             radius: node_radius,
             fill: color_fill,
             stroke,
@@ -372,17 +368,20 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             || node.folded();
 
         if show_label {
-            if let Some(shape_label) = self.shape_label(node_radius, loc, node) {
+            if let Some(shape_label) =
+                self.shape_label(node_radius, node.location().to_pos2(), node)
+            {
                 l.add_bottom(shape_label);
             }
         }
     }
 
-    fn draw_node_interacted(&self, l: &mut Layers, loc: Pos2, node: &Node<N>) {
+    fn draw_node_interacted(&self, l: &mut Layers, node: &Node<N>) {
         let node_radius = node.radius();
         let highlight_radius = node_radius * 1.5;
         let text_size = node_radius / 2.;
         let color_stroke = self.settings_style.color_node_fill(self.p.ctx(), node);
+        let loc = node.location().to_pos2();
 
         let shape_highlight_outline = CircleShape {
             center: loc,
