@@ -182,6 +182,7 @@ pub struct SettingsStyle {
 
     color_node: Color32,
     color_edge: Color32,
+    pub(crate) node_radius: f32,
 }
 
 impl Default for SettingsStyle {
@@ -199,6 +200,7 @@ impl Default for SettingsStyle {
             color_text_light: Color32::WHITE,
             color_text_dark: Color32::BLACK,
             labels_always: Default::default(),
+            node_radius: 5.,
         }
     }
 }

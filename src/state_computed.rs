@@ -10,10 +10,6 @@ use crate::{
     Edge, Graph, Node,
 };
 
-const DEFAULT_NODE_RADIUS: f32 = 5.;
-
-/// `StateComputed` is a utility struct for managing ephemerial state which is created and destroyed in one frame.
-///
 /// The struct stores selections, dragged node and computed elements states.
 #[derive(Debug, Clone)]
 pub struct StateComputed {
@@ -62,15 +58,15 @@ impl StateComputed {
         &mut self,
         g: &Graph<N, E, Ty>,
         idx: NodeIndex,
-        n: &Node<N>,
         meta: &Metadata,
         settings_interaction: &SettingsInteraction,
         settings_style: &SettingsStyle,
-    ) {
-        self.nodes.entry(idx).or_insert(StateComputedNode::new(n));
-
+    ) -> f32 {
         // compute radii
         let num = g.edges_num(idx);
+        let n = g.node(idx).unwrap();
+        self.nodes.entry(idx).or_insert(StateComputedNode::new(n));
+
         let mut radius_addition = settings_style.edge_radius_weight * num as f32;
 
         if n.dragged() {
@@ -104,9 +100,9 @@ impl StateComputed {
             self.node_state(&idx).unwrap().num_folded as f32 * settings_style.folded_radius_weight;
 
         let comp = self.nodes.get_mut(&idx).unwrap();
-
-        comp.inc_radius(radius_addition);
         comp.apply_screen_transform(meta);
+
+        settings_style.node_radius + radius_addition
     }
 
     pub fn compute_graph_bounds(&mut self) {
@@ -223,13 +219,11 @@ pub struct StateComputedNode {
     pub folded_child: bool,
     pub num_folded: usize,
     pub location: Vec2,
-    pub radius: f32,
 }
 
 impl StateComputedNode {
     pub fn new<N: Clone>(n: &Node<N>) -> Self {
         Self {
-            radius: DEFAULT_NODE_RADIUS,
             location: n.location(),
 
             selected_child: Default::default(),
@@ -252,13 +246,8 @@ impl StateComputedNode {
         self.folded_child
     }
 
-    pub fn inc_radius(&mut self, inc: f32) {
-        self.radius += inc;
-    }
-
     pub fn apply_screen_transform(&mut self, m: &Metadata) {
         self.location = self.location * m.zoom + m.pan;
-        self.radius *= m.zoom;
     }
 }
 

@@ -12,7 +12,7 @@ use petgraph::{
 use crate::{
     settings::SettingsStyle,
     state_computed::{StateComputed, StateComputedEdge, StateComputedNode},
-    Edge, Graph, Node,
+    Edge, Graph, Metadata, Node,
 };
 
 use super::layers::Layers;
@@ -25,6 +25,7 @@ type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<EdgeWithMeta<'a, E>>>;
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     p: Painter,
 
+    meta: &'a Metadata,
     g: &'a Graph<N, E, Ty>,
     comp: &'a StateComputed,
     settings_style: &'a SettingsStyle,
@@ -34,12 +35,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     pub fn new(
         p: Painter,
         g: &'a Graph<N, E, Ty>,
+        meta: &'a Metadata,
         comp: &'a StateComputed,
         settings_style: &'a SettingsStyle,
     ) -> Self {
         Drawer {
             g,
             p,
+            meta,
             comp,
             settings_style,
         }
@@ -105,6 +108,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         comp_edge: &StateComputedEdge,
         order: usize,
     ) {
+        let node = self.g.node(*n_idx).unwrap();
         let comp_node = self.comp.node_state(n_idx).unwrap();
 
         if comp_node.subfolded() {
@@ -112,20 +116,21 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return;
         }
 
+        let node_radius = node.radius() * self.meta.zoom;
         let center_horizon_angle = PI / 4.;
         let center = comp_node.location;
-        let y_intersect = center.y - comp_node.radius * center_horizon_angle.sin();
+        let y_intersect = center.y - node_radius * center_horizon_angle.sin();
 
         let edge_start = Pos2::new(
-            center.x - comp_node.radius * center_horizon_angle.cos(),
+            center.x - node_radius * center_horizon_angle.cos(),
             y_intersect,
         );
         let edge_end = Pos2::new(
-            center.x + comp_node.radius * center_horizon_angle.cos(),
+            center.x + node_radius * center_horizon_angle.cos(),
             y_intersect,
         );
 
-        let loop_size = comp_node.radius * (self.settings_style.edge_looped_size + order as f32);
+        let loop_size = node_radius * (self.settings_style.edge_looped_size + order as f32);
 
         let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
         let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
@@ -214,8 +219,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let dist: f32 = vec.length();
         let dir = vec / dist;
 
-        let start_node_radius_vec = Vec2::new(comp_start.radius, comp_start.radius) * dir;
-        let end_node_radius_vec = Vec2::new(comp_end.radius, comp_end.radius) * dir;
+        let node_start = self.g.node(*start_idx).unwrap();
+        let node_end = self.g.node(*end_idx).unwrap();
+        let start_node_radius_vec = Vec2::new(node_start.radius(), node_start.radius()) * dir;
+        let end_node_radius_vec = Vec2::new(node_end.radius(), node_end.radius()) * dir;
 
         let tip_end = pos_start + vec - end_node_radius_vec;
 
@@ -359,7 +366,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             .settings_style
             .color_node_fill(self.p.ctx(), node, comp_node);
         let color_stroke = self.settings_style.color_node_stroke(self.p.ctx());
-        let node_radius = comp_node.radius;
+        let node_radius = node.radius() * self.meta.zoom;
         let stroke = Stroke::new(1., color_stroke);
         let shape = CircleShape {
             center: loc,
@@ -389,9 +396,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         node: &Node<N>,
         comp_node: &StateComputedNode,
     ) {
-        let rad = comp_node.radius;
-        let highlight_radius = rad * 1.5;
-        let text_size = rad / 2.;
+        let node_radius = node.radius() * self.meta.zoom;
+        let highlight_radius = node_radius * 1.5;
+        let text_size = node_radius / 2.;
         let color_stroke = self
             .settings_style
             .color_node_fill(self.p.ctx(), node, comp_node);
@@ -400,7 +407,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             center: loc,
             radius: highlight_radius,
             fill: Color32::TRANSPARENT,
-            stroke: Stroke::new(rad, color_stroke),
+            stroke: Stroke::new(node_radius, color_stroke),
         };
 
         l.add_top(shape_highlight_outline);
@@ -411,7 +418,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 FontId::monospace(text_size),
                 self.settings_style.color_label(self.p.ctx()),
             );
-            let galley_offset = rad / 4.;
+            let galley_offset = node_radius / 4.;
             let galley_pos = Pos2::new(loc.x - galley_offset, loc.y - galley_offset);
             let shape_galley = TextShape::new(galley_pos, galley);
 

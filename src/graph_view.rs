@@ -1,6 +1,10 @@
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{stable_graph::NodeIndex, EdgeType};
+use petgraph::{
+    stable_graph::NodeIndex,
+    visit::{IntoNodeIdentifiers, IntoNodeReferences},
+    EdgeType,
+};
 
 use crate::{
     change::{Change, ChangeNode, ChangeSubgraph},
@@ -47,7 +51,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
-        Drawer::new(p, self.g, &computed, &self.settings_style).draw();
+        Drawer::new(p, self.g, &meta, &computed, &self.settings_style).draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -101,24 +105,24 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         Metadata::default().store_into_ui(ui);
     }
 
-    fn compute_computed(&self, meta: &Metadata) -> StateComputed {
+    fn compute_computed(&mut self, meta: &Metadata) -> StateComputed {
         let mut computed = StateComputed::default();
-        self.g.walk(|g, n_idx, n, e_idx, e| {
-            if let Some(idx) = n_idx {
-                computed.compute_for_node(
-                    g,
-                    *idx,
-                    n.unwrap(),
-                    meta,
-                    &self.settings_interaction,
-                    &self.settings_style,
-                );
-            };
-
-            if let Some(idx) = e_idx {
-                computed.compute_for_edge(*idx, e.unwrap(), meta);
-            };
+        let idxs = self.g.g.node_indices().collect::<Vec<_>>();
+        idxs.iter().for_each(|idx| {
+            let new_radius = computed.compute_for_node(
+                self.g,
+                *idx,
+                meta,
+                &self.settings_interaction,
+                &self.settings_style,
+            );
+            let n = self.g.node_mut(*idx).unwrap().set_radius(new_radius);
         });
+
+        self.g
+            .edges_iter()
+            .for_each(|(idx, e)| computed.compute_for_edge(idx, e, meta));
+
         computed.compute_graph_bounds();
 
         computed
@@ -149,7 +153,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        let node = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap());
+        let node = self.g.node_by_pos(meta, resp.hover_pos().unwrap());
         if node.is_none() {
             // click on empty space
             let selectable = self.settings_interaction.selection_enabled
@@ -229,7 +233,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
 
         if resp.drag_started() {
-            if let Some((idx, _)) = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap()) {
+            if let Some((idx, _)) = self.g.node_by_pos(meta, resp.hover_pos().unwrap()) {
                 self.set_dragged(idx, true);
             }
         }

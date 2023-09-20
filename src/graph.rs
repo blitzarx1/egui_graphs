@@ -20,46 +20,17 @@ impl<N: Clone, E: Clone, Ty: EdgeType> From<&StableGraph<N, E, Ty>> for Graph<N,
     }
 }
 
-// impl<N: Clone, E: Clone, Ty: EdgeType> From<&GraphMap<N, E, Ty>> for Graph<N, E, Ty> {
-//     fn from(value: &GraphMap<N, E, Ty>) -> Self {
-//         transform::to_graph(value.into_graph())
-//     }
-// }
-
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<N, E, Ty> {
     pub fn new(g: StableGraph<Node<N>, Edge<E>, Ty>) -> Self {
         Self { g }
     }
 
-    /// Iterates over all nodes and edges and calls the walker function.
-    pub fn walk(
-        &self,
-        mut walker: impl FnMut(
-            &Self,
-            Option<&NodeIndex>,
-            Option<&Node<N>>,
-            Option<&EdgeIndex>,
-            Option<&Edge<E>>,
-        ),
-    ) {
-        self.nodes_iter()
-            .for_each(|(idx, n)| walker(self, Some(&idx), Some(n), None, None));
-        self.edges_iter()
-            .for_each(|(idx, e)| walker(self, None, None, Some(&idx), Some(e)));
-    }
-
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
-    pub fn node_by_pos(
-        &self,
-        comp: &'a StateComputed,
-        meta: &'a Metadata,
-        pos: Pos2,
-    ) -> Option<(NodeIndex, &Node<N>)> {
+    pub fn node_by_pos(&self, meta: &'a Metadata, pos: Pos2) -> Option<(NodeIndex, &Node<N>)> {
         let pos_in_graph = (pos - meta.pan).to_vec2() / meta.zoom;
-        self.nodes_iter().find(|(idx, n)| {
-            let comp_node = comp.node_state(idx).unwrap();
+        self.nodes_iter().find(|(_, n)| {
             let dist_to_node = (n.location() - pos_in_graph).length();
-            let node_rad = comp_node.radius / meta.zoom;
+            let node_rad = n.radius();
             dist_to_node <= node_rad
         })
     }
