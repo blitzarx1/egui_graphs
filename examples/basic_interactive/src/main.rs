@@ -20,10 +20,8 @@ impl App for BasicInteractiveApp {
             let interaction_settings = &SettingsInteraction::new()
                 .with_dragging_enabled(true)
                 .with_clicking_enabled(true)
-                .with_folding_enabled(true)
                 .with_selection_enabled(true)
-                .with_selection_multi_enabled(true)
-                .with_folding_depth(usize::MAX);
+                .with_selection_multi_enabled(true);
             let style_settings = &SettingsStyle::new().with_labels_always(true);
             ui.add(
                 &mut GraphView::new(&mut self.g)

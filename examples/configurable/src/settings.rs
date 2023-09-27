@@ -16,11 +16,8 @@ impl Default for SettingsGraph {
 pub struct SettingsInteraction {
     pub dragging_enabled: bool,
     pub clicking_enabled: bool,
-    pub folding_enabled: bool,
     pub selection_enabled: bool,
     pub selection_multi_enabled: bool,
-    pub selection_depth: i32,
-    pub folding_depth: usize,
 }
 
 pub struct SettingsNavigation {

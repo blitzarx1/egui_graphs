@@ -1,8 +1,6 @@
 use egui::Vec2;
 use petgraph::stable_graph::{EdgeIndex, NodeIndex};
 
-use crate::SubGraph;
-
 /// `ChangeNode` is a enum that stores the changes to `Node` properties.
 #[derive(Debug, Clone)]
 pub enum ChangeNode {
@@ -42,32 +40,9 @@ impl ChangeNode {
         Self::Selected { id, old, new }
     }
 
-    pub(crate) fn change_folded(id: NodeIndex, old: bool, new: bool) -> Self {
-        Self::Folded { id, old, new }
-    }
 
     pub(crate) fn change_dragged(id: NodeIndex, old: bool, new: bool) -> Self {
         Self::Dragged { id, old, new }
-    }
-}
-
-/// `ChangeSubgraph` is a enum that stores the changes which affect a subgraph.
-#[derive(Debug, Clone)]
-pub enum ChangeSubgraph {
-    /// Indicates that the subgraph folding state has changed
-    Folded { root: NodeIndex, subg: SubGraph },
-
-    /// Indicates that the subgraph selection state has changed
-    Selected { root: NodeIndex, subg: SubGraph },
-}
-
-impl ChangeSubgraph {
-    pub(crate) fn change_folded(root: NodeIndex, subg: SubGraph) -> Self {
-        Self::Folded { root, subg }
-    }
-
-    pub(crate) fn change_selected(root: NodeIndex, subg: SubGraph) -> Self {
-        Self::Selected { root, subg }
     }
 }
 
@@ -88,7 +63,6 @@ impl ChangeEdge {
 pub enum Change {
     Node(ChangeNode),
     Edge(ChangeEdge),
-    SubGraph(ChangeSubgraph),
 }
 
 impl Change {

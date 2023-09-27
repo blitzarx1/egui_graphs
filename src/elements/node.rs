@@ -16,14 +16,8 @@ pub struct Node<N: Clone> {
 
     style: StyleNode,
 
-    folded: bool,
     selected: bool,
     dragged: bool,
-
-    subselected_child: bool,
-    subselected_parent: bool,
-    subfolded: bool,
-    num_folded: usize,
     num_connections: usize,
 }
 
@@ -33,13 +27,8 @@ impl<N: Clone> Node<N> {
             location,
             data: Some(data),
             style: Default::default(),
-            subfolded: Default::default(),
-            subselected_child: Default::default(),
-            subselected_parent: Default::default(),
             label: Default::default(),
-            folded: Default::default(),
             selected: Default::default(),
-            num_folded: Default::default(),
             dragged: Default::default(),
             num_connections: Default::default(),
         }
@@ -53,14 +42,6 @@ impl<N: Clone> Node<N> {
         self.style.radius * m.zoom
     }
 
-    pub fn visible(&self) -> bool {
-        !self.subfolded
-    }
-
-    pub fn subselected(&self) -> bool {
-        self.subselected_child || self.subselected_parent
-    }
-
     pub fn radius(&self) -> f32 {
         self.style.radius
     }
@@ -69,34 +50,12 @@ impl<N: Clone> Node<N> {
         self.num_connections
     }
 
-    pub fn num_folded(&self) -> usize {
-        self.num_folded
-    }
-
     pub fn set_radius(&mut self, new_rad: f32) {
         self.style.radius = new_rad
     }
 
-    pub fn subfolded(&self) -> bool {
-        self.subfolded
-    }
-
-    pub fn subselected_child(&self) -> bool {
-        self.subselected_child
-    }
-
-    pub fn subselected_parent(&self) -> bool {
-        self.subselected_parent
-    }
-
     pub(crate) fn apply_computed_props(&mut self, comp: &StateComputedNode) {
         self.num_connections = comp.num_connections;
-
-        self.subselected_child = comp.selected_child;
-        self.subselected_parent = comp.selected_parent;
-
-        self.subfolded = comp.folded_child;
-        self.num_folded = comp.num_folded;
     }
 
     pub fn data(&self) -> Option<&N> {
@@ -121,13 +80,6 @@ impl<N: Clone> Node<N> {
         self.location = loc
     }
 
-    pub fn folded(&self) -> bool {
-        self.folded
-    }
-
-    pub fn set_folded(&mut self, folded: bool) {
-        self.folded = folded;
-    }
 
     pub fn selected(&self) -> bool {
         self.selected
@@ -156,24 +108,12 @@ impl<N: Clone> Node<N> {
     }
 
     pub fn color(&self) -> Color32 {
-        if self.folded {
-            return Color32::TRANSPARENT;
-        }
-
         if self.dragged {
             return self.style.color.interaction.drag;
         }
 
         if self.selected {
             return self.style.color.interaction.selection;
-        }
-
-        if self.subselected_child {
-            return self.style.color.interaction.selection_child;
-        }
-
-        if self.subselected_parent {
-            return self.style.color.interaction.selection_parent;
         }
 
         self.style.color.main

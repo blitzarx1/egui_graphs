@@ -3,14 +3,13 @@ use std::collections::HashMap;
 use egui::{Rect, Vec2};
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
-use crate::{settings::SettingsInteraction, subgraphs::SubGraphs, Graph, Node, SettingsStyle};
+use crate::{Graph, Node, SettingsStyle};
 
 /// The struct stores selections, dragged node and computed elements states.
 #[derive(Debug, Clone)]
 pub struct StateComputed {
     pub dragged: Option<NodeIndex>,
-    pub selections: SubGraphs,
-    pub foldings: SubGraphs,
+    pub selected: Vec<NodeIndex>,
     pub nodes: HashMap<NodeIndex, StateComputedNode>,
     pub edges: HashMap<EdgeIndex, StateComputedEdge>,
 
@@ -23,8 +22,9 @@ impl Default for StateComputed {
     fn default() -> Self {
         Self {
             dragged: None,
-            selections: SubGraphs::default(),
-            foldings: SubGraphs::default(),
+
+            selected: Vec::new(),
+
             nodes: HashMap::new(),
             edges: HashMap::new(),
 
@@ -44,7 +44,6 @@ impl StateComputed {
         &mut self,
         g: &Graph<N, E, Ty>,
         idx: NodeIndex,
-        settings_interaction: &SettingsInteraction,
     ) -> StateComputedNode {
         let n = g.node(idx).unwrap();
         self.nodes.entry(idx).or_default();
@@ -53,8 +52,9 @@ impl StateComputed {
             self.dragged = Some(idx);
         }
 
-        self.compute_selection(g, idx, n, settings_interaction);
-        self.compute_folding(g, idx, n, settings_interaction);
+        if n.selected() {
+            self.selected.push(idx);
+        }
 
         let comp = self.nodes.get_mut(&idx).unwrap();
         comp.num_connections = g.edges_num(idx);
@@ -87,94 +87,6 @@ impl StateComputed {
         let min = self.min - Vec2::new(self.max_rad, self.max_rad);
         let max = self.max + Vec2::new(self.max_rad, self.max_rad);
         Rect::from_min_max(min.to_pos2(), max.to_pos2())
-    }
-
-    fn compute_selection<N: Clone, E: Clone, Ty: EdgeType>(
-        &mut self,
-        g: &Graph<N, E, Ty>,
-        root_idx: NodeIndex,
-        root: &Node<N>,
-        settings_interaction: &SettingsInteraction,
-    ) {
-        if !root.selected() {
-            return;
-        }
-
-        let child_mode = settings_interaction.selection_depth > 0;
-        self.selections
-            .add_subgraph(g, root_idx, settings_interaction.selection_depth);
-
-        let elements = self.selections.elements_by_root(root_idx);
-        if elements.is_none() {
-            return;
-        }
-
-        let (nodes, edges) = elements.unwrap();
-
-        nodes.iter().for_each(|idx| {
-            if *idx == root_idx {
-                return;
-            }
-
-            let computed = self.nodes.entry(*idx).or_default();
-            if child_mode {
-                computed.selected_child = true;
-                return;
-            }
-            computed.selected_parent = true;
-        });
-
-        edges.iter().for_each(|idx| {
-            let computed = self.edges.entry(*idx).or_default();
-            if child_mode {
-                computed.selected_child = true;
-                return;
-            }
-            computed.selected_parent = true;
-        });
-    }
-
-    fn compute_folding<N: Clone, E: Clone, Ty: EdgeType>(
-        &mut self,
-        g: &Graph<N, E, Ty>,
-        root_idx: NodeIndex,
-        root: &Node<N>,
-        settings_interaction: &SettingsInteraction,
-    ) {
-        if !root.folded() {
-            return;
-        }
-
-        let depth_normalized = match settings_interaction.folding_depth {
-            usize::MAX => i32::MAX,
-            _ => settings_interaction.folding_depth as i32,
-        };
-
-        self.foldings.add_subgraph(g, root_idx, depth_normalized);
-
-        let elements = self.foldings.elements_by_root(root_idx);
-        if elements.is_none() {
-            return;
-        }
-
-        let (nodes, _) = elements.unwrap();
-        self.nodes.entry(root_idx).or_default().num_folded = nodes.len() - 1; // dont't count root node
-
-        nodes.iter().for_each(|idx| {
-            if *idx == root_idx {
-                return;
-            }
-
-            self.nodes.entry(*idx).or_default().folded_child = true;
-        });
-    }
-
-    pub fn node_state(&self, idx: &NodeIndex) -> Option<&StateComputedNode> {
-        self.nodes.get(idx)
-    }
-
-    pub fn edge_state(&self, idx: &EdgeIndex) -> Option<&StateComputedEdge> {
-        self.edges.get(idx)
     }
 }
 

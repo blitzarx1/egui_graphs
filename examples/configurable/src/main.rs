@@ -1,11 +1,10 @@
-use std::collections::HashSet;
 use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
 use egui::plot::{Line, Plot, PlotPoints};
-use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2, Visuals};
-use egui_graphs::{to_graph, Change, ChangeSubgraph, Edge, Graph, GraphView, Node};
+use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2};
+use egui_graphs::{to_graph, Change, Edge, Graph, GraphView, Node};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
@@ -29,16 +28,11 @@ pub struct ConfigurableApp {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
 
-    min_for_select: bool,
-    max_for_select: bool,
-    max_for_fold: bool,
-
     selected_nodes: Vec<Node<()>>,
     selected_edges: Vec<Edge<()>>,
     last_changes: Vec<Change>,
 
     simulation_stopped: bool,
-    dark_mode: bool,
 
     fps: f64,
     fps_history: Vec<f64>,
@@ -47,8 +41,6 @@ pub struct ConfigurableApp {
 
     changes_receiver: Receiver<Change>,
     changes_sender: Sender<Change>,
-
-    folded_edges: HashSet<EdgeIndex>,
 }
 
 impl ConfigurableApp {
@@ -69,17 +61,11 @@ impl ConfigurableApp {
             settings_navigation: Default::default(),
             settings_style: Default::default(),
 
-            min_for_select: Default::default(),
-            max_for_select: Default::default(),
-            max_for_fold: Default::default(),
-
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
             last_changes: Default::default(),
-            folded_edges: Default::default(),
 
             simulation_stopped: false,
-            dark_mode: true,
 
             fps: 0.,
             fps_history: Default::default(),
@@ -163,12 +149,6 @@ impl ConfigurableApp {
         self.sim.get_graph_mut().edge_weights_mut().for_each(|w| {
             *w = 1.;
         });
-        // update the weights of the edges that are folded
-        self.g.g.edge_indices().for_each(|idx| {
-            if let Some(f_e_idx) = self.folded_edges.get(&idx) {
-                *self.sim.get_graph_mut().edge_weight_mut(*f_e_idx).unwrap() = 0.
-            }
-        });
     }
 
     fn update_fps(&mut self) {
@@ -200,36 +180,13 @@ impl ConfigurableApp {
     }
 
     fn handle_changes(&mut self) {
-        let mut new_folded_edges = HashSet::new();
         self.changes_receiver.try_iter().for_each(|ch| {
             if self.last_changes.len() > CHANGES_LIMIT {
                 self.last_changes.remove(0);
             }
 
-            if let Change::SubGraph(ChangeSubgraph::Folded { root: _, subg }) = ch.clone() {
-                subg.edge_references().for_each(|e| {
-                    new_folded_edges = new_folded_edges
-                        .union(
-                            &[self
-                                .sim
-                                .get_graph()
-                                .find_edge(
-                                    *subg.node_weight(e.source()).unwrap(),
-                                    *subg.node_weight(e.target()).unwrap(),
-                                )
-                                .unwrap()]
-                            .into_iter()
-                            .collect::<HashSet<_>>(),
-                        )
-                        .cloned()
-                        .collect();
-                });
-            };
-
             self.last_changes.push(ch);
         });
-
-        self.folded_edges = new_folded_edges;
     }
 
     fn random_node_idx(&self) -> Option<NodeIndex> {
@@ -335,7 +292,8 @@ impl ConfigurableApp {
     /// Removes all edges between two nodes
     fn remove_edges(&mut self, start: NodeIndex, end: NodeIndex) {
         let g_idxs = self
-            .g.g
+            .g
+            .g
             .edges_connecting(start, end)
             .map(|e| e.id())
             .collect::<Vec<_>>();
@@ -391,8 +349,6 @@ impl ConfigurableApp {
 
                 ui.label("Style");
                 ui.separator();
-
-                self.draw_dark_mode(ui);
             });
     }
 
@@ -442,7 +398,7 @@ impl ConfigurableApp {
             ui.label("SettingsInteraction");
             ui.separator();
 
-            ui.add_enabled_ui(!(self.settings_interaction.dragging_enabled || self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled || self.settings_interaction.folding_enabled), |ui| {
+            ui.add_enabled_ui(!(self.settings_interaction.dragging_enabled || self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled), |ui| {
                 ui.vertical(|ui| {
                     ui.checkbox(&mut self.settings_interaction.clicking_enabled, "clicking_enabled");
                     ui.label("Check click events in last changes");
@@ -472,48 +428,6 @@ impl ConfigurableApp {
                 self.settings_interaction.selection_enabled = true;
             }
             ui.label("Enable multiselect to select multiple nodes.");
-
-            ui.add_enabled_ui(self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled, |ui| {
-                ui.horizontal(|ui| {
-                    ui.add_enabled_ui(!self.min_for_select, |ui| {
-                        if ui.checkbox(&mut self.max_for_select, "all_children").clicked() {
-                            self.settings_interaction.selection_depth = i32::MAX;
-                        }; 
-                    });
-                    ui.add_enabled_ui(!self.max_for_select, |ui| {
-                        if ui.checkbox(&mut self.min_for_select, "all_parents").clicked() {
-                            self.settings_interaction.selection_depth = i32::MIN;
-                        };
-                    });
-                });
-            });
-            ui.add_enabled_ui((self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled) && !(self.min_for_select || self.max_for_select), |ui| {
-                ui.add(Slider::new(&mut self.settings_interaction.selection_depth, -10..=10)
-                    .text("selection_depth"));
-                ui.label("How deep into the neighbours of selected nodes should the selection go.");
-            });
-
-            ui.add_space(5.);
-
-            if ui.checkbox(&mut self.settings_interaction.folding_enabled, "fold_enabled").clicked() && self.settings_interaction.folding_enabled {
-                self.settings_interaction.clicking_enabled = true;
-            };
-            ui.label("To fold use LMB double click on a node. Currenly supports only one node folded at a time.");
-
-            ui.add_enabled_ui(self.settings_interaction.folding_enabled, |ui| {
-                ui.horizontal(|ui| {
-                    if ui.checkbox(&mut self.max_for_fold, "all children").clicked() {
-                        self.settings_interaction.folding_depth = usize::MAX;
-                    };
-                });
-            });
-            ui.add_enabled_ui(self.settings_interaction.folding_enabled && !self.max_for_fold, |ui| {
-                ui.add(Slider::new(&mut self.settings_interaction.folding_depth, 0..=10)
-                .text("folding_depth"));
-                ui.label("How deep to fold childrens of the selected for folding node.");
-            });
-
-            ui.add_space(5.);
 
             ui.collapsing("selected", |ui| {
                 ScrollArea::vertical().max_height(200.).show(ui, |ui| {
@@ -548,26 +462,6 @@ impl ConfigurableApp {
                     self.draw_fps(ui);
                 });
             });
-    }
-
-    fn draw_dark_mode(&mut self, ui: &mut Ui) {
-        if self.dark_mode {
-            ui.ctx().set_visuals(Visuals::dark())
-        } else {
-            ui.ctx().set_visuals(Visuals::light())
-        }
-
-        if ui
-            .button({
-                match self.dark_mode {
-                    true => "🔆 light",
-                    false => "🌙 dark",
-                }
-            })
-            .clicked()
-        {
-            self.dark_mode = !self.dark_mode
-        };
     }
 
     fn draw_fps(&self, ui: &mut Ui) {
@@ -646,11 +540,8 @@ impl App for ConfigurableApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let settings_interaction = &egui_graphs::SettingsInteraction::new()
-                .with_folding_depth(self.settings_interaction.folding_depth)
-                .with_folding_enabled(self.settings_interaction.folding_enabled)
                 .with_selection_enabled(self.settings_interaction.selection_enabled)
                 .with_selection_multi_enabled(self.settings_interaction.selection_multi_enabled)
-                .with_selection_depth(self.settings_interaction.selection_depth)
                 .with_dragging_enabled(self.settings_interaction.dragging_enabled)
                 .with_clicking_enabled(self.settings_interaction.clicking_enabled);
             let settings_navigation = &egui_graphs::SettingsNavigation::new()
@@ -659,8 +550,7 @@ impl App for ConfigurableApp {
                 .with_zoom_speed(self.settings_navigation.zoom_speed);
             let settings_style = &egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always)
-                .with_edge_radius_weight(self.settings_style.edge_radius_weight)
-                .with_folded_radius_weight(self.settings_style.edge_radius_weight);
+                .with_edge_radius_weight(self.settings_style.edge_radius_weight);
             ui.add(
                 &mut GraphView::new(&mut self.g)
                     .with_interactions(settings_interaction)
