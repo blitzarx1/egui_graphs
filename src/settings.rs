@@ -5,11 +5,8 @@ use egui::Color32;
 pub struct SettingsInteraction {
     pub(crate) dragging_enabled: bool,
     pub(crate) clicking_enabled: bool,
-    pub(crate) folding_enabled: bool,
     pub(crate) selection_enabled: bool,
     pub(crate) selection_multi_enabled: bool,
-    pub(crate) selection_depth: i32,
-    pub(crate) folding_depth: usize,
 }
 
 impl SettingsInteraction {
@@ -34,14 +31,6 @@ impl SettingsInteraction {
         self
     }
 
-    /// Allows to fold nodes.
-    ///
-    /// Default: `false`
-    pub fn with_folding_enabled(mut self, enabled: bool) -> Self {
-        self.folding_enabled = enabled;
-        self
-    }
-
     /// Selects clicked node, enables clicks.
     ///
     /// Select by clicking on node, deselect by clicking again.
@@ -59,31 +48,6 @@ impl SettingsInteraction {
     /// Default: `false`
     pub fn with_selection_multi_enabled(mut self, enabled: bool) -> Self {
         self.selection_multi_enabled = enabled;
-        self
-    }
-
-    /// How deep into the neighbours of selected nodes should the selection go.
-    ///
-    /// * `selection_depth == 0` means only selected nodes are selected.
-    /// * `selection_depth > 0` means children of selected nodes are selected up to `selection_depth` generation.
-    /// * `selection_depth < 0` means parents of selected nodes are selected up to `selection_depth` generation.
-    /// * passing `i32::MAX` and `i32::MIN` selects all available generations of children or parents.
-    ///
-    /// Default: `0`
-    pub fn with_selection_depth(mut self, depth: i32) -> Self {
-        self.selection_depth = depth;
-        self
-    }
-
-    /// Defines the generation depth up to which the children of the folded node will be folded.
-    ///
-    /// * `folding_depth == 0` means only the folded node is folded.
-    /// * `folding_depth > 0` means children of the folded node are folded up to `folding_depth` generation.
-    /// * `folding_depth == usize::MAX` folds all available generations of children.
-    ///
-    /// Default: `0`
-    pub fn with_folding_depth(mut self, depth: usize) -> Self {
-        self.folding_depth = depth;
         self
     }
 }
@@ -152,7 +116,6 @@ impl SettingsNavigation {
 pub struct SettingsStyle {
     pub(crate) labels_always: bool,
     pub(crate) edge_radius_weight: f32,
-    pub(crate) folded_radius_weight: f32,
 
     /// Text color for light background.
     pub(crate) color_text_light: Color32,
@@ -169,7 +132,6 @@ impl Default for SettingsStyle {
         Self {
             edge_radius_weight: 1.,
             edge_looped_size: 3.,
-            folded_radius_weight: 2.,
             color_text_light: Color32::WHITE,
             color_text_dark: Color32::BLACK,
             labels_always: Default::default(),
@@ -192,14 +154,6 @@ impl SettingsStyle {
     /// Default is false.
     pub fn with_labels_always(mut self, always: bool) -> Self {
         self.labels_always = always;
-        self
-    }
-
-    /// For every node folded the folding root node radius is getting bigger by this value.
-    ///
-    /// Default: `2.`
-    pub fn with_folded_radius_weight(mut self, weight: f32) -> Self {
-        self.folded_radius_weight = weight;
         self
     }
 

@@ -16,11 +16,8 @@ impl Default for SettingsGraph {
 pub struct SettingsInteraction {
     pub dragging_enabled: bool,
     pub clicking_enabled: bool,
-    pub folding_enabled: bool,
     pub selection_enabled: bool,
     pub selection_multi_enabled: bool,
-    pub selection_depth: i32,
-    pub folding_depth: usize,
 }
 
 pub struct SettingsNavigation {
@@ -43,7 +40,6 @@ impl Default for SettingsNavigation {
 
 pub struct SettingsStyle {
     pub edge_radius_weight: f32,
-    pub folded_node_radius_weight: f32,
     pub labels_always: bool,
 }
 
@@ -51,7 +47,6 @@ impl Default for SettingsStyle {
     fn default() -> Self {
         Self {
             edge_radius_weight: 1.,
-            folded_node_radius_weight: 2.,
             labels_always: false,
         }
     }
