@@ -47,7 +47,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
-        Drawer::new(p, self.g, &computed, &self.settings_style).draw();
+        Drawer::new(p, self.g, &computed, &self.settings_style, &meta).draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -105,13 +105,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let mut computed = StateComputed::default();
         let idxs = self.g.g.node_indices().collect::<Vec<_>>();
         idxs.iter().for_each(|idx| {
-            let comp = computed.compute_for_node(
-                self.g,
-                *idx,
-                meta,
-                &self.settings_interaction,
-                &self.settings_style,
-            );
+            let comp = computed.compute_for_node(self.g, *idx, &self.settings_interaction);
             self.g.node_mut(*idx).unwrap().apply_computed_props(comp);
         });
 

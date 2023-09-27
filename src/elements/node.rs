@@ -2,6 +2,8 @@ use egui::{Color32, Vec2};
 
 use crate::{metadata::Metadata, StateComputedNode};
 
+use super::StyleNode;
+
 /// Stores properties of a node.
 #[derive(Clone, Debug)]
 pub struct Node<N: Clone> {
@@ -12,8 +14,7 @@ pub struct Node<N: Clone> {
 
     label: Option<String>,
 
-    /// If `color` is None default color is used.
-    color: Option<Color32>,
+    style: StyleNode,
 
     folded: bool,
     selected: bool,
@@ -22,27 +23,8 @@ pub struct Node<N: Clone> {
     subselected_child: bool,
     subselected_parent: bool,
     subfolded: bool,
-    folded_num: usize,
-    radius: f32,
-}
-
-impl<N: Clone> Default for Node<N> {
-    fn default() -> Self {
-        Self {
-            radius: 5.,
-            subfolded: Default::default(),
-            subselected_child: Default::default(),
-            subselected_parent: Default::default(),
-            location: Default::default(),
-            data: Default::default(),
-            label: Default::default(),
-            color: Default::default(),
-            folded: Default::default(),
-            selected: Default::default(),
-            folded_num: Default::default(),
-            dragged: Default::default(),
-        }
-    }
+    num_folded: usize,
+    num_connections: usize,
 }
 
 impl<N: Clone> Node<N> {
@@ -50,8 +32,16 @@ impl<N: Clone> Node<N> {
         Self {
             location,
             data: Some(data),
-
-            ..Default::default()
+            style: Default::default(),
+            subfolded: Default::default(),
+            subselected_child: Default::default(),
+            subselected_parent: Default::default(),
+            label: Default::default(),
+            folded: Default::default(),
+            selected: Default::default(),
+            num_folded: Default::default(),
+            dragged: Default::default(),
+            num_connections: Default::default(),
         }
     }
 
@@ -60,7 +50,7 @@ impl<N: Clone> Node<N> {
     }
 
     pub fn screen_radius(&self, m: &Metadata) -> f32 {
-        self.radius * m.zoom
+        self.style.radius * m.zoom
     }
 
     pub fn visible(&self) -> bool {
@@ -72,7 +62,19 @@ impl<N: Clone> Node<N> {
     }
 
     pub fn radius(&self) -> f32 {
-        self.radius
+        self.style.radius
+    }
+
+    pub fn num_connections(&self) -> usize {
+        self.num_connections
+    }
+
+    pub fn num_folded(&self) -> usize {
+        self.num_folded
+    }
+
+    pub fn set_radius(&mut self, new_rad: f32) {
+        self.style.radius = new_rad
     }
 
     pub fn subfolded(&self) -> bool {
@@ -88,16 +90,11 @@ impl<N: Clone> Node<N> {
     }
 
     pub(crate) fn apply_computed_props(&mut self, comp: StateComputedNode) {
-        self.location = comp.location;
-        self.radius = comp.radius;
         self.subfolded = comp.subfolded();
         self.subselected_child = comp.selected_child;
         self.subselected_parent = comp.selected_parent;
-        self.folded_num = comp.num_folded;
-    }
-
-    pub fn folded_num(&self) -> usize {
-        self.folded_num
+        self.num_folded = comp.num_folded;
+        self.num_connections = comp.num_connections;
     }
 
     pub fn data(&self) -> Option<&N> {
@@ -156,13 +153,34 @@ impl<N: Clone> Node<N> {
         res
     }
 
-    pub fn color(&self) -> Option<Color32> {
-        self.color
+    // TODO: use ctx.style().visuals for color selection
+    pub fn color(&self) -> Color32 {
+        if self.folded() {
+            return Color32::TRANSPARENT;
+        }
+
+        if self.dragged() {
+            return self.style.color.interaction.drag;
+        }
+
+        if self.selected() {
+            return self.style.color.interaction.selection;
+        }
+
+        if self.subselected_child() {
+            return self.style.color.interaction.selection_child;
+        }
+
+        if self.subselected_parent() {
+            return self.style.color.interaction.selection_parent;
+        }
+
+        self.style.color.main
     }
 
     pub fn with_color(&mut self, color: Color32) -> Self {
-        let mut res = self.clone();
-        res.color = Some(color);
-        res
+        let mut nn = self.clone();
+        nn.style.color.main = color;
+        nn
     }
 }

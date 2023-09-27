@@ -12,7 +12,7 @@ use petgraph::{
 use crate::{
     settings::SettingsStyle,
     state_computed::{StateComputed, StateComputedEdge},
-    Edge, Graph, Node,
+    Edge, Graph, Metadata, Node,
 };
 
 use super::layers::Layers;
@@ -28,6 +28,7 @@ pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     g: &'a Graph<N, E, Ty>,
     comp: &'a StateComputed,
     settings_style: &'a SettingsStyle,
+    meta: &'a Metadata,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
@@ -36,12 +37,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         g: &'a Graph<N, E, Ty>,
         comp: &'a StateComputed,
         settings_style: &'a SettingsStyle,
+        meta: &'a Metadata,
     ) -> Self {
         Drawer {
             g,
             p,
             comp,
             settings_style,
+            meta,
         }
     }
 
@@ -109,21 +112,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             return;
         }
 
-        let node_radius = node.radius();
+        let rad = self.screen_radius(node);
+        let center = self.screen_location(node.location());
         let center_horizon_angle = PI / 4.;
-        let center = node.location();
-        let y_intersect = center.y - node_radius * center_horizon_angle.sin();
+        let y_intersect = center.y - rad * center_horizon_angle.sin();
 
-        let edge_start = Pos2::new(
-            center.x - node_radius * center_horizon_angle.cos(),
-            y_intersect,
-        );
-        let edge_end = Pos2::new(
-            center.x + node_radius * center_horizon_angle.cos(),
-            y_intersect,
-        );
+        let edge_start = Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
+        let edge_end = Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
 
-        let loop_size = node_radius * (self.settings_style.edge_looped_size + order as f32);
+        let loop_size = rad * (self.settings_style.edge_looped_size + order as f32);
 
         let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
         let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
@@ -168,18 +165,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         comp_edge: &StateComputedEdge,
         order: usize,
     ) {
-        let mut comp_start = self.comp.node_state(start_idx).unwrap();
-        let mut comp_end = self.comp.node_state(end_idx).unwrap();
-        let start_node = self.g.node(*start_idx).unwrap();
+        let mut n_start = self.g.node(*start_idx).unwrap();
+        let mut n_end = self.g.node(*end_idx).unwrap();
         let mut transparent = false;
 
-        if (start_node.folded() || comp_start.subfolded()) && comp_end.subfolded() {
+        if (n_start.folded() || n_start.subfolded()) && n_end.subfolded() {
             return;
         }
 
         // if start node is in folding tree and end node not we should draw edge transparent
         // starting from the root of the folding tree
-        if comp_start.subfolded() && !comp_end.subfolded() {
+        if n_start.subfolded() && !n_end.subfolded() {
             let new_start_idx = self
                 .comp
                 .foldings
@@ -187,13 +183,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 .unwrap()
                 .first()
                 .unwrap();
-            comp_start = self.comp.node_state(new_start_idx).unwrap();
+            n_start = self.g.node(*new_start_idx).unwrap();
             transparent = true;
         }
 
         // if end node is in folding tree and start node not we should draw edge transparent
         // ending at the root of the folding tree
-        if !comp_start.subfolded() && comp_end.subfolded() {
+        if !n_start.subfolded() && n_end.subfolded() {
             let new_end_idx = self
                 .comp
                 .foldings
@@ -201,25 +197,25 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 .unwrap()
                 .first()
                 .unwrap();
-            comp_end = self.comp.node_state(new_end_idx).unwrap();
+            n_end = self.g.node(*new_end_idx).unwrap();
             transparent = true;
         }
 
-        let pos_start = comp_start.location.to_pos2();
-        let pos_end = comp_end.location.to_pos2();
+        let loc_start = self.screen_location(n_start.location()).to_pos2();
+        let loc_end = self.screen_location(n_end.location()).to_pos2();
+        let rad_start = self.screen_radius(n_start);
+        let rad_end = self.screen_radius(n_end);
 
-        let vec = pos_end - pos_start;
+        let vec = loc_end - loc_start;
         let dist: f32 = vec.length();
         let dir = vec / dist;
 
-        let node_start = self.g.node(*start_idx).unwrap();
-        let node_end = self.g.node(*end_idx).unwrap();
-        let start_node_radius_vec = Vec2::new(node_start.radius(), node_start.radius()) * dir;
-        let end_node_radius_vec = Vec2::new(node_end.radius(), node_end.radius()) * dir;
+        let start_node_radius_vec = Vec2::new(rad_start, rad_start) * dir;
+        let end_node_radius_vec = Vec2::new(rad_end, rad_end) * dir;
 
-        let tip_end = pos_start + vec - end_node_radius_vec;
+        let tip_end = loc_start + vec - end_node_radius_vec;
 
-        let edge_start = pos_start + start_node_radius_vec;
+        let edge_start = loc_start + start_node_radius_vec;
         let edge_end = match self.g.is_directed() {
             true => tip_end - comp_edge.tip_size * dir,
             false => tip_end,
@@ -348,14 +344,29 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         Some(TextShape::new(label_pos, galley))
     }
 
+    fn screen_radius(&self, n: &Node<N>) -> f32 {
+        (n.radius() + n.num_connections() as f32 * self.settings_style.folded_radius_weight)
+            * self.meta.zoom
+    }
+
+    fn screen_radius_folded(&self, n: &Node<N>) -> f32 {
+        (n.radius() + n.num_folded() as f32 * self.settings_style.folded_radius_weight)
+            * self.meta.zoom
+    }
+
+    fn screen_location(&self, loc: Vec2) -> Vec2 {
+        loc * self.meta.zoom + self.meta.pan
+    }
+
     fn draw_node_basic(&self, l: &mut Layers, node: &Node<N>) {
-        let color_fill = self.settings_style.color_node_fill(self.p.ctx(), node);
-        let color_stroke = self.settings_style.color_node_stroke(self.p.ctx());
-        let node_radius = node.radius();
+        let color_fill = node.color();
+        let color_stroke = node.color();
+        let rad = self.screen_radius(node);
+        let loc = self.screen_location(node.location()).to_pos2();
         let stroke = Stroke::new(1., color_stroke);
         let shape = CircleShape {
-            center: node.location().to_pos2(),
-            radius: node_radius,
+            center: loc,
+            radius: rad,
             fill: color_fill,
             stroke,
         };
@@ -368,37 +379,36 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             || node.folded();
 
         if show_label {
-            if let Some(shape_label) =
-                self.shape_label(node_radius, node.location().to_pos2(), node)
-            {
+            if let Some(shape_label) = self.shape_label(rad, loc, node) {
                 l.add_bottom(shape_label);
             }
         }
     }
 
     fn draw_node_interacted(&self, l: &mut Layers, node: &Node<N>) {
-        let node_radius = node.radius();
-        let highlight_radius = node_radius * 1.5;
-        let text_size = node_radius / 2.;
-        let color_stroke = self.settings_style.color_node_fill(self.p.ctx(), node);
-        let loc = node.location().to_pos2();
+        let mut rad = self.screen_radius(node);
+        let highlight_radius = rad * 1.5;
+        let text_size = rad / 2.;
+        let color_stroke = node.color();
+        let loc = self.screen_location(node.location()).to_pos2();
 
         let shape_highlight_outline = CircleShape {
             center: loc,
             radius: highlight_radius,
             fill: Color32::TRANSPARENT,
-            stroke: Stroke::new(node_radius, color_stroke),
+            stroke: Stroke::new(rad, color_stroke),
         };
 
         l.add_top(shape_highlight_outline);
 
         if node.folded() {
+            rad = self.screen_radius_folded(node);
             let galley = self.p.layout_no_wrap(
-                node.folded_num().to_string(),
+                node.num_folded().to_string(),
                 FontId::monospace(text_size),
                 self.settings_style.color_label(self.p.ctx()),
             );
-            let galley_offset = node_radius / 4.;
+            let galley_offset = rad / 4.;
             let galley_pos = Pos2::new(loc.x - galley_offset, loc.y - galley_offset);
             let shape_galley = TextShape::new(galley_pos, galley);
 

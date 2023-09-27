@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 
-use egui::{Pos2, Rect, Vec2};
+use egui::{Pos2, Rect};
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{
-    metadata::Metadata,
-    settings::{SettingsInteraction, SettingsStyle},
-    subgraphs::SubGraphs,
-    Edge, Graph, Node,
+    metadata::Metadata, settings::SettingsInteraction, subgraphs::SubGraphs, Edge, Graph, Node,
 };
 
 /// The struct stores selections, dragged node and computed elements states.
@@ -58,18 +55,10 @@ impl StateComputed {
         &mut self,
         g: &Graph<N, E, Ty>,
         idx: NodeIndex,
-        meta: &Metadata,
         settings_interaction: &SettingsInteraction,
-        settings_style: &SettingsStyle,
     ) -> StateComputedNode {
-        // compute radii
-        let num = g.edges_num(idx);
         let n = g.node(idx).unwrap();
-        self.nodes
-            .entry(idx)
-            .or_insert(StateComputedNode::new(n, settings_style));
-
-        let mut radius_addition = settings_style.edge_radius_weight * num as f32;
+        self.nodes.entry(idx).or_default();
 
         if n.dragged() {
             self.dragged = Some(idx);
@@ -89,15 +78,12 @@ impl StateComputed {
             self.max_y = y;
         };
 
-        self.compute_selection(g, idx, n, settings_interaction, settings_style);
-        self.compute_folding(g, idx, n, settings_interaction, settings_style);
-
-        radius_addition +=
-            self.node_state(&idx).unwrap().num_folded as f32 * settings_style.folded_radius_weight;
+        self.compute_selection(g, idx, n, settings_interaction);
+        self.compute_folding(g, idx, n, settings_interaction);
 
         let comp = self.nodes.get_mut(&idx).unwrap();
-        comp.inc_radius(radius_addition);
-        comp.apply_screen_transform(meta);
+        comp.num_connections = g.edges_num(idx);
+
         *comp
     }
 
@@ -114,7 +100,6 @@ impl StateComputed {
         root_idx: NodeIndex,
         root: &Node<N>,
         settings_interaction: &SettingsInteraction,
-        settings_style: &SettingsStyle,
     ) {
         if !root.selected() {
             return;
@@ -136,10 +121,7 @@ impl StateComputed {
                 return;
             }
 
-            let computed = self.nodes.entry(*idx).or_insert(StateComputedNode::new(
-                g.node(*idx).unwrap(),
-                settings_style,
-            ));
+            let computed = self.nodes.entry(*idx).or_default();
             if child_mode {
                 computed.selected_child = true;
                 return;
@@ -166,7 +148,6 @@ impl StateComputed {
         root_idx: NodeIndex,
         root: &Node<N>,
         settings_interaction: &SettingsInteraction,
-        settings_style: &SettingsStyle,
     ) {
         if !root.folded() {
             return;
@@ -185,23 +166,14 @@ impl StateComputed {
         }
 
         let (nodes, _) = elements.unwrap();
-        self.nodes
-            .entry(root_idx)
-            .or_insert(StateComputedNode::new(root, settings_style))
-            .num_folded = nodes.len() - 1; // dont't count root node
+        self.nodes.entry(root_idx).or_default().num_folded = nodes.len() - 1; // dont't count root node
 
         nodes.iter().for_each(|idx| {
             if *idx == root_idx {
                 return;
             }
 
-            self.nodes
-                .entry(*idx)
-                .or_insert(StateComputedNode::new(
-                    g.node(*idx).unwrap(),
-                    settings_style,
-                ))
-                .folded_child = true;
+            self.nodes.entry(*idx).or_default().folded_child = true;
         });
     }
 
@@ -214,29 +186,16 @@ impl StateComputed {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct StateComputedNode {
     pub selected_child: bool,
     pub selected_parent: bool,
     pub folded_child: bool,
     pub num_folded: usize,
-    pub location: Vec2,
-    pub radius: f32,
+    pub num_connections: usize,
 }
 
 impl StateComputedNode {
-    pub fn new<N: Clone>(n: &Node<N>, settings_style: &SettingsStyle) -> Self {
-        Self {
-            location: n.location(),
-            radius: settings_style.node_radius,
-
-            selected_child: Default::default(),
-            selected_parent: Default::default(),
-            folded_child: Default::default(),
-            num_folded: Default::default(),
-        }
-    }
-
     /// Indicates if node is visible and should be drawn
     pub fn visible(&self) -> bool {
         !self.subfolded()
@@ -244,15 +203,6 @@ impl StateComputedNode {
 
     pub fn subfolded(&self) -> bool {
         self.folded_child
-    }
-
-    pub fn inc_radius(&mut self, inc: f32) {
-        self.radius += inc;
-    }
-
-    pub fn apply_screen_transform(&mut self, m: &Metadata) {
-        self.location = self.location * m.zoom + m.pan;
-        self.radius *= m.zoom;
     }
 }
 
