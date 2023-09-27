@@ -39,7 +39,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
         let mut meta = Metadata::get(ui);
-        let mut computed = self.compute_computed();
+        let mut computed = self.compute_state();
 
         self.handle_fit_to_screen(&resp, &mut meta, &computed);
         self.handle_navigation(ui, &resp, &mut meta, &computed);
@@ -101,7 +101,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         Metadata::default().store_into_ui(ui);
     }
 
-    fn compute_computed(&mut self) -> StateComputed {
+    fn compute_state(&mut self) -> StateComputed {
         let mut computed = StateComputed::default();
 
         let n_idxs = self.g.g.node_indices().collect::<Vec<_>>();
