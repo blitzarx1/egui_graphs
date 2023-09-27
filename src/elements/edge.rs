@@ -1,7 +1,5 @@
 use egui::Color32;
 
-use crate::state_computed::StateComputedEdge;
-
 use super::StyleEdge;
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
@@ -10,17 +8,12 @@ pub struct Edge<E: Clone> {
     /// Client data
     data: Option<E>,
 
-    selected_child: bool,
-    selected_parent: bool,
-
     style: StyleEdge,
 }
 
 impl<E: Clone> Default for Edge<E> {
     fn default() -> Self {
         Self {
-            selected_child: Default::default(),
-            selected_parent: Default::default(),
             style: Default::default(),
 
             data: Default::default(),
@@ -46,14 +39,6 @@ impl<E: Clone> Edge<E> {
     }
 
     pub fn color(&self) -> Color32 {
-        if self.selected_child {
-            return self.style.color.interaction.selection_child;
-        }
-
-        if self.selected_parent {
-            return self.style.color.interaction.selection_parent;
-        }
-
         self.style.color.main
     }
 
@@ -79,22 +64,5 @@ impl<E: Clone> Edge<E> {
 
     pub fn tip_size(&self) -> f32 {
         self.style.tip_size
-    }
-
-    pub fn subselected(&self) -> bool {
-        self.selected_child || self.selected_parent
-    }
-
-    pub fn selected_child(&self) -> bool {
-        self.selected_child
-    }
-
-    pub fn selected_parent(&self) -> bool {
-        self.selected_parent
-    }
-
-    pub fn apply_computed_props(&mut self, comp: &StateComputedEdge) {
-        self.selected_child = comp.selected_child;
-        self.selected_parent = comp.selected_parent;
     }
 }

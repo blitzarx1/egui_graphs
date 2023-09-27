@@ -7,7 +7,7 @@ use crate::{
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
-    state_computed::StateComputed,
+    computed::ComputedState,
     Drawer, Graph,
 };
 
@@ -101,23 +101,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         Metadata::default().store_into_ui(ui);
     }
 
-    fn compute_state(&mut self) -> StateComputed {
-        let mut computed = StateComputed::default();
+    fn compute_state(&mut self) -> ComputedState {
+        let mut computed = ComputedState::default();
 
         let n_idxs = self.g.g.node_indices().collect::<Vec<_>>();
         n_idxs.iter().for_each(|idx| {
             let comp = computed.compute_for_node(self.g, *idx);
 
             let n = self.g.node_mut(*idx).unwrap();
-            n.apply_computed_props(&comp);
+            n.set_computed(comp);
 
             computed.comp_iter_bounds(n, &self.settings_style);
-        });
-
-        let e_idxs = self.g.g.edge_indices().collect::<Vec<_>>();
-        e_idxs.iter().for_each(|idx| {
-            let comp = computed.compute_for_edge(*idx);
-            self.g.edge_mut(*idx).unwrap().apply_computed_props(&comp);
         });
 
         computed
@@ -125,7 +119,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     /// Fits the graph to the screen if it is the first frame or
     /// fit to screen setting is enabled;
-    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata, comp: &StateComputed) {
+    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata, comp: &ComputedState) {
         if !meta.first_frame && !self.settings_navigation.fit_to_screen_enabled {
             return;
         }
@@ -134,7 +128,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         meta.first_frame = false;
     }
 
-    fn handle_click(&mut self, resp: &Response, meta: &mut Metadata, comp: &StateComputed) {
+    fn handle_click(&mut self, resp: &Response, meta: &mut Metadata, comp: &ComputedState) {
         if !resp.clicked() && !resp.double_clicked() {
             return;
         }
@@ -181,7 +175,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
-    fn handle_node_click(&mut self, idx: NodeIndex, comp: &StateComputed) {
+    fn handle_node_click(&mut self, idx: NodeIndex, comp: &ComputedState) {
         if !self.settings_interaction.clicking_enabled
             && !self.settings_interaction.selection_enabled
         {
@@ -209,7 +203,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.select_node(idx);
     }
 
-    fn handle_node_drag(&mut self, resp: &Response, comp: &mut StateComputed, meta: &mut Metadata) {
+    fn handle_node_drag(&mut self, resp: &Response, comp: &mut ComputedState, meta: &mut Metadata) {
         if !self.settings_interaction.dragging_enabled {
             return;
         }
@@ -238,7 +232,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata, comp: &StateComputed) {
+    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata, comp: &ComputedState) {
         // calculate graph dimensions with decorative padding
         let bounds = comp.graph_bounds();
         let mut diag = bounds.max - bounds.min;
@@ -278,7 +272,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         ui: &Ui,
         resp: &Response,
         meta: &mut Metadata,
-        comp: &StateComputed,
+        comp: &ComputedState,
     ) {
         self.handle_zoom(ui, resp, meta);
         self.handle_pan(resp, meta, comp);
@@ -300,7 +294,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         });
     }
 
-    fn handle_pan(&self, resp: &Response, meta: &mut Metadata, comp: &StateComputed) {
+    fn handle_pan(&self, resp: &Response, meta: &mut Metadata, comp: &ComputedState) {
         if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
@@ -349,7 +343,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.send_changes(Change::node(change));
     }
 
-    fn deselect_all(&mut self, comp: &StateComputed) {
+    fn deselect_all(&mut self, comp: &ComputedState) {
         comp.selected.iter().for_each(|idx| {
             self.deselect_node(*idx);
         });

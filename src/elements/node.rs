@@ -1,6 +1,6 @@
 use egui::{Color32, Vec2};
 
-use crate::{metadata::Metadata, StateComputedNode};
+use crate::{metadata::Metadata, ComputedNode};
 
 use super::StyleNode;
 
@@ -18,7 +18,7 @@ pub struct Node<N: Clone> {
 
     selected: bool,
     dragged: bool,
-    num_connections: usize,
+    computed: ComputedNode,
 }
 
 impl<N: Clone> Node<N> {
@@ -30,7 +30,7 @@ impl<N: Clone> Node<N> {
             label: Default::default(),
             selected: Default::default(),
             dragged: Default::default(),
-            num_connections: Default::default(),
+            computed: Default::default(),
         }
     }
 
@@ -47,15 +47,15 @@ impl<N: Clone> Node<N> {
     }
 
     pub fn num_connections(&self) -> usize {
-        self.num_connections
+        self.computed.num_connections
     }
 
     pub fn set_radius(&mut self, new_rad: f32) {
         self.style.radius = new_rad
     }
 
-    pub(crate) fn apply_computed_props(&mut self, comp: &StateComputedNode) {
-        self.num_connections = comp.num_connections;
+    pub(crate) fn set_computed(&mut self, comp: ComputedNode) {
+        self.computed = comp;
     }
 
     pub fn data(&self) -> Option<&N> {
@@ -79,7 +79,6 @@ impl<N: Clone> Node<N> {
     pub fn set_location(&mut self, loc: Vec2) {
         self.location = loc
     }
-
 
     pub fn selected(&self) -> bool {
         self.selected

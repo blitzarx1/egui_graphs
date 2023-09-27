@@ -4,19 +4,14 @@ use egui::{
     epaint::{CircleShape, CubicBezierShape, QuadraticBezierShape, TextShape},
     Color32, FontFamily, FontId, Painter, Pos2, Shape, Stroke, Vec2,
 };
-use petgraph::{
-    stable_graph::{EdgeIndex, NodeIndex},
-    EdgeType,
-};
+use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{settings::SettingsStyle, Edge, Graph, Metadata, Node};
 
 use super::layers::Layers;
 
-/// Edge, its index and computed state
-type EdgeWithMeta<'a, E> = (EdgeIndex, Edge<E>);
 /// Mapping for 2 nodes and all edges between them
-type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<EdgeWithMeta<'a, E>>>;
+type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<Edge<E>>>;
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     p: Painter,
@@ -70,12 +65,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             edge_map
                 .entry((source, target))
                 .or_insert_with(Vec::new)
-                .push((idx, e.clone()));
+                .push(e.clone());
         });
 
         edge_map.iter().for_each(|((start, end), edges)| {
             let mut order = edges.len();
-            edges.iter().for_each(|(_, e)| {
+            edges.iter().for_each(|e| {
                 order -= 1;
 
                 if start == end {
@@ -111,21 +106,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             stroke,
         );
 
-        if !e.subselected() {
-            // draw not selected
-            l.add_bottom(shape);
-            return;
-        }
-
-        // draw selected
-        let stroke_highlighted = Stroke::new(e.width() * self.meta.zoom, e.color());
-        let shape_selected = CubicBezierShape::from_points_stroke(
-            [edge_end, control_point1, control_point2, edge_start],
-            false,
-            Color32::TRANSPARENT,
-            stroke_highlighted,
-        );
-        l.add_top(shape_selected);
+        l.add_bottom(shape);
     }
 
     fn draw_edge_basic(
@@ -170,40 +151,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             let tip_start_2 =
                 tip_end - e.tip_size() * self.meta.zoom * rotate_vector(dir, -e.tip_angle());
 
-            if !e.subselected() {
-                //draw straight not selected
-                let shape = Shape::line_segment([edge_start, edge_end], stroke_edge);
-                l.add_bottom(shape);
+            let shape = Shape::line_segment([edge_start, edge_end], stroke_edge);
+            l.add_bottom(shape);
 
-                // draw tips for directed edges
-                if self.g.is_directed() {
-                    let shape_tip = Shape::convex_polygon(
-                        vec![tip_end, tip_start_1, tip_start_2],
-                        color,
-                        stroke_tip,
-                    );
-                    l.add_bottom(shape_tip);
-                }
-
-                return;
-            }
-
-            // draw straight selected
-            let color_highlight = e.color();
-            let stroke_edge_highlighted = Stroke::new(e.width() * self.meta.zoom, color_highlight);
-            let stroke_tip_highlighted = Stroke::new(0., color_highlight);
-            let shape_selected =
-                Shape::line_segment([edge_start, edge_end], stroke_edge_highlighted);
-
-            l.add_top(shape_selected);
-
+            // draw tips for directed edges
             if self.g.is_directed() {
                 let shape_tip = Shape::convex_polygon(
                     vec![tip_end, tip_start_1, tip_start_2],
-                    color_highlight,
-                    stroke_tip_highlighted,
+                    color,
+                    stroke_tip,
                 );
-                l.add_top(shape_tip)
+                l.add_bottom(shape_tip);
             }
 
             return;
@@ -228,41 +186,18 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         let edge_end_curved = point_between(tip_start_1, tip_start_2);
 
-        if !e.subselected() {
-            // draw curved not selected
-            let shape_curved = QuadraticBezierShape::from_points_stroke(
-                [edge_start, control_point, edge_end_curved],
-                false,
-                Color32::TRANSPARENT,
-                stroke_edge,
-            );
-            l.add_bottom(shape_curved);
-
-            let shape_tip_curved =
-                Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_tip);
-            l.add_bottom(shape_tip_curved);
-
-            return;
-        }
-
-        // draw curved selected
-        let color_highlighted = e.color();
-        let stroke_highlighted_edge = Stroke::new(e.width() * self.meta.zoom, color_highlighted);
-        let stroke_highlighted_tip = Stroke::new(0., color_highlighted);
-        let shape_curved_selected = QuadraticBezierShape::from_points_stroke(
+        // draw curved not selected
+        let shape_curved = QuadraticBezierShape::from_points_stroke(
             [edge_start, control_point, edge_end_curved],
             false,
             Color32::TRANSPARENT,
-            stroke_highlighted_edge,
+            stroke_edge,
         );
-        l.add_top(shape_curved_selected);
+        l.add_bottom(shape_curved);
 
-        let shape_curved_tip_selected = Shape::convex_polygon(
-            vec![tip_end, tip_start_1, tip_start_2],
-            color_highlighted,
-            stroke_highlighted_tip,
-        );
-        l.add_top(shape_curved_tip_selected);
+        let shape_tip_curved =
+            Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_tip);
+        l.add_bottom(shape_tip_curved);
     }
 
     fn shape_label(&self, node_radius: f32, loc: Pos2, n: &Node<N>) -> Option<TextShape> {
