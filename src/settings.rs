@@ -1,7 +1,5 @@
 use egui::Color32;
 
-use crate::{elements::StyleEdge, state_computed::StateComputedEdge, Edge};
-
 /// Represents graph interaction settings.
 #[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
@@ -164,8 +162,6 @@ pub struct SettingsStyle {
 
     /// Loop size for looped edges.
     pub(crate) edge_looped_size: f32,
-
-    color_edge: Color32,
 }
 
 impl Default for SettingsStyle {
@@ -174,7 +170,6 @@ impl Default for SettingsStyle {
             edge_radius_weight: 1.,
             edge_looped_size: 3.,
             folded_radius_weight: 2.,
-            color_edge: Color32::from_rgb(128, 128, 128), // Gray
             color_text_light: Color32::WHITE,
             color_text_dark: Color32::BLACK,
             labels_always: Default::default(),
@@ -216,36 +211,10 @@ impl SettingsStyle {
         self
     }
 
-    /// Sets default color for edge.
-    pub fn with_edge_color(mut self, color: Color32) -> Self {
-        self.color_edge = color;
-        self
-    }
-
     pub(crate) fn color_label(&self, ctx: &egui::Context) -> Color32 {
         match ctx.style().visuals.dark_mode {
             true => self.color_text_light,
             false => self.color_text_dark,
         }
-    }
-
-    pub(crate) fn color_edge<E: Clone>(&self, ctx: &egui::Context, e: &Edge<E>) -> Color32 {
-        if e.color().is_some() {
-            return e.color().unwrap();
-        }
-
-        self.color_edge
-    }
-
-    pub(crate) fn color_edge_highlight(&self, comp: &StateComputedEdge) -> Option<Color32> {
-        if comp.selected_child {
-            return Some(StyleEdge::default().color.interaction.selection_child);
-        }
-
-        if comp.selected_parent {
-            return Some(StyleEdge::default().color.interaction.selection_parent);
-        }
-
-        None
     }
 }

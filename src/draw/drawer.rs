@@ -9,16 +9,12 @@ use petgraph::{
     EdgeType,
 };
 
-use crate::{
-    settings::SettingsStyle,
-    state_computed::{StateComputed, StateComputedEdge},
-    Edge, Graph, Metadata, Node,
-};
+use crate::{settings::SettingsStyle, state_computed::StateComputed, Edge, Graph, Metadata, Node};
 
 use super::layers::Layers;
 
 /// Edge, its index and computed state
-type EdgeWithMeta<'a, E> = (EdgeIndex, Edge<E>, &'a StateComputedEdge);
+type EdgeWithMeta<'a, E> = (EdgeIndex, Edge<E>);
 /// Mapping for 2 nodes and all edges between them
 type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<EdgeWithMeta<'a, E>>>;
 
@@ -80,31 +76,24 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             edge_map
                 .entry((source, target))
                 .or_insert_with(Vec::new)
-                .push((idx, e.clone(), self.comp.edge_state(&idx).unwrap()));
+                .push((idx, e.clone()));
         });
 
         edge_map.iter().for_each(|((start, end), edges)| {
             let mut order = edges.len();
-            edges.iter().for_each(|(_, e, comp)| {
+            edges.iter().for_each(|(_, e)| {
                 order -= 1;
 
                 if start == end {
-                    self.draw_edge_looped(l, start, e, comp, order);
+                    self.draw_edge_looped(l, start, e, order);
                 } else {
-                    self.draw_edge_basic(l, start, end, e, comp, order);
+                    self.draw_edge_basic(l, start, end, e, order);
                 }
             });
         });
     }
 
-    fn draw_edge_looped(
-        &self,
-        l: &mut Layers,
-        n_idx: &NodeIndex,
-        e: &Edge<E>,
-        comp_edge: &StateComputedEdge,
-        order: usize,
-    ) {
+    fn draw_edge_looped(&self, l: &mut Layers, n_idx: &NodeIndex, e: &Edge<E>, order: usize) {
         let node = self.g.node(*n_idx).unwrap();
 
         if node.subfolded() {
@@ -125,10 +114,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
         let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
 
-        let stroke = Stroke::new(
-            comp_edge.width,
-            self.settings_style.color_edge(self.p.ctx(), e),
-        );
+        let stroke = Stroke::new(e.width() * self.meta.zoom, e.color());
         let shape = CubicBezierShape::from_points_stroke(
             [edge_end, control_point1, control_point2, edge_start],
             false,
@@ -136,17 +122,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             stroke,
         );
 
-        if !comp_edge.subselected() {
+        if !e.subselected() {
             // draw not selected
             l.add_bottom(shape);
             return;
         }
 
         // draw selected
-        let stroke_highlighted = Stroke::new(
-            comp_edge.width,
-            self.settings_style.color_edge_highlight(comp_edge).unwrap(),
-        );
+        let stroke_highlighted = Stroke::new(e.width() * self.meta.zoom, e.color());
         let shape_selected = CubicBezierShape::from_points_stroke(
             [edge_end, control_point1, control_point2, edge_start],
             false,
@@ -162,7 +145,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         start_idx: &NodeIndex,
         end_idx: &NodeIndex,
         e: &Edge<E>,
-        comp_edge: &StateComputedEdge,
         order: usize,
     ) {
         let mut n_start = self.g.node(*start_idx).unwrap();
@@ -217,24 +199,26 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         let edge_start = loc_start + start_node_radius_vec;
         let edge_end = match self.g.is_directed() {
-            true => tip_end - comp_edge.tip_size * dir,
+            true => tip_end - e.tip_size() * self.meta.zoom * dir,
             false => tip_end,
         };
 
-        let mut color = self.settings_style.color_edge(self.p.ctx(), e);
+        let mut color = e.color();
         if transparent {
             color = color.gamma_multiply(0.15);
         }
 
-        let stroke_edge = Stroke::new(comp_edge.width, color);
+        let stroke_edge = Stroke::new(e.width() * self.meta.zoom, color);
         let stroke_tip = Stroke::new(0., color);
 
         // draw straight edge
         if order == 0 {
-            let tip_start_1 = tip_end - comp_edge.tip_size * rotate_vector(dir, e.tip_angle());
-            let tip_start_2 = tip_end - comp_edge.tip_size * rotate_vector(dir, -e.tip_angle());
+            let tip_start_1 =
+                tip_end - e.tip_size() * self.meta.zoom * rotate_vector(dir, e.tip_angle());
+            let tip_start_2 =
+                tip_end - e.tip_size() * self.meta.zoom * rotate_vector(dir, -e.tip_angle());
 
-            if !comp_edge.subselected() {
+            if !e.subselected() {
                 //draw straight not selected
                 let shape = Shape::line_segment([edge_start, edge_end], stroke_edge);
                 l.add_bottom(shape);
@@ -253,8 +237,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             }
 
             // draw straight selected
-            let color_highlight = self.settings_style.color_edge_highlight(comp_edge).unwrap();
-            let stroke_edge_highlighted = Stroke::new(comp_edge.width, color_highlight);
+            let color_highlight = e.color();
+            let stroke_edge_highlighted = Stroke::new(e.width() * self.meta.zoom, color_highlight);
             let stroke_tip_highlighted = Stroke::new(0., color_highlight);
             let shape_selected =
                 Shape::line_segment([edge_start, edge_end], stroke_edge_highlighted);
@@ -276,12 +260,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         // draw curved edge
         let dir_perpendicular = Vec2::new(-dir.y, dir.x);
         let center_point = (edge_start + edge_end.to_vec2()).to_vec2() / 2.0;
-        let control_point =
-            (center_point + dir_perpendicular * comp_edge.curve_size * order as f32).to_pos2();
+        let control_point = (center_point
+            + dir_perpendicular * e.curve_size() * self.meta.zoom * order as f32)
+            .to_pos2();
 
         let tip_vec = control_point - tip_end;
         let tip_dir = tip_vec / tip_vec.length();
-        let tip_size = comp_edge.tip_size;
+        let tip_size = e.tip_size() * self.meta.zoom;
 
         let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle()) * tip_size;
         let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle()) * tip_size;
@@ -291,7 +276,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         let edge_end_curved = point_between(tip_start_1, tip_start_2);
 
-        if !comp_edge.subselected() {
+        if !e.subselected() {
             // draw curved not selected
             let shape_curved = QuadraticBezierShape::from_points_stroke(
                 [edge_start, control_point, edge_end_curved],
@@ -309,11 +294,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
 
         // draw curved selected
-        let mut color_highlighted = self.settings_style.color_edge_highlight(comp_edge).unwrap();
+        let mut color_highlighted = e.color();
         if transparent {
             color_highlighted = color_highlighted.gamma_multiply(0.15);
         }
-        let stroke_highlighted_edge = Stroke::new(comp_edge.width, color_highlighted);
+        let stroke_highlighted_edge = Stroke::new(e.width() * self.meta.zoom, color_highlighted);
         let stroke_highlighted_tip = Stroke::new(0., color_highlighted);
         let shape_curved_selected = QuadraticBezierShape::from_points_stroke(
             [edge_start, control_point, edge_end_curved],
@@ -345,13 +330,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     }
 
     fn screen_radius(&self, n: &Node<N>) -> f32 {
-        (n.radius() + n.num_connections() as f32 * self.settings_style.folded_radius_weight)
-            * self.meta.zoom
-    }
-
-    fn screen_radius_folded(&self, n: &Node<N>) -> f32 {
-        (n.radius() + n.num_folded() as f32 * self.settings_style.folded_radius_weight)
-            * self.meta.zoom
+        let addition = match n.folded() {
+            true => n.num_folded() as f32 * self.settings_style.folded_radius_weight,
+            false => n.num_connections() as f32 * self.settings_style.edge_radius_weight,
+        };
+        (n.radius() + addition) * self.meta.zoom
     }
 
     fn screen_location(&self, loc: Vec2) -> Vec2 {
@@ -386,11 +369,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     }
 
     fn draw_node_interacted(&self, l: &mut Layers, node: &Node<N>) {
-        let mut rad = self.screen_radius(node);
+        let loc = self.screen_location(node.location()).to_pos2();
+        let rad = self.screen_radius(node);
         let highlight_radius = rad * 1.5;
         let text_size = rad / 2.;
         let color_stroke = node.color();
-        let loc = self.screen_location(node.location()).to_pos2();
 
         let shape_highlight_outline = CircleShape {
             center: loc,
@@ -402,7 +385,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         l.add_top(shape_highlight_outline);
 
         if node.folded() {
-            rad = self.screen_radius_folded(node);
             let galley = self.p.layout_no_wrap(
                 node.num_folded().to_string(),
                 FontId::monospace(text_size),

@@ -19,7 +19,6 @@ mod settings;
 const SIMULATION_DT: f32 = 0.035;
 const FPS_LINE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
 const CHANGES_LIMIT: usize = 100;
-const EDGE_COLOR: Color32 = Color32::from_rgba_premultiplied(128, 128, 128, 64);
 
 pub struct ConfigurableApp {
     g: Graph<(), (), Directed>,
@@ -661,8 +660,7 @@ impl App for ConfigurableApp {
             let settings_style = &egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always)
                 .with_edge_radius_weight(self.settings_style.edge_radius_weight)
-                .with_folded_radius_weight(self.settings_style.edge_radius_weight)
-                .with_edge_color(EDGE_COLOR);
+                .with_folded_radius_weight(self.settings_style.edge_radius_weight);
             ui.add(
                 &mut GraphView::new(&mut self.g)
                     .with_interactions(settings_interaction)

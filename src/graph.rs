@@ -6,7 +6,7 @@ use petgraph::{
     Direction, EdgeType,
 };
 
-use crate::{metadata::Metadata, transform, Edge, Node};
+use crate::{metadata::Metadata, transform, Edge, Node, SettingsStyle};
 
 /// Graph type compatible with [`super::GraphView`].
 pub struct Graph<N: Clone, E: Clone, Ty: EdgeType> {
@@ -25,11 +25,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<N, E, Ty> {
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
-    pub fn node_by_pos(&self, meta: &'a Metadata, pos: Pos2) -> Option<(NodeIndex, &Node<N>)> {
-        let pos_in_graph = (pos - meta.pan).to_vec2() / meta.zoom;
+    pub fn node_by_screen_pos(
+        &self,
+        meta: &'a Metadata,
+        settings: &'a SettingsStyle,
+        screen_pos: Pos2,
+    ) -> Option<(NodeIndex, &Node<N>)> {
+        let pos_in_graph = (screen_pos.to_vec2() - meta.pan) / meta.zoom;
         self.nodes_iter().find(|(_, n)| {
             let dist_to_node = (n.location() - pos_in_graph).length();
-            dist_to_node <= n.radius() / meta.zoom
+            dist_to_node <= n.radius() + n.num_connections() as f32 * settings.edge_radius_weight
         })
     }
 
@@ -61,6 +66,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<N, E, Ty> {
 
     pub fn node_mut(&mut self, i: NodeIndex) -> Option<&mut Node<N>> {
         self.g.node_weight_mut(i)
+    }
+
+    pub fn edge_mut(&mut self, i: EdgeIndex) -> Option<&mut Edge<E>> {
+        self.g.edge_weight_mut(i)
     }
 
     pub fn is_directed(&self) -> bool {

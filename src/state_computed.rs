@@ -1,54 +1,46 @@
 use std::collections::HashMap;
 
-use egui::{Pos2, Rect};
+use egui::{Pos2, Rect, Vec2};
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
-use crate::{
-    metadata::Metadata, settings::SettingsInteraction, subgraphs::SubGraphs, Edge, Graph, Node,
-};
+use crate::{settings::SettingsInteraction, subgraphs::SubGraphs, Graph, Node, SettingsStyle};
 
 /// The struct stores selections, dragged node and computed elements states.
 #[derive(Debug, Clone)]
 pub struct StateComputed {
     /// Whether we have a node being dragged
     pub has_dragged_node: bool,
-    /// Stores the bounds of the graph
-    pub graph_bounds: Rect,
     pub dragged: Option<NodeIndex>,
     pub selections: SubGraphs,
     pub foldings: SubGraphs,
     pub nodes: HashMap<NodeIndex, StateComputedNode>,
     pub edges: HashMap<EdgeIndex, StateComputedEdge>,
 
-    min_x: f32,
-    min_y: f32,
-    max_x: f32,
-    max_y: f32,
+    min: Vec2,
+    max: Vec2,
+    max_rad: f32,
 }
 
 impl Default for StateComputed {
     fn default() -> Self {
         Self {
             has_dragged_node: false,
-            graph_bounds: Rect::from_two_pos(egui::Pos2::default(), egui::Pos2::default()),
             dragged: None,
             selections: SubGraphs::default(),
             foldings: SubGraphs::default(),
             nodes: HashMap::new(),
             edges: HashMap::new(),
 
-            min_x: f32::MAX,
-            min_y: f32::MAX,
-            max_x: f32::MIN,
-            max_y: f32::MIN,
+            min: Vec2::new(f32::MAX, f32::MAX),
+            max: Vec2::new(f32::MIN, f32::MIN),
+            max_rad: f32::MIN,
         }
     }
 }
 
 impl StateComputed {
-    pub fn compute_for_edge<E: Clone>(&mut self, idx: EdgeIndex, e: &Edge<E>, m: &Metadata) {
-        let comp = self.edges.entry(idx).or_insert(StateComputedEdge::new(e));
-        comp.apply_screen_transform(m);
+    pub fn compute_for_edge(&mut self, idx: EdgeIndex) -> StateComputedEdge {
+        *self.edges.entry(idx).or_default()
     }
 
     pub fn compute_for_node<N: Clone, E: Clone, Ty: EdgeType>(
@@ -64,20 +56,6 @@ impl StateComputed {
             self.dragged = Some(idx);
         }
 
-        let (x, y) = (n.location().x, n.location().y);
-        if x < self.min_x {
-            self.min_x = x;
-        };
-        if y < self.min_y {
-            self.min_y = y;
-        };
-        if x > self.max_x {
-            self.max_x = x;
-        };
-        if y > self.max_y {
-            self.max_y = y;
-        };
-
         self.compute_selection(g, idx, n, settings_interaction);
         self.compute_folding(g, idx, n, settings_interaction);
 
@@ -87,11 +65,31 @@ impl StateComputed {
         *comp
     }
 
-    pub fn compute_graph_bounds(&mut self) {
-        self.graph_bounds = Rect::from_min_max(
-            Pos2::new(self.min_x, self.min_y),
-            Pos2::new(self.max_x, self.max_y),
-        );
+    pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N>, settings: &SettingsStyle) {
+        let rad = n.radius() + n.num_connections() as f32 * settings.edge_radius_weight;
+        if rad > self.max_rad {
+            self.max_rad = rad;
+        }
+
+        let loc = n.location();
+        if loc.x < self.min.x {
+            self.min.x = loc.x;
+        };
+        if loc.x > self.max.x {
+            self.max.x = loc.x;
+        };
+        if loc.y < self.min.y {
+            self.min.y = loc.y;
+        };
+        if loc.y > self.max.y {
+            self.max.y = loc.y;
+        };
+    }
+
+    pub fn graph_bounds(&self) -> Rect {
+        let min = self.min - Vec2::new(self.max_rad, self.max_rad);
+        let max = self.max + Vec2::new(self.max_rad, self.max_rad);
+        Rect::from_min_max(min.to_pos2(), max.to_pos2())
     }
 
     fn compute_selection<N: Clone, E: Clone, Ty: EdgeType>(
@@ -130,10 +128,7 @@ impl StateComputed {
         });
 
         edges.iter().for_each(|idx| {
-            let computed = self
-                .edges
-                .entry(*idx)
-                .or_insert(StateComputedEdge::new(g.edge(*idx).unwrap()));
+            let computed = self.edges.entry(*idx).or_default();
             if child_mode {
                 computed.selected_child = true;
                 return;
@@ -195,45 +190,8 @@ pub struct StateComputedNode {
     pub num_connections: usize,
 }
 
-impl StateComputedNode {
-    /// Indicates if node is visible and should be drawn
-    pub fn visible(&self) -> bool {
-        !self.subfolded()
-    }
-
-    pub fn subfolded(&self) -> bool {
-        self.folded_child
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct StateComputedEdge {
     pub selected_child: bool,
     pub selected_parent: bool,
-    pub width: f32,
-    pub tip_size: f32,
-    pub curve_size: f32,
-}
-
-impl StateComputedEdge {
-    pub fn new<E: Clone>(e: &Edge<E>) -> Self {
-        Self {
-            width: e.width(),
-            tip_size: e.tip_size(),
-            curve_size: e.curve_size(),
-
-            selected_child: Default::default(),
-            selected_parent: Default::default(),
-        }
-    }
-
-    pub fn subselected(&self) -> bool {
-        self.selected_child || self.selected_parent
-    }
-
-    pub fn apply_screen_transform(&mut self, m: &Metadata) {
-        self.width *= m.zoom;
-        self.tip_size *= m.zoom;
-        self.curve_size *= m.zoom;
-    }
 }

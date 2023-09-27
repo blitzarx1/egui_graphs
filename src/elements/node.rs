@@ -89,12 +89,14 @@ impl<N: Clone> Node<N> {
         self.subselected_parent
     }
 
-    pub(crate) fn apply_computed_props(&mut self, comp: StateComputedNode) {
-        self.subfolded = comp.subfolded();
+    pub(crate) fn apply_computed_props(&mut self, comp: &StateComputedNode) {
+        self.num_connections = comp.num_connections;
+
         self.subselected_child = comp.selected_child;
         self.subselected_parent = comp.selected_parent;
+
+        self.subfolded = comp.folded_child;
         self.num_folded = comp.num_folded;
-        self.num_connections = comp.num_connections;
     }
 
     pub fn data(&self) -> Option<&N> {
@@ -153,28 +155,31 @@ impl<N: Clone> Node<N> {
         res
     }
 
-    // TODO: use ctx.style().visuals for color selection
     pub fn color(&self) -> Color32 {
-        if self.folded() {
+        if self.folded {
             return Color32::TRANSPARENT;
         }
 
-        if self.dragged() {
+        if self.dragged {
             return self.style.color.interaction.drag;
         }
 
-        if self.selected() {
+        if self.selected {
             return self.style.color.interaction.selection;
         }
 
-        if self.subselected_child() {
+        if self.subselected_child {
             return self.style.color.interaction.selection_child;
         }
 
-        if self.subselected_parent() {
+        if self.subselected_parent {
             return self.style.color.interaction.selection_parent;
         }
 
+        self.style.color.main
+    }
+
+    pub fn color_main(&self) -> Color32 {
         self.style.color.main
     }
 
