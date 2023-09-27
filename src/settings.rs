@@ -1,10 +1,5 @@
 use egui::Color32;
 
-use crate::{
-    state_computed::{StateComputedEdge, StateComputedNode},
-    Edge, Node,
-};
-
 /// Represents graph interaction settings.
 #[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
@@ -159,18 +154,6 @@ pub struct SettingsStyle {
     pub(crate) edge_radius_weight: f32,
     pub(crate) folded_radius_weight: f32,
 
-    /// Used to color children of the selected nodes.
-    pub(crate) color_selection_child: Color32,
-
-    /// Used to color parents of the selected nodes.
-    pub(crate) color_selection_parent: Color32,
-
-    /// Used to color selected nodes.
-    pub(crate) color_selection: Color32,
-
-    /// Color of nodes being dragged.
-    pub(crate) color_drag: Color32,
-
     /// Text color for light background.
     pub(crate) color_text_light: Color32,
 
@@ -179,9 +162,6 @@ pub struct SettingsStyle {
 
     /// Loop size for looped edges.
     pub(crate) edge_looped_size: f32,
-
-    color_node: Color32,
-    color_edge: Color32,
 }
 
 impl Default for SettingsStyle {
@@ -190,12 +170,6 @@ impl Default for SettingsStyle {
             edge_radius_weight: 1.,
             edge_looped_size: 3.,
             folded_radius_weight: 2.,
-            color_selection: Color32::from_rgba_unmultiplied(0, 255, 127, 153), // Spring Green
-            color_selection_child: Color32::from_rgba_unmultiplied(100, 149, 237, 153), // Cornflower Blue
-            color_selection_parent: Color32::from_rgba_unmultiplied(255, 105, 180, 153), // Hot Pink
-            color_node: Color32::from_rgb(200, 200, 200), // Light Gray
-            color_edge: Color32::from_rgb(128, 128, 128), // Gray
-            color_drag: Color32::from_rgba_unmultiplied(240, 128, 128, 153), // Light Coral
             color_text_light: Color32::WHITE,
             color_text_dark: Color32::BLACK,
             labels_always: Default::default(),
@@ -237,91 +211,10 @@ impl SettingsStyle {
         self
     }
 
-    /// Sets default color for node.
-    pub fn with_node_color(mut self, color: Color32) -> Self {
-        self.color_node = color;
-        self
-    }
-
-    /// Sets default color for edge.
-    pub fn with_edge_color(mut self, color: Color32) -> Self {
-        self.color_edge = color;
-        self
-    }
-
-    pub fn color_node_stroke(&self, ctx: &egui::Context) -> Color32 {
-        if ctx.style().visuals.dark_mode {
-            self.color_node
-        } else {
-            self.color_edge
-        }
-    }
-
-    pub(crate) fn color_node_fill<N: Clone>(
-        &self,
-        ctx: &egui::Context,
-        n: &Node<N>,
-        comp: &StateComputedNode,
-    ) -> Color32 {
-        if n.folded() {
-            return Color32::TRANSPARENT;
-        }
-
-        if n.color().is_some() {
-            return n.color().unwrap();
-        }
-
-        if n.dragged() {
-            return self.color_drag;
-        }
-
-        if n.selected() {
-            return self.color_selection;
-        }
-
-        if comp.selected_child {
-            return self.color_selection_child;
-        }
-
-        if comp.selected_parent {
-            return self.color_selection_parent;
-        }
-
-        if ctx.style().visuals.dark_mode {
-            self.color_node
-        } else {
-            self.color_edge
-        }
-    }
-
     pub(crate) fn color_label(&self, ctx: &egui::Context) -> Color32 {
         match ctx.style().visuals.dark_mode {
             true => self.color_text_light,
             false => self.color_text_dark,
         }
-    }
-
-    pub(crate) fn color_edge<E: Clone>(&self, ctx: &egui::Context, e: &Edge<E>) -> Color32 {
-        if e.color().is_some() {
-            return e.color().unwrap();
-        }
-
-        if ctx.style().visuals.dark_mode {
-            return self.color_edge;
-        }
-
-        self.color_node
-    }
-
-    pub(crate) fn color_edge_highlight(&self, comp: &StateComputedEdge) -> Option<Color32> {
-        if comp.selected_child {
-            return Some(self.color_selection_child);
-        }
-
-        if comp.selected_parent {
-            return Some(self.color_selection_parent);
-        }
-
-        None
     }
 }

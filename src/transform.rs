@@ -99,9 +99,7 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType>(
 /// assert!(loc_1 != Vec2::ZERO);
 /// assert!(loc_2 != Vec2::ZERO);
 /// ```
-pub fn to_graph<N: Clone, E: Clone, Ty: EdgeType>(
-    g: &StableGraph<N, E, Ty>,
-) -> Graph<N, E, Ty> {
+pub fn to_graph<N: Clone, E: Clone, Ty: EdgeType>(g: &StableGraph<N, E, Ty>) -> Graph<N, E, Ty> {
     transform(g, default_node_transform, default_edge_transform)
 }
 
@@ -165,6 +163,8 @@ fn transform<N: Clone, E: Clone, Ty: EdgeType>(
 
 #[cfg(test)]
 mod tests {
+    use crate::elements::StyleNode;
+
     use super::*;
     use petgraph::Directed;
     use petgraph::Undirected;
@@ -193,7 +193,7 @@ mod tests {
 
             assert_eq!(*input_n.label().unwrap(), user_idx.index().to_string());
 
-            assert_eq!(input_n.color(), None);
+            assert_eq!(input_n.color(), StyleNode::default().color.main);
             assert!(!input_n.selected());
             assert!(!input_n.dragged());
         }
@@ -223,7 +223,7 @@ mod tests {
 
             assert_eq!(*input_n.label().unwrap(), user_idx.index().to_string());
 
-            assert_eq!(input_n.color(), None);
+            assert_eq!(input_n.color(), StyleNode::default().color.main);
             assert!(!input_n.selected());
             assert!(!input_n.dragged());
         }

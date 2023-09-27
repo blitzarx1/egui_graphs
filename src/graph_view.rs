@@ -23,7 +23,7 @@ use crate::{
 /// [Sender<Change>] channel, which can be set via the `with_interactions` method. The [Change] struct contains information about
 /// a change that occurred in the graph. Client can use this information to modify external state of his application if needed.
 ///
-/// When the user performs navigation actions (zoom & pan, fit to screen), they do not
+/// When the user performs navigation actions (zoom & pan or fit to screen), they do not
 /// produce changes. This is because these actions are performed on the global coordinates and do not change any
 /// properties of the nodes or edges.
 pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
@@ -39,7 +39,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
         let mut meta = Metadata::get(ui);
-        let mut computed = self.compute_computed(&meta);
+        let mut computed = self.compute_state();
 
         self.handle_fit_to_screen(&resp, &mut meta, &computed);
         self.handle_navigation(ui, &resp, &mut meta, &computed);
@@ -47,7 +47,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut computed, &mut meta);
 
-        Drawer::new(p, self.g, &computed, &self.settings_style).draw();
+        Drawer::new(p, self.g, &computed, &self.settings_style, &meta).draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -101,25 +101,24 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         Metadata::default().store_into_ui(ui);
     }
 
-    fn compute_computed(&self, meta: &Metadata) -> StateComputed {
+    fn compute_state(&mut self) -> StateComputed {
         let mut computed = StateComputed::default();
-        self.g.walk(|g, n_idx, n, e_idx, e| {
-            if let Some(idx) = n_idx {
-                computed.compute_for_node(
-                    g,
-                    *idx,
-                    n.unwrap(),
-                    meta,
-                    &self.settings_interaction,
-                    &self.settings_style,
-                );
-            };
 
-            if let Some(idx) = e_idx {
-                computed.compute_for_edge(*idx, e.unwrap(), meta);
-            };
+        let n_idxs = self.g.g.node_indices().collect::<Vec<_>>();
+        n_idxs.iter().for_each(|idx| {
+            let comp = computed.compute_for_node(self.g, *idx, &self.settings_interaction);
+            
+            let n = self.g.node_mut(*idx).unwrap();
+            n.apply_computed_props(&comp);
+
+            computed.comp_iter_bounds(n, &self.settings_style);
         });
-        computed.compute_graph_bounds();
+
+        let e_idxs = self.g.g.edge_indices().collect::<Vec<_>>();
+        e_idxs.iter().for_each(|idx| {
+            let comp = computed.compute_for_edge(*idx);
+            self.g.edge_mut(*idx).unwrap().apply_computed_props(&comp);
+        });
 
         computed
     }
@@ -149,7 +148,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        let node = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap());
+        let node = self
+            .g
+            .node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap());
         if node.is_none() {
             // click on empty space
             let selectable = self.settings_interaction.selection_enabled
@@ -229,7 +230,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
 
         if resp.drag_started() {
-            if let Some((idx, _)) = self.g.node_by_pos(comp, meta, resp.hover_pos().unwrap()) {
+            if let Some((idx, _)) =
+                self.g
+                    .node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap())
+            {
                 self.set_dragged(idx, true);
             }
         }
@@ -248,7 +252,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata, comp: &StateComputed) {
         // calculate graph dimensions with decorative padding
-        let mut diag = comp.graph_bounds.max - comp.graph_bounds.min;
+        let bounds = comp.graph_bounds();
+        let mut diag = bounds.max - bounds.min;
 
         // if the graph is empty or consists from one node, use a default size
         if diag == Vec2::ZERO {
@@ -274,8 +279,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.zoom(rect, zoom_delta, None, meta);
 
         // calculate the center of the graph and the canvas
-        let graph_center =
-            (comp.graph_bounds.min.to_vec2() + comp.graph_bounds.max.to_vec2()) / 2.0;
+        let graph_center = (bounds.min.to_vec2() + bounds.max.to_vec2()) / 2.0;
 
         // adjust the pan value to align the centers of the graph and the canvas
         meta.pan = rect.center().to_vec2() - graph_center * new_zoom;

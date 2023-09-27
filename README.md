@@ -7,32 +7,17 @@ Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) 
 
 ![Screenshot 2023-04-28 at 23 14 38](https://user-images.githubusercontent.com/32969427/235233765-23b0673b-70e5-4138-9384-180804392dba.png)
 
-This project represents a `Widget` implementation for egui framework. It allows effortless interactive graph visualization with rust.
+The project implements a Widget for the egui framework, enabling easy visualization of interactive graphs in rust. The goal is to implement the very basic engine for graph visualization within egui, which can be easily extended and customized for your needs.
 
 ## Features
-- [ ] Minimap;
-- [ ] Layouts (first one will be [force-directed layout](https://en.wikipedia.org/wiki/Force-directed_graph_drawing) using [fdg-sim](https://docs.rs/crate/fdg-sim/0.9.1) like in [configurable demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/configurable));
-
---- release v1.0.0 ---
-
-- [x] Display node labels;
-- [x] Node folding;
-- [x] Arbitrarily complex graphs with self-references, multiple edges, loops, etc.;
-- [x] Zoom & pan;
-- [x] Dragging, Selecting;
-- [x] Graph elements style configuration;
-- [x] Support for egui dark/light mode;
-- [x] Selection depth;
-- [x] Changes reporting;
+- [x] Visualization of any complex graphs;
+- [x] Zooming and panning;
+- [x] Node labels;
+- [x] Node interactions and events reporting: click, double click, select, drag;
+- [x] Style configuration;
 
 ## Status
-The project is on the track to v1.0.0 and there will be some releases prior. 
-
-Now I am working on [demo project](https://github.com/blitzarx1/wikilinks) for a wikipedia article connections demonstration. This project serves several goals:
-* usage demonstration of the widget;
-* demonstration of web-assembly compatibility;
-* find and polish final pre-release issues;
-* increase discoverability of the project.
+The project is on track for a stable release v1.0.0. For the moment, breaking releases are still possible.
 
 ### Docs
 Docs can be found [here](https://docs.rs/egui_graphs/latest/egui_graphs/)
@@ -112,13 +97,9 @@ fn main() {
 
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
 
-### Interactivity
-
-It is easy to add interactivity to the visualization. Just use `SettingsNavigation` and `SettingsInteraction` with constructor methods. You can also check [basic interactive demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/basic_interactive) and comprehensive [configurable demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/configurable) for usage references and settings description.
-
 ## Gallery
 
-![dynamic_demo](https://user-images.githubusercontent.com/32969427/235311610-b59b4cfb-3e93-49a2-8780-61a83a95af03.gif)
+![demo-dynamic](https://user-images.githubusercontent.com/32969427/235311610-b59b4cfb-3e93-49a2-8780-61a83a95af03.gif)
 
 ![demo-selection](https://user-images.githubusercontent.com/32969427/235490628-ec9c6d5c-63a1-401e-80cf-ccff207949c3.gif)
 
