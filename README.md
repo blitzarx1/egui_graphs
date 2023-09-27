@@ -7,13 +7,13 @@ Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) 
 
 ![Screenshot 2023-04-28 at 23 14 38](https://user-images.githubusercontent.com/32969427/235233765-23b0673b-70e5-4138-9384-180804392dba.png)
 
-The project implements a Widget for the egui framework, enabling easy visualization of interactive graphs in rust.
+The project implements a Widget for the egui framework, enabling easy visualization of interactive graphs in rust. The goal is to implement the very basic engine for graph visualization within egui, which can be easily extended and customized for your needs.
 
 ## Features
 - [x] Visualization of any complex graphs;
 - [x] Zooming and panning;
 - [x] Node labels;
-- [x] Node interactions and events reporting: click, drag;
+- [x] Node interactions and events reporting: click, double click, select, drag;
 - [x] Style configuration;
 
 ## Status
@@ -97,13 +97,9 @@ fn main() {
 
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
 
-### Interactivity
-
-It is easy to add interactivity to the visualization. Just use `SettingsNavigation` and `SettingsInteraction` with constructor methods. You can also check [basic interactive demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/basic_interactive) and comprehensive [configurable demo](https://github.com/blitzarx1/egui_graph/tree/master/examples/configurable) for usage references and settings description.
-
 ## Gallery
 
-![dynamic_demo](https://user-images.githubusercontent.com/32969427/235311610-b59b4cfb-3e93-49a2-8780-61a83a95af03.gif)
+![demo-dynamic](https://user-images.githubusercontent.com/32969427/235311610-b59b4cfb-3e93-49a2-8780-61a83a95af03.gif)
 
 ![demo-selection](https://user-images.githubusercontent.com/32969427/235490628-ec9c6d5c-63a1-401e-80cf-ccff207949c3.gif)
 
