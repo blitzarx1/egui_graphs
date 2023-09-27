@@ -40,7 +40,6 @@ impl Default for SettingsNavigation {
 
 pub struct SettingsStyle {
     pub edge_radius_weight: f32,
-    pub folded_node_radius_weight: f32,
     pub labels_always: bool,
 }
 
@@ -48,7 +47,6 @@ impl Default for SettingsStyle {
     fn default() -> Self {
         Self {
             edge_radius_weight: 1.,
-            folded_node_radius_weight: 2.,
             labels_always: false,
         }
     }

@@ -237,7 +237,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         l.add_bottom(shape);
 
         let show_label = self.settings_style.labels_always || node.selected() || node.dragged();
-
         if show_label {
             if let Some(shape_label) = self.shape_label(rad, loc, node) {
                 l.add_bottom(shape_label);
