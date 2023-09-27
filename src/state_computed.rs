@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use egui::{Pos2, Rect, Vec2};
+use egui::{Rect, Vec2};
 use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex, EdgeType};
 
 use crate::{settings::SettingsInteraction, subgraphs::SubGraphs, Graph, Node, SettingsStyle};
@@ -8,8 +8,6 @@ use crate::{settings::SettingsInteraction, subgraphs::SubGraphs, Graph, Node, Se
 /// The struct stores selections, dragged node and computed elements states.
 #[derive(Debug, Clone)]
 pub struct StateComputed {
-    /// Whether we have a node being dragged
-    pub has_dragged_node: bool,
     pub dragged: Option<NodeIndex>,
     pub selections: SubGraphs,
     pub foldings: SubGraphs,
@@ -24,7 +22,6 @@ pub struct StateComputed {
 impl Default for StateComputed {
     fn default() -> Self {
         Self {
-            has_dragged_node: false,
             dragged: None,
             selections: SubGraphs::default(),
             foldings: SubGraphs::default(),
