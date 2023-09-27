@@ -223,7 +223,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             }
         }
 
-        if resp.dragged() && comp.dragged.is_some() {
+        if resp.dragged()
+            && comp.dragged.is_some()
+            && (resp.drag_delta().x > 0. || resp.drag_delta().y > 0.)
+        {
             let n_idx_dragged = comp.dragged.unwrap();
             let delta_in_graph_coords = resp.drag_delta() / meta.zoom;
             self.move_node(n_idx_dragged, delta_in_graph_coords);
