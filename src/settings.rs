@@ -166,9 +166,6 @@ impl SettingsStyle {
     }
 
     pub(crate) fn color_label(&self, ctx: &egui::Context) -> Color32 {
-        match ctx.style().visuals.dark_mode {
-            true => self.color_text_light,
-            false => self.color_text_dark,
-        }
+        ctx.style().visuals.text_color()
     }
 }
