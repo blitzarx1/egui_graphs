@@ -2,7 +2,7 @@ use std::{collections::HashMap, f32::consts::PI};
 
 use egui::{
     epaint::{CircleShape, CubicBezierShape, QuadraticBezierShape, TextShape},
-    Color32, FontFamily, FontId, Painter, Pos2, Shape, Stroke, Vec2,
+    Color32, Context, FontFamily, FontId, Painter, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
@@ -36,27 +36,27 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
     }
 
-    pub fn draw(self) {
+    pub fn draw(self, ctx: &Context) {
         let mut l = Layers::default();
 
-        self.fill_layers_edges(&mut l);
-        self.fill_layers_nodes(&mut l);
+        self.fill_layers_edges(ctx, &mut l);
+        self.fill_layers_nodes(ctx, &mut l);
 
         l.draw(self.p)
     }
 
-    fn fill_layers_nodes(&self, l: &mut Layers) {
+    fn fill_layers_nodes(&self, ctx: &Context, l: &mut Layers) {
         self.g.nodes_iter().for_each(|(_, n)| {
-            self.draw_node_basic(l, n);
+            self.draw_node_basic(ctx, l, n);
 
             if !(n.selected() || n.dragged()) {
                 return;
             }
-            self.draw_node_interacted(l, n);
+            self.draw_node_interacted(ctx, l, n);
         });
     }
 
-    fn fill_layers_edges(&self, l: &mut Layers) {
+    fn fill_layers_edges(&self, ctx: &Context, l: &mut Layers) {
         let mut edge_map: EdgeMap<E> = HashMap::new();
 
         self.g.edges_iter().for_each(|(idx, e)| {
@@ -74,15 +74,22 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 order -= 1;
 
                 if start == end {
-                    self.draw_edge_looped(l, start, e, order);
+                    self.draw_edge_looped(ctx, l, start, e, order);
                 } else {
-                    self.draw_edge_basic(l, start, end, e, order);
+                    self.draw_edge_basic(ctx, l, start, end, e, order);
                 }
             });
         });
     }
 
-    fn draw_edge_looped(&self, l: &mut Layers, n_idx: &NodeIndex, e: &Edge<E>, order: usize) {
+    fn draw_edge_looped(
+        &self,
+        ctx: &Context,
+        l: &mut Layers,
+        n_idx: &NodeIndex,
+        e: &Edge<E>,
+        order: usize,
+    ) {
         let node = self.g.node(*n_idx).unwrap();
 
         let rad = self.screen_radius(node);
@@ -98,7 +105,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
         let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
 
-        let stroke = Stroke::new(e.width() * self.meta.zoom, e.color());
+        let stroke = Stroke::new(e.width() * self.meta.zoom, e.color(ctx));
         let shape = CubicBezierShape::from_points_stroke(
             [edge_end, control_point1, control_point2, edge_start],
             false,
@@ -111,6 +118,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
     fn draw_edge_basic(
         &self,
+        ctx: &Context,
         l: &mut Layers,
         start_idx: &NodeIndex,
         end_idx: &NodeIndex,
@@ -140,7 +148,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             false => tip_end,
         };
 
-        let color = e.color();
+        let color = e.color(ctx);
         let stroke_edge = Stroke::new(e.width() * self.meta.zoom, color);
         let stroke_tip = Stroke::new(0., color);
 
@@ -222,9 +230,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         loc * self.meta.zoom + self.meta.pan
     }
 
-    fn draw_node_basic(&self, l: &mut Layers, node: &Node<N>) {
-        let color_fill = node.color();
-        let color_stroke = node.color();
+    fn draw_node_basic(&self, ctx: &Context, l: &mut Layers, node: &Node<N>) {
+        let color_fill = node.color(ctx);
+        let color_stroke = node.color(ctx);
         let rad = self.screen_radius(node);
         let loc = self.screen_location(node.location()).to_pos2();
         let stroke = Stroke::new(1., color_stroke);
@@ -244,11 +252,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
     }
 
-    fn draw_node_interacted(&self, l: &mut Layers, node: &Node<N>) {
+    fn draw_node_interacted(&self, ctx: &Context, l: &mut Layers, node: &Node<N>) {
         let loc = self.screen_location(node.location()).to_pos2();
         let rad = self.screen_radius(node);
         let highlight_radius = rad * 1.5;
-        let color_stroke = node.color();
+        let color_stroke = node.color(ctx);
 
         let shape_highlight_outline = CircleShape {
             center: loc,

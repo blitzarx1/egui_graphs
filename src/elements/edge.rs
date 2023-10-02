@@ -1,4 +1,4 @@
-use egui::Color32;
+use egui::{Color32, Context};
 
 use super::StyleEdge;
 
@@ -38,14 +38,8 @@ impl<E: Clone> Edge<E> {
         self.data.as_ref()
     }
 
-    pub fn color(&self) -> Color32 {
-        self.style.color.main
-    }
-
-    pub fn with_color(&mut self, color: Color32) -> Self {
-        let mut ne = self.clone();
-        ne.style.color.main = color;
-        ne
+    pub fn color(&self, ctx: &Context) -> Color32 {
+        self.style.color(ctx).main
     }
 
     pub fn width(&self) -> f32 {
