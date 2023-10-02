@@ -156,8 +156,4 @@ impl SettingsStyle {
         self.edge_radius_weight = weight;
         self
     }
-
-    pub(crate) fn color_label(&self, ctx: &egui::Context) -> Color32 {
-        ctx.style().visuals.text_color()
-    }
 }

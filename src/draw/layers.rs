@@ -17,7 +17,7 @@ impl Layers {
         self.top.push(shape.into());
     }
 
-    pub fn draw(self, p: Painter) {
+    pub(crate) fn draw(self, p: Painter) {
         self.bottom.into_iter().for_each(|shape| {
             p.add(shape);
         });

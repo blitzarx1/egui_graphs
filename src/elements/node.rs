@@ -12,7 +12,7 @@ pub struct Node<N: Clone> {
 
     location: Vec2,
 
-    label: Option<String>,
+    label: String,
 
     style: StyleNode,
 
@@ -39,7 +39,7 @@ impl<N: Clone> Node<N> {
     }
 
     pub fn screen_radius(&self, m: &Metadata) -> f32 {
-        self.style.radius * m.zoom
+        (self.radius() + self.num_connections() as f32) * m.zoom
     }
 
     pub fn radius(&self) -> f32 {
@@ -96,26 +96,26 @@ impl<N: Clone> Node<N> {
         self.dragged = dragged;
     }
 
-    pub fn label(&self) -> Option<&String> {
-        self.label.as_ref()
+    pub fn label(&self) -> String {
+        self.label.clone()
     }
 
     pub fn with_label(&mut self, label: String) -> Self {
         let mut res = self.clone();
-        res.label = Some(label);
+        res.label = label;
         res
     }
 
     pub fn color(&self, ctx: &Context) -> Color32 {
         if self.dragged {
-            return self.style.color(ctx).interaction.drag;
+            return ctx.style().visuals.widgets.active.fg_stroke.color;
         }
 
         if self.selected {
-            return self.style.color(ctx).interaction.selection;
+            return ctx.style().visuals.widgets.hovered.fg_stroke.color;
         }
 
-        self.style.color(ctx).main
+        ctx.style().visuals.widgets.inactive.fg_stroke.color
     }
 
     pub fn color_main(&self, ctx: &Context) -> Color32 {

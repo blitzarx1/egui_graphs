@@ -49,7 +49,7 @@ fn generate_graph() -> Graph<(), (), Directed> {
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui_graphs_basic_interactive_demo",
+        "egui_graphs_interactive_demo",
         native_options,
         Box::new(|cc| Box::new(BasicInteractiveApp::new(cc))),
     )

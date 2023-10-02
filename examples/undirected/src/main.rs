@@ -44,7 +44,7 @@ fn generate_graph() -> StableGraph<(), (), Undirected> {
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui_graphs_basic_undirected_demo",
+        "egui_graphs_undirected_demo",
         native_options,
         Box::new(|cc| Box::new(BasicUndirectedApp::new(cc))),
     )
