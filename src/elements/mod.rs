@@ -2,6 +2,7 @@ mod edge;
 mod edge_style;
 mod node;
 mod node_style;
+mod color;
 
 pub use self::edge::Edge;
 pub use self::node::Node;
