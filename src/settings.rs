@@ -117,12 +117,6 @@ pub struct SettingsStyle {
     pub(crate) labels_always: bool,
     pub(crate) edge_radius_weight: f32,
 
-    /// Text color for light background.
-    pub(crate) color_text_light: Color32,
-
-    /// Text color for dark background.
-    pub(crate) color_text_dark: Color32,
-
     /// Loop size for looped edges.
     pub(crate) edge_looped_size: f32,
 }
@@ -132,8 +126,6 @@ impl Default for SettingsStyle {
         Self {
             edge_radius_weight: 1.,
             edge_looped_size: 3.,
-            color_text_light: Color32::WHITE,
-            color_text_dark: Color32::BLACK,
             labels_always: Default::default(),
         }
     }
@@ -166,9 +158,6 @@ impl SettingsStyle {
     }
 
     pub(crate) fn color_label(&self, ctx: &egui::Context) -> Color32 {
-        match ctx.style().visuals.dark_mode {
-            true => self.color_text_light,
-            false => self.color_text_dark,
-        }
+        ctx.style().visuals.text_color()
     }
 }
