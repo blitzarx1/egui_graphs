@@ -1,4 +1,4 @@
-use egui::{Color32, Vec2};
+use egui::{Color32, Context, Vec2};
 
 use crate::{metadata::Metadata, ComputedNode};
 
@@ -106,25 +106,19 @@ impl<N: Clone> Node<N> {
         res
     }
 
-    pub fn color(&self) -> Color32 {
+    pub fn color(&self, ctx: &Context) -> Color32 {
         if self.dragged {
-            return self.style.color.interaction.drag;
+            return self.style.color(ctx).interaction.drag;
         }
 
         if self.selected {
-            return self.style.color.interaction.selection;
+            return self.style.color(ctx).interaction.selection;
         }
 
-        self.style.color.main
+        self.style.color(ctx).main
     }
 
-    pub fn color_main(&self) -> Color32 {
-        self.style.color.main
-    }
-
-    pub fn with_color(&mut self, color: Color32) -> Self {
-        let mut nn = self.clone();
-        nn.style.color.main = color;
-        nn
+    pub fn color_main(&self, ctx: &Context) -> Color32 {
+        self.style.color(ctx).main
     }
 }

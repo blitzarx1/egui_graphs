@@ -163,8 +163,6 @@ fn transform<N: Clone, E: Clone, Ty: EdgeType>(
 
 #[cfg(test)]
 mod tests {
-    use crate::elements::StyleNode;
-
     use super::*;
     use petgraph::Directed;
     use petgraph::Undirected;
@@ -193,7 +191,6 @@ mod tests {
 
             assert_eq!(*input_n.label().unwrap(), user_idx.index().to_string());
 
-            assert_eq!(input_n.color(), StyleNode::default().color.main);
             assert!(!input_n.selected());
             assert!(!input_n.dragged());
         }
@@ -223,7 +220,6 @@ mod tests {
 
             assert_eq!(*input_n.label().unwrap(), user_idx.index().to_string());
 
-            assert_eq!(input_n.color(), StyleNode::default().color.main);
             assert!(!input_n.selected());
             assert!(!input_n.dragged());
         }
