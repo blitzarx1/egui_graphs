@@ -14,7 +14,7 @@ use super::layers::Layers;
 type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<Edge<E>>>;
 
 /// Custom node draw function
-pub type FnCustomNodeDraw<N: Clone> = fn(&Context, n: &Node<N>, &Metadata, &SettingsStyle, &mut Layers);
+pub type FnCustomNodeDraw<N> = fn(&Context, n: &Node<N>, &Metadata, &SettingsStyle, &mut Layers);
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     p: Painter,

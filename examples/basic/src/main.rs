@@ -1,5 +1,5 @@
 use eframe::{run_native, App, CreationContext};
-use egui::{Context, Vec2};
+use egui::Context;
 use egui_graphs::{Graph, GraphView};
 use petgraph::{stable_graph::StableGraph, Directed};
 
