@@ -1,5 +1,7 @@
 use egui::{Color32, Context};
 
+use super::color;
+
 #[derive(Clone, Debug)]
 pub struct StyleNode {
     pub radius: f32,
@@ -45,10 +47,10 @@ impl Default for ColorsNode {
 impl ColorsNode {
     fn inverse(&self) -> Self {
         Self {
-            main: inverse_color(self.main),
+            main: color::inverse(self.main),
             interaction: ColorsInteractionNode {
-                selection: inverse_color(self.interaction.selection),
-                drag: inverse_color(self.interaction.drag),
+                selection: color::inverse(self.interaction.selection),
+                drag: color::inverse(self.interaction.drag),
             },
         }
     }
@@ -67,8 +69,4 @@ impl Default for ColorsInteractionNode {
             drag: Color32::from_rgba_unmultiplied(240, 128, 128, 153),    // Light Coral
         }
     }
-}
-
-fn inverse_color(c: Color32) -> Color32 {
-    Color32::from_rgb(255 - c.r(), 255 - c.g(), 255 - c.b())
 }

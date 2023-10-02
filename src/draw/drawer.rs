@@ -2,7 +2,7 @@ use std::{collections::HashMap, f32::consts::PI};
 
 use egui::{
     epaint::{CircleShape, CubicBezierShape, QuadraticBezierShape, TextShape},
-    Color32, Context, FontFamily, FontId, Painter, Pos2, Shape, Stroke, Vec2,
+    Color32, FontFamily, FontId, Painter, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
@@ -36,27 +36,27 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         }
     }
 
-    pub fn draw(self, ctx: &Context) {
+    pub fn draw(self) {
         let mut l = Layers::default();
 
-        self.fill_layers_edges(ctx, &mut l);
-        self.fill_layers_nodes(ctx, &mut l);
+        self.fill_layers_edges(&mut l);
+        self.fill_layers_nodes(&mut l);
 
         l.draw(self.p)
     }
 
-    fn fill_layers_nodes(&self, ctx: &Context, l: &mut Layers) {
+    fn fill_layers_nodes(&self, l: &mut Layers) {
         self.g.nodes_iter().for_each(|(_, n)| {
-            self.draw_node_basic(ctx, l, n);
+            let (mut rad, loc) = self.draw_node_basic(l, n);
+            if let Some(rad_interacted) = self.draw_node_interacted(l, n) {
+                rad = rad_interacted;
+            };
 
-            if !(n.selected() || n.dragged()) {
-                return;
-            }
-            self.draw_node_interacted(ctx, l, n);
+            self.draw_node_label(l, rad, loc, n);
         });
     }
 
-    fn fill_layers_edges(&self, ctx: &Context, l: &mut Layers) {
+    fn fill_layers_edges(&self, l: &mut Layers) {
         let mut edge_map: EdgeMap<E> = HashMap::new();
 
         self.g.edges_iter().for_each(|(idx, e)| {
@@ -74,22 +74,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 order -= 1;
 
                 if start == end {
-                    self.draw_edge_looped(ctx, l, start, e, order);
+                    self.draw_edge_looped(l, start, e, order);
                 } else {
-                    self.draw_edge_basic(ctx, l, start, end, e, order);
+                    self.draw_edge_basic(l, start, end, e, order);
                 }
             });
         });
     }
 
-    fn draw_edge_looped(
-        &self,
-        ctx: &Context,
-        l: &mut Layers,
-        n_idx: &NodeIndex,
-        e: &Edge<E>,
-        order: usize,
-    ) {
+    fn draw_edge_looped(&self, l: &mut Layers, n_idx: &NodeIndex, e: &Edge<E>, order: usize) {
         let node = self.g.node(*n_idx).unwrap();
 
         let rad = self.screen_radius(node);
@@ -105,7 +98,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
         let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
 
-        let stroke = Stroke::new(e.width() * self.meta.zoom, e.color(ctx));
+        let stroke = Stroke::new(e.width() * self.meta.zoom, e.color(self.p.ctx()));
         let shape = CubicBezierShape::from_points_stroke(
             [edge_end, control_point1, control_point2, edge_start],
             false,
@@ -118,7 +111,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
     fn draw_edge_basic(
         &self,
-        ctx: &Context,
         l: &mut Layers,
         start_idx: &NodeIndex,
         end_idx: &NodeIndex,
@@ -148,7 +140,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             false => tip_end,
         };
 
-        let color = e.color(ctx);
+        let color = e.color(self.p.ctx());
         let stroke_edge = Stroke::new(e.width() * self.meta.zoom, color);
         let stroke_tip = Stroke::new(0., color);
 
@@ -208,10 +200,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         l.add_bottom(shape_tip_curved);
     }
 
-    fn shape_label(&self, node_radius: f32, loc: Pos2, n: &Node<N>) -> Option<TextShape> {
+    fn shape_label(&self, n_rad: f32, n_loc: Pos2, n: &Node<N>) -> Option<TextShape> {
         let color_label = self.settings_style.color_label(self.p.ctx());
-        let label_pos = Pos2::new(loc.x, loc.y - node_radius * 2.);
-        let label_size = node_radius;
+        let label_pos = Pos2::new(n_loc.x, n_loc.y - n_rad * 2.);
+        let label_size = n_rad;
         let galley = self.p.layout_no_wrap(
             n.label()?.clone(),
             FontId::new(label_size, FontFamily::Monospace),
@@ -221,42 +213,33 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         Some(TextShape::new(label_pos, galley))
     }
 
-    fn screen_radius(&self, n: &Node<N>) -> f32 {
-        let addition = n.num_connections() as f32 * self.settings_style.edge_radius_weight;
-        (n.radius() + addition) * self.meta.zoom
-    }
-
-    fn screen_location(&self, loc: Vec2) -> Vec2 {
-        loc * self.meta.zoom + self.meta.pan
-    }
-
-    fn draw_node_basic(&self, ctx: &Context, l: &mut Layers, node: &Node<N>) {
-        let color_fill = node.color(ctx);
-        let color_stroke = node.color(ctx);
+    // returns radius and node location on the screen
+    fn draw_node_basic(&self, l: &mut Layers, node: &Node<N>) -> (f32, Vec2) {
+        let color_fill = node.color(self.p.ctx());
+        let color_stroke = node.color(self.p.ctx());
         let rad = self.screen_radius(node);
-        let loc = self.screen_location(node.location()).to_pos2();
+        let loc = self.screen_location(node.location());
         let stroke = Stroke::new(1., color_stroke);
         let shape = CircleShape {
-            center: loc,
+            center: loc.to_pos2(),
             radius: rad,
             fill: color_fill,
             stroke,
         };
         l.add_bottom(shape);
-
-        let show_label = self.settings_style.labels_always || node.selected() || node.dragged();
-        if show_label {
-            if let Some(shape_label) = self.shape_label(rad, loc, node) {
-                l.add_bottom(shape_label);
-            }
-        }
+        (rad, loc)
     }
 
-    fn draw_node_interacted(&self, ctx: &Context, l: &mut Layers, node: &Node<N>) {
-        let loc = self.screen_location(node.location()).to_pos2();
-        let rad = self.screen_radius(node);
+    // returns radius of the node on the screen if drawn
+    fn draw_node_interacted(&self, l: &mut Layers, n: &Node<N>) -> Option<f32> {
+        if !(n.selected() || n.dragged()) {
+            return None;
+        }
+
+        let loc = self.screen_location(n.location()).to_pos2();
+        let rad = self.screen_radius(n);
         let highlight_radius = rad * 1.5;
-        let color_stroke = node.color(ctx);
+        let color_stroke = n.color(self.p.ctx());
 
         let shape_highlight_outline = CircleShape {
             center: loc,
@@ -266,6 +249,26 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         };
 
         l.add_top(shape_highlight_outline);
+
+        Some(highlight_radius)
+    }
+
+    fn draw_node_label(&self, l: &mut Layers, n_rad: f32, n_loc: Vec2, n: &Node<N>) {
+        let show_label = self.settings_style.labels_always || n.selected() || n.dragged();
+        if show_label {
+            if let Some(shape_label) = self.shape_label(n_rad, n_loc.to_pos2(), n) {
+                l.add_bottom(shape_label);
+            }
+        }
+    }
+
+    fn screen_radius(&self, n: &Node<N>) -> f32 {
+        let addition = n.num_connections() as f32 * self.settings_style.edge_radius_weight;
+        (n.radius() + addition) * self.meta.zoom
+    }
+
+    fn screen_location(&self, loc: Vec2) -> Vec2 {
+        loc * self.meta.zoom + self.meta.pan
     }
 }
 

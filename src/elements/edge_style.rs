@@ -1,5 +1,7 @@
 use egui::{Color32, Context};
 
+use super::color;
+
 #[derive(Clone, Debug)]
 pub struct StyleEdge {
     pub width: f32,
@@ -50,11 +52,7 @@ impl Default for ColorsEdge {
 impl ColorsEdge {
     fn inverse(&self) -> Self {
         Self {
-            main: inverse_color(self.main),
+            main: color::inverse(self.main),
         }
     }
-}
-
-fn inverse_color(c: Color32) -> Color32 {
-    Color32::from_rgb(255 - c.r(), 255 - c.g(), 255 - c.b())
 }

@@ -2,9 +2,9 @@ use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
-use egui::plot::{Line, Plot, PlotPoints};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2};
 use egui_graphs::{to_graph, Change, Edge, Graph, GraphView, Node};
+use egui_plot::{Line, Plot, PlotPoints};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
