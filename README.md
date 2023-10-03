@@ -13,7 +13,7 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 - [x] Zooming and panning;
 - [x] Node labels;
 - [x] Node interactions and events reporting: click, double click, select, drag;
-- [x] Style configuration;
+- [x] Style configuration via egui context styles;
 - [x] egui dark/light theme support;
 
 ## Status

@@ -1,0 +1,175 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'basic'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=basic",
+                    "--package=basic"
+                ],
+                "filter": {
+                    "name": "basic",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'basic'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=basic",
+                    "--package=basic"
+                ],
+                "filter": {
+                    "name": "basic",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'egui_graphs'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=egui_graphs"
+                ],
+                "filter": {
+                    "name": "egui_graphs",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'configurable'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=configurable",
+                    "--package=configurable"
+                ],
+                "filter": {
+                    "name": "configurable",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'configurable'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=configurable",
+                    "--package=configurable"
+                ],
+                "filter": {
+                    "name": "configurable",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'interactive'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=interactive",
+                    "--package=interactive"
+                ],
+                "filter": {
+                    "name": "interactive",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'interactive'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=interactive",
+                    "--package=interactive"
+                ],
+                "filter": {
+                    "name": "interactive",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'undirected'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=undirected",
+                    "--package=undirected"
+                ],
+                "filter": {
+                    "name": "undirected",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'undirected'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=undirected",
+                    "--package=undirected"
+                ],
+                "filter": {
+                    "name": "undirected",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

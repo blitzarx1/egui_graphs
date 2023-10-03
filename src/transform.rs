@@ -91,8 +91,8 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType>(
 ///
 /// assert_eq!(*input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().data().clone().unwrap(), "edge1");
 ///
-/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().label().clone().unwrap(), input_node_1.index().to_string());
-/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().label().clone().unwrap(), input_node_2.index().to_string());
+/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().label().clone(), input_node_1.index().to_string());
+/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().label().clone(), input_node_2.index().to_string());
 ///
 /// let loc_1 = input_graph.g.node_weight(input_node_1).unwrap().location();
 /// let loc_2 = input_graph.g.node_weight(input_node_2).unwrap().location();
@@ -189,7 +189,7 @@ mod tests {
             assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
             assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
 
-            assert_eq!(*input_n.label().unwrap(), user_idx.index().to_string());
+            assert_eq!(*input_n.label(), user_idx.index().to_string());
 
             assert!(!input_n.selected());
             assert!(!input_n.dragged());
@@ -218,7 +218,7 @@ mod tests {
             assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
             assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
 
-            assert_eq!(*input_n.label().unwrap(), user_idx.index().to_string());
+            assert_eq!(*input_n.label(), user_idx.index().to_string());
 
             assert!(!input_n.selected());
             assert!(!input_n.dragged());

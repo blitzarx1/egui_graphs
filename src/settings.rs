@@ -1,5 +1,3 @@
-use egui::Color32;
-
 /// Represents graph interaction settings.
 #[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
@@ -155,9 +153,5 @@ impl SettingsStyle {
     pub fn with_edge_radius_weight(mut self, weight: f32) -> Self {
         self.edge_radius_weight = weight;
         self
-    }
-
-    pub(crate) fn color_label(&self, ctx: &egui::Context) -> Color32 {
-        ctx.style().visuals.text_color()
     }
 }

@@ -345,26 +345,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "basic_interactive"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui",
- "egui_graphs",
- "petgraph",
-]
-
-[[package]]
-name = "basic_undirected"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui",
- "egui_graphs",
- "petgraph",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -730,6 +710,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "custom_draw"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_graphs",
+ "petgraph",
+]
+
+[[package]]
 name = "derivative"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -857,7 +847,7 @@ dependencies = [
 
 [[package]]
 name = "egui_graphs"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "crossbeam",
  "egui",
@@ -1318,6 +1308,16 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "interactive"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_graphs",
+ "petgraph",
 ]
 
 [[package]]
@@ -2345,6 +2345,16 @@ checksum = "ce65604324d3cce9b966701489fbd0cf318cb1f7bd9dd07ac9a4ee6fb791930d"
 dependencies = [
  "tempfile",
  "winapi",
+]
+
+[[package]]
+name = "undirected"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_graphs",
+ "petgraph",
 ]
 
 [[package]]

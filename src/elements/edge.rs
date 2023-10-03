@@ -39,7 +39,9 @@ impl<E: Clone> Edge<E> {
     }
 
     pub fn color(&self, ctx: &Context) -> Color32 {
-        self.style.color(ctx).main
+        ctx.style()
+            .visuals
+            .gray_out(ctx.style().visuals.widgets.inactive.fg_stroke.color)
     }
 
     pub fn width(&self) -> f32 {

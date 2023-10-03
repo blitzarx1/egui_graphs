@@ -4,11 +4,12 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{
     change::{Change, ChangeNode},
+    computed::ComputedState,
+    draw::FnCustomNodeDraw,
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
-    computed::ComputedState,
-    Drawer, Graph,
+    draw::Drawer, Graph,
 };
 
 /// Widget for visualizing and interacting with graphs.
@@ -32,6 +33,8 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_style: SettingsStyle,
     g: &'a mut Graph<N, E, Ty>,
     changes_sender: Option<&'a Sender<Change>>,
+
+    custom_node_draw: Option<FnCustomNodeDraw<N>>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
@@ -47,7 +50,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut meta, &computed);
 
-        Drawer::new(p, self.g, &self.settings_style, &meta).draw();
+        Drawer::new(
+            p,
+            self.g,
+            &self.settings_style,
+            &meta,
+            self.custom_node_draw,
+        )
+        .draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -67,7 +77,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
             changes_sender: Default::default(),
+            custom_node_draw: Default::default(),
         }
+    }
+
+    pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N>) -> Self {
+        self.custom_node_draw = Some(func);
+        self
     }
 
     /// Makes widget interactive according to the provided settings.
