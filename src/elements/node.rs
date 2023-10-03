@@ -119,8 +119,4 @@ impl<N: Clone> Node<N> {
 
         ctx.style().visuals.widgets.inactive.fg_stroke.color
     }
-
-    pub fn color_main(&self, ctx: &Context) -> Color32 {
-        self.style.color(ctx).main
-    }
 }
