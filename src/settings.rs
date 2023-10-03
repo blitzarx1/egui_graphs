@@ -1,5 +1,3 @@
-use egui::Color32;
-
 /// Represents graph interaction settings.
 #[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
