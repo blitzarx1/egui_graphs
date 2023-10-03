@@ -34,10 +34,12 @@ impl<N: Clone> Node<N> {
         }
     }
 
+    /// Returns actual location of the node on the screen. It accounts for the current zoom and pan values.
     pub fn screen_location(&self, m: &Metadata) -> Vec2 {
         self.location * m.zoom + m.pan
     }
 
+    /// Returns actual radius of the node on the screen. It accounts for the number of connections and current zoom value.
     pub fn screen_radius(&self, m: &Metadata) -> f32 {
         (self.radius() + self.num_connections() as f32) * m.zoom
     }

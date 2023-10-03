@@ -9,7 +9,7 @@ use crate::{
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
-    Drawer, Graph,
+    draw::Drawer, Graph,
 };
 
 /// Widget for visualizing and interacting with graphs.

@@ -710,6 +710,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "custom_draw"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_graphs",
+ "petgraph",
+]
+
+[[package]]
 name = "derivative"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -837,7 +847,7 @@ dependencies = [
 
 [[package]]
 name = "egui_graphs"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "crossbeam",
  "egui",

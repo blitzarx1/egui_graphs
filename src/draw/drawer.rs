@@ -111,7 +111,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             stroke,
         );
 
-        l.add_bottom(shape);
+        l.add(shape);
     }
 
     fn draw_edge_basic(
@@ -157,7 +157,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                 tip_end - e.tip_size() * self.meta.zoom * rotate_vector(dir, -e.tip_angle());
 
             let shape = Shape::line_segment([edge_start, edge_end], stroke_edge);
-            l.add_bottom(shape);
+            l.add(shape);
 
             // draw tips for directed edges
             if self.g.is_directed() {
@@ -166,7 +166,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
                     color,
                     stroke_tip,
                 );
-                l.add_bottom(shape_tip);
+                l.add(shape_tip);
             }
 
             return;
@@ -198,11 +198,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             Color32::TRANSPARENT,
             stroke_edge,
         );
-        l.add_bottom(shape_curved);
+        l.add(shape_curved);
 
         let shape_tip_curved =
             Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_tip);
-        l.add_bottom(shape_tip_curved);
+        l.add(shape_tip_curved);
     }
 
     fn default_node_draw(
@@ -229,7 +229,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         };
         match is_interacted {
             true => l.add_top(shape_node),
-            false => l.add_bottom(shape_node),
+            false => l.add(shape_node),
         };
 
         let show_label = style.labels_always || is_interacted;
@@ -251,7 +251,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let shape_label = TextShape::new(label_pos, galley);
         match is_interacted {
             true => l.add_top(shape_label),
-            false => l.add_bottom(shape_label),
+            false => l.add(shape_label),
         };
     }
 }

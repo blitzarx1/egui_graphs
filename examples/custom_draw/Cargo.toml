@@ -1,0 +1,12 @@
+[package]
+name = "custom_draw"
+version = "0.1.0"
+authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+egui_graphs = { path = "../../" }
+egui = "0.23"
+eframe = "0.23"
+petgraph = "0.6"
