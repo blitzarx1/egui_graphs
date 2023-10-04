@@ -9,6 +9,7 @@ use petgraph::{
 use crate::{metadata::Metadata, transform, Edge, Node, SettingsStyle};
 
 /// Graph type compatible with [`super::GraphView`].
+#[derive(Debug, Clone)]
 pub struct Graph<N: Clone, E: Clone, Ty: EdgeType> {
     pub g: StableGraph<Node<N>, Edge<E>, Ty>,
 }

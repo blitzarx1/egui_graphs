@@ -13,7 +13,13 @@ use super::layers::Layers;
 /// Mapping for 2 nodes and all edges between them
 type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<Edge<E>>>;
 
-/// Custom node draw function
+/// Custom node draw function. Allows to fully customize what shaped would be drawn for node.
+/// The function is called for every node in the graph. Parmaeters:
+/// - `ctx` - egui context, is needed for computing node props and styles;
+/// - `n` - node reference, contains all node data;
+/// - `meta` - metadata, contains current zoom level and pan;
+/// - `style` - style settings, contains all style settings;
+/// - `l` - drawing layers, contains all shapes which will be drawn. When you create a shape, add it to the layers.
 pub type FnCustomNodeDraw<N> = fn(&Context, n: &Node<N>, &Metadata, &SettingsStyle, &mut Layers);
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
