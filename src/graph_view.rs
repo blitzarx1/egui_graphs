@@ -5,11 +5,12 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 use crate::{
     change::{Change, ChangeNode},
     computed::ComputedState,
+    draw::Drawer,
     draw::FnCustomNodeDraw,
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
-    draw::Drawer, Graph,
+    Graph,
 };
 
 /// Widget for visualizing and interacting with graphs.
@@ -235,7 +236,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
         if resp.dragged()
             && comp.dragged.is_some()
-            && (resp.drag_delta().x > 0. || resp.drag_delta().y > 0.)
+            && (resp.drag_delta().x.abs() > 0. || resp.drag_delta().y.abs() > 0.)
         {
             let n_idx_dragged = comp.dragged.unwrap();
             let delta_in_graph_coords = resp.drag_delta() / meta.zoom;
