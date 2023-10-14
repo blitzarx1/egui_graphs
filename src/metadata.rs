@@ -1,6 +1,7 @@
 use egui::{Id, Vec2};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Metadata {
     /// Whether the frame is the first one
     pub first_frame: bool,
