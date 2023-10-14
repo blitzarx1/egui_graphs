@@ -19,8 +19,13 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 ## Status
 The project is on track for a stable release v1.0.0. For the moment, breaking releases are still possible.
 
-### Docs
-Docs can be found [here](https://docs.rs/egui_graphs/latest/egui_graphs/)
+## Egui features support
+### Persistence
+To use egui `persistence` feature you need to enable `egui_persistence` feature of this crate. For example:
+```toml
+egui_graphs = { version = "0", features = ["egui_persistence"]}
+egui = {version="0.23", features = ["persistence"]}
+```
 
 ## Examples
 ### Basic setup example
@@ -91,8 +96,10 @@ fn main() {
     .unwrap();
 }
 ```
-
 ![Screenshot 2023-04-24 at 22 04 49](https://user-images.githubusercontent.com/32969427/234086555-afdf5dfa-31be-46f2-b46e-1e9a45e1a50f.png)
 
-
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
+
+### Docs
+Docs can be found [here](https://docs.rs/egui_graphs/latest/egui_graphs/)
+
