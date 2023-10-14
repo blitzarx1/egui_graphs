@@ -1,6 +1,7 @@
 mod change;
 mod computed;
 mod elements;
+mod events;
 mod graph;
 mod graph_view;
 mod metadata;
