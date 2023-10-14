@@ -1,7 +1,10 @@
 use egui::{Id, Vec2};
+
+#[cfg(feature = "egui_persistence")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "egui_persistence", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 pub struct Metadata {
     /// Whether the frame is the first one
     pub first_frame: bool,
