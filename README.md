@@ -96,7 +96,8 @@ fn main() {
     .unwrap();
 }
 ```
-![Screenshot 2023-04-24 at 22 04 49](https://user-images.githubusercontent.com/32969427/234086555-afdf5dfa-31be-46f2-b46e-1e9a45e1a50f.png)
+
+![Screenshot 2023-10-14 at 23 49 49](https://github.com/blitzarx1/egui_graphs/assets/32969427/584b78de-bca3-421b-b003-9321fd3e1b13)
 
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
 
