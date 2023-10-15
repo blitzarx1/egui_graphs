@@ -45,8 +45,8 @@ pub struct ConfigurableApp {
     event_publisher: Sender<Event>,
     event_consumer: Receiver<Event>,
 
-    last_pan: Option<[f32; 2]>,
-    last_zoom: Option<f32>,
+    pan: Option<[f32; 2]>,
+    zoom: Option<f32>,
 }
 
 impl ConfigurableApp {
@@ -81,8 +81,8 @@ impl ConfigurableApp {
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
 
-            last_pan: Default::default(),
-            last_zoom: Default::default(),
+            pan: Default::default(),
+            zoom: Default::default(),
         }
     }
 
@@ -203,11 +203,23 @@ impl ConfigurableApp {
 
     fn handle_events(&mut self) {
         self.event_consumer.try_iter().for_each(|e| match e {
-            Event::Pan(p) => {
-                self.last_pan = Some(p.diff);
-            }
+            Event::Pan(p) => match self.pan {
+                Some(pan) => {
+                    self.pan = Some([pan[0] + p.diff[0], pan[1] + p.diff[1]]);
+                }
+                None => {
+                    self.pan = Some(p.diff);
+                }
+            },
             Event::Zoom(z) => {
-                self.last_zoom = Some(z.diff);
+                match self.zoom {
+                    Some(zoom) => {
+                        self.zoom = Some(zoom + z.diff);
+                    }
+                    None => {
+                        self.zoom = Some(z.diff);
+                    }
+                };
             }
         });
     }
@@ -377,7 +389,7 @@ impl ConfigurableApp {
 
     fn draw_section_widget(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Widget")
-        .default_open(true)
+        .default_open(false)
         .show(ui, |ui| {
             ui.add_space(10.);
 
@@ -475,22 +487,19 @@ impl ConfigurableApp {
 
     fn draw_section_debug(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Debug")
-            .default_open(false)
+            .default_open(true)
             .show(ui, |ui| {
-                ui.add_space(10.);
-
-                ui.horizontal(|ui| {
-                    if let Some(pan) = self.last_pan {
-                        ui.label(format!("pan: [{:.5}, {:.5}]", pan[0], pan[1]));
-                    };
-
-                    if let Some(zoom) = self.last_zoom {
-                        ui.label(format!("zoom: {:.5}", zoom));
-                    };
-                });
+                if let Some(zoom) = self.zoom {
+                    ui.label(format!("zoom: {:.5}", zoom));
+                };
+                if let Some(pan) = self.pan {
+                    ui.label(format!("pan: [{:.5}, {:.5}]", pan[0], pan[1]));
+                };
 
                 ui.vertical(|ui| {
-                    ui.label(format!("fps: {:.1}", self.fps));
+                    ui.add_space(10.);
+                    ui.label(format!("FPS: {:.1}", self.fps));
+
                     ui.add_space(10.);
                     self.draw_fps(ui);
                 });
@@ -506,7 +515,7 @@ impl ConfigurableApp {
             .collect();
 
         let line = Line::new(points).color(FPS_LINE_COLOR);
-        Plot::new("my_plot")
+        Plot::new("fps")
             .min_size(Vec2::new(100., 80.))
             .show_x(false)
             .show_y(false)
@@ -517,6 +526,7 @@ impl ConfigurableApp {
             .allow_drag(false)
             .allow_scroll(false)
             .allow_zoom(false)
+            .height(100.)
             .show(ui, |plot_ui| plot_ui.line(line));
     }
 
@@ -559,15 +569,15 @@ impl App for ConfigurableApp {
             .min_width(250.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
+                    self.draw_section_debug(ui);
+
+                    ui.add_space(10.);
+
                     self.draw_section_client(ui);
 
                     ui.add_space(10.);
 
                     self.draw_section_widget(ui);
-
-                    ui.add_space(10.);
-
-                    self.draw_section_debug(ui);
                 });
             });
 
