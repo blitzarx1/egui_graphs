@@ -12,11 +12,13 @@ edition = "2021"
 egui = "0.23"
 rand = "0.8"
 petgraph = "0.6"
-crossbeam = "0.8"
+crossbeam = {version = "0.8", optional= true}
 serde = {version = "1.0", optional = true}
+serde_json = {version = "1.0", optional = true}
 
 [features]
 egui_persistence = ["dep:serde"]
+events = ["dep:serde", "dep:serde_json", "dep:crossbeam"]
 
 [workspace]
 members = ["examples/*"]

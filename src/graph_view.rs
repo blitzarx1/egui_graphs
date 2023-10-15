@@ -1,9 +1,6 @@
-use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
-
 use crate::{
-    change::{Change, ChangeNode},
     computed::ComputedState,
     draw::Drawer,
     draw::FnCustomNodeDraw,
@@ -13,11 +10,16 @@ use crate::{
     Graph,
 };
 
+#[cfg(feature = "events")]
+use crossbeam::channel::Sender;
+#[cfg(feature = "events")]
+use crate::change::{Change, ChangeNode};
+
 /// Widget for visualizing and interacting with graphs.
 ///
 /// It implements [egui::Widget] and can be used like any other widget.
 ///
-/// The widget uses a mutable reference to the [StableGraph<egui_graphs::Node<N>, egui_graphs::Edge<E>>]
+/// The widget uses a mutable reference to the [petgraph::stable_graph::StableGraph<super::Node<N>, super::Edge<E>>]
 /// struct to visualize and interact with the graph. `N` and `E` is arbitrary client data associated with nodes and edges.
 /// You can customize the visualization and interaction behavior using [SettingsInteraction], [SettingsNavigation] and [SettingsStyle] structs.
 ///
@@ -33,9 +35,10 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
     g: &'a mut Graph<N, E, Ty>,
-    changes_sender: Option<&'a Sender<Change>>,
-
     custom_node_draw: Option<FnCustomNodeDraw<N>>,
+
+    #[cfg(feature = "events")]
+    changes_sender: Option<&'a Sender<Change>>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
@@ -77,8 +80,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             settings_style: Default::default(),
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
-            changes_sender: Default::default(),
             custom_node_draw: Default::default(),
+
+            #[cfg(feature = "events")]
+            changes_sender: Default::default(),
         }
     }
 
@@ -90,14 +95,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Makes widget interactive according to the provided settings.
     pub fn with_interactions(mut self, settings_interaction: &SettingsInteraction) -> Self {
         self.settings_interaction = settings_interaction.clone();
-        self
-    }
-
-    /// Make every interaction send [`Change`] to the provided [`crossbeam::channel::Sender`] as soon as interaction happens.
-    ///
-    /// Change events can be used to handle interactions on the application side.
-    pub fn with_changes(mut self, changes_sender: &'a Sender<Change>) -> Self {
-        self.changes_sender = Some(changes_sender);
         self
     }
 
@@ -116,6 +113,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
         Metadata::default().store_into_ui(ui);
+    }
+
+
+    /// Make every interaction send [`Change`] to the provided [`crossbeam::channel::Sender`] as soon as interaction happens.
+    ///
+    /// Change events can be used to handle interactions on the application side.
+    #[cfg(feature = "events")]
+    pub fn with_changes(mut self, changes_sender: &'a Sender<Change>) -> Self {
+        self.changes_sender = Some(changes_sender);
+        self
     }
 
     fn compute_state(&mut self) -> ComputedState {
@@ -209,7 +216,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
         let n = self.g.node(idx).unwrap();
         if n.selected() {
-            self.select_node(idx);
+            self.toggle_selection_node(idx);
             return;
         }
 
@@ -217,7 +224,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             self.deselect_all(comp);
         }
 
-        self.select_node(idx);
+        self.toggle_selection_node(idx);
     }
 
     fn handle_node_drag(&mut self, resp: &Response, comp: &mut ComputedState, meta: &mut Metadata) {
@@ -334,53 +341,65 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         meta.zoom = new_zoom;
     }
 
-    fn deselect_node(&mut self, idx: NodeIndex) {
+    fn toggle_selection_node(&mut self, idx: NodeIndex) {
         let n = self.g.node_mut(idx).unwrap();
-        let change = ChangeNode::change_selected(idx, n.selected(), false);
-        n.set_selected(false);
+        let old = n.selected();
+        n.set_selected(!old);
 
-        self.send_changes(Change::node(change));
-    }
-
-    fn select_node(&mut self, idx: NodeIndex) {
-        let n = self.g.node_mut(idx).unwrap();
-        let change = ChangeNode::change_selected(idx, n.selected(), true);
-        n.set_selected(true);
-
-        self.send_changes(Change::node(change));
+        #[cfg(feature = "events")]
+        {
+            let change = ChangeNode::change_selected(idx, old, !old);
+            self.send_changes(Change::node(change));
+        };
     }
 
     fn set_node_clicked(&mut self, idx: NodeIndex) {
-        let change = ChangeNode::clicked(idx);
-        self.send_changes(Change::node(change));
+        #[cfg(feature = "events")]
+        {
+            let change = ChangeNode::clicked(idx);
+            self.send_changes(Change::node(change));
+        };
     }
 
     fn set_node_double_clicked(&mut self, idx: NodeIndex) {
-        let change = ChangeNode::double_clicked(idx);
-        self.send_changes(Change::node(change));
+        #[cfg(feature = "events")]
+        {
+            let change = ChangeNode::double_clicked(idx);
+            self.send_changes(Change::node(change));
+        };
     }
 
     fn deselect_all(&mut self, comp: &ComputedState) {
         comp.selected.iter().for_each(|idx| {
-            self.deselect_node(*idx);
+            self.toggle_selection_node(*idx);
         });
-    }
-
-    fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
-        let n = self.g.node_mut(idx).unwrap();
-        let change = ChangeNode::change_dragged(idx, n.dragged(), val);
-        n.set_dragged(val);
-        self.send_changes(Change::node(change));
     }
 
     fn move_node(&mut self, idx: NodeIndex, delta: Vec2) {
         let n = self.g.node_mut(idx).unwrap();
-        let new_loc = n.location() + delta;
-        let change = ChangeNode::change_location(idx, n.location(), new_loc);
-        n.set_location(new_loc);
-        self.send_changes(Change::node(change));
+        let old = n.location();
+        n.set_location(old + delta);
+
+        #[cfg(feature = "events")]
+        {
+            let change = ChangeNode::change_location(idx, old, n.location());
+            self.send_changes(Change::node(change));
+        };
     }
 
+    fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
+        let n = self.g.node_mut(idx).unwrap();
+        let old = n.dragged();
+        n.set_dragged(val);
+
+        #[cfg(feature = "events")]
+        {
+            let change = ChangeNode::change_dragged(idx, old, val);
+            self.send_changes(Change::node(change));
+        };
+    }
+
+    #[cfg(feature = "events")]
     fn send_changes(&self, changes: Change) {
         if let Some(sender) = self.changes_sender {
             sender.send(changes).unwrap();
