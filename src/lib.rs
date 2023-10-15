@@ -20,7 +20,7 @@ pub use self::transform::{
 };
 
 #[cfg(feature = "events")]
-mod events;
+pub mod events;
 
 #[cfg(feature = "events")]
 mod change;

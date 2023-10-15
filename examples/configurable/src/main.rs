@@ -3,6 +3,7 @@ use std::time::Instant;
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
 use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2};
+use egui_graphs::events::Event;
 use egui_graphs::{to_graph, Change, Edge, Graph, GraphView, Node};
 use egui_plot::{Line, Plot, PlotPoints};
 use fdg_sim::glam::Vec3;
@@ -41,6 +42,11 @@ pub struct ConfigurableApp {
 
     changes_receiver: Receiver<Change>,
     changes_sender: Sender<Change>,
+    event_publisher: Sender<Event>,
+    event_consumer: Receiver<Event>,
+
+    last_pan: Option<[f32; 2]>,
+    last_zoom: Option<f32>,
 }
 
 impl ConfigurableApp {
@@ -48,12 +54,15 @@ impl ConfigurableApp {
         let settings_graph = SettingsGraph::default();
         let (g, sim) = generate(&settings_graph);
         let (changes_sender, changes_receiver) = unbounded();
+        let (event_publisher, event_consumer) = unbounded();
         Self {
             g,
             sim,
 
             changes_receiver,
             changes_sender,
+            event_consumer,
+            event_publisher,
 
             settings_graph,
 
@@ -71,6 +80,9 @@ impl ConfigurableApp {
             fps_history: Default::default(),
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
+
+            last_pan: Default::default(),
+            last_zoom: Default::default(),
         }
     }
 
@@ -186,6 +198,17 @@ impl ConfigurableApp {
             }
 
             self.last_changes.push(ch);
+        });
+    }
+
+    fn handle_events(&mut self) {
+        self.event_consumer.try_iter().for_each(|e| match e {
+            Event::Pan(p) => {
+                self.last_pan = Some(p.diff);
+            }
+            Event::Zoom(z) => {
+                self.last_zoom = Some(z.diff);
+            }
         });
     }
 
@@ -456,6 +479,16 @@ impl ConfigurableApp {
             .show(ui, |ui| {
                 ui.add_space(10.);
 
+                ui.horizontal(|ui| {
+                    if let Some(pan) = self.last_pan {
+                        ui.label(format!("pan: [{:.5}, {:.5}]", pan[0], pan[1]));
+                    };
+
+                    if let Some(zoom) = self.last_zoom {
+                        ui.label(format!("zoom: {:.5}", zoom));
+                    };
+                });
+
                 ui.vertical(|ui| {
                     ui.label(format!("fps: {:.1}", self.fps));
                     ui.add_space(10.);
@@ -556,11 +589,13 @@ impl App for ConfigurableApp {
                     .with_interactions(settings_interaction)
                     .with_navigations(settings_navigation)
                     .with_styles(settings_style)
-                    .with_changes(&self.changes_sender),
+                    .with_changes(&self.changes_sender)
+                    .with_events(&self.event_publisher),
             );
         });
 
         self.handle_changes();
+        self.handle_events();
         self.sync_graph_with_simulation();
 
         self.update_simulation();

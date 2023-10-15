@@ -1,5 +1,7 @@
-use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{stable_graph::NodeIndex, EdgeType};
+#[cfg(feature = "events")]
+use crate::change::{Change, ChangeNode};
+#[cfg(feature = "events")]
+use crate::events::{Event, PayloadPan, PyaloadZoom};
 use crate::{
     computed::ComputedState,
     draw::Drawer,
@@ -9,11 +11,10 @@ use crate::{
     settings::{SettingsInteraction, SettingsStyle},
     Graph,
 };
-
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
-#[cfg(feature = "events")]
-use crate::change::{Change, ChangeNode};
+use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -39,6 +40,8 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
 
     #[cfg(feature = "events")]
     changes_sender: Option<&'a Sender<Change>>,
+    #[cfg(feature = "events")]
+    events_publisher: Option<&'a Sender<Event>>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
@@ -84,6 +87,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
             #[cfg(feature = "events")]
             changes_sender: Default::default(),
+
+            #[cfg(feature = "events")]
+            events_publisher: Default::default(),
         }
     }
 
@@ -115,13 +121,18 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         Metadata::default().store_into_ui(ui);
     }
 
-
     /// Make every interaction send [`Change`] to the provided [`crossbeam::channel::Sender`] as soon as interaction happens.
     ///
     /// Change events can be used to handle interactions on the application side.
     #[cfg(feature = "events")]
     pub fn with_changes(mut self, changes_sender: &'a Sender<Change>) -> Self {
         self.changes_sender = Some(changes_sender);
+        self
+    }
+
+    #[cfg(feature = "events")]
+    pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
+        self.events_publisher = Some(events_publisher);
         self
     }
 
@@ -288,7 +299,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let graph_center = (bounds.min.to_vec2() + bounds.max.to_vec2()) / 2.0;
 
         // adjust the pan value to align the centers of the graph and the canvas
-        meta.pan = rect.center().to_vec2() - graph_center * new_zoom;
+        let new_pan = rect.center().to_vec2() - graph_center * new_zoom;
+        self.set_pan(new_pan, meta);
     }
 
     fn handle_navigation(
@@ -323,11 +335,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        if resp.dragged() && comp.dragged.is_none() {
-            meta.pan += resp.drag_delta();
+        if resp.dragged()
+            && comp.dragged.is_none()
+            && (resp.drag_delta().x.abs() > 0. || resp.drag_delta().y.abs() > 0.)
+        {
+            let new_pan = meta.pan + resp.drag_delta();
+            self.set_pan(new_pan, meta);
         }
     }
 
+    /// Zooms the graph by the given delta. It also compensates with pan to keep the zoom center in the same place.
     fn zoom(&self, rect: &Rect, delta: f32, zoom_center: Option<Pos2>, meta: &mut Metadata) {
         let center_pos = match zoom_center {
             Some(center_pos) => center_pos - rect.min,
@@ -337,8 +354,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         let factor = 1. + delta;
         let new_zoom = meta.zoom * factor;
 
-        meta.pan += graph_center_pos * meta.zoom - graph_center_pos * new_zoom;
-        meta.zoom = new_zoom;
+        let pan_delta = graph_center_pos * meta.zoom - graph_center_pos * new_zoom;
+        let new_pan = meta.pan + pan_delta;
+
+        self.set_pan(new_pan, meta);
+        self.set_zoom(new_zoom, meta);
     }
 
     fn toggle_selection_node(&mut self, idx: NodeIndex) {
@@ -399,10 +419,31 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         };
     }
 
-    #[cfg(feature = "events")]
+    fn set_pan(&self, val: Vec2, meta: &mut Metadata) {
+        let diff = val - meta.pan;
+        meta.pan = val;
+
+        #[cfg(feature = "events")]
+        self.publish_event(Event::Pan(PayloadPan { diff: diff.into() }));
+    }
+
+    fn set_zoom(&self, val: f32, meta: &mut Metadata) {
+        let diff = val - meta.zoom;
+        meta.zoom = val;
+
+        #[cfg(feature = "events")]
+        self.publish_event(Event::Zoom(PyaloadZoom { diff }));
+    }
+
     fn send_changes(&self, changes: Change) {
         if let Some(sender) = self.changes_sender {
             sender.send(changes).unwrap();
+        }
+    }
+
+    fn publish_event(&self, event: Event) {
+        if let Some(sender) = self.events_publisher {
+            sender.send(event).unwrap();
         }
     }
 }
