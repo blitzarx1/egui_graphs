@@ -435,12 +435,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.publish_event(Event::Zoom(PyaloadZoom { diff }));
     }
 
+    #[cfg(feature = "events")]
     fn send_changes(&self, changes: Change) {
         if let Some(sender) = self.changes_sender {
             sender.send(changes).unwrap();
         }
     }
 
+    #[cfg(feature = "events")]
     fn publish_event(&self, event: Event) {
         if let Some(sender) = self.events_publisher {
             sender.send(event).unwrap();
