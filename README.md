@@ -44,7 +44,6 @@ egui = {version="0.23", features = ["persistence"]}
 ## Examples
 ### Basic setup example
 #### Step 1: Setting up the BasicApp struct. 
-
 First, let's define the `BasicApp` struct that will hold the graph.
 ```rust 
 pub struct BasicApp {
@@ -53,7 +52,6 @@ pub struct BasicApp {
 ```
 
 #### Step 2: Implementing the new() function. 
-
 Next, implement the `new()` function for the `BasicApp` struct.
 ```rust
 impl BasicApp {
