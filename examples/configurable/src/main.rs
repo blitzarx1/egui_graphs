@@ -496,38 +496,8 @@ impl ConfigurableApp {
                     ui.label(format!("pan: [{:.5}, {:.5}]", pan[0], pan[1]));
                 };
 
-                ui.vertical(|ui| {
-                    ui.add_space(10.);
-                    ui.label(format!("FPS: {:.1}", self.fps));
-
-                    ui.add_space(10.);
-                    self.draw_fps(ui);
-                });
+                ui.label(format!("FPS: {:.1}", self.fps));
             });
-    }
-
-    fn draw_fps(&self, ui: &mut Ui) {
-        let points: PlotPoints = self
-            .fps_history
-            .iter()
-            .enumerate()
-            .map(|(i, val)| [i as f64, *val])
-            .collect();
-
-        let line = Line::new(points).color(FPS_LINE_COLOR);
-        Plot::new("fps")
-            .min_size(Vec2::new(100., 80.))
-            .show_x(false)
-            .show_y(false)
-            .show_background(false)
-            .show_axes([false, true])
-            .allow_boxed_zoom(false)
-            .allow_double_click_reset(false)
-            .allow_drag(false)
-            .allow_scroll(false)
-            .allow_zoom(false)
-            .height(100.)
-            .show(ui, |plot_ui| plot_ui.line(line));
     }
 
     fn draw_counts_sliders(&mut self, ui: &mut Ui) {
@@ -569,14 +539,10 @@ impl App for ConfigurableApp {
             .min_width(250.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
-                    self.draw_section_debug(ui);
-
-                    ui.add_space(10.);
-
                     self.draw_section_client(ui);
-
                     ui.add_space(10.);
-
+                    self.draw_section_debug(ui);
+                    ui.add_space(10.);
                     self.draw_section_widget(ui);
                 });
             });
