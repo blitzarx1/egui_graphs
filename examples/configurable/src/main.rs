@@ -2,10 +2,9 @@ use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
-use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2};
+use egui::{CollapsingHeader, Context, ScrollArea, Slider, Ui, Vec2};
 use egui_graphs::events::Event;
 use egui_graphs::{to_graph, Change, Edge, Graph, GraphView, Node};
-use egui_plot::{Line, Plot, PlotPoints};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
@@ -17,7 +16,6 @@ use settings::{SettingsGraph, SettingsInteraction, SettingsNavigation, SettingsS
 mod settings;
 
 const SIMULATION_DT: f32 = 0.035;
-const FPS_LINE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
 const CHANGES_LIMIT: usize = 100;
 
 pub struct ConfigurableApp {
