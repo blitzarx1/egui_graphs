@@ -34,7 +34,6 @@ pub struct ConfigurableApp {
     simulation_stopped: bool,
 
     fps: f64,
-    fps_history: Vec<f64>,
     last_update_time: Instant,
     frames_last_time_span: usize,
 
@@ -75,7 +74,6 @@ impl ConfigurableApp {
             simulation_stopped: false,
 
             fps: 0.,
-            fps_history: Default::default(),
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
 
@@ -169,11 +167,6 @@ impl ConfigurableApp {
             self.last_update_time = now;
             self.fps = self.frames_last_time_span as f64 / elapsed.as_secs_f64();
             self.frames_last_time_span = 0;
-
-            self.fps_history.push(self.fps);
-            if self.fps_history.len() > 100 {
-                self.fps_history.remove(0);
-            }
         }
     }
 
