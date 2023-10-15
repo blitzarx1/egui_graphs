@@ -20,6 +20,9 @@ pub use self::transform::{
 };
 
 #[cfg(feature = "events")]
+mod events;
+
+#[cfg(feature = "events")]
 mod change;
 #[cfg(feature = "events")]
 pub use self::change::{Change, ChangeEdge, ChangeNode};
