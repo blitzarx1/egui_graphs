@@ -26,10 +26,12 @@ Can be enabled with `events` feature.
 - [x] Node click;
 - [x] Node double click;
 - [x] Node select;
+- [x] Node move;
 - [x] Node drag;
-- [ ] Node hover;
+- [ ] Node hover enter;
+- [ ] Node hover exit;
 
-Combining this feature with custom draw function allows to implement custom node behavior and drawing according to the events happening.
+Combining this feature with custom node draw function allows to implement custom node behavior and drawing according to the events happening.
 
 ## Egui crates features support
 ### Persistence
