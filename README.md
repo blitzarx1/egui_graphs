@@ -14,12 +14,24 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 - [x] Node labels;
 - [x] Node interactions and events reporting: click, double click, select, drag;
 - [x] Style configuration via egui context styles;
-- [x] egui dark/light theme support;
+- [x] Dark/Light theme support via egui context styles;
+- [x] Events reporting to extend the graph functionality by the user handling them;
 
 ## Status
 The project is on track for a stable release v1.0.0. For the moment, breaking releases are still possible.
 
-## Egui features support
+## Features
+### Events
+Can be enabled with `events` feature.
+- [x] Node click;
+- [x] Node double click;
+- [x] Node select;
+- [x] Node drag;
+- [ ] Node hover;
+
+Combining this feature with custom draw function allows to implement custom node behavior and drawing according to the events happening.
+
+## Egui crates features support
 ### Persistence
 To use egui `persistence` feature you need to enable `egui_persistence` feature of this crate. For example:
 ```toml
