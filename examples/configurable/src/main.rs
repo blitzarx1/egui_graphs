@@ -376,7 +376,7 @@ impl ConfigurableApp {
         CollapsingHeader::new("Widget")
         .default_open(true)
         .show(ui, |ui| {
-            CollapsingHeader::new("Navigation").show(ui, |ui|{
+            CollapsingHeader::new("Navigation").default_open(true).show(ui, |ui|{
                 if ui
                     .checkbox(&mut self.settings_navigation.fit_to_screen_enabled, "fit_to_screen")
                     .changed()
