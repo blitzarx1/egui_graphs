@@ -20,14 +20,14 @@ impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(&mut GraphView::new(&mut self.g).with_custom_node_draw(
-                |ctx, n, meta, _style, l| {
+                |ctx, n, meta, style, l| {
                     // lets draw a rect with label in the center for every node
 
                     // find node center location on the screen coordinates
                     let node_center_loc = n.screen_location(meta).to_pos2();
 
                     // find node radius accounting for current zoom level; we will use it as a reference for the rect and label sizes
-                    let rad = n.screen_radius(meta);
+                    let rad = n.screen_radius(meta, style);
 
                     // first create rect shape
                     let size = Vec2::new(rad * 1.5, rad * 1.5);

@@ -29,13 +29,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Graph<N, E, Ty> {
     pub fn node_by_screen_pos(
         &self,
         meta: &'a Metadata,
-        settings: &'a SettingsStyle,
+        style: &'a SettingsStyle,
         screen_pos: Pos2,
     ) -> Option<(NodeIndex, &Node<N>)> {
         let pos_in_graph = (screen_pos.to_vec2() - meta.pan) / meta.zoom;
         self.nodes_iter().find(|(_, n)| {
             let dist_to_node = (n.location() - pos_in_graph).length();
-            dist_to_node <= n.radius() + n.num_connections() as f32 * settings.edge_radius_weight
+            dist_to_node <= n.screen_radius(meta, style) / meta.zoom
         })
     }
 

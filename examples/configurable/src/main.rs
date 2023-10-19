@@ -1,10 +1,11 @@
 use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
+use eframe::glow::WAIT_FAILED;
 use eframe::{run_native, App, CreationContext};
-use egui::{CollapsingHeader, Color32, Context, ScrollArea, Slider, Ui, Vec2};
-use egui_graphs::{to_graph, Change, Edge, Graph, GraphView, Node};
-use egui_plot::{Line, Plot, PlotPoints};
+use egui::{CollapsingHeader, Context, ScrollArea, Slider, Ui, Vec2};
+use egui_graphs::events::Event;
+use egui_graphs::{to_graph, Edge, Graph, GraphView, Node};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
@@ -16,8 +17,7 @@ use settings::{SettingsGraph, SettingsInteraction, SettingsNavigation, SettingsS
 mod settings;
 
 const SIMULATION_DT: f32 = 0.035;
-const FPS_LINE_COLOR: Color32 = Color32::from_rgb(128, 128, 128);
-const CHANGES_LIMIT: usize = 100;
+const EVENTS_LIMIT: usize = 100;
 
 pub struct ConfigurableApp {
     g: Graph<(), (), Directed>,
@@ -30,30 +30,32 @@ pub struct ConfigurableApp {
 
     selected_nodes: Vec<Node<()>>,
     selected_edges: Vec<Edge<()>>,
-    last_changes: Vec<Change>,
+    last_events: Vec<String>,
 
     simulation_stopped: bool,
 
     fps: f64,
-    fps_history: Vec<f64>,
     last_update_time: Instant,
     frames_last_time_span: usize,
 
-    changes_receiver: Receiver<Change>,
-    changes_sender: Sender<Change>,
+    event_publisher: Sender<Event>,
+    event_consumer: Receiver<Event>,
+
+    pan: Option<[f32; 2]>,
+    zoom: Option<f32>,
 }
 
 impl ConfigurableApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let settings_graph = SettingsGraph::default();
         let (g, sim) = generate(&settings_graph);
-        let (changes_sender, changes_receiver) = unbounded();
+        let (event_publisher, event_consumer) = unbounded();
         Self {
             g,
             sim,
 
-            changes_receiver,
-            changes_sender,
+            event_consumer,
+            event_publisher,
 
             settings_graph,
 
@@ -63,14 +65,16 @@ impl ConfigurableApp {
 
             selected_nodes: Default::default(),
             selected_edges: Default::default(),
-            last_changes: Default::default(),
+            last_events: Default::default(),
 
             simulation_stopped: false,
 
             fps: 0.,
-            fps_history: Default::default(),
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
+
+            pan: Default::default(),
+            zoom: Default::default(),
         }
     }
 
@@ -131,12 +135,6 @@ impl ConfigurableApp {
             let g_n = self.g.g.node_weight_mut(*g_n_idx).unwrap();
             let sim_n = self.sim.get_graph_mut().node_weight_mut(*g_n_idx).unwrap();
 
-            if g_n.dragged() {
-                let loc = g_n.location();
-                sim_n.location = Vec3::new(loc.x, loc.y, 0.);
-                return;
-            }
-
             let loc = sim_n.location;
             g_n.set_location(Vec2::new(loc.x, loc.y));
 
@@ -159,11 +157,6 @@ impl ConfigurableApp {
             self.last_update_time = now;
             self.fps = self.frames_last_time_span as f64 / elapsed.as_secs_f64();
             self.frames_last_time_span = 0;
-
-            self.fps_history.push(self.fps);
-            if self.fps_history.len() > 100 {
-                self.fps_history.remove(0);
-            }
         }
     }
 
@@ -174,18 +167,46 @@ impl ConfigurableApp {
         self.g = g;
         self.sim = sim;
         self.settings_graph = settings_graph;
-        self.last_changes = Default::default();
+        self.last_events = Default::default();
 
         GraphView::<(), (), Directed>::reset_metadata(ui);
     }
 
-    fn handle_changes(&mut self) {
-        self.changes_receiver.try_iter().for_each(|ch| {
-            if self.last_changes.len() > CHANGES_LIMIT {
-                self.last_changes.remove(0);
+    fn handle_events(&mut self) {
+        self.event_consumer.try_iter().for_each(|e| {
+            if self.last_events.len() > EVENTS_LIMIT {
+                self.last_events.remove(0);
             }
+            self.last_events.push(serde_json::to_string(&e).unwrap());
 
-            self.last_changes.push(ch);
+            match e {
+                Event::Pan(payload) => match self.pan {
+                    Some(pan) => {
+                        self.pan = Some([pan[0] + payload.diff[0], pan[1] + payload.diff[1]]);
+                    }
+                    None => {
+                        self.pan = Some(payload.diff);
+                    }
+                },
+                Event::Zoom(z) => {
+                    match self.zoom {
+                        Some(zoom) => {
+                            self.zoom = Some(zoom + z.diff);
+                        }
+                        None => {
+                            self.zoom = Some(z.diff);
+                        }
+                    };
+                }
+                Event::NodeMove(payload) => {
+                    let node_id = NodeIndex::new(payload.id);
+                    let diff = Vec3::new(payload.diff[0], payload.diff[1], 0.);
+
+                    let node = self.sim.get_graph_mut().node_weight_mut(node_id).unwrap();
+                    node.location += diff;
+                }
+                _ => {}
+            }
         });
     }
 
@@ -317,8 +338,8 @@ impl ConfigurableApp {
         });
     }
 
-    fn draw_section_client(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("Client")
+    fn draw_section_app(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("App Config")
             .default_open(true)
             .show(ui, |ui| {
                 ui.add_space(10.);
@@ -347,7 +368,6 @@ impl ConfigurableApp {
 
                 ui.add_space(10.);
 
-                ui.label("Style");
                 ui.separator();
             });
     }
@@ -356,81 +376,72 @@ impl ConfigurableApp {
         CollapsingHeader::new("Widget")
         .default_open(true)
         .show(ui, |ui| {
-            ui.add_space(10.);
+            CollapsingHeader::new("Navigation").default_open(true).show(ui, |ui|{
+                if ui
+                    .checkbox(&mut self.settings_navigation.fit_to_screen_enabled, "fit_to_screen")
+                    .changed()
+                    && self.settings_navigation.fit_to_screen_enabled
+                {
+                    self.settings_navigation.zoom_and_pan_enabled = false
+                };
+                ui.label("Enable fit to screen to fit the graph to the screen on every frame.");
 
-            ui.label("SettingsNavigation");
-            ui.separator();
+                ui.add_space(5.);
 
-            if ui
-                .checkbox(&mut self.settings_navigation.fit_to_screen_enabled, "fit_to_screen")
-                .changed()
-                && self.settings_navigation.fit_to_screen_enabled
-            {
-                self.settings_navigation.zoom_and_pan_enabled = false
-            };
-            ui.label("Enable fit to screen to fit the graph to the screen on every frame.");
-
-            ui.add_space(5.);
-
-            ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
-                ui.vertical(|ui| {
-                    ui.checkbox(&mut self.settings_navigation.zoom_and_pan_enabled, "zoom_and_pan");
-                    ui.label("Zoom with ctrl + mouse wheel, pan with mouse drag.");
-                }).response.on_disabled_hover_text("disable fit_to_screen to enable zoom_and_pan");
+                ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
+                    ui.vertical(|ui| {
+                        ui.checkbox(&mut self.settings_navigation.zoom_and_pan_enabled, "zoom_and_pan");
+                        ui.label("Zoom with ctrl + mouse wheel, pan with mouse drag.");
+                    }).response.on_disabled_hover_text("disable fit_to_screen to enable zoom_and_pan");
+                });
             });
 
-            ui.add_space(10.);
+            CollapsingHeader::new("Style").show(ui, |ui| {
+                ui.add(Slider::new(&mut self.settings_style.edge_radius_weight, 0. ..=5.)
+                .text("edge_radius_weight"));
+                ui.label("For every edge connected to node its radius is getting bigger by this value.");
 
-            ui.label("SettingsStyle");
-            ui.separator();
+                ui.add_space(5.);
 
-            ui.add(Slider::new(&mut self.settings_style.edge_radius_weight, 0. ..=5.)
-            .text("edge_radius_weight"));
-            ui.label("For every edge connected to node its radius is getting bigger by this value.");
-
-            ui.add_space(5.);
-
-            ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
-            ui.label("Wheter to show labels always or when interacted only.");
-
-            ui.add_space(10.);
-
-            ui.label("SettingsInteraction");
-            ui.separator();
-
-            ui.add_enabled_ui(!(self.settings_interaction.dragging_enabled || self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled), |ui| {
-                ui.vertical(|ui| {
-                    ui.checkbox(&mut self.settings_interaction.clicking_enabled, "clicking_enabled");
-                    ui.label("Check click events in last changes");
-                }).response.on_disabled_hover_text("node click is enabled when any of the interaction is also enabled");
+                ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
+                ui.label("Wheter to show labels always or when interacted only.");
             });
 
-            ui.add_space(5.);
+            CollapsingHeader::new("Interaction").show(ui, |ui| {
+                ui.add_enabled_ui(!(self.settings_interaction.dragging_enabled || self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled), |ui| {
+                    ui.vertical(|ui| {
+                        ui.checkbox(&mut self.settings_interaction.clicking_enabled, "clicking_enabled");
+                        ui.label("Check click events in last events");
+                    }).response.on_disabled_hover_text("node click is enabled when any of the interaction is also enabled");
+                });
 
-            if ui.checkbox(&mut self.settings_interaction.dragging_enabled, "dragging_enabled").clicked() && self.settings_interaction.dragging_enabled {
-                self.settings_interaction.clicking_enabled = true;
-            };
-            ui.label("To drag use LMB click + drag on a node.");
+                ui.add_space(5.);
 
-            ui.add_space(5.);
+                if ui.checkbox(&mut self.settings_interaction.dragging_enabled, "dragging_enabled").clicked() && self.settings_interaction.dragging_enabled {
+                    self.settings_interaction.clicking_enabled = true;
+                };
+                ui.label("To drag use LMB click + drag on a node.");
 
-            ui.add_enabled_ui(!self.settings_interaction.selection_multi_enabled, |ui| {
-                ui.vertical(|ui| {
-                    if ui.checkbox(&mut self.settings_interaction.selection_enabled, "selection_enabled").clicked() && self.settings_interaction.selection_enabled {
-                        self.settings_interaction.clicking_enabled = true;
-                    };
-                    ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
-                }).response.on_disabled_hover_text("selection_multi_enabled enables select");
+                ui.add_space(5.);
+
+                ui.add_enabled_ui(!self.settings_interaction.selection_multi_enabled, |ui| {
+                    ui.vertical(|ui| {
+                        if ui.checkbox(&mut self.settings_interaction.selection_enabled, "selection_enabled").clicked() && self.settings_interaction.selection_enabled {
+                            self.settings_interaction.clicking_enabled = true;
+                        };
+                        ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
+                    }).response.on_disabled_hover_text("selection_multi_enabled enables select");
+                });
+
+                if ui.checkbox(&mut self.settings_interaction.selection_multi_enabled, "selection_multi_enabled").changed() && self.settings_interaction.selection_multi_enabled {
+                    self.settings_interaction.clicking_enabled = true;
+                    self.settings_interaction.selection_enabled = true;
+                }
+                ui.label("Enable multiselect to select multiple nodes.");
             });
 
-            if ui.checkbox(&mut self.settings_interaction.selection_multi_enabled, "selection_multi_enabled").changed() && self.settings_interaction.selection_multi_enabled {
-                self.settings_interaction.clicking_enabled = true;
-                self.settings_interaction.selection_enabled = true;
-            }
-            ui.label("Enable multiselect to select multiple nodes.");
-
-            ui.collapsing("selected", |ui| {
-                ScrollArea::vertical().max_height(200.).show(ui, |ui| {
+            CollapsingHeader::new("Selected").default_open(true).show(ui, |ui| {
+                ScrollArea::vertical().auto_shrink([false, true]).max_height(200.).show(ui, |ui| {
                     self.selected_nodes.iter().for_each(|node| {
                         ui.label(format!("{:?}", node));
                     });
@@ -440,10 +451,10 @@ impl ConfigurableApp {
                 });
             });
 
-            ui.collapsing("last changes", |ui| {
-                ScrollArea::vertical().max_height(200.).show(ui, |ui| {
-                    self.last_changes.iter().rev().for_each(|node| {
-                        ui.label(format!("{:?}", node));
+            CollapsingHeader::new("Last Events").default_open(true).show(ui, |ui| {
+                ScrollArea::vertical().auto_shrink([false, true]).max_height(200.).show(ui, |ui| {
+                    self.last_events.iter().rev().for_each(|event| {
+                        ui.label(event);
                     });
                 });
             });
@@ -452,39 +463,17 @@ impl ConfigurableApp {
 
     fn draw_section_debug(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Debug")
-            .default_open(false)
+            .default_open(true)
             .show(ui, |ui| {
-                ui.add_space(10.);
+                if let Some(zoom) = self.zoom {
+                    ui.label(format!("zoom: {:.5}", zoom));
+                };
+                if let Some(pan) = self.pan {
+                    ui.label(format!("pan: [{:.5}, {:.5}]", pan[0], pan[1]));
+                };
 
-                ui.vertical(|ui| {
-                    ui.label(format!("fps: {:.1}", self.fps));
-                    ui.add_space(10.);
-                    self.draw_fps(ui);
-                });
+                ui.label(format!("FPS: {:.1}", self.fps));
             });
-    }
-
-    fn draw_fps(&self, ui: &mut Ui) {
-        let points: PlotPoints = self
-            .fps_history
-            .iter()
-            .enumerate()
-            .map(|(i, val)| [i as f64, *val])
-            .collect();
-
-        let line = Line::new(points).color(FPS_LINE_COLOR);
-        Plot::new("my_plot")
-            .min_size(Vec2::new(100., 80.))
-            .show_x(false)
-            .show_y(false)
-            .show_background(false)
-            .show_axes([false, true])
-            .allow_boxed_zoom(false)
-            .allow_double_click_reset(false)
-            .allow_drag(false)
-            .allow_scroll(false)
-            .allow_zoom(false)
-            .show(ui, |plot_ui| plot_ui.line(line));
     }
 
     fn draw_counts_sliders(&mut self, ui: &mut Ui) {
@@ -526,15 +515,11 @@ impl App for ConfigurableApp {
             .min_width(250.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
-                    self.draw_section_client(ui);
-
+                    self.draw_section_app(ui);
                     ui.add_space(10.);
-
-                    self.draw_section_widget(ui);
-
-                    ui.add_space(10.);
-
                     self.draw_section_debug(ui);
+                    ui.add_space(10.);
+                    self.draw_section_widget(ui);
                 });
             });
 
@@ -556,11 +541,11 @@ impl App for ConfigurableApp {
                     .with_interactions(settings_interaction)
                     .with_navigations(settings_navigation)
                     .with_styles(settings_style)
-                    .with_changes(&self.changes_sender),
+                    .with_events(&self.event_publisher),
             );
         });
 
-        self.handle_changes();
+        self.handle_events();
         self.sync_graph_with_simulation();
 
         self.update_simulation();
