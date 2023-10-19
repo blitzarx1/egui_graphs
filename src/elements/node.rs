@@ -1,6 +1,6 @@
 use egui::{Color32, Context, Vec2};
 
-use crate::{metadata::Metadata, ComputedNode};
+use crate::{metadata::Metadata, ComputedNode, SettingsStyle};
 
 use super::StyleNode;
 
@@ -40,8 +40,8 @@ impl<N: Clone> Node<N> {
     }
 
     /// Returns actual radius of the node on the screen. It accounts for the number of connections and current zoom value.
-    pub fn screen_radius(&self, m: &Metadata) -> f32 {
-        (self.radius() + self.num_connections() as f32) * m.zoom
+    pub fn screen_radius(&self, m: &Metadata, style: &SettingsStyle) -> f32 {
+        (self.radius() + self.num_connections() as f32 * style.edge_radius_weight) * m.zoom
     }
 
     pub fn radius(&self) -> f32 {

@@ -96,7 +96,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     fn draw_edge_looped(&self, l: &mut Layers, n_idx: &NodeIndex, e: &Edge<E>, order: usize) {
         let node = self.g.node(*n_idx).unwrap();
 
-        let rad = node.screen_radius(self.meta);
+        let rad = node.screen_radius(self.meta, self.style);
         let center = node.screen_location(self.meta);
         let center_horizon_angle = PI / 4.;
         let y_intersect = center.y - rad * center_horizon_angle.sin();
@@ -133,8 +133,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
         let loc_start = n_start.screen_location(self.meta).to_pos2();
         let loc_end = n_end.screen_location(self.meta).to_pos2();
-        let rad_start = n_start.screen_radius(self.meta);
-        let rad_end = n_end.screen_radius(self.meta);
+        let rad_start = n_start.screen_radius(self.meta, self.style);
+        let rad_end = n_end.screen_radius(self.meta, self.style);
 
         let vec = loc_end - loc_start;
         let dist: f32 = vec.length();
@@ -222,8 +222,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         let is_interacted = n.selected() || n.dragged();
         let loc = n.screen_location(m).to_pos2();
         let rad = match is_interacted {
-            true => n.screen_radius(m) * 1.5,
-            false => n.screen_radius(m),
+            true => n.screen_radius(m, self.style) * 1.5,
+            false => n.screen_radius(m, self.style),
         };
 
         let color = n.color(ctx);
