@@ -6,7 +6,7 @@ use crate::events::{
 use crate::{
     computed::ComputedState,
     draw::Drawer,
-    draw::FnCustomNodeDraw,
+    draw::{FnCustomEdgeDraw, FnCustomNodeDraw},
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
@@ -37,6 +37,8 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
     g: &'a mut Graph<N, E, Ty>,
+
+    custom_edge_draw: Option<FnCustomEdgeDraw<E>>,
     custom_node_draw: Option<FnCustomNodeDraw<N>>,
 
     #[cfg(feature = "events")]
@@ -62,6 +64,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
             &self.settings_style,
             &meta,
             self.custom_node_draw,
+            self.custom_edge_draw,
         )
         .draw();
 
@@ -82,7 +85,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             settings_style: Default::default(),
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
+
             custom_node_draw: Default::default(),
+            custom_edge_draw: Default::default(),
 
             #[cfg(feature = "events")]
             events_publisher: Default::default(),

@@ -1,7 +1,6 @@
 use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
-use eframe::glow::WAIT_FAILED;
 use eframe::{run_native, App, CreationContext};
 use egui::{CollapsingHeader, Context, ScrollArea, Slider, Ui, Vec2};
 use egui_graphs::events::Event;

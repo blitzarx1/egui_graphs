@@ -11,16 +11,35 @@ use crate::{settings::SettingsStyle, Edge, Graph, Metadata, Node};
 use super::layers::Layers;
 
 /// Mapping for 2 nodes and all edges between them
-type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<Edge<E>>>;
+type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<&'a Edge<E>>>;
 
-/// Custom node draw function. Allows to fully customize what shaped would be drawn for node.
-/// The function is called for every node in the graph. Parmaeters:
-/// - `ctx` - egui context, is needed for computing node props and styles;
-/// - `n` - node reference, contains all node data;
-/// - `meta` - metadata, contains current zoom level and pan;
-/// - `style` - style settings, contains all style settings;
-/// - `l` - drawing layers, contains all shapes which will be drawn. When you create a shape, add it to the layers.
+/// Custom node draw function. Allows to fully customize what shape would be drawn for node.
+/// The function is called for every node in the graph. Parameters:
+/// - egui context, is needed for computing node props and styles;
+/// - node reference, contains all node data;
+/// - metadata, contains current zoom level and pan;
+/// - style settings, contains all style settings;
+/// - drawing layers, contains all shapes which will be drawn. When you create a shape, add it to the layers.
 pub type FnCustomNodeDraw<N> = fn(&Context, n: &Node<N>, &Metadata, &SettingsStyle, &mut Layers);
+
+/// Custom edge draw function. Allows to fully customize what shape would be drawn for edge.
+/// The function is called for every node pair which has edges connectiong them. Parameters:
+/// - egui context, is needed for computing node props and styles;
+/// - start node index, index of the node where edge starts;
+/// - end node index, index of the node where edge ends;
+/// - vector of edges, all edges between start and end nodes;
+/// - metadata, contains current zoom level and pan;
+/// - style settings, contains all style settings;
+/// - drawing layers, contains all shapes which will be drawn. When you create a shape, add it to the layers.
+pub type FnCustomEdgeDraw<E> = fn(
+    &Context,
+    idx_start: NodeIndex,
+    idx_end: NodeIndex,
+    Vec<&Edge<E>>,
+    &Metadata,
+    &SettingsStyle,
+    &mut Layers,
+);
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     p: Painter,
@@ -30,6 +49,7 @@ pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     meta: &'a Metadata,
 
     custom_node_draw: Option<FnCustomNodeDraw<N>>,
+    custom_edge_draw: Option<FnCustomEdgeDraw<E>>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
@@ -39,6 +59,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         style: &'a SettingsStyle,
         meta: &'a Metadata,
         custom_node_draw: Option<FnCustomNodeDraw<N>>,
+        custom_edge_draw: Option<FnCustomEdgeDraw<E>>,
     ) -> Self {
         Drawer {
             g,
@@ -46,6 +67,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
             style,
             meta,
             custom_node_draw,
+            custom_edge_draw,
         }
     }
 
@@ -73,28 +95,49 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         self.g.edges_iter().for_each(|(idx, e)| {
             let (source, target) = self.g.edge_endpoints(idx).unwrap();
             // compute map with edges between 2 nodes
-            edge_map
-                .entry((source, target))
-                .or_insert_with(Vec::new)
-                .push(e.clone());
+            edge_map.entry((source, target)).or_default().push(e);
         });
 
-        edge_map.iter().for_each(|((start, end), edges)| {
-            let mut order = edges.len();
-            edges.iter().for_each(|e| {
-                order -= 1;
-
-                if start == end {
-                    self.draw_edge_looped(l, start, e, order);
-                } else {
-                    self.draw_edge_basic(l, start, end, e, order);
-                }
+        edge_map
+            .into_iter()
+            .for_each(|((start, end), edges)| match self.custom_edge_draw {
+                Some(f) => f(self.p.ctx(), start, end, edges, self.meta, self.style, l),
+                None => self.default_edges_draw(
+                    self.p.ctx(),
+                    start,
+                    end,
+                    edges,
+                    self.meta,
+                    self.style,
+                    l,
+                ),
             });
+    }
+
+    fn default_edges_draw(
+        &self,
+        ctx: &Context,
+        idx_start: NodeIndex,
+        idx_end: NodeIndex,
+        edges: Vec<&Edge<E>>,
+        m: &Metadata,
+        style: &SettingsStyle,
+        l: &mut Layers,
+    ) {
+        let mut order = edges.len();
+        edges.iter().for_each(|e| {
+            order -= 1;
+
+            if idx_start == idx_end {
+                self.draw_edge_looped(l, idx_start, e, order);
+            } else {
+                self.draw_edge_basic(l, idx_start, idx_end, e, order);
+            }
         });
     }
 
-    fn draw_edge_looped(&self, l: &mut Layers, n_idx: &NodeIndex, e: &Edge<E>, order: usize) {
-        let node = self.g.node(*n_idx).unwrap();
+    fn draw_edge_looped(&self, l: &mut Layers, n_idx: NodeIndex, e: &Edge<E>, order: usize) {
+        let node = self.g.node(n_idx).unwrap();
 
         let rad = node.screen_radius(self.meta, self.style);
         let center = node.screen_location(self.meta);
@@ -123,13 +166,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
     fn draw_edge_basic(
         &self,
         l: &mut Layers,
-        start_idx: &NodeIndex,
-        end_idx: &NodeIndex,
+        start_idx: NodeIndex,
+        end_idx: NodeIndex,
         e: &Edge<E>,
         order: usize,
     ) {
-        let n_start = self.g.node(*start_idx).unwrap();
-        let n_end = self.g.node(*end_idx).unwrap();
+        let n_start = self.g.node(start_idx).unwrap();
+        let n_end = self.g.node(end_idx).unwrap();
 
         let loc_start = n_start.screen_location(self.meta).to_pos2();
         let loc_end = n_end.screen_location(self.meta).to_pos2();
