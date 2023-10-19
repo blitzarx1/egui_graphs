@@ -94,8 +94,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
+    /// Sets a function that will be called instead of the default drawer for every node to draw custom shapes.
     pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N>) -> Self {
         self.custom_node_draw = Some(func);
+        self
+    }
+
+    /// Sets a function that will be called instead of the default drawer for every pair of nodes connected with edges to draw custom shapes.
+    pub fn with_custom_edge_draw(mut self, func: FnCustomEdgeDraw<E>) -> Self {
+        self.custom_edge_draw = Some(func);
         self
     }
 
