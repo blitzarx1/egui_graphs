@@ -572,6 +572,7 @@ dependencies = [
  "fdg-sim",
  "petgraph",
  "rand",
+ "serde_json",
 ]
 
 [[package]]

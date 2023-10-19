@@ -13,9 +13,7 @@ pub struct BasicUndirectedApp {
 impl BasicUndirectedApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
-        Self {
-            g: Graph::from(&g),
-        }
+        Self { g: Graph::from(&g) }
     }
 }
 

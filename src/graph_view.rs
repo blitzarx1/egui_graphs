@@ -1,7 +1,9 @@
 #[cfg(feature = "events")]
-use crate::change::{Change, ChangeNode};
-#[cfg(feature = "events")]
 use crate::events::{Event, PayloadPan, PyaloadZoom};
+use crate::events::{
+    PayloadNodeClick, PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd,
+    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect,
+};
 use crate::{
     computed::ComputedState,
     draw::Drawer,
@@ -38,8 +40,6 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     g: &'a mut Graph<N, E, Ty>,
     custom_node_draw: Option<FnCustomNodeDraw<N>>,
 
-    #[cfg(feature = "events")]
-    changes_sender: Option<&'a Sender<Change>>,
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
 }
@@ -86,9 +86,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             custom_node_draw: Default::default(),
 
             #[cfg(feature = "events")]
-            changes_sender: Default::default(),
-
-            #[cfg(feature = "events")]
             events_publisher: Default::default(),
         }
     }
@@ -119,15 +116,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
         Metadata::default().store_into_ui(ui);
-    }
-
-    /// Make every interaction send [`Change`] to the provided [`crossbeam::channel::Sender`] as soon as interaction happens.
-    ///
-    /// Change events can be used to handle interactions on the application side.
-    #[cfg(feature = "events")]
-    pub fn with_changes(mut self, changes_sender: &'a Sender<Change>) -> Self {
-        self.changes_sender = Some(changes_sender);
-        self
     }
 
     #[cfg(feature = "events")]
@@ -227,7 +215,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
         let n = self.g.node(idx).unwrap();
         if n.selected() {
-            self.toggle_selection_node(idx);
+            self.deselect_node(idx);
             return;
         }
 
@@ -235,7 +223,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             self.deselect_all(comp);
         }
 
-        self.toggle_selection_node(idx);
+        self.select_node(idx);
     }
 
     fn handle_node_drag(&mut self, resp: &Response, comp: &mut ComputedState, meta: &mut Metadata) {
@@ -248,7 +236,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
                 self.g
                     .node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap())
             {
-                self.set_dragged(idx, true);
+                self.set_drag_start(idx);
             }
         }
 
@@ -263,7 +251,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
         if resp.drag_released() && comp.dragged.is_some() {
             let n_idx = comp.dragged.unwrap();
-            self.set_dragged(n_idx, false);
+            self.set_drag_end(n_idx);
         }
     }
 
@@ -361,62 +349,67 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.set_zoom(new_zoom, meta);
     }
 
-    fn toggle_selection_node(&mut self, idx: NodeIndex) {
+    fn select_node(&mut self, idx: NodeIndex) {
         let n = self.g.node_mut(idx).unwrap();
-        let old = n.selected();
-        n.set_selected(!old);
+        n.set_selected(true);
 
         #[cfg(feature = "events")]
-        {
-            let change = ChangeNode::change_selected(idx, old, !old);
-            self.send_changes(Change::node(change));
-        };
+        self.publish_event(Event::NodeSelect(PayloadNodeSelect { id: idx.index() }));
+    }
+
+    fn deselect_node(&mut self, idx: NodeIndex) {
+        let n = self.g.node_mut(idx).unwrap();
+        n.set_selected(false);
+
+        #[cfg(feature = "events")]
+        self.publish_event(Event::NodeDeselect(PayloadNodeDeselect { id: idx.index() }));
     }
 
     fn set_node_clicked(&mut self, idx: NodeIndex) {
         #[cfg(feature = "events")]
-        {
-            let change = ChangeNode::clicked(idx);
-            self.send_changes(Change::node(change));
-        };
+        self.publish_event(Event::NodeClick(PayloadNodeClick { id: idx.index() }));
     }
 
     fn set_node_double_clicked(&mut self, idx: NodeIndex) {
         #[cfg(feature = "events")]
-        {
-            let change = ChangeNode::double_clicked(idx);
-            self.send_changes(Change::node(change));
-        };
+        self.publish_event(Event::NodeDoubleClick(PayloadNodeDoubleClick {
+            id: idx.index(),
+        }));
     }
 
     fn deselect_all(&mut self, comp: &ComputedState) {
         comp.selected.iter().for_each(|idx| {
-            self.toggle_selection_node(*idx);
+            self.deselect_node(*idx);
         });
     }
 
     fn move_node(&mut self, idx: NodeIndex, delta: Vec2) {
         let n = self.g.node_mut(idx).unwrap();
-        let old = n.location();
-        n.set_location(old + delta);
+        n.set_location(n.location() + delta);
 
         #[cfg(feature = "events")]
-        {
-            let change = ChangeNode::change_location(idx, old, n.location());
-            self.send_changes(Change::node(change));
-        };
+        self.publish_event(Event::NodeMove(PayloadNodeMove {
+            id: idx.index(),
+            diff: delta.into(),
+        }));
     }
 
-    fn set_dragged(&mut self, idx: NodeIndex, val: bool) {
+    fn set_drag_start(&mut self, idx: NodeIndex) {
         let n = self.g.node_mut(idx).unwrap();
-        let old = n.dragged();
-        n.set_dragged(val);
+        n.set_dragged(true);
 
         #[cfg(feature = "events")]
-        {
-            let change = ChangeNode::change_dragged(idx, old, val);
-            self.send_changes(Change::node(change));
-        };
+        self.publish_event(Event::NodeDragStart(PayloadNodeDragStart {
+            id: idx.index(),
+        }));
+    }
+
+    fn set_drag_end(&mut self, idx: NodeIndex) {
+        let n = self.g.node_mut(idx).unwrap();
+        n.set_dragged(false);
+
+        #[cfg(feature = "events")]
+        self.publish_event(Event::NodeDragEnd(PayloadNodeDragEnd { id: idx.index() }));
     }
 
     fn set_pan(&self, val: Vec2, meta: &mut Metadata) {
@@ -433,13 +426,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
         #[cfg(feature = "events")]
         self.publish_event(Event::Zoom(PyaloadZoom { diff }));
-    }
-
-    #[cfg(feature = "events")]
-    fn send_changes(&self, changes: Change) {
-        if let Some(sender) = self.changes_sender {
-            sender.send(changes).unwrap();
-        }
     }
 
     #[cfg(feature = "events")]

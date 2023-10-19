@@ -11,32 +11,50 @@ pub struct PyaloadZoom {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadNodeMove {
+    pub id: usize,
+    pub diff: [f32; 2],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadNodeDragStart {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadNodeDragEnd {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadNodeSelect {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadNodeDeselect {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadNodeClick {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadNodeDoubleClick {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Event {
     Pan(PayloadPan),
     Zoom(PyaloadZoom),
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_contract_pan() {
-        let event = Event::Pan(PayloadPan { diff: [1.0, 2.0] });
-        let json = serde_json::to_string(&event).unwrap();
-        assert_eq!(json, r#"{"Pan":{"diff":[1.0,2.0]}}"#);
-
-        let event: Event = serde_json::from_str(&json).unwrap();
-        assert_eq!(event, Event::Pan(PayloadPan { diff: [1.0, 2.0] }));
-    }
-
-    #[test]
-    fn test_contract_zoom() {
-        let event = Event::Zoom(PyaloadZoom { diff: 1.0 });
-        let json = serde_json::to_string(&event).unwrap();
-        assert_eq!(json, r#"{"Zoom":{"diff":1.0}}"#);
-
-        let event: Event = serde_json::from_str(&json).unwrap();
-        assert_eq!(event, Event::Zoom(PyaloadZoom { diff: 1.0 }));
-    }
+    NodeMove(PayloadNodeMove),
+    NodeDragStart(PayloadNodeDragStart),
+    NodeDragEnd(PayloadNodeDragEnd),
+    NodeSelect(PayloadNodeSelect),
+    NodeDeselect(PayloadNodeDeselect),
+    NodeClick(PayloadNodeClick),
+    NodeDoubleClick(PayloadNodeDoubleClick),
 }

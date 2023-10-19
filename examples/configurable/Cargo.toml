@@ -9,6 +9,7 @@ edition = "2021"
 egui_graphs = { path = "../../", features = ["events"] }
 egui = "0.23"
 egui_plot = "0.23"
+serde_json = "1.0"
 eframe = "0.23"
 petgraph = "0.6"
 fdg-sim = "0.9"
