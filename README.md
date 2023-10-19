@@ -28,8 +28,7 @@ Can be enabled with `events` feature.
 - [x] Node select;
 - [x] Node move;
 - [x] Node drag;
-- [ ] Node hover enter;
-- [ ] Node hover exit;
+- [ ] Node hover;
 
 Combining this feature with custom node draw function allows to implement custom node behavior and drawing according to the events happening.
 
