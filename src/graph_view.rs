@@ -1,8 +1,7 @@
 #[cfg(feature = "events")]
-use crate::events::{Event, PayloadPan, PyaloadZoom};
 use crate::events::{
-    PayloadNodeClick, PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd,
-    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect,
+    Event, PayloadNodeClick, PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd,
+    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect, PayloadPan, PyaloadZoom,
 };
 use crate::{
     computed::ComputedState,

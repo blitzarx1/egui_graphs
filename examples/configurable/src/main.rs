@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
+use eframe::glow::WAIT_FAILED;
 use eframe::{run_native, App, CreationContext};
 use egui::{CollapsingHeader, Context, ScrollArea, Slider, Ui, Vec2};
 use egui_graphs::events::Event;
@@ -337,8 +338,8 @@ impl ConfigurableApp {
         });
     }
 
-    fn draw_section_client(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("Client")
+    fn draw_section_app(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("App Config")
             .default_open(true)
             .show(ui, |ui| {
                 ui.add_space(10.);
@@ -367,7 +368,6 @@ impl ConfigurableApp {
 
                 ui.add_space(10.);
 
-                ui.label("Style");
                 ui.separator();
             });
     }
@@ -376,81 +376,72 @@ impl ConfigurableApp {
         CollapsingHeader::new("Widget")
         .default_open(true)
         .show(ui, |ui| {
-            ui.add_space(10.);
+            CollapsingHeader::new("Navigation").show(ui, |ui|{
+                if ui
+                    .checkbox(&mut self.settings_navigation.fit_to_screen_enabled, "fit_to_screen")
+                    .changed()
+                    && self.settings_navigation.fit_to_screen_enabled
+                {
+                    self.settings_navigation.zoom_and_pan_enabled = false
+                };
+                ui.label("Enable fit to screen to fit the graph to the screen on every frame.");
 
-            ui.label("SettingsNavigation");
-            ui.separator();
+                ui.add_space(5.);
 
-            if ui
-                .checkbox(&mut self.settings_navigation.fit_to_screen_enabled, "fit_to_screen")
-                .changed()
-                && self.settings_navigation.fit_to_screen_enabled
-            {
-                self.settings_navigation.zoom_and_pan_enabled = false
-            };
-            ui.label("Enable fit to screen to fit the graph to the screen on every frame.");
-
-            ui.add_space(5.);
-
-            ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
-                ui.vertical(|ui| {
-                    ui.checkbox(&mut self.settings_navigation.zoom_and_pan_enabled, "zoom_and_pan");
-                    ui.label("Zoom with ctrl + mouse wheel, pan with mouse drag.");
-                }).response.on_disabled_hover_text("disable fit_to_screen to enable zoom_and_pan");
+                ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
+                    ui.vertical(|ui| {
+                        ui.checkbox(&mut self.settings_navigation.zoom_and_pan_enabled, "zoom_and_pan");
+                        ui.label("Zoom with ctrl + mouse wheel, pan with mouse drag.");
+                    }).response.on_disabled_hover_text("disable fit_to_screen to enable zoom_and_pan");
+                });
             });
 
-            ui.add_space(10.);
+            CollapsingHeader::new("Style").show(ui, |ui| {
+                ui.add(Slider::new(&mut self.settings_style.edge_radius_weight, 0. ..=5.)
+                .text("edge_radius_weight"));
+                ui.label("For every edge connected to node its radius is getting bigger by this value.");
 
-            ui.label("SettingsStyle");
-            ui.separator();
+                ui.add_space(5.);
 
-            ui.add(Slider::new(&mut self.settings_style.edge_radius_weight, 0. ..=5.)
-            .text("edge_radius_weight"));
-            ui.label("For every edge connected to node its radius is getting bigger by this value.");
-
-            ui.add_space(5.);
-
-            ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
-            ui.label("Wheter to show labels always or when interacted only.");
-
-            ui.add_space(10.);
-
-            ui.label("SettingsInteraction");
-            ui.separator();
-
-            ui.add_enabled_ui(!(self.settings_interaction.dragging_enabled || self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled), |ui| {
-                ui.vertical(|ui| {
-                    ui.checkbox(&mut self.settings_interaction.clicking_enabled, "clicking_enabled");
-                    ui.label("Check click events in last events");
-                }).response.on_disabled_hover_text("node click is enabled when any of the interaction is also enabled");
+                ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
+                ui.label("Wheter to show labels always or when interacted only.");
             });
 
-            ui.add_space(5.);
+            CollapsingHeader::new("Interaction").show(ui, |ui| {
+                ui.add_enabled_ui(!(self.settings_interaction.dragging_enabled || self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled), |ui| {
+                    ui.vertical(|ui| {
+                        ui.checkbox(&mut self.settings_interaction.clicking_enabled, "clicking_enabled");
+                        ui.label("Check click events in last events");
+                    }).response.on_disabled_hover_text("node click is enabled when any of the interaction is also enabled");
+                });
 
-            if ui.checkbox(&mut self.settings_interaction.dragging_enabled, "dragging_enabled").clicked() && self.settings_interaction.dragging_enabled {
-                self.settings_interaction.clicking_enabled = true;
-            };
-            ui.label("To drag use LMB click + drag on a node.");
+                ui.add_space(5.);
 
-            ui.add_space(5.);
+                if ui.checkbox(&mut self.settings_interaction.dragging_enabled, "dragging_enabled").clicked() && self.settings_interaction.dragging_enabled {
+                    self.settings_interaction.clicking_enabled = true;
+                };
+                ui.label("To drag use LMB click + drag on a node.");
 
-            ui.add_enabled_ui(!self.settings_interaction.selection_multi_enabled, |ui| {
-                ui.vertical(|ui| {
-                    if ui.checkbox(&mut self.settings_interaction.selection_enabled, "selection_enabled").clicked() && self.settings_interaction.selection_enabled {
-                        self.settings_interaction.clicking_enabled = true;
-                    };
-                    ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
-                }).response.on_disabled_hover_text("selection_multi_enabled enables select");
+                ui.add_space(5.);
+
+                ui.add_enabled_ui(!self.settings_interaction.selection_multi_enabled, |ui| {
+                    ui.vertical(|ui| {
+                        if ui.checkbox(&mut self.settings_interaction.selection_enabled, "selection_enabled").clicked() && self.settings_interaction.selection_enabled {
+                            self.settings_interaction.clicking_enabled = true;
+                        };
+                        ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
+                    }).response.on_disabled_hover_text("selection_multi_enabled enables select");
+                });
+
+                if ui.checkbox(&mut self.settings_interaction.selection_multi_enabled, "selection_multi_enabled").changed() && self.settings_interaction.selection_multi_enabled {
+                    self.settings_interaction.clicking_enabled = true;
+                    self.settings_interaction.selection_enabled = true;
+                }
+                ui.label("Enable multiselect to select multiple nodes.");
             });
 
-            if ui.checkbox(&mut self.settings_interaction.selection_multi_enabled, "selection_multi_enabled").changed() && self.settings_interaction.selection_multi_enabled {
-                self.settings_interaction.clicking_enabled = true;
-                self.settings_interaction.selection_enabled = true;
-            }
-            ui.label("Enable multiselect to select multiple nodes.");
-
-            ui.collapsing("selected", |ui| {
-                ScrollArea::vertical().max_height(200.).show(ui, |ui| {
+            CollapsingHeader::new("Selected").default_open(true).show(ui, |ui| {
+                ScrollArea::vertical().auto_shrink([false, true]).max_height(200.).show(ui, |ui| {
                     self.selected_nodes.iter().for_each(|node| {
                         ui.label(format!("{:?}", node));
                     });
@@ -460,8 +451,8 @@ impl ConfigurableApp {
                 });
             });
 
-            ui.collapsing("last events", |ui| {
-                ScrollArea::vertical().max_height(200.).show(ui, |ui| {
+            CollapsingHeader::new("Last Events").default_open(true).show(ui, |ui| {
+                ScrollArea::vertical().auto_shrink([false, true]).max_height(200.).show(ui, |ui| {
                     self.last_events.iter().rev().for_each(|event| {
                         ui.label(event);
                     });
@@ -524,7 +515,7 @@ impl App for ConfigurableApp {
             .min_width(250.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
-                    self.draw_section_client(ui);
+                    self.draw_section_app(ui);
                     ui.add_space(10.);
                     self.draw_section_debug(ui);
                     ui.add_space(10.);
