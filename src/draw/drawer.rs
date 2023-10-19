@@ -25,21 +25,13 @@ pub type FnCustomNodeDraw<N> = fn(&Context, n: &Node<N>, &Metadata, &SettingsSty
 /// Custom edge draw function. Allows to fully customize what shape would be drawn for edge.
 /// The function is called for every node pair which has edges connectiong them. Parameters:
 /// - egui context, is needed for computing node props and styles;
-/// - start node index, index of the node where edge starts;
-/// - end node index, index of the node where edge ends;
+/// - start node index and end node index;
 /// - vector of edges, all edges between start and end nodes;
 /// - metadata, contains current zoom level and pan;
 /// - style settings, contains all style settings;
 /// - drawing layers, contains all shapes which will be drawn. When you create a shape, add it to the layers.
-pub type FnCustomEdgeDraw<E> = fn(
-    &Context,
-    idx_start: NodeIndex,
-    idx_end: NodeIndex,
-    Vec<&Edge<E>>,
-    &Metadata,
-    &SettingsStyle,
-    &mut Layers,
-);
+pub type FnCustomEdgeDraw<E> =
+    fn(&Context, (NodeIndex, NodeIndex), Vec<&Edge<E>>, &Metadata, &SettingsStyle, &mut Layers);
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType> {
     p: Painter,
@@ -101,11 +93,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
         edge_map
             .into_iter()
             .for_each(|((start, end), edges)| match self.custom_edge_draw {
-                Some(f) => f(self.p.ctx(), start, end, edges, self.meta, self.style, l),
+                Some(f) => f(self.p.ctx(), (start, end), edges, self.meta, self.style, l),
                 None => self.default_edges_draw(
                     self.p.ctx(),
-                    start,
-                    end,
+                    (start, end),
                     edges,
                     self.meta,
                     self.style,
@@ -116,14 +107,14 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Drawer<'a, N, E, Ty> {
 
     fn default_edges_draw(
         &self,
-        ctx: &Context,
-        idx_start: NodeIndex,
-        idx_end: NodeIndex,
+        _ctx: &Context,
+        bounds: (NodeIndex, NodeIndex),
         edges: Vec<&Edge<E>>,
-        m: &Metadata,
-        style: &SettingsStyle,
+        _m: &Metadata,
+        _style: &SettingsStyle,
         l: &mut Layers,
     ) {
+        let (idx_start, idx_end) = bounds;
         let mut order = edges.len();
         edges.iter().for_each(|e| {
             order -= 1;
