@@ -1,5 +1,5 @@
 # Custom draw
-Basic example which demonstrates the usage of `GraphView` widget.
+Example demonstrates how to use custom drawing functions for edge and nodes. Here we draw nodes as squares and adding edge labels for the standard edge shape.
 
 ## run
 ```bash

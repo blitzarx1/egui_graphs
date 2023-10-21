@@ -5,8 +5,7 @@ use crate::events::{
 };
 use crate::{
     computed::ComputedState,
-    draw::Drawer,
-    draw::FnCustomNodeDraw,
+    draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw},
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
@@ -37,7 +36,9 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
     g: &'a mut Graph<N, E, Ty>,
-    custom_node_draw: Option<FnCustomNodeDraw<N>>,
+
+    custom_edge_draw: Option<FnCustomEdgeDraw<N, E, Ty>>,
+    custom_node_draw: Option<FnCustomNodeDraw<N, E, Ty>>,
 
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
@@ -62,6 +63,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
             &self.settings_style,
             &meta,
             self.custom_node_draw,
+            self.custom_edge_draw,
         )
         .draw();
 
@@ -82,15 +84,24 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             settings_style: Default::default(),
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
+
             custom_node_draw: Default::default(),
+            custom_edge_draw: Default::default(),
 
             #[cfg(feature = "events")]
             events_publisher: Default::default(),
         }
     }
 
-    pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N>) -> Self {
+    /// Sets a function that will be called instead of the default drawer for every node to draw custom shapes.
+    pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N, E, Ty>) -> Self {
         self.custom_node_draw = Some(func);
+        self
+    }
+
+    /// Sets a function that will be called instead of the default drawer for every pair of nodes connected with edges to draw custom shapes.
+    pub fn with_custom_edge_draw(mut self, func: FnCustomEdgeDraw<N, E, Ty>) -> Self {
+        self.custom_edge_draw = Some(func);
         self
     }
 
