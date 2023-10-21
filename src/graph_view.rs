@@ -5,8 +5,7 @@ use crate::events::{
 };
 use crate::{
     computed::ComputedState,
-    draw::Drawer,
-    draw::{FnCustomEdgeDraw, FnCustomNodeDraw},
+    draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw},
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
@@ -38,8 +37,8 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
     settings_style: SettingsStyle,
     g: &'a mut Graph<N, E, Ty>,
 
-    custom_edge_draw: Option<FnCustomEdgeDraw<E>>,
-    custom_node_draw: Option<FnCustomNodeDraw<N>>,
+    custom_edge_draw: Option<FnCustomEdgeDraw<N, E, Ty>>,
+    custom_node_draw: Option<FnCustomNodeDraw<N, E, Ty>>,
 
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
@@ -95,13 +94,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     /// Sets a function that will be called instead of the default drawer for every node to draw custom shapes.
-    pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N>) -> Self {
+    pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N, E, Ty>) -> Self {
         self.custom_node_draw = Some(func);
         self
     }
 
     /// Sets a function that will be called instead of the default drawer for every pair of nodes connected with edges to draw custom shapes.
-    pub fn with_custom_edge_draw(mut self, func: FnCustomEdgeDraw<E>) -> Self {
+    pub fn with_custom_edge_draw(mut self, func: FnCustomEdgeDraw<N, E, Ty>) -> Self {
         self.custom_edge_draw = Some(func);
         self
     }
