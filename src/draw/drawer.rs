@@ -6,10 +6,9 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 use crate::{settings::SettingsStyle, Edge, Graph, Metadata};
 
 use super::{
-    custom::{FnCustomNodeDraw, WidgetState},
+    custom::{FnCustomEdgeDraw, FnCustomNodeDraw, WidgetState},
     default_edges_draw, default_node_draw,
     layers::Layers,
-    FnCustomEdgeDraw,
 };
 
 /// Mapping for 2 nodes and all edges between them

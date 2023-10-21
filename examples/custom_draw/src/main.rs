@@ -65,7 +65,7 @@ impl App for BasicApp {
                         l.add(shape_label);
                     })
                     .with_custom_edge_draw(|ctx, bounds, edges, state, l| {
-                        // draw edges with label in the middle
+                        // draw edges with labels in the middle
 
                         // draw default edges
                         default_edges_draw(ctx, bounds, edges, state, l);
