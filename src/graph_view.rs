@@ -1,7 +1,7 @@
 #[cfg(feature = "events")]
 use crate::events::{
     Event, PayloadNodeClick, PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd,
-    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect, PayloadPan, PyaloadZoom,
+    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
 };
 use crate::{
     computed::ComputedState,
@@ -435,7 +435,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         meta.zoom = val;
 
         #[cfg(feature = "events")]
-        self.publish_event(Event::Zoom(PyaloadZoom { diff }));
+        self.publish_event(Event::Zoom(PayloadZoom { diff }));
     }
 
     #[cfg(feature = "events")]

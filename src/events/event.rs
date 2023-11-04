@@ -6,7 +6,7 @@ pub struct PayloadPan {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PyaloadZoom {
+pub struct PayloadZoom {
     pub diff: f32,
 }
 
@@ -49,7 +49,7 @@ pub struct PayloadNodeDoubleClick {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Event {
     Pan(PayloadPan),
-    Zoom(PyaloadZoom),
+    Zoom(PayloadZoom),
     NodeMove(PayloadNodeMove),
     NodeDragStart(PayloadNodeDragStart),
     NodeDragEnd(PayloadNodeDragEnd),
