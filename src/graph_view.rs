@@ -1,20 +1,15 @@
 #[cfg(feature = "events")]
 use crate::events::{
     Event, PayloadNodeClick, PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd,
-    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
+    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom, PayloadEdgeClick,
+    PayloadEdgeDeselect, PayloadEdgeSelect
 };
-use crate::{
-    computed::ComputedState,
-    draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw},
-    metadata::Metadata,
-    settings::SettingsNavigation,
-    settings::{SettingsInteraction, SettingsStyle},
-    Graph,
-};
+use crate::{computed::ComputedState, draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw}, metadata::Metadata, settings::SettingsNavigation, settings::{SettingsInteraction, SettingsStyle}, Graph, Edge};
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
+use petgraph::graph::EdgeIndex;
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -147,6 +142,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             computed.comp_iter_bounds(n, &self.settings_style);
         });
 
+        computed.compute_selected_edges(self.g);
+
         computed
     }
 
@@ -166,60 +163,71 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        let clickable = self.settings_interaction.clicking_enabled
-            || self.settings_interaction.selection_enabled
-            || self.settings_interaction.selection_multi_enabled;
+        let clickable = self.settings_interaction.node_clicking_enabled
+            || self.settings_interaction.node_selection_enabled
+            || self.settings_interaction.node_selection_multi_enabled
+            || self.settings_interaction.edge_clicking_enabled
+            || self.settings_interaction.edge_selection_enabled
+            || self.settings_interaction.edge_selection_multi_enabled;
 
         if !(clickable) {
             return;
         }
 
-        let node = self
-            .g
-            .node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap());
-        if node.is_none() {
+        let edge = self.g.edge_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap());
+        let node = self.g.node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap());
+        if node.is_none() && edge.is_none() {
             // click on empty space
-            let selectable = self.settings_interaction.selection_enabled
-                || self.settings_interaction.selection_multi_enabled;
-            if selectable {
-                self.deselect_all(comp);
+            let nodes_selectable = self.settings_interaction.node_selection_enabled
+                || self.settings_interaction.node_selection_multi_enabled;
+            if nodes_selectable {
+                self.deselect_all_nodes(comp);
             }
-            return;
-        }
 
-        // first click of double click is handleed by the lib as single click
-        // so if you double click a node it will handle it as single click at first
-        // and only after as double click
-        let node_idx = node.unwrap().0;
-        if resp.double_clicked() {
-            self.handle_node_double_click(node_idx);
-            return;
+            let edges_selectable = self.settings_interaction.edge_selection_enabled
+                || self.settings_interaction.edge_selection_multi_enabled;
+            if edges_selectable {
+                self.deselect_all_edges(comp);
+            }
+
+        } else if node.is_some() {
+            // first click of double click is handled by the lib as single click
+            // so if you double click a node it will handle it as single click at first
+            // and only after as double click
+            let node_idx = node.unwrap().0;
+            if resp.double_clicked() {
+                self.handle_node_double_click(node_idx);
+                return;
+            }
+            self.handle_node_click(node_idx, comp);
+        } else if edge.is_some() {
+            let edge_idx = edge.unwrap().0;
+            self.handle_edge_click(edge_idx, comp);
         }
-        self.handle_node_click(node_idx, comp);
     }
 
     fn handle_node_double_click(&mut self, idx: NodeIndex) {
-        if !self.settings_interaction.clicking_enabled {
+        if !self.settings_interaction.node_clicking_enabled {
             return;
         }
 
-        if self.settings_interaction.clicking_enabled {
+        if self.settings_interaction.node_clicking_enabled {
             self.set_node_double_clicked(idx);
         }
     }
 
     fn handle_node_click(&mut self, idx: NodeIndex, comp: &ComputedState) {
-        if !self.settings_interaction.clicking_enabled
-            && !self.settings_interaction.selection_enabled
+        if !self.settings_interaction.node_clicking_enabled
+            && !self.settings_interaction.node_selection_enabled
         {
             return;
         }
 
-        if self.settings_interaction.clicking_enabled {
+        if self.settings_interaction.node_clicking_enabled {
             self.set_node_clicked(idx);
         }
 
-        if !self.settings_interaction.selection_enabled {
+        if !self.settings_interaction.node_selection_enabled {
             return;
         }
 
@@ -229,11 +237,42 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        if !self.settings_interaction.selection_multi_enabled {
+        if !self.settings_interaction.node_selection_multi_enabled {
             self.deselect_all(comp);
         }
 
         self.select_node(idx);
+    }
+
+    fn handle_edge_click(&mut self, idx: EdgeIndex, comp: &ComputedState) {
+        //TODO how should the settings be handled?
+        /*
+        if !self.settings_interaction.edge_clicking_enabled
+            && !self.settings_interaction.edge_selection_enabled
+        {
+            return;
+        }
+
+        if self.settings_interaction.edge_clicking_enabled {
+            self.set_edge_clicked(idx);
+        }
+
+        if !self.settings_interaction.edge_selection_enabled {
+            return;
+        }
+
+        let e = self.g.edge(idx).unwrap();
+        if e.selected() {
+            self.deselect_edge(idx);
+            return;
+        }
+
+        if !self.settings_interaction.edge_selection_multi_enabled {
+            self.deselect_all(comp);
+        }
+         */
+
+        self.select_edge(idx);
     }
 
     fn handle_node_drag(&mut self, resp: &Response, comp: &mut ComputedState, meta: &mut Metadata) {
@@ -387,9 +426,44 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }));
     }
 
+    fn set_edge_clicked(&mut self, idx: EdgeIndex) {
+        #[cfg(feature = "events")]
+        self.publish_event(Event::EdgeClick(PayloadEdgeClick {
+            id: idx.index(),
+        }));
+    }
+
+    fn select_edge(&mut self, idx: EdgeIndex) {
+        let e = self.g.edge_mut(idx).unwrap();
+        e.set_selected(true);
+
+        #[cfg(feature = "events")]
+        self.publish_event(Event::EdgeSelect(PayloadEdgeSelect { id: idx.index() }));
+    }
+
+    fn deselect_edge(&mut self, idx: EdgeIndex) {
+        let e = self.g.edge_mut(idx).unwrap();
+        e.set_selected(false);
+
+        #[cfg(feature = "events")]
+        self.publish_event(Event::EdgeDeselect(PayloadEdgeDeselect { id: idx.index() }));
+    }
+
+    /// Deselects all nodes AND edges.
     fn deselect_all(&mut self, comp: &ComputedState) {
-        comp.selected.iter().for_each(|idx| {
+        self.deselect_all_nodes(comp);
+        self.deselect_all_edges(comp);
+    }
+
+    fn deselect_all_nodes(&mut self, comp: &ComputedState) {
+        comp.selected_nodes.iter().for_each(|idx| {
             self.deselect_node(*idx);
+        });
+    }
+
+    fn deselect_all_edges(&mut self, comp: &ComputedState) {
+        comp.selected_edges.iter().for_each(|idx| {
+            self.deselect_edge(*idx);
         });
     }
 

@@ -2,5 +2,6 @@ mod event;
 
 pub use self::event::{
     Event, PayloadNodeClick, PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd,
-    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
+    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom, PayloadEdgeClick,
+    PayloadEdgeSelect, PayloadEdgeDeselect,
 };

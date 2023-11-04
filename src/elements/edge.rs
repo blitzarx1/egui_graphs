@@ -1,5 +1,4 @@
 use egui::{Color32, Context};
-
 use super::StyleEdge;
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
@@ -9,6 +8,8 @@ pub struct Edge<E: Clone> {
     data: Option<E>,
 
     style: StyleEdge,
+
+    selected: bool,
 }
 
 impl<E: Clone> Default for Edge<E> {
@@ -17,6 +18,8 @@ impl<E: Clone> Default for Edge<E> {
             style: Default::default(),
 
             data: Default::default(),
+
+            selected: Default::default(),
         }
     }
 }
@@ -39,6 +42,10 @@ impl<E: Clone> Edge<E> {
     }
 
     pub fn color(&self, ctx: &Context) -> Color32 {
+        if self.selected {
+            return ctx.style().visuals.widgets.active.fg_stroke.color;
+        }
+
         ctx.style()
             .visuals
             .gray_out(ctx.style().visuals.widgets.inactive.fg_stroke.color)
@@ -60,5 +67,13 @@ impl<E: Clone> Edge<E> {
 
     pub fn tip_size(&self) -> f32 {
         self.style.tip_size
+    }
+
+    pub fn set_selected(&mut self, selected: bool) {
+        self.selected = selected;
+    }
+
+    pub fn selected(&self) -> bool {
+        self.selected
     }
 }

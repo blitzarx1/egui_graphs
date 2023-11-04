@@ -2,9 +2,12 @@
 #[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
     pub(crate) dragging_enabled: bool,
-    pub(crate) clicking_enabled: bool,
-    pub(crate) selection_enabled: bool,
-    pub(crate) selection_multi_enabled: bool,
+    pub(crate) node_clicking_enabled: bool,
+    pub(crate) node_selection_enabled: bool,
+    pub(crate) node_selection_multi_enabled: bool,
+    pub(crate) edge_clicking_enabled: bool,
+    pub(crate) edge_selection_enabled: bool,
+    pub(crate) edge_selection_multi_enabled: bool,
 }
 
 impl SettingsInteraction {
@@ -25,7 +28,7 @@ impl SettingsInteraction {
     ///
     /// Default: `false`
     pub fn with_clicking_enabled(mut self, enabled: bool) -> Self {
-        self.clicking_enabled = enabled;
+        self.node_clicking_enabled = enabled;
         self
     }
 
@@ -37,7 +40,7 @@ impl SettingsInteraction {
     ///
     /// Default: `false`
     pub fn with_selection_enabled(mut self, enabled: bool) -> Self {
-        self.selection_enabled = enabled;
+        self.node_selection_enabled = enabled;
         self
     }
 
@@ -45,7 +48,7 @@ impl SettingsInteraction {
     ///
     /// Default: `false`
     pub fn with_selection_multi_enabled(mut self, enabled: bool) -> Self {
-        self.selection_multi_enabled = enabled;
+        self.node_selection_multi_enabled = enabled;
         self
     }
 }

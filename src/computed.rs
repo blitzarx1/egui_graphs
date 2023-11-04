@@ -1,5 +1,6 @@
 use egui::{Rect, Vec2};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
+use petgraph::graph::EdgeIndex;
 
 use crate::{Graph, Node, SettingsStyle};
 
@@ -7,7 +8,8 @@ use crate::{Graph, Node, SettingsStyle};
 #[derive(Debug, Clone)]
 pub struct ComputedState {
     pub dragged: Option<NodeIndex>,
-    pub selected: Vec<NodeIndex>,
+    pub selected_nodes: Vec<NodeIndex>,
+    pub selected_edges: Vec<EdgeIndex>,
 
     min: Vec2,
     max: Vec2,
@@ -19,7 +21,8 @@ impl Default for ComputedState {
         Self {
             dragged: None,
 
-            selected: Vec::new(),
+            selected_nodes: Vec::new(),
+            selected_edges: Vec::new(),
 
             min: Vec2::new(f32::MAX, f32::MAX),
             max: Vec2::new(f32::MIN, f32::MIN),
@@ -40,12 +43,23 @@ impl ComputedState {
             self.dragged = Some(idx);
         }
         if n.selected() {
-            self.selected.push(idx);
+            self.selected_nodes.push(idx);
         }
 
         ComputedNode {
             num_connections: g.edges_num(idx),
         }
+    }
+
+    pub fn compute_selected_edges<N: Clone, E: Clone, Ty: EdgeType>(
+        &mut self,
+        g: &Graph<N, E, Ty>)
+    {
+        g.edges_iter().for_each(|(idx, e)| {
+            if e.selected() {
+                self.selected_edges.push(idx);
+            }
+        })
     }
 
     pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N>, settings: &SettingsStyle) {
