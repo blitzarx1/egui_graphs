@@ -245,8 +245,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     fn handle_edge_click(&mut self, idx: EdgeIndex, comp: &ComputedState) {
-        //TODO how should the settings be handled?
-        /*
         if !self.settings_interaction.edge_clicking_enabled
             && !self.settings_interaction.edge_selection_enabled
         {
@@ -270,7 +268,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         if !self.settings_interaction.edge_selection_multi_enabled {
             self.deselect_all(comp);
         }
-         */
 
         self.select_edge(idx);
     }

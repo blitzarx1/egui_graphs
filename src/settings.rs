@@ -27,7 +27,7 @@ impl SettingsInteraction {
     /// Allows clicking on nodes.
     ///
     /// Default: `false`
-    pub fn with_clicking_enabled(mut self, enabled: bool) -> Self {
+    pub fn with_node_clicking_enabled(mut self, enabled: bool) -> Self {
         self.node_clicking_enabled = enabled;
         self
     }
@@ -39,7 +39,7 @@ impl SettingsInteraction {
     /// Clicking on empty space deselects all nodes.
     ///
     /// Default: `false`
-    pub fn with_selection_enabled(mut self, enabled: bool) -> Self {
+    pub fn with_node_selection_enabled(mut self, enabled: bool) -> Self {
         self.node_selection_enabled = enabled;
         self
     }
@@ -47,8 +47,37 @@ impl SettingsInteraction {
     /// Multiselection for nodes, enables click and select.
     ///
     /// Default: `false`
-    pub fn with_selection_multi_enabled(mut self, enabled: bool) -> Self {
+    pub fn with_node_selection_multi_enabled(mut self, enabled: bool) -> Self {
         self.node_selection_multi_enabled = enabled;
+        self
+    }
+
+
+    /// Allows clicking on edges.
+    ///
+    /// Default: `false`
+    pub fn with_edge_clicking_enabled(mut self, enabled: bool) -> Self {
+        self.edge_clicking_enabled = enabled;
+        self
+    }
+
+    /// Selects clicked edge, enables clicks.
+    ///
+    /// Select by clicking on a edge, deselect by clicking again.
+    ///
+    /// Clicking on empty space deselects all edges.
+    ///
+    /// Default: `false`
+    pub fn with_edge_selection_enabled(mut self, enabled: bool) -> Self {
+        self.edge_selection_enabled = enabled;
+        self
+    }
+
+    /// Multiselection for edges, enables click and select.
+    ///
+    /// Default: `false`
+    pub fn with_edge_selection_multi_enabled(mut self, enabled: bool) -> Self {
+        self.edge_selection_multi_enabled = enabled;
         self
     }
 }
