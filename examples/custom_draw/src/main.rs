@@ -24,7 +24,7 @@ impl App for BasicApp {
                     .with_interactions(
                         &SettingsInteraction::default()
                             .with_dragging_enabled(true)
-                            .with_selection_enabled(true),
+                            .with_node_selection_enabled(true),
                     )
                     .with_custom_node_draw(|ctx, n, state, l| {
                         // lets draw a rect with label in the center for every node

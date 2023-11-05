@@ -19,9 +19,12 @@ impl App for BasicInteractiveApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             let interaction_settings = &SettingsInteraction::new()
                 .with_dragging_enabled(true)
-                .with_clicking_enabled(true)
-                .with_selection_enabled(true)
-                .with_selection_multi_enabled(true);
+                .with_node_clicking_enabled(true)
+                .with_node_selection_enabled(true)
+                .with_node_selection_multi_enabled(true)
+                .with_edge_clicking_enabled(true)
+                .with_edge_selection_enabled(true)
+                .with_edge_selection_multi_enabled(true);
             let style_settings = &SettingsStyle::new().with_labels_always(true);
             ui.add(
                 &mut GraphView::new(&mut self.g)
@@ -39,7 +42,6 @@ fn generate_graph() -> Graph<(), (), Directed> {
     let b = g.add_node(());
     let c = g.add_node(());
 
-    g.add_edge(a, a, ());
     g.add_edge(a, b, ());
     g.add_edge(b, c, ());
     g.add_edge(c, a, ());

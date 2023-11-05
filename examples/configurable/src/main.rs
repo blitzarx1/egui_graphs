@@ -524,10 +524,10 @@ impl App for ConfigurableApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let settings_interaction = &egui_graphs::SettingsInteraction::new()
-                .with_selection_enabled(self.settings_interaction.selection_enabled)
-                .with_selection_multi_enabled(self.settings_interaction.selection_multi_enabled)
+                .with_node_selection_enabled(self.settings_interaction.selection_enabled)
+                .with_node_selection_multi_enabled(self.settings_interaction.selection_multi_enabled)
                 .with_dragging_enabled(self.settings_interaction.dragging_enabled)
-                .with_clicking_enabled(self.settings_interaction.clicking_enabled);
+                .with_node_clicking_enabled(self.settings_interaction.clicking_enabled);
             let settings_navigation = &egui_graphs::SettingsNavigation::new()
                 .with_zoom_and_pan_enabled(self.settings_navigation.zoom_and_pan_enabled)
                 .with_fit_to_screen_enabled(self.settings_navigation.fit_to_screen_enabled)
