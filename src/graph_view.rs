@@ -4,12 +4,14 @@ use crate::events::{
     PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom, PayloadEdgeClick,
     PayloadEdgeDeselect, PayloadEdgeSelect
 };
+use std::collections::HashMap;
 use crate::{computed::ComputedState, draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw}, metadata::Metadata, settings::SettingsNavigation, settings::{SettingsInteraction, SettingsStyle}, Graph, Edge};
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 use petgraph::graph::EdgeIndex;
+use crate::graph::EdgeMap;
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -174,7 +176,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             return;
         }
 
-        let edge = self.g.edge_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap());
+        let mut edge_map: EdgeMap<E> = HashMap::new();
+
+        self.g.edges_iter().for_each(|(idx, e)| {
+            let (source, target) = self.g.edge_endpoints(idx).unwrap();
+            // compute map with edges between 2 nodes
+            edge_map.entry((source, target)).or_default().push((idx, e));
+        });
+
+        let edge = self.g.edge_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap(), edge_map);
         let node = self.g.node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap());
         if node.is_none() && edge.is_none() {
             // click on empty space
@@ -201,7 +211,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             }
             self.handle_node_click(node_idx, comp);
         } else if edge.is_some() {
-            let edge_idx = edge.unwrap().0;
+            let edge_idx = edge.unwrap();
             self.handle_edge_click(edge_idx, comp);
         }
     }
