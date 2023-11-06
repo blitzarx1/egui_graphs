@@ -144,7 +144,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             computed.comp_iter_bounds(n, &self.settings_style);
         });
 
-        computed.compute_selected_edges(self.g);
+        self.g.edges_iter().for_each(|(idx, e)| {
+            if e.selected() {
+                computed.selected_edges.push(idx);
+            }
+        });
 
         computed
     }

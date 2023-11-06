@@ -51,17 +51,6 @@ impl ComputedState {
         }
     }
 
-    pub fn compute_selected_edges<N: Clone, E: Clone, Ty: EdgeType>(
-        &mut self,
-        g: &Graph<N, E, Ty>)
-    {
-        g.edges_iter().for_each(|(idx, e)| {
-            if e.selected() {
-                self.selected_edges.push(idx);
-            }
-        })
-    }
-
     pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N>, settings: &SettingsStyle) {
         let rad = n.radius() + n.num_connections() as f32 * settings.edge_radius_weight;
         if rad > self.max_rad {
