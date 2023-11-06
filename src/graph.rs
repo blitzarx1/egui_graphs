@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::f32::consts::PI;
-use std::ops::{Index, Sub};
+use std::ops::Index;
 use egui::{Color32, Pos2, Stroke, Vec2};
 use egui::epaint::{CubicBezierShape, QuadraticBezierShape};
 

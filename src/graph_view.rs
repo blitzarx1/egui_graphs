@@ -5,7 +5,7 @@ use crate::events::{
     PayloadEdgeDeselect, PayloadEdgeSelect
 };
 use std::collections::HashMap;
-use crate::{computed::ComputedState, draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw}, metadata::Metadata, settings::SettingsNavigation, settings::{SettingsInteraction, SettingsStyle}, Graph, Edge};
+use crate::{computed::ComputedState, draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw}, metadata::Metadata, settings::SettingsNavigation, settings::{SettingsInteraction, SettingsStyle}, Graph};
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
