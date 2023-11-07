@@ -7,7 +7,7 @@ use egui_graphs::events::Event;
 use egui_graphs::{to_graph, Edge, Graph, GraphView, Node};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
-use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
+use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
 use petgraph::visit::EdgeRef;
 use petgraph::Directed;
 use rand::Rng;
@@ -19,7 +19,7 @@ const SIMULATION_DT: f32 = 0.035;
 const EVENTS_LIMIT: usize = 100;
 
 pub struct ConfigurableApp {
-    g: Graph<(), (), Directed>,
+    g: Graph<(), (), Directed, DefaultIx>,
     sim: Simulation<(), f32>,
 
     settings_graph: SettingsGraph,
@@ -168,7 +168,7 @@ impl ConfigurableApp {
         self.settings_graph = settings_graph;
         self.last_events = Default::default();
 
-        GraphView::<(), (), Directed>::reset_metadata(ui);
+        GraphView::<(), (), Directed, DefaultIx>::reset_metadata(ui);
     }
 
     fn handle_events(&mut self) {
@@ -554,14 +554,14 @@ impl App for ConfigurableApp {
     }
 }
 
-fn generate(settings: &SettingsGraph) -> (Graph<(), (), Directed>, Simulation<(), f32>) {
+fn generate(settings: &SettingsGraph) -> (Graph<(), (), Directed, DefaultIx>, Simulation<(), f32>) {
     let g = generate_random_graph(settings.count_node, settings.count_edge);
     let sim = construct_simulation(&g);
 
     (g, sim)
 }
 
-fn construct_simulation(g: &Graph<(), (), Directed>) -> Simulation<(), f32> {
+fn construct_simulation(g: &Graph<(), (), Directed, DefaultIx>) -> Simulation<(), f32> {
     // create force graph
     let mut force_graph = ForceGraph::with_capacity(g.g.node_count(), g.g.edge_count());
     g.g.node_indices().for_each(|idx| {
@@ -581,7 +581,10 @@ fn construct_simulation(g: &Graph<(), (), Directed>) -> Simulation<(), f32> {
     Simulation::from_graph(force_graph, params)
 }
 
-fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph<(), (), Directed> {
+fn generate_random_graph(
+    node_count: usize,
+    edge_count: usize,
+) -> Graph<(), (), Directed, DefaultIx> {
     let mut rng = rand::thread_rng();
     let mut graph = StableGraph::new();
 

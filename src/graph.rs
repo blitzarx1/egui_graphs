@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::Index;
 
+use petgraph::graph::IndexType;
 use petgraph::matrix_graph::Nullable;
 use petgraph::{
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
@@ -14,22 +15,25 @@ use petgraph::{
 use crate::{metadata::Metadata, transform, Edge, Node, SettingsStyle};
 
 /// Mapping for 2 nodes and all edges between them
-pub type EdgeMap<'a, E> = HashMap<(NodeIndex, NodeIndex), Vec<(EdgeIndex, &'a Edge<E>)>>;
+pub type EdgeMap<'a, E, Ix> =
+    HashMap<(NodeIndex<Ix>, NodeIndex<Ix>), Vec<(EdgeIndex<Ix>, &'a Edge<E>)>>;
 
 /// Graph type compatible with [`super::GraphView`].
 #[derive(Debug, Clone)]
-pub struct Graph<N: Clone, E: Clone, Ty: EdgeType> {
-    pub g: StableGraph<Node<N>, Edge<E>, Ty>,
+pub struct Graph<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+    pub g: StableGraph<Node<N>, Edge<E>, Ty, Ix>,
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType> From<&StableGraph<N, E, Ty>> for Graph<N, E, Ty> {
-    fn from(value: &StableGraph<N, E, Ty>) -> Self {
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> From<&StableGraph<N, E, Ty, Ix>>
+    for Graph<N, E, Ty, Ix>
+{
+    fn from(value: &StableGraph<N, E, Ty, Ix>) -> Self {
         transform::to_graph(value)
     }
 }
 
-impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
-    pub fn new(g: StableGraph<Node<N>, Edge<E>, Ty>) -> Self {
+impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, Ix> {
+    pub fn new(g: StableGraph<Node<N>, Edge<E>, Ty, Ix>) -> Self {
         Self { g }
     }
 
@@ -39,7 +43,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
         meta: &'a Metadata,
         style: &'a SettingsStyle,
         screen_pos: Pos2,
-    ) -> Option<(NodeIndex, &Node<N>)> {
+    ) -> Option<(NodeIndex<Ix>, &Node<N>)> {
         let pos_in_graph = (screen_pos.to_vec2() - meta.pan) / meta.zoom;
         self.nodes_iter().find(|(_, n)| {
             let dist_to_node = (n.location() - pos_in_graph).length();
@@ -53,8 +57,8 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
         meta: &'a Metadata,
         style: &'a SettingsStyle,
         screen_pos: Pos2,
-        edge_map: EdgeMap<E>,
-    ) -> Option<EdgeIndex> {
+        edge_map: EdgeMap<E, Ix>,
+    ) -> Option<EdgeIndex<Ix>> {
         let pos_in_graph = (screen_pos.to_vec2() - meta.pan) / meta.zoom;
         for ((start, end), edges) in edge_map {
             let mut order = edges.len();
@@ -95,7 +99,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
                         return Option::new(idx_edge);
                     }
 
-                    return None;
+                    continue;
                 }
 
                 if order == 0 {
@@ -109,7 +113,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
                         return Option::new(idx_edge);
                     }
 
-                    return None;
+                    continue;
                 }
 
                 // multiple edges between nodes -> curved
@@ -148,37 +152,37 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
         None
     }
 
-    pub fn g(&mut self) -> &mut StableGraph<Node<N>, Edge<E>, Ty> {
+    pub fn g(&mut self) -> &mut StableGraph<Node<N>, Edge<E>, Ty, Ix> {
         &mut self.g
     }
 
     ///Provides iterator over all nodes and their indices.
-    pub fn nodes_iter(&'a self) -> impl Iterator<Item = (NodeIndex, &Node<N>)> {
+    pub fn nodes_iter(&'a self) -> impl Iterator<Item = (NodeIndex<Ix>, &Node<N>)> {
         self.g.node_references()
     }
 
     /// Provides iterator over all edges and their indices.
-    pub fn edges_iter(&'a self) -> impl Iterator<Item = (EdgeIndex, &Edge<E>)> {
+    pub fn edges_iter(&'a self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<E>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
 
-    pub fn node(&self, i: NodeIndex) -> Option<&Node<N>> {
+    pub fn node(&self, i: NodeIndex<Ix>) -> Option<&Node<N>> {
         self.g.node_weight(i)
     }
 
-    pub fn edge(&self, i: EdgeIndex) -> Option<&Edge<E>> {
+    pub fn edge(&self, i: EdgeIndex<Ix>) -> Option<&Edge<E>> {
         self.g.edge_weight(i)
     }
 
-    pub fn edge_endpoints(&self, i: EdgeIndex) -> Option<(NodeIndex, NodeIndex)> {
+    pub fn edge_endpoints(&self, i: EdgeIndex<Ix>) -> Option<(NodeIndex<Ix>, NodeIndex<Ix>)> {
         self.g.edge_endpoints(i)
     }
 
-    pub fn node_mut(&mut self, i: NodeIndex) -> Option<&mut Node<N>> {
+    pub fn node_mut(&mut self, i: NodeIndex<Ix>) -> Option<&mut Node<N>> {
         self.g.node_weight_mut(i)
     }
 
-    pub fn edge_mut(&mut self, i: EdgeIndex) -> Option<&mut Edge<E>> {
+    pub fn edge_mut(&mut self, i: EdgeIndex<Ix>) -> Option<&mut Edge<E>> {
         self.g.edge_weight_mut(i)
     }
 
@@ -186,15 +190,15 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
         self.g.is_directed()
     }
 
-    pub fn edges_num(&self, idx: NodeIndex) -> usize {
+    pub fn edges_num(&self, idx: NodeIndex<Ix>) -> usize {
         self.g.edges(idx).count()
     }
 
     pub fn edges_directed(
         &self,
-        idx: NodeIndex,
+        idx: NodeIndex<Ix>,
         dir: Direction,
-    ) -> impl Iterator<Item = EdgeReference<Edge<E>>> {
+    ) -> impl Iterator<Item = EdgeReference<Edge<E>, Ix>> {
         self.g.edges_directed(idx, dir)
     }
 }

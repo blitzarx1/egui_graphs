@@ -1,22 +1,25 @@
 use egui::{Rect, Vec2};
-use petgraph::graph::EdgeIndex;
+use petgraph::graph::{EdgeIndex, IndexType};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{Graph, Node, SettingsStyle};
 
 /// The struct stores selections, dragged node and computed elements states.
 #[derive(Debug, Clone)]
-pub struct ComputedState {
-    pub dragged: Option<NodeIndex>,
-    pub selected_nodes: Vec<NodeIndex>,
-    pub selected_edges: Vec<EdgeIndex>,
+pub struct ComputedState<Ix: IndexType> {
+    pub dragged: Option<NodeIndex<Ix>>,
+    pub selected_nodes: Vec<NodeIndex<Ix>>,
+    pub selected_edges: Vec<EdgeIndex<Ix>>,
 
     min: Vec2,
     max: Vec2,
     max_rad: f32,
 }
 
-impl Default for ComputedState {
+impl<Ix> Default for ComputedState<Ix>
+where
+    Ix: IndexType,
+{
     fn default() -> Self {
         Self {
             dragged: None,
@@ -31,11 +34,14 @@ impl Default for ComputedState {
     }
 }
 
-impl ComputedState {
+impl<Ix> ComputedState<Ix>
+where
+    Ix: IndexType,
+{
     pub fn compute_for_node<N: Clone, E: Clone, Ty: EdgeType>(
         &mut self,
-        g: &Graph<N, E, Ty>,
-        idx: NodeIndex,
+        g: &Graph<N, E, Ty, Ix>,
+        idx: NodeIndex<Ix>,
     ) -> ComputedNode {
         let n = g.node(idx).unwrap();
 

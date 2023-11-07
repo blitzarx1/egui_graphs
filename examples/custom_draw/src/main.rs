@@ -1,10 +1,13 @@
 use eframe::{run_native, App, CreationContext};
 use egui::{epaint::TextShape, Context, FontFamily, FontId, Rect, Rounding, Shape, Stroke, Vec2};
 use egui_graphs::{default_edges_draw, Graph, GraphView, SettingsInteraction};
-use petgraph::{stable_graph::StableGraph, Directed};
+use petgraph::{
+    stable_graph::{DefaultIx, StableGraph},
+    Directed,
+};
 
 pub struct BasicApp {
-    g: Graph<(), (), Directed>,
+    g: Graph<(), (), Directed, DefaultIx>,
 }
 
 impl BasicApp {
