@@ -75,14 +75,22 @@ fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
             tip_end - e.tip_size() * state.meta.zoom * rotate_vector(dir, -e.tip_angle());
 
         let shape = Shape::line_segment([edge_start, edge_end], stroke_edge);
-        l.add(shape);
+        match e.selected() {
+            true => l.add_top(shape),
+            false => l.add(shape),
+        }
+
+        if !state.g.is_directed() {
+            return;
+        }
 
         // draw tips for directed edges
-        if state.g.is_directed() {
-            let shape_tip =
-                Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_tip);
-            l.add(shape_tip);
-        }
+        let shape_tip =
+            Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_tip);
+        match e.selected() {
+            true => l.add_top(shape_tip),
+            false => l.add(shape_tip),
+        };
 
         return;
     }
@@ -113,11 +121,18 @@ fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
         Color32::TRANSPARENT,
         stroke_edge,
     );
-    l.add(shape_curved);
+
+    match e.selected() {
+        true => l.add_top(shape_curved),
+        false => l.add(shape_curved),
+    }
 
     let shape_tip_curved =
         Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_tip);
-    l.add(shape_tip_curved);
+    match e.selected() {
+        true => l.add_top(shape_tip_curved),
+        false => l.add(shape_tip_curved),
+    };
 }
 
 fn draw_edge_looped<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
@@ -149,7 +164,10 @@ fn draw_edge_looped<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
         stroke,
     );
 
-    l.add(shape);
+    match e.selected() {
+        true => l.add_top(shape),
+        false => l.add(shape),
+    }
 }
 
 /// rotates vector by angle

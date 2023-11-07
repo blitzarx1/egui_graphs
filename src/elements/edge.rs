@@ -43,7 +43,7 @@ impl<E: Clone> Edge<E> {
 
     pub fn color(&self, ctx: &Context) -> Color32 {
         if self.selected {
-            return ctx.style().visuals.widgets.active.fg_stroke.color;
+            return ctx.style().visuals.widgets.hovered.fg_stroke.color;
         }
 
         ctx.style()
