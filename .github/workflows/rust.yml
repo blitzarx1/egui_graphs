@@ -17,6 +17,13 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Lint
+        run: cargo clippy --verbose -- -D warnings
+
   test:
     runs-on: ubuntu-latest
     steps:
