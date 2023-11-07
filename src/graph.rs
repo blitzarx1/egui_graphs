@@ -258,7 +258,7 @@ fn is_point_on_quadratic_bezier_curve(
 fn is_point_on_bezier_curve(point: Vec2, curve_points: Vec<Pos2>, width: f32) -> bool {
     let mut previous_point = None;
     for p in curve_points {
-        if let Some(pp) = previous_point{
+        if let Some(pp) = previous_point {
             let distance = distance_segment_to_point(p.to_vec2(), pp, point);
             if distance < width {
                 return true;
