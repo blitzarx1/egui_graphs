@@ -1,10 +1,13 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
 use egui_graphs::{Graph, GraphView, SettingsInteraction, SettingsStyle};
-use petgraph::{stable_graph::StableGraph, Directed};
+use petgraph::{
+    stable_graph::{DefaultIx, StableGraph},
+    Directed,
+};
 
 pub struct BasicInteractiveApp {
-    g: Graph<(), (), Directed>,
+    g: Graph<(), (), Directed, DefaultIx>,
 }
 
 impl BasicInteractiveApp {
@@ -32,7 +35,7 @@ impl App for BasicInteractiveApp {
     }
 }
 
-fn generate_graph() -> Graph<(), (), Directed> {
+fn generate_graph() -> Graph<(), (), Directed, DefaultIx> {
     let mut g: StableGraph<(), ()> = StableGraph::new();
 
     let a = g.add_node(());
