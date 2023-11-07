@@ -457,6 +457,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }));
     }
 
+    #[allow(unused_variables)]
     fn set_edge_clicked(&mut self, idx: EdgeIndex) {
         #[cfg(feature = "events")]
         self.publish_event(Event::EdgeClick(PayloadEdgeClick { id: idx.index() }));
