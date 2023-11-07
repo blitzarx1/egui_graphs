@@ -2,16 +2,17 @@ use egui::{
     epaint::{CircleShape, TextShape},
     Context, FontFamily, FontId, Pos2, Stroke,
 };
+use petgraph::graph::IndexType;
 use petgraph::EdgeType;
 
 use crate::Node;
 
 use super::{custom::WidgetState, Layers};
 
-pub fn default_node_draw<N: Clone, E: Clone, Ty: EdgeType>(
+pub fn default_node_draw<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     ctx: &Context,
     n: &Node<N>,
-    state: &WidgetState<N, E, Ty>,
+    state: &WidgetState<N, E, Ty, Ix>,
     l: &mut Layers,
 ) {
     let is_interacted = n.selected() || n.dragged();

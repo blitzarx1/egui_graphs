@@ -1,4 +1,5 @@
 use egui::Context;
+use petgraph::graph::IndexType;
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{Edge, Graph, Metadata, Node, SettingsStyle};
@@ -6,8 +7,8 @@ use crate::{Edge, Graph, Metadata, Node, SettingsStyle};
 use super::Layers;
 
 /// Contains all the data about current widget state which is needed for custom drawing functions.
-pub struct WidgetState<'a, N: Clone, E: Clone, Ty: EdgeType> {
-    pub g: &'a Graph<N, E, Ty>,
+pub struct WidgetState<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+    pub g: &'a Graph<N, E, Ty, Ix>,
     pub style: &'a SettingsStyle,
     pub meta: &'a Metadata,
 }
@@ -20,8 +21,8 @@ pub struct WidgetState<'a, N: Clone, E: Clone, Ty: EdgeType> {
 /// - node reference, contains all node data;
 /// - widget state with references to graph, style and metadata;
 /// - when you create a shape, add it to the layers.
-pub type FnCustomNodeDraw<N, E, Ty> =
-    fn(&Context, n: &Node<N>, &WidgetState<N, E, Ty>, &mut Layers);
+pub type FnCustomNodeDraw<N, E, Ty, Ix> =
+    fn(&Context, n: &Node<N>, &WidgetState<N, E, Ty, Ix>, &mut Layers);
 
 /// Allows to fully customize what shape would be drawn for an edge.
 /// The function is **called once for every node pair** which has edges connecting them. So make sure you have drawn all the edges which are passed to the function.
@@ -32,5 +33,10 @@ pub type FnCustomNodeDraw<N, E, Ty> =
 /// - vector of edges, all edges between start and end nodes;
 /// - widget state with references to graph, style and metadata;
 /// - when you create a shape, add it to the layers.
-pub type FnCustomEdgeDraw<N, E, Ty> =
-    fn(&Context, (NodeIndex, NodeIndex), Vec<&Edge<E>>, &WidgetState<N, E, Ty>, &mut Layers);
+pub type FnCustomEdgeDraw<N, E, Ty, Ix> = fn(
+    &Context,
+    (NodeIndex<Ix>, NodeIndex<Ix>),
+    Vec<&Edge<E>>,
+    &WidgetState<N, E, Ty, Ix>,
+    &mut Layers,
+);

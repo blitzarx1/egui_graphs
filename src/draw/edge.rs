@@ -4,17 +4,18 @@ use egui::{
     epaint::{CubicBezierShape, QuadraticBezierShape},
     Color32, Context, Pos2, Shape, Stroke, Vec2,
 };
+use petgraph::graph::IndexType;
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{Edge, Node};
 
 use super::{custom::WidgetState, Layers};
 
-pub fn default_edges_draw<N: Clone, E: Clone, Ty: EdgeType>(
+pub fn default_edges_draw<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     ctx: &Context,
-    bounds: (NodeIndex, NodeIndex),
+    bounds: (NodeIndex<Ix>, NodeIndex<Ix>),
     edges: Vec<&Edge<E>>,
-    state: &WidgetState<N, E, Ty>,
+    state: &WidgetState<N, E, Ty, Ix>,
     l: &mut Layers,
 ) {
     let (idx_start, idx_end) = bounds;
@@ -33,14 +34,14 @@ pub fn default_edges_draw<N: Clone, E: Clone, Ty: EdgeType>(
     });
 }
 
-fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType>(
+fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     ctx: &Context,
     l: &mut Layers,
     n_start: &Node<N>,
     n_end: &Node<N>,
     e: &Edge<E>,
     order: usize,
-    state: &WidgetState<N, E, Ty>,
+    state: &WidgetState<N, E, Ty, Ix>,
 ) {
     let loc_start = n_start.screen_location(state.meta).to_pos2();
     let loc_end = n_end.screen_location(state.meta).to_pos2();
@@ -119,13 +120,13 @@ fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType>(
     l.add(shape_tip_curved);
 }
 
-fn draw_edge_looped<N: Clone, E: Clone, Ty: EdgeType>(
+fn draw_edge_looped<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     ctx: &Context,
     l: &mut Layers,
     node: &Node<N>,
     e: &Edge<E>,
     order: usize,
-    state: &WidgetState<N, E, Ty>,
+    state: &WidgetState<N, E, Ty, Ix>,
 ) {
     let rad = node.screen_radius(state.meta, state.style);
     let center = node.screen_location(state.meta);

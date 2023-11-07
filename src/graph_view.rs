@@ -14,6 +14,7 @@ use crate::{
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use petgraph::graph::IndexType;
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 /// Widget for visualizing and interacting with graphs.
@@ -31,20 +32,22 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 /// When the user performs navigation actions (zoom & pan or fit to screen), they do not
 /// produce changes. This is because these actions are performed on the global coordinates and do not change any
 /// properties of the nodes or edges.
-pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType> {
+pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
-    g: &'a mut Graph<N, E, Ty>,
+    g: &'a mut Graph<N, E, Ty, Ix>,
 
-    custom_edge_draw: Option<FnCustomEdgeDraw<N, E, Ty>>,
-    custom_node_draw: Option<FnCustomNodeDraw<N, E, Ty>>,
+    custom_edge_draw: Option<FnCustomEdgeDraw<N, E, Ty, Ix>>,
+    custom_node_draw: Option<FnCustomNodeDraw<N, E, Ty, Ix>>,
 
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, Ty> {
+impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Widget
+    for &mut GraphView<'a, N, E, Ty, Ix>
+{
     fn ui(self, ui: &mut Ui) -> Response {
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
@@ -74,10 +77,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> Widget for &mut GraphView<'a, N, E, T
     }
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
+impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty, Ix> {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut Graph<N, E, Ty>) -> Self {
+    pub fn new(g: &'a mut Graph<N, E, Ty, Ix>) -> Self {
         Self {
             g,
 
@@ -94,13 +97,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     /// Sets a function that will be called instead of the default drawer for every node to draw custom shapes.
-    pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N, E, Ty>) -> Self {
+    pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N, E, Ty, Ix>) -> Self {
         self.custom_node_draw = Some(func);
         self
     }
 
     /// Sets a function that will be called instead of the default drawer for every pair of nodes connected with edges to draw custom shapes.
-    pub fn with_custom_edge_draw(mut self, func: FnCustomEdgeDraw<N, E, Ty>) -> Self {
+    pub fn with_custom_edge_draw(mut self, func: FnCustomEdgeDraw<N, E, Ty, Ix>) -> Self {
         self.custom_edge_draw = Some(func);
         self
     }
@@ -134,8 +137,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self
     }
 
-    fn compute_state(&mut self) -> ComputedState {
-        let mut computed = ComputedState::default();
+    fn compute_state(&mut self) -> ComputedState<Ix> {
+        let mut computed = ComputedState::<Ix>::default();
 
         let n_idxs = self.g.g.node_indices().collect::<Vec<_>>();
         n_idxs.iter().for_each(|idx| {
@@ -152,7 +155,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     /// Fits the graph to the screen if it is the first frame or
     /// fit to screen setting is enabled;
-    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata, comp: &ComputedState) {
+    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata, comp: &ComputedState<Ix>) {
         if !meta.first_frame && !self.settings_navigation.fit_to_screen_enabled {
             return;
         }
@@ -161,7 +164,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         meta.first_frame = false;
     }
 
-    fn handle_click(&mut self, resp: &Response, meta: &mut Metadata, comp: &ComputedState) {
+    fn handle_click(&mut self, resp: &Response, meta: &mut Metadata, comp: &ComputedState<Ix>) {
         if !resp.clicked() && !resp.double_clicked() {
             return;
         }
@@ -198,7 +201,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.handle_node_click(node_idx, comp);
     }
 
-    fn handle_node_double_click(&mut self, idx: NodeIndex) {
+    fn handle_node_double_click(&mut self, idx: NodeIndex<Ix>) {
         if !self.settings_interaction.clicking_enabled {
             return;
         }
@@ -208,7 +211,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
-    fn handle_node_click(&mut self, idx: NodeIndex, comp: &ComputedState) {
+    fn handle_node_click(&mut self, idx: NodeIndex<Ix>, comp: &ComputedState<Ix>) {
         if !self.settings_interaction.clicking_enabled
             && !self.settings_interaction.selection_enabled
         {
@@ -236,7 +239,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.select_node(idx);
     }
 
-    fn handle_node_drag(&mut self, resp: &Response, comp: &mut ComputedState, meta: &mut Metadata) {
+    fn handle_node_drag(
+        &mut self,
+        resp: &Response,
+        comp: &mut ComputedState<Ix>,
+        meta: &mut Metadata,
+    ) {
         if !self.settings_interaction.dragging_enabled {
             return;
         }
@@ -265,7 +273,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata, comp: &ComputedState) {
+    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata, comp: &ComputedState<Ix>) {
         // calculate graph dimensions with decorative padding
         let bounds = comp.graph_bounds();
         let mut diag = bounds.max - bounds.min;
@@ -306,7 +314,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         ui: &Ui,
         resp: &Response,
         meta: &mut Metadata,
-        comp: &ComputedState,
+        comp: &ComputedState<Ix>,
     ) {
         self.handle_zoom(ui, resp, meta);
         self.handle_pan(resp, meta, comp);
@@ -328,7 +336,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         });
     }
 
-    fn handle_pan(&self, resp: &Response, meta: &mut Metadata, comp: &ComputedState) {
+    fn handle_pan(&self, resp: &Response, meta: &mut Metadata, comp: &ComputedState<Ix>) {
         if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
@@ -359,7 +367,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.set_zoom(new_zoom, meta);
     }
 
-    fn select_node(&mut self, idx: NodeIndex) {
+    fn select_node(&mut self, idx: NodeIndex<Ix>) {
         let n = self.g.node_mut(idx).unwrap();
         n.set_selected(true);
 
@@ -367,7 +375,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.publish_event(Event::NodeSelect(PayloadNodeSelect { id: idx.index() }));
     }
 
-    fn deselect_node(&mut self, idx: NodeIndex) {
+    fn deselect_node(&mut self, idx: NodeIndex<Ix>) {
         let n = self.g.node_mut(idx).unwrap();
         n.set_selected(false);
 
@@ -376,26 +384,26 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
     }
 
     #[allow(unused_variables)]
-    fn set_node_clicked(&mut self, idx: NodeIndex) {
+    fn set_node_clicked(&mut self, idx: NodeIndex<Ix>) {
         #[cfg(feature = "events")]
         self.publish_event(Event::NodeClick(PayloadNodeClick { id: idx.index() }));
     }
 
     #[allow(unused_variables)]
-    fn set_node_double_clicked(&mut self, idx: NodeIndex) {
+    fn set_node_double_clicked(&mut self, idx: NodeIndex<Ix>) {
         #[cfg(feature = "events")]
         self.publish_event(Event::NodeDoubleClick(PayloadNodeDoubleClick {
             id: idx.index(),
         }));
     }
 
-    fn deselect_all(&mut self, comp: &ComputedState) {
+    fn deselect_all(&mut self, comp: &ComputedState<Ix>) {
         comp.selected.iter().for_each(|idx| {
             self.deselect_node(*idx);
         });
     }
 
-    fn move_node(&mut self, idx: NodeIndex, delta: Vec2) {
+    fn move_node(&mut self, idx: NodeIndex<Ix>, delta: Vec2) {
         let n = self.g.node_mut(idx).unwrap();
         n.set_location(n.location() + delta);
 
@@ -406,7 +414,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }));
     }
 
-    fn set_drag_start(&mut self, idx: NodeIndex) {
+    fn set_drag_start(&mut self, idx: NodeIndex<Ix>) {
         let n = self.g.node_mut(idx).unwrap();
         n.set_dragged(true);
 
@@ -416,7 +424,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         }));
     }
 
-    fn set_drag_end(&mut self, idx: NodeIndex) {
+    fn set_drag_end(&mut self, idx: NodeIndex<Ix>) {
         let n = self.g.node_mut(idx).unwrap();
         n.set_dragged(false);
 
