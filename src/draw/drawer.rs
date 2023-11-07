@@ -13,7 +13,7 @@ use super::{
 };
 
 /// Mapping for 2 nodes and all edges between them
-type EdgeMap<'a, E, Ix: IndexType> = HashMap<(NodeIndex<Ix>, NodeIndex<Ix>), Vec<&'a Edge<E>>>;
+type EdgeMap<'a, E, Ix> = HashMap<(NodeIndex<Ix>, NodeIndex<Ix>), Vec<&'a Edge<E>>>;
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
     p: Painter,
