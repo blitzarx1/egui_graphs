@@ -443,11 +443,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.publish_event(Event::NodeDeselect(PayloadNodeDeselect { id: idx.index() }));
     }
 
+    #[allow(unused_variables)]
     fn set_node_clicked(&mut self, idx: NodeIndex) {
         #[cfg(feature = "events")]
         self.publish_event(Event::NodeClick(PayloadNodeClick { id: idx.index() }));
     }
 
+    #[allow(unused_variables)]
     fn set_node_double_clicked(&mut self, idx: NodeIndex) {
         #[cfg(feature = "events")]
         self.publish_event(Event::NodeDoubleClick(PayloadNodeDoubleClick {
@@ -523,6 +525,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.publish_event(Event::NodeDragEnd(PayloadNodeDragEnd { id: idx.index() }));
     }
 
+    #[allow(unused_variables)]
     fn set_pan(&self, val: Vec2, meta: &mut Metadata) {
         let diff = val - meta.pan;
         meta.pan = val;
@@ -531,6 +534,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
         self.publish_event(Event::Pan(PayloadPan { diff: diff.into() }));
     }
 
+    #[allow(unused_variables)]
     fn set_zoom(&self, val: f32, meta: &mut Metadata) {
         let diff = val - meta.zoom;
         meta.zoom = val;
