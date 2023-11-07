@@ -581,10 +581,7 @@ fn construct_simulation(g: &Graph<(), (), Directed, DefaultIx>) -> Simulation<()
     Simulation::from_graph(force_graph, params)
 }
 
-fn generate_random_graph(
-    node_count: usize,
-    edge_count: usize,
-) -> Graph<(), (), Directed, DefaultIx> {
+fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph<(), ()> {
     let mut rng = rand::thread_rng();
     let mut graph = StableGraph::new();
 

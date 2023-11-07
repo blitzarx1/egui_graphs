@@ -38,8 +38,8 @@ impl App for BasicInteractiveApp {
     }
 }
 
-fn generate_graph() -> Graph<(), (), Directed, DefaultIx> {
-    let mut g: StableGraph<(), ()> = StableGraph::new();
+fn generate_graph() -> Graph<(), ()> {
+    let mut g = StableGraph::new();
 
     let a = g.add_node(());
     let b = g.add_node(());

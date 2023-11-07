@@ -1,5 +1,7 @@
 use egui::epaint::{CubicBezierShape, QuadraticBezierShape};
 use egui::{Color32, Pos2, Stroke, Vec2};
+use petgraph::stable_graph::DefaultIx;
+use petgraph::Directed;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::Index;
@@ -20,7 +22,7 @@ pub type EdgeMap<'a, E, Ix> =
 
 /// Graph type compatible with [`super::GraphView`].
 #[derive(Debug, Clone)]
-pub struct Graph<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+pub struct Graph<N: Clone, E: Clone, Ty: EdgeType = Directed, Ix: IndexType = DefaultIx> {
     pub g: StableGraph<Node<N>, Edge<E>, Ty, Ix>,
 }
 
