@@ -1,15 +1,15 @@
+use egui::epaint::{CubicBezierShape, QuadraticBezierShape};
+use egui::{Color32, Pos2, Stroke, Vec2};
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::Index;
-use egui::{Color32, Pos2, Stroke, Vec2};
-use egui::epaint::{CubicBezierShape, QuadraticBezierShape};
 
+use petgraph::matrix_graph::Nullable;
 use petgraph::{
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
     visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences},
     Direction, EdgeType,
 };
-use petgraph::matrix_graph::Nullable;
 
 use crate::{metadata::Metadata, transform, Edge, Node, SettingsStyle};
 
@@ -67,14 +67,17 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
 
                 order -= 1;
 
-                if start == end { // edge is a loop (bezier curve)
+                if start == end {
+                    // edge is a loop (bezier curve)
                     let rad = node_start.screen_radius(meta, style) / meta.zoom;
                     let center = pos_start;
                     let center_horizon_angle = PI / 4.;
                     let y_intersect = center.y - rad * center_horizon_angle.sin();
 
-                    let edge_start = Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
-                    let edge_end = Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
+                    let edge_start =
+                        Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
+                    let edge_end =
+                        Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
 
                     let loop_size = rad * (style.edge_looped_size + order as f32);
 
@@ -91,48 +94,58 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
                     if is_point_on_cubic_bezier_curve(pos_in_graph, shape, e.width(), meta.zoom) {
                         return Option::new(idx_edge);
                     }
-                } else {
-                    if order == 0 { // edge is a straight line between nodes
-                        let distance = distance_segment_to_point(pos_start.to_vec2(), pos_end.to_vec2(), pos_in_graph);
-                        if distance < e.width() {
-                            return Option::new(idx_edge);
-                        }
-                    } else { // multiple edges between nodes -> curved
-                        let rad_start = node_start.screen_radius(meta, style) / meta.zoom;
-                        let rad_end = node_end.screen_radius(meta, style) / meta.zoom;
 
-                        let vec = pos_end - pos_start;
-                        let dist: f32 = vec.length();
-                        let dir = vec / dist;
-
-                        let start_node_radius_vec = Vec2::new(rad_start, rad_start) * dir;
-                        let end_node_radius_vec = Vec2::new(rad_end, rad_end) * dir;
-
-                        let tip_end = pos_start + vec - end_node_radius_vec;
-
-                        let edge_start = pos_start + start_node_radius_vec;
-
-                        let dir_perpendicular = Vec2::new(-dir.y, dir.x);
-                        let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
-                        let control_point = (center_point
-                            + dir_perpendicular * e.curve_size() * order as f32)
-                            .to_pos2();
-
-                        let stroke = Stroke::new(e.width() * meta.zoom, e.color(&Default::default()));
-                        let shape = QuadraticBezierShape::from_points_stroke(
-                            [edge_start, control_point, tip_end],
-                            false,
-                            Color32::TRANSPARENT,
-                            stroke,
-                        );
-                        if is_point_on_quadratic_bezier_curve(pos_in_graph, shape, e.width(), meta.zoom) {
-                            return Option::new(idx_edge);
-                        }
-                    }
+                    return None;
                 }
-            };
-        };
-        return None;
+
+                if order == 0 {
+                    // edge is a straight line between nodes
+                    let distance = distance_segment_to_point(
+                        pos_start.to_vec2(),
+                        pos_end.to_vec2(),
+                        pos_in_graph,
+                    );
+                    if distance < e.width() {
+                        return Option::new(idx_edge);
+                    }
+
+                    return None;
+                }
+
+                // multiple edges between nodes -> curved
+                let rad_start = node_start.screen_radius(meta, style) / meta.zoom;
+                let rad_end = node_end.screen_radius(meta, style) / meta.zoom;
+
+                let vec = pos_end - pos_start;
+                let dist: f32 = vec.length();
+                let dir = vec / dist;
+
+                let start_node_radius_vec = Vec2::new(rad_start, rad_start) * dir;
+                let end_node_radius_vec = Vec2::new(rad_end, rad_end) * dir;
+
+                let tip_end = pos_start + vec - end_node_radius_vec;
+
+                let edge_start = pos_start + start_node_radius_vec;
+
+                let dir_perpendicular = Vec2::new(-dir.y, dir.x);
+                let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
+                let control_point =
+                    (center_point + dir_perpendicular * e.curve_size() * order as f32).to_pos2();
+
+                let stroke = Stroke::new(e.width() * meta.zoom, e.color(&Default::default()));
+                let shape = QuadraticBezierShape::from_points_stroke(
+                    [edge_start, control_point, tip_end],
+                    false,
+                    Color32::TRANSPARENT,
+                    stroke,
+                );
+                if is_point_on_quadratic_bezier_curve(pos_in_graph, shape, e.width(), meta.zoom) {
+                    return Option::new(idx_edge);
+                }
+            }
+        }
+
+        None
     }
 
     pub fn g(&mut self) -> &mut StableGraph<Node<N>, Edge<E>, Ty> {
@@ -140,12 +153,12 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
     }
 
     ///Provides iterator over all nodes and their indices.
-    pub fn nodes_iter(&'a self) -> impl Iterator<Item=(NodeIndex, &Node<N>)> {
+    pub fn nodes_iter(&'a self) -> impl Iterator<Item = (NodeIndex, &Node<N>)> {
         self.g.node_references()
     }
 
     /// Provides iterator over all edges and their indices.
-    pub fn edges_iter(&'a self) -> impl Iterator<Item=(EdgeIndex, &Edge<E>)> {
+    pub fn edges_iter(&'a self) -> impl Iterator<Item = (EdgeIndex, &Edge<E>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
 
@@ -181,7 +194,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType> Graph<N, E, Ty> {
         &self,
         idx: NodeIndex,
         dir: Direction,
-    ) -> impl Iterator<Item=EdgeReference<Edge<E>>> {
+    ) -> impl Iterator<Item = EdgeReference<Edge<E>>> {
         self.g.edges_directed(idx, dir)
     }
 }
@@ -208,24 +221,34 @@ fn distance_segment_to_point(a: Vec2, b: Vec2, point: Vec2) -> f32 {
         return hypot2(point, b).sqrt();
     }
 
-    return hypot2(point, d).sqrt();
+    hypot2(point, d).sqrt()
 }
 
 fn hypot2(a: Vec2, b: Vec2) -> f32 {
-    return (a - b).dot(a - b);
+    (a - b).dot(a - b)
 }
 
 fn proj(a: Vec2, b: Vec2) -> Vec2 {
     let k = a.dot(b) / b.dot(b);
-    return Vec2::new(k * b.x, k * b.y);
+    Vec2::new(k * b.x, k * b.y)
 }
 
-fn is_point_on_cubic_bezier_curve(point: Vec2, curve: CubicBezierShape, width: f32, zoom: f32) -> bool {
-    is_point_on_bezier_curve(point, curve.flatten(Option::new(10.0/zoom)), width)
+fn is_point_on_cubic_bezier_curve(
+    point: Vec2,
+    curve: CubicBezierShape,
+    width: f32,
+    zoom: f32,
+) -> bool {
+    is_point_on_bezier_curve(point, curve.flatten(Option::new(10.0 / zoom)), width)
 }
 
-fn is_point_on_quadratic_bezier_curve(point: Vec2, curve: QuadraticBezierShape, width: f32, zoom: f32) -> bool {
-    is_point_on_bezier_curve(point, curve.flatten(Option::new(2.0/zoom)), width)
+fn is_point_on_quadratic_bezier_curve(
+    point: Vec2,
+    curve: QuadraticBezierShape,
+    width: f32,
+    zoom: f32,
+) -> bool {
+    is_point_on_bezier_curve(point, curve.flatten(Option::new(2.0 / zoom)), width)
 }
 
 fn is_point_on_bezier_curve(point: Vec2, curve_points: Vec<Pos2>, width: f32) -> bool {

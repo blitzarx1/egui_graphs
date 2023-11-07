@@ -1,17 +1,24 @@
 #[cfg(feature = "events")]
 use crate::events::{
-    Event, PayloadNodeClick, PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd,
-    PayloadNodeDragStart, PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom, PayloadEdgeClick,
-    PayloadEdgeDeselect, PayloadEdgeSelect
+    Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
+    PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd, PayloadNodeDragStart,
+    PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
 };
-use std::collections::HashMap;
-use crate::{computed::ComputedState, draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw}, metadata::Metadata, settings::SettingsNavigation, settings::{SettingsInteraction, SettingsStyle}, Graph};
+use crate::graph::EdgeMap;
+use crate::{
+    computed::ComputedState,
+    draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw},
+    metadata::Metadata,
+    settings::SettingsNavigation,
+    settings::{SettingsInteraction, SettingsStyle},
+    Graph,
+};
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{stable_graph::NodeIndex, EdgeType};
 use petgraph::graph::EdgeIndex;
-use crate::graph::EdgeMap;
+use petgraph::{stable_graph::NodeIndex, EdgeType};
+use std::collections::HashMap;
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -188,9 +195,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             edge_map.entry((source, target)).or_default().push((idx, e));
         });
 
-        let edge = self.g.edge_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap(), edge_map);
-        let node = self.g.node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap());
-        if node.is_none() && edge.is_none() {
+        let found_edge = self.g.edge_by_screen_pos(
+            meta,
+            &self.settings_style,
+            resp.hover_pos().unwrap(),
+            edge_map,
+        );
+        let found_node = self
+            .g
+            .node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap());
+        if found_node.is_none() && found_edge.is_none() {
             // click on empty space
             let nodes_selectable = self.settings_interaction.node_selection_enabled
                 || self.settings_interaction.node_selection_multi_enabled;
@@ -203,19 +217,23 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
             if edges_selectable {
                 self.deselect_all_edges(comp);
             }
+            return;
+        }
 
-        } else if node.is_some() {
+        if let Some(n) = found_node {
             // first click of double click is handled by the lib as single click
             // so if you double click a node it will handle it as single click at first
             // and only after as double click
-            let node_idx = node.unwrap().0;
+            let node_idx = n.0;
             if resp.double_clicked() {
                 self.handle_node_double_click(node_idx);
                 return;
             }
             self.handle_node_click(node_idx, comp);
-        } else if edge.is_some() {
-            let edge_idx = edge.unwrap();
+            return;
+        }
+
+        if let Some(edge_idx) = found_edge {
             self.handle_edge_click(edge_idx, comp);
         }
     }
@@ -439,9 +457,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType> GraphView<'a, N, E, Ty> {
 
     fn set_edge_clicked(&mut self, idx: EdgeIndex) {
         #[cfg(feature = "events")]
-        self.publish_event(Event::EdgeClick(PayloadEdgeClick {
-            id: idx.index(),
-        }));
+        self.publish_event(Event::EdgeClick(PayloadEdgeClick { id: idx.index() }));
     }
 
     fn select_edge(&mut self, idx: EdgeIndex) {
