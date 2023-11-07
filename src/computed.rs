@@ -1,6 +1,6 @@
 use egui::{Rect, Vec2};
-use petgraph::{stable_graph::NodeIndex, EdgeType};
 use petgraph::graph::EdgeIndex;
+use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{Graph, Node, SettingsStyle};
 

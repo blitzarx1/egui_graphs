@@ -1,7 +1,5 @@
 use eframe::{run_native, App, CreationContext};
-use egui::{
-    epaint::TextShape, Context, FontFamily, FontId, Rect, Rounding, Shape, Stroke, Vec2,
-};
+use egui::{epaint::TextShape, Context, FontFamily, FontId, Rect, Rounding, Shape, Stroke, Vec2};
 use egui_graphs::{default_edges_draw, Graph, GraphView, SettingsInteraction};
 use petgraph::{stable_graph::StableGraph, Directed};
 

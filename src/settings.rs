@@ -52,7 +52,6 @@ impl SettingsInteraction {
         self
     }
 
-
     /// Allows clicking on edges.
     ///
     /// Default: `false`

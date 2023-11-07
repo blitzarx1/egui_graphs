@@ -1,5 +1,5 @@
-use egui::{Color32, Context};
 use super::StyleEdge;
+use egui::{Color32, Context};
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug)]
