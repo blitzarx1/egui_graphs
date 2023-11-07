@@ -1,6 +1,8 @@
 use egui::Pos2;
 use petgraph::graph::IndexType;
+use petgraph::Directed;
 
+use petgraph::stable_graph::DefaultIx;
 use petgraph::{
     stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph},
     visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences},
@@ -11,7 +13,7 @@ use crate::{metadata::Metadata, transform, Edge, Node, SettingsStyle};
 
 /// Graph type compatible with [`super::GraphView`].
 #[derive(Debug, Clone)]
-pub struct Graph<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+pub struct Graph<N: Clone, E: Clone, Ty: EdgeType = Directed, Ix: IndexType = DefaultIx> {
     pub g: StableGraph<Node<N>, Edge<E>, Ty, Ix>,
 }
 

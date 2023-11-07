@@ -109,8 +109,8 @@ impl App for BasicApp {
     }
 }
 
-fn generate_graph() -> StableGraph<(), (), Directed> {
-    let mut g: StableGraph<(), ()> = StableGraph::new();
+fn generate_graph() -> StableGraph<(), ()> {
+    let mut g = StableGraph::new();
 
     let a = g.add_node(());
     let b = g.add_node(());
