@@ -6,18 +6,18 @@ use petgraph::{
     Directed,
 };
 
-pub struct BasicApp {
+pub struct CustomDrawApp {
     g: Graph<(), (), Directed, DefaultIx>,
 }
 
-impl BasicApp {
+impl CustomDrawApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
         Self { g: Graph::from(&g) }
     }
 }
 
-impl App for BasicApp {
+impl App for CustomDrawApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(
@@ -128,7 +128,7 @@ fn main() {
     run_native(
         "egui_graphs_custom_draw_demo",
         native_options,
-        Box::new(|cc| Box::new(BasicApp::new(cc))),
+        Box::new(|cc| Box::new(CustomDrawApp::new(cc))),
     )
     .unwrap();
 }
