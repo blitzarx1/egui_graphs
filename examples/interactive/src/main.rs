@@ -6,18 +6,18 @@ use petgraph::{
     Directed,
 };
 
-pub struct BasicInteractiveApp {
+pub struct InteractiveApp {
     g: Graph<(), (), Directed, DefaultIx>,
 }
 
-impl BasicInteractiveApp {
+impl InteractiveApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
         Self { g }
     }
 }
 
-impl App for BasicInteractiveApp {
+impl App for InteractiveApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             let interaction_settings = &SettingsInteraction::new()
@@ -54,7 +54,7 @@ fn main() {
     run_native(
         "egui_graphs_interactive_demo",
         native_options,
-        Box::new(|cc| Box::new(BasicInteractiveApp::new(cc))),
+        Box::new(|cc| Box::new(InteractiveApp::new(cc))),
     )
     .unwrap();
 }

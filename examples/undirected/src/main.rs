@@ -6,18 +6,18 @@ use petgraph::{
     Undirected,
 };
 
-pub struct BasicUndirectedApp {
+pub struct UndirectedApp {
     g: Graph<(), (), Undirected, DefaultIx>,
 }
 
-impl BasicUndirectedApp {
+impl UndirectedApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
         Self { g: Graph::from(&g) }
     }
 }
 
-impl App for BasicUndirectedApp {
+impl App for UndirectedApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(&mut GraphView::new(&mut self.g));
@@ -44,7 +44,7 @@ fn main() {
     run_native(
         "egui_graphs_undirected_demo",
         native_options,
-        Box::new(|cc| Box::new(BasicUndirectedApp::new(cc))),
+        Box::new(|cc| Box::new(UndirectedApp::new(cc))),
     )
     .unwrap();
 }
