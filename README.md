@@ -24,13 +24,7 @@ The project is on track for a stable release v1.0.0. For the moment, breaking re
 
 ## Features
 ### Events
-Can be enabled with `events` feature.
-- [x] Node click;
-- [x] Node double click;
-- [x] Node select;
-- [x] Node move;
-- [x] Node drag;
-- [ ] Node hover;
+Can be enabled with `events` feature. Events describe a change made in graph whether it changed zoom level or node dragging. 
 
 Combining this feature with custom node draw function allows to implement custom node behavior and drawing according to the events happening.
 
