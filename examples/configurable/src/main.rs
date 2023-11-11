@@ -407,36 +407,62 @@ impl ConfigurableApp {
             });
 
             CollapsingHeader::new("Interaction").show(ui, |ui| {
-                ui.add_enabled_ui(!(self.settings_interaction.dragging_enabled || self.settings_interaction.selection_enabled || self.settings_interaction.selection_multi_enabled), |ui| {
+                if ui.checkbox(&mut self.settings_interaction.dragging_enabled, "dragging_enabled").clicked() && self.settings_interaction.dragging_enabled {
+                    self.settings_interaction.node_clicking_enabled = true;
+                };
+                ui.label("To drag use LMB click + drag on a node.");
+
+                ui.add_space(5.);
+
+                ui.add_enabled_ui(!(self.settings_interaction.dragging_enabled || self.settings_interaction.node_selection_enabled || self.settings_interaction.node_selection_multi_enabled), |ui| {
                     ui.vertical(|ui| {
-                        ui.checkbox(&mut self.settings_interaction.clicking_enabled, "clicking_enabled");
+                        ui.checkbox(&mut self.settings_interaction.node_clicking_enabled, "node_clicking_enabled");
                         ui.label("Check click events in last events");
                     }).response.on_disabled_hover_text("node click is enabled when any of the interaction is also enabled");
                 });
 
                 ui.add_space(5.);
 
-                if ui.checkbox(&mut self.settings_interaction.dragging_enabled, "dragging_enabled").clicked() && self.settings_interaction.dragging_enabled {
-                    self.settings_interaction.clicking_enabled = true;
-                };
-                ui.label("To drag use LMB click + drag on a node.");
+                ui.add_enabled_ui(!self.settings_interaction.node_selection_multi_enabled, |ui| {
+                    ui.vertical(|ui| {
+                        if ui.checkbox(&mut self.settings_interaction.node_selection_enabled, "node_selection_enabled").clicked() && self.settings_interaction.node_selection_enabled {
+                            self.settings_interaction.node_clicking_enabled = true;
+                        };
+                        ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
+                    }).response.on_disabled_hover_text("node_selection_multi_enabled enables select");
+                });
+
+                if ui.checkbox(&mut self.settings_interaction.node_selection_multi_enabled, "node_selection_multi_enabled").changed() && self.settings_interaction.node_selection_multi_enabled {
+                    self.settings_interaction.node_clicking_enabled = true;
+                    self.settings_interaction.node_selection_enabled = true;
+                }
+                ui.label("Enable multiselect to select multiple nodes.");
 
                 ui.add_space(5.);
 
-                ui.add_enabled_ui(!self.settings_interaction.selection_multi_enabled, |ui| {
+                ui.add_enabled_ui(!(self.settings_interaction.edge_selection_enabled || self.settings_interaction.edge_selection_multi_enabled), |ui| {
                     ui.vertical(|ui| {
-                        if ui.checkbox(&mut self.settings_interaction.selection_enabled, "selection_enabled").clicked() && self.settings_interaction.selection_enabled {
-                            self.settings_interaction.clicking_enabled = true;
-                        };
-                        ui.label("Enable select to select nodes with LMB click. If node is selected clicking on it again will deselect it.");
-                    }).response.on_disabled_hover_text("selection_multi_enabled enables select");
+                        ui.checkbox(&mut self.settings_interaction.edge_clicking_enabled, "edge_clicking_enabled");
+                        ui.label("Check click events in last events");
+                    }).response.on_disabled_hover_text("edge click is enabled when any of the interaction is also enabled");
                 });
 
-                if ui.checkbox(&mut self.settings_interaction.selection_multi_enabled, "selection_multi_enabled").changed() && self.settings_interaction.selection_multi_enabled {
-                    self.settings_interaction.clicking_enabled = true;
-                    self.settings_interaction.selection_enabled = true;
+                ui.add_space(5.);
+
+                ui.add_enabled_ui(!self.settings_interaction.edge_selection_multi_enabled, |ui| {
+                    ui.vertical(|ui| {
+                        if ui.checkbox(&mut self.settings_interaction.edge_selection_enabled, "edge_selection_enabled").clicked() && self.settings_interaction.edge_selection_enabled {
+                            self.settings_interaction.edge_clicking_enabled = true;
+                        };
+                        ui.label("Enable select to select edges with LMB click. If edge is selected clicking on it again will deselect it.");
+                    }).response.on_disabled_hover_text("edge_selection_multi_enabled enables select");
+                });
+
+                if ui.checkbox(&mut self.settings_interaction.edge_selection_multi_enabled, "edge_selection_multi_enabled").changed() && self.settings_interaction.edge_selection_multi_enabled {
+                    self.settings_interaction.edge_clicking_enabled = true;
+                    self.settings_interaction.edge_selection_enabled = true;
                 }
-                ui.label("Enable multiselect to select multiple nodes.");
+                ui.label("Enable multiselect to select multiple edges.");
             });
 
             CollapsingHeader::new("Selected").default_open(true).show(ui, |ui| {
@@ -524,12 +550,13 @@ impl App for ConfigurableApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let settings_interaction = &egui_graphs::SettingsInteraction::new()
-                .with_node_selection_enabled(self.settings_interaction.selection_enabled)
-                .with_node_selection_multi_enabled(
-                    self.settings_interaction.selection_multi_enabled,
-                )
+                .with_node_selection_enabled(self.settings_interaction.node_selection_enabled)
+                .with_node_selection_multi_enabled(self.settings_interaction.node_selection_multi_enabled)
                 .with_dragging_enabled(self.settings_interaction.dragging_enabled)
-                .with_node_clicking_enabled(self.settings_interaction.clicking_enabled);
+                .with_node_clicking_enabled(self.settings_interaction.node_clicking_enabled)
+                .with_edge_clicking_enabled(self.settings_interaction.edge_clicking_enabled)
+                .with_edge_selection_enabled(self.settings_interaction.edge_selection_enabled)
+                .with_edge_selection_multi_enabled(self.settings_interaction.edge_selection_multi_enabled);
             let settings_navigation = &egui_graphs::SettingsNavigation::new()
                 .with_zoom_and_pan_enabled(self.settings_navigation.zoom_and_pan_enabled)
                 .with_fit_to_screen_enabled(self.settings_navigation.fit_to_screen_enabled)
