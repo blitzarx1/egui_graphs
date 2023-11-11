@@ -203,7 +203,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     }
 }
 
-/// Returns the distance from line segment ab to point c.
+/// Returns the distance from line segment `a``b` to point `c`.
 /// Adapted from https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm
 fn distance_segment_to_point(a: Vec2, b: Vec2, point: Vec2) -> f32 {
     let ac = point - a;
@@ -228,10 +228,12 @@ fn distance_segment_to_point(a: Vec2, b: Vec2, point: Vec2) -> f32 {
     hypot2(point, d).sqrt()
 }
 
+/// Calculates the square of the Euclidean distance between vectors `a` and `b`.
 fn hypot2(a: Vec2, b: Vec2) -> f32 {
     (a - b).dot(a - b)
 }
 
+/// Calculates the projection of vector `a` onto vector `b`.
 fn proj(a: Vec2, b: Vec2) -> Vec2 {
     let k = a.dot(b) / b.dot(b);
     Vec2::new(k * b.x, k * b.y)
@@ -267,4 +269,106 @@ fn is_point_on_bezier_curve(point: Vec2, curve_points: Vec<Pos2>, width: f32) ->
         previous_point = Some(p.to_vec2());
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_distance_segment_to_point() {
+        let segment_1 = Vec2::new(2.0, 2.0);
+        let segment_2 = Vec2::new(2.0, 5.0);
+        let point = Vec2::new(4.0, 3.0);
+        assert_eq!(distance_segment_to_point(segment_1, segment_2, point), 2.0);
+    }
+
+    #[test]
+    fn test_distance_segment_to_point_on_segment() {
+        let segment_1 = Vec2::new(1.0, 2.0);
+        let segment_2 = Vec2::new(1.0, 5.0);
+        let point = Vec2::new(1.0, 3.0);
+        assert_eq!(distance_segment_to_point(segment_1, segment_2, point), 0.0);
+    }
+
+    #[test]
+    fn test_hypot2() {
+        let a = Vec2::new(0.0, 1.0);
+        let b = Vec2::new(0.0, 5.0);
+        assert_eq!(hypot2(a, b), 16.0);
+    }
+
+    #[test]
+    fn test_hypot2_no_distance() {
+        let a = Vec2::new(0.0, 1.0);
+        assert_eq!(hypot2(a, a), 0.0);
+    }
+
+    #[test]
+    fn test_proj() {
+        let a = Vec2::new(5.0, 8.0);
+        let b = Vec2::new(10.0, 0.0);
+        let result = proj(a, b);
+        assert_eq!(result.x, 5.0);
+        assert_eq!(result.y, 0.0);
+    }
+
+    #[test]
+    fn test_proj_orthogonal() {
+        let a = Vec2::new(5.0, 0.0);
+        let b = Vec2::new(0.0, 5.0);
+        let result = proj(a, b);
+        assert_eq!(result.x, 0.0);
+        assert_eq!(result.y, 0.0);
+    }
+
+    #[test]
+    fn test_proj_same_vector() {
+        let a = Vec2::new(5.3, 4.9);
+        assert_eq!(proj(a,a), a);
+    }
+
+    #[test]
+    fn test_is_point_on_cubic_bezier_curve() {
+        let edge_start = Pos2::new(-3.0, 0.0);
+        let edge_end = Pos2::new(3.0, 0.0);
+        let control_point1 = Pos2::new(-3.0, 3.0);
+        let control_point2 = Pos2::new(4.0, 2.0);
+        let curve = CubicBezierShape::from_points_stroke(
+            [edge_end, control_point1, control_point2, edge_start],
+            false,
+            Color32::default(),
+            Stroke::default(),
+        );
+
+        let zoom = 5.0;
+        let width = 1.0;
+        let p1 = Vec2::new(0.0, 2.0);
+        assert!(is_point_on_cubic_bezier_curve(p1, curve, width, zoom));
+
+        let p2 = Vec2::new(2.0, 1.0);
+        assert!(is_point_on_cubic_bezier_curve(p2, curve, width, zoom));
+    }
+
+    #[test]
+    fn test_is_point_on_quadratic_bezier_curve() {
+        let edge_start = Pos2::new(0.0, 0.0);
+        let edge_end = Pos2::new(20.0, 0.0);
+        let control_point = Pos2::new(10.0, 8.0);
+        let curve = QuadraticBezierShape::from_points_stroke(
+            [edge_start, control_point, edge_end],
+            false,
+            Color32::default(),
+            Stroke::default(),
+        );
+
+        let zoom = 5.0;
+        let width = 1.0;
+        let p1 = Vec2::new(10.0, 4.0);
+        assert!(is_point_on_quadratic_bezier_curve(p1, curve, width, zoom));
+
+        let p2 = Vec2::new(3.0, 2.0);
+        assert!(is_point_on_quadratic_bezier_curve(p2, curve, width, zoom));
+    }
+
 }
