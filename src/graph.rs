@@ -90,12 +90,11 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
                     let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
                     let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
 
-                    let stroke = Stroke::new(e.width() * meta.zoom, e.color(&Default::default()));
                     let shape = CubicBezierShape::from_points_stroke(
                         [edge_end, control_point1, control_point2, edge_start],
                         false,
-                        Color32::TRANSPARENT,
-                        stroke,
+                        Color32::default(),
+                        Stroke::default(),
                     );
                     if is_point_on_cubic_bezier_curve(pos_in_graph, shape, e.width(), meta.zoom) {
                         return Option::new(idx_edge);
@@ -138,12 +137,11 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
                 let control_point =
                     (center_point + dir_perpendicular * e.curve_size() * order as f32).to_pos2();
 
-                let stroke = Stroke::new(e.width() * meta.zoom, e.color(&Default::default()));
                 let shape = QuadraticBezierShape::from_points_stroke(
                     [edge_start, control_point, tip_end],
                     false,
-                    Color32::TRANSPARENT,
-                    stroke,
+                    Color32::default(),
+                    Stroke::default(),
                 );
                 if is_point_on_quadratic_bezier_curve(pos_in_graph, shape, e.width(), meta.zoom) {
                     return Option::new(idx_edge);
