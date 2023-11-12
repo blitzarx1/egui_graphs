@@ -6,7 +6,7 @@ use petgraph::{stable_graph::IndexType, EdgeType};
 
 use crate::{draw::custom::DrawContext, Node};
 
-use super::{from::FromNode, graph_display::NodeGraphDisplay, Connectable, Drawable, Interactable};
+use super::{Interactable, NodeGraphDisplay};
 
 #[derive(Clone, Debug)]
 pub struct DefaultNodeShape {
@@ -19,9 +19,17 @@ pub struct DefaultNodeShape {
     pub label_text: String,
 }
 
-impl<N: Clone> FromNode<N> for DefaultNodeShape {
-    fn from_node(node: &Node<N>) -> Box<dyn NodeGraphDisplay> {
-        Box::new(DefaultNodeShape {
+impl Interactable for DefaultNodeShape {
+    fn is_inside(&self, pos: Pos2) -> bool {
+        self.pos.distance(pos) < self.radius
+    }
+}
+
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeGraphDisplay<N, E, Ty, Ix>
+    for DefaultNodeShape
+{
+    fn from_node(node: &Node<N>) -> Self {
+        DefaultNodeShape {
             pos: node.location().to_pos2(),
 
             radius: node.radius(),
@@ -29,26 +37,17 @@ impl<N: Clone> FromNode<N> for DefaultNodeShape {
             dragged: node.dragged(),
 
             label_text: node.label().to_string(),
-        })
+        }
     }
-}
 
-impl NodeGraphDisplay for DefaultNodeShape {}
+    fn closest_boundary_point(&self, ctx: &DrawContext<N, E, Ty, Ix>, pos: Pos2) -> Pos2 {
+        let circle_radius = ctx.meta.canvas_to_screen_size(self.radius);
+        let circle_center = ctx.meta.canvas_to_screen_pos(self.pos);
 
-impl Interactable for DefaultNodeShape {
-    fn is_inside(&self, pos: Pos2) -> bool {
-        self.pos.distance(pos) < self.radius
+        let dir = pos - circle_center;
+        circle_center + dir.normalized() * circle_radius
     }
-}
 
-impl Connectable for DefaultNodeShape {
-    fn closest_boundary_point(&self, pos: Pos2) -> Pos2 {
-        let dir = pos - self.pos;
-        self.pos + dir.normalized() * self.radius
-    }
-}
-
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawable<N, E, Ty, Ix> for DefaultNodeShape {
     fn shape(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape> {
         let mut res = Vec::with_capacity(2);
 

@@ -1,6 +1,6 @@
 use egui::{Color32, Context, Vec2};
 
-use crate::{metadata::Metadata, ComputedNode, SettingsStyle};
+use crate::{draw::NodeGraphDisplay, metadata::Metadata, ComputedNode, SettingsStyle};
 
 use super::StyleNode;
 
@@ -18,6 +18,8 @@ pub struct Node<N: Clone> {
     selected: bool,
     dragged: bool,
     computed: ComputedNode,
+
+    // shape: dyn NodeGraphDisplay,
 }
 
 impl<N: Clone> Node<N> {
