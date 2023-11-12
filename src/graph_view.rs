@@ -7,7 +7,7 @@ use crate::events::{
 use crate::graph::EdgeMap;
 use crate::{
     computed::ComputedState,
-    draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw},
+    draw::Drawer,
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
@@ -42,9 +42,6 @@ pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
     settings_style: SettingsStyle,
     g: &'a mut Graph<N, E, Ty, Ix>,
 
-    custom_edge_draw: Option<FnCustomEdgeDraw<N, E, Ty, Ix>>,
-    custom_node_draw: Option<FnCustomNodeDraw<N, E, Ty, Ix>>,
-
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
 }
@@ -64,15 +61,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Widget
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut meta, &computed);
 
-        Drawer::new(
-            p,
-            self.g,
-            &self.settings_style,
-            &meta,
-            self.custom_node_draw,
-            self.custom_edge_draw,
-        )
-        .draw();
+        Drawer::new(p, self.g, &self.settings_style, &meta).draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
@@ -92,24 +81,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
 
-            custom_node_draw: Default::default(),
-            custom_edge_draw: Default::default(),
-
             #[cfg(feature = "events")]
             events_publisher: Default::default(),
         }
-    }
-
-    /// Sets a function that will be called instead of the default drawer for every node to draw custom shapes.
-    pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N, E, Ty, Ix>) -> Self {
-        self.custom_node_draw = Some(func);
-        self
-    }
-
-    /// Sets a function that will be called instead of the default drawer for every pair of nodes connected with edges to draw custom shapes.
-    pub fn with_custom_edge_draw(mut self, func: FnCustomEdgeDraw<N, E, Ty, Ix>) -> Self {
-        self.custom_edge_draw = Some(func);
-        self
     }
 
     /// Makes widget interactive according to the provided settings.
