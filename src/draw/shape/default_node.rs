@@ -1,14 +1,12 @@
 use egui::{
-    epaint::{CircleShape, TextShape}, FontFamily, FontId, Pos2, Shape,
+    epaint::{CircleShape, TextShape},
+    FontFamily, FontId, Pos2, Shape,
 };
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{
-    draw::{custom::DrawContext, Connectable, Drawable, Interactable},
-    Node,
-};
+use crate::{draw::custom::DrawContext, Node};
 
-use super::{from::FromNode, graph_display::NodeGraphDisplay};
+use super::{from::FromNode, graph_display::NodeGraphDisplay, Connectable, Drawable, Interactable};
 
 #[derive(Clone, Debug)]
 pub struct DefaultNodeShape {
