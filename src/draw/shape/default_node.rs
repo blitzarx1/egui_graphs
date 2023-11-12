@@ -6,7 +6,7 @@ use petgraph::{stable_graph::IndexType, EdgeType};
 
 use crate::{draw::custom::DrawContext, Node};
 
-use super::{Interactable, NodeGraphDisplay};
+use super::{Interactable, NodeDisplay};
 
 /// This is the default node shape which is used to display nodes in the graph.
 ///
@@ -42,7 +42,7 @@ impl Interactable for DefaultNodeShape {
     }
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeGraphDisplay<N, E, Ty, Ix>
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeDisplay<N, E, Ty, Ix>
     for DefaultNodeShape
 {
     fn closest_boundary_point(&self, pos: Pos2) -> Pos2 {

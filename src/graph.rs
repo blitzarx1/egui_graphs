@@ -14,6 +14,7 @@ use petgraph::{
     Direction, EdgeType,
 };
 
+use crate::draw::NodeDisplay;
 use crate::{metadata::Metadata, transform, Edge, Node, SettingsStyle};
 
 /// Mapping for 2 nodes and all edges between them
@@ -40,16 +41,14 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
-    pub fn node_by_screen_pos(
+    pub fn node_by_screen_pos<D: NodeDisplay<N, E, Ty, Ix>>(
         &self,
         meta: &'a Metadata,
         screen_pos: Pos2,
     ) -> Option<(NodeIndex<Ix>, &Node<N>)> {
-        let pos_in_graph = (screen_pos.to_vec2() - meta.pan) / meta.zoom;
-        self.nodes_iter().find(|(_, n)| {
-            let dist_to_node = (n.location().to_vec2() - pos_in_graph).length();
-            dist_to_node <= meta.canvas_to_screen_size(n.radius()) / meta.zoom
-        })
+        let pos_in_graph = ((screen_pos.to_vec2() - meta.pan) / meta.zoom).to_pos2();
+        self.nodes_iter()
+            .find(|(_, n)| D::from(n.clone().clone()).is_inside(pos_in_graph))
     }
 
     /// Finds edge by position.
@@ -60,7 +59,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
         screen_pos: Pos2,
         edge_map: EdgeMap<E, Ix>,
     ) -> Option<EdgeIndex<Ix>> {
-        let pos_in_graph = (screen_pos.to_vec2() - meta.pan) / meta.zoom;
+        let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for ((start, end), edges) in edge_map {
             let mut order = edges.len();
             for (idx_edge, e) in edges {
@@ -104,11 +103,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
 
                 if order == 0 {
                     // edge is a straight line between nodes
-                    let distance = distance_segment_to_point(
-                        pos_start.to_vec2(),
-                        pos_end.to_vec2(),
-                        pos_in_graph,
-                    );
+                    let distance = distance_segment_to_point(pos_start, pos_end, pos_in_graph);
                     if distance < e.width() {
                         return Option::new(idx_edge);
                     }
@@ -204,7 +199,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
 
 /// Returns the distance from line segment `a``b` to point `c`.
 /// Adapted from https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm
-fn distance_segment_to_point(a: Vec2, b: Vec2, point: Vec2) -> f32 {
+fn distance_segment_to_point(a: Pos2, b: Pos2, point: Pos2) -> f32 {
     let ac = point - a;
     let ab = b - a;
 
@@ -219,12 +214,12 @@ fn distance_segment_to_point(a: Vec2, b: Vec2, point: Vec2) -> f32 {
     };
 
     if k <= 0.0 {
-        return hypot2(point, a).sqrt();
+        return hypot2(point.to_vec2(), a.to_vec2()).sqrt();
     } else if k >= 1.0 {
-        return hypot2(point, b).sqrt();
+        return hypot2(point.to_vec2(), b.to_vec2()).sqrt();
     }
 
-    hypot2(point, d).sqrt()
+    hypot2(point.to_vec2(), d.to_vec2()).sqrt()
 }
 
 /// Calculates the square of the Euclidean distance between vectors `a` and `b`.
@@ -239,7 +234,7 @@ fn proj(a: Vec2, b: Vec2) -> Vec2 {
 }
 
 fn is_point_on_cubic_bezier_curve(
-    point: Vec2,
+    point: Pos2,
     curve: CubicBezierShape,
     width: f32,
     zoom: f32,
@@ -248,7 +243,7 @@ fn is_point_on_cubic_bezier_curve(
 }
 
 fn is_point_on_quadratic_bezier_curve(
-    point: Vec2,
+    point: Pos2,
     curve: QuadraticBezierShape,
     width: f32,
     zoom: f32,
@@ -256,16 +251,16 @@ fn is_point_on_quadratic_bezier_curve(
     is_point_on_bezier_curve(point, curve.flatten(Option::new(2.0 / zoom)), width)
 }
 
-fn is_point_on_bezier_curve(point: Vec2, curve_points: Vec<Pos2>, width: f32) -> bool {
+fn is_point_on_bezier_curve(point: Pos2, curve_points: Vec<Pos2>, width: f32) -> bool {
     let mut previous_point = None;
     for p in curve_points {
         if let Some(pp) = previous_point {
-            let distance = distance_segment_to_point(p.to_vec2(), pp, point);
+            let distance = distance_segment_to_point(p, pp, point);
             if distance < width {
                 return true;
             }
         }
-        previous_point = Some(p.to_vec2());
+        previous_point = Some(p);
     }
     false
 }
@@ -276,17 +271,17 @@ mod tests {
 
     #[test]
     fn test_distance_segment_to_point() {
-        let segment_1 = Vec2::new(2.0, 2.0);
-        let segment_2 = Vec2::new(2.0, 5.0);
-        let point = Vec2::new(4.0, 3.0);
+        let segment_1 = Pos2::new(2.0, 2.0);
+        let segment_2 = Pos2::new(2.0, 5.0);
+        let point = Pos2::new(4.0, 3.0);
         assert_eq!(distance_segment_to_point(segment_1, segment_2, point), 2.0);
     }
 
     #[test]
     fn test_distance_segment_to_point_on_segment() {
-        let segment_1 = Vec2::new(1.0, 2.0);
-        let segment_2 = Vec2::new(1.0, 5.0);
-        let point = Vec2::new(1.0, 3.0);
+        let segment_1 = Pos2::new(1.0, 2.0);
+        let segment_2 = Pos2::new(1.0, 5.0);
+        let point = Pos2::new(1.0, 3.0);
         assert_eq!(distance_segment_to_point(segment_1, segment_2, point), 0.0);
     }
 
@@ -342,10 +337,10 @@ mod tests {
 
         let zoom = 5.0;
         let width = 1.0;
-        let p1 = Vec2::new(0.0, 2.0);
+        let p1 = Pos2::new(0.0, 2.0);
         assert!(is_point_on_cubic_bezier_curve(p1, curve, width, zoom));
 
-        let p2 = Vec2::new(2.0, 1.0);
+        let p2 = Pos2::new(2.0, 1.0);
         assert!(is_point_on_cubic_bezier_curve(p2, curve, width, zoom));
     }
 
@@ -363,10 +358,10 @@ mod tests {
 
         let zoom = 5.0;
         let width = 1.0;
-        let p1 = Vec2::new(10.0, 4.0);
+        let p1 = Pos2::new(10.0, 4.0);
         assert!(is_point_on_quadratic_bezier_curve(p1, curve, width, zoom));
 
-        let p2 = Vec2::new(3.0, 2.0);
+        let p2 = Pos2::new(3.0, 2.0);
         assert!(is_point_on_quadratic_bezier_curve(p2, curve, width, zoom));
     }
 }

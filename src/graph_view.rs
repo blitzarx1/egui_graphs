@@ -1,3 +1,4 @@
+use crate::draw::DefaultNodeShape;
 #[cfg(feature = "events")]
 use crate::events::{
     Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
@@ -178,7 +179,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
             resp.hover_pos().unwrap(),
             edge_map,
         );
-        let found_node = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap());
+        let found_node = self
+            .g
+            .node_by_screen_pos::<DefaultNodeShape>(meta, resp.hover_pos().unwrap());
         if found_node.is_none() && found_edge.is_none() {
             // click on empty space
             let nodes_selectable = self.settings_interaction.node_selection_enabled
@@ -290,7 +293,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
         }
 
         if resp.drag_started() {
-            if let Some((idx, _)) = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap()) {
+            if let Some((idx, _)) = self
+                .g
+                .node_by_screen_pos::<DefaultNodeShape>(meta, resp.hover_pos().unwrap())
+            {
                 self.set_drag_start(idx);
             }
         }
