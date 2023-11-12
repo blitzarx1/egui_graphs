@@ -8,6 +8,9 @@ use crate::{draw::custom::DrawContext, Node};
 
 use super::{Interactable, NodeGraphDisplay};
 
+/// This is the default node shape which is used to display nodes in the graph.
+///
+/// You can use this implementation as an example for implementing your own custom node shapes.
 #[derive(Clone, Debug)]
 pub struct DefaultNodeShape {
     pub pos: Pos2,
@@ -17,12 +20,6 @@ pub struct DefaultNodeShape {
     pub dragged: bool,
 
     pub label_text: String,
-}
-
-impl Interactable for DefaultNodeShape {
-    fn is_inside(&self, pos: Pos2) -> bool {
-        self.pos.distance(pos) < self.radius
-    }
 }
 
 impl<N: Clone> From<Node<N>> for DefaultNodeShape {
@@ -39,15 +36,17 @@ impl<N: Clone> From<Node<N>> for DefaultNodeShape {
     }
 }
 
+impl Interactable for DefaultNodeShape {
+    fn is_inside(&self, pos: Pos2) -> bool {
+        is_inside_circle(self.pos, self.radius, pos)
+    }
+}
+
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeGraphDisplay<N, E, Ty, Ix>
     for DefaultNodeShape
 {
-    fn closest_boundary_point(&self, ctx: &DrawContext<N, E, Ty, Ix>, pos: Pos2) -> Pos2 {
-        let circle_radius = ctx.meta.canvas_to_screen_size(self.radius);
-        let circle_center = ctx.meta.canvas_to_screen_pos(self.pos);
-
-        let dir = pos - circle_center;
-        circle_center + dir.normalized() * circle_radius
+    fn closest_boundary_point(&self, pos: Pos2) -> Pos2 {
+        closest_point_on_circle(self.pos, self.radius, pos)
     }
 
     fn shape(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape> {
@@ -90,5 +89,56 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeGraphDisplay<N, E, Ty,
         res.push(label_shape.into());
 
         res
+    }
+}
+
+fn closest_point_on_circle(center: Pos2, radius: f32, pos: Pos2) -> Pos2 {
+    let dir = pos - center;
+    center + dir.normalized() * radius
+}
+
+fn is_inside_circle(center: Pos2, radius: f32, pos: Pos2) -> bool {
+    let dir = pos - center;
+    dir.length() <= radius
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use egui::Pos2;
+
+    #[test]
+    fn test_closest_point_on_circle() {
+        assert_eq!(
+            closest_point_on_circle(Pos2::new(0.0, 0.0), 10.0, Pos2::new(5.0, 0.0)),
+            Pos2::new(10.0, 0.0)
+        );
+        assert_eq!(
+            closest_point_on_circle(Pos2::new(0.0, 0.0), 10.0, Pos2::new(15.0, 0.0)),
+            Pos2::new(10.0, 0.0)
+        );
+        assert_eq!(
+            closest_point_on_circle(Pos2::new(0.0, 0.0), 10.0, Pos2::new(0.0, 10.0)),
+            Pos2::new(0.0, 10.0)
+        );
+    }
+
+    #[test]
+    fn test_is_inside_circle() {
+        assert!(is_inside_circle(
+            Pos2::new(0.0, 0.0),
+            10.0,
+            Pos2::new(5.0, 0.0)
+        ));
+        assert!(!is_inside_circle(
+            Pos2::new(0.0, 0.0),
+            10.0,
+            Pos2::new(15.0, 0.0)
+        ));
+        assert!(is_inside_circle(
+            Pos2::new(0.0, 0.0),
+            10.0,
+            Pos2::new(0.0, 10.0)
+        ));
     }
 }

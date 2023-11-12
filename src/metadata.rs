@@ -45,4 +45,8 @@ impl Metadata {
     pub fn canvas_to_screen_size(&self, size: f32) -> f32 {
         size * self.zoom
     }
+
+    pub fn screen_to_canvas_pos(&self, pos: Pos2) -> Pos2 {
+        ((pos.to_vec2() - self.pan) / self.zoom).to_pos2()
+    }
 }
