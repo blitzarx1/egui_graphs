@@ -7,7 +7,8 @@ use crate::{Edge, Graph, Metadata, Node, SettingsStyle};
 use super::Layers;
 
 /// Contains all the data about current widget state which is needed for custom drawing functions.
-pub struct WidgetState<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+pub struct DrawContext<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+    pub ctx: &'a Context,
     pub g: &'a Graph<N, E, Ty, Ix>,
     pub style: &'a SettingsStyle,
     pub meta: &'a Metadata,
@@ -22,7 +23,7 @@ pub struct WidgetState<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
 /// - widget state with references to graph, style and metadata;
 /// - when you create a shape, add it to the layers.
 pub type FnCustomNodeDraw<N, E, Ty, Ix> =
-    fn(&Context, n: &Node<N>, &WidgetState<N, E, Ty, Ix>, &mut Layers);
+    fn(&Context, n: &Node<N>, &DrawContext<N, E, Ty, Ix>, &mut Layers);
 
 /// Allows to fully customize what shape would be drawn for an edge.
 /// The function is **called once for every node pair** which has edges connecting them. So make sure you have drawn all the edges which are passed to the function.
@@ -37,6 +38,6 @@ pub type FnCustomEdgeDraw<N, E, Ty, Ix> = fn(
     &Context,
     (NodeIndex<Ix>, NodeIndex<Ix>),
     Vec<&Edge<E>>,
-    &WidgetState<N, E, Ty, Ix>,
+    &DrawContext<N, E, Ty, Ix>,
     &mut Layers,
 );

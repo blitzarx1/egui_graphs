@@ -7,7 +7,7 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 use crate::{settings::SettingsStyle, Edge, Graph, Metadata};
 
 use super::{
-    custom::{FnCustomEdgeDraw, FnCustomNodeDraw, WidgetState},
+    custom::{DrawContext, FnCustomEdgeDraw, FnCustomNodeDraw},
     default_edges_draw, default_node_draw,
     layers::Layers,
 };
@@ -55,7 +55,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
     }
 
     fn fill_layers_nodes(&self, l: &mut Layers) {
-        let state = &WidgetState {
+        let state = &DrawContext {
+            ctx: self.p.ctx(),
             g: self.g,
             meta: self.meta,
             style: self.style,
@@ -77,7 +78,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
             edge_map.entry((source, target)).or_default().push(e);
         });
 
-        let state = &WidgetState {
+        let state = &DrawContext {
+            ctx: self.p.ctx(),
             g: self.g,
             meta: self.meta,
             style: self.style,

@@ -93,10 +93,10 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 /// let mut input_indices = input_graph.g.node_indices();
 /// let input_node_1 = input_indices.next().unwrap();
 /// let input_node_2 = input_indices.next().unwrap();
-/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().data().clone().unwrap(), "A");
-/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().data().clone().unwrap(), "B");
+/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().payload().clone().unwrap(), "A");
+/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().payload().clone().unwrap(), "B");
 ///
-/// assert_eq!(*input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().data().clone().unwrap(), "edge1");
+/// assert_eq!(*input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().payload().clone().unwrap(), "edge1");
 ///
 /// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().label().clone(), input_node_1.index().to_string());
 /// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().label().clone(), input_node_2.index().to_string());
@@ -193,7 +193,7 @@ mod tests {
             let user_n = user_g.node_weight(user_idx).unwrap();
             let input_n = input_g.g.node_weight(input_idx).unwrap();
 
-            assert_eq!(*input_n.data().unwrap(), *user_n);
+            assert_eq!(*input_n.payload().unwrap(), *user_n);
 
             assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
             assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
@@ -222,7 +222,7 @@ mod tests {
             let user_n = user_g.node_weight(user_idx).unwrap();
             let input_n = input_g.g.node_weight(input_idx).unwrap();
 
-            assert_eq!(*input_n.data().unwrap(), *user_n);
+            assert_eq!(*input_n.payload().unwrap(), *user_n);
 
             assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
             assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);

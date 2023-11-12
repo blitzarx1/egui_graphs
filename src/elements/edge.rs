@@ -6,7 +6,7 @@ use super::StyleEdge;
 #[derive(Clone, Debug)]
 pub struct Edge<E: Clone> {
     /// Client data
-    data: Option<E>,
+    payload: Option<E>,
 
     style: StyleEdge,
 }
@@ -16,7 +16,7 @@ impl<E: Clone> Default for Edge<E> {
         Self {
             style: Default::default(),
 
-            data: Default::default(),
+            payload: Default::default(),
         }
     }
 }
@@ -24,7 +24,7 @@ impl<E: Clone> Default for Edge<E> {
 impl<E: Clone> Edge<E> {
     pub fn new(data: E) -> Self {
         Self {
-            data: Some(data),
+            payload: Some(data),
 
             ..Default::default()
         }
@@ -34,8 +34,8 @@ impl<E: Clone> Edge<E> {
         self.style.tip_angle
     }
 
-    pub fn data(&self) -> Option<&E> {
-        self.data.as_ref()
+    pub fn payload(&self) -> Option<&E> {
+        self.payload.as_ref()
     }
 
     pub fn color(&self, ctx: &Context) -> Color32 {

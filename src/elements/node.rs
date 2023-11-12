@@ -7,8 +7,7 @@ use super::StyleNode;
 /// Stores properties of a node.
 #[derive(Clone, Debug)]
 pub struct Node<N: Clone> {
-    /// Client data
-    data: Option<N>,
+    payload: Option<N>,
 
     location: Vec2,
 
@@ -25,7 +24,7 @@ impl<N: Clone> Node<N> {
     pub fn new(location: Vec2, data: N) -> Self {
         Self {
             location,
-            data: Some(data),
+            payload: Some(data),
             style: Default::default(),
             label: Default::default(),
             selected: Default::default(),
@@ -60,17 +59,17 @@ impl<N: Clone> Node<N> {
         self.computed = comp;
     }
 
-    pub fn data(&self) -> Option<&N> {
-        self.data.as_ref()
+    pub fn payload(&self) -> Option<&N> {
+        self.payload.as_ref()
     }
 
     pub fn set_data(&mut self, data: Option<N>) {
-        self.data = data;
+        self.payload = data;
     }
 
     pub fn with_data(&self, data: Option<N>) -> Self {
         let mut res = self.clone();
-        res.data = data;
+        res.payload = data;
         res
     }
 

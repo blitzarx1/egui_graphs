@@ -7,12 +7,12 @@ use petgraph::EdgeType;
 
 use crate::Node;
 
-use super::{custom::WidgetState, Layers};
+use super::{custom::DrawContext, Layers};
 
 pub fn default_node_draw<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     ctx: &Context,
     n: &Node<N>,
-    state: &WidgetState<N, E, Ty, Ix>,
+    state: &DrawContext<N, E, Ty, Ix>,
     l: &mut Layers,
 ) {
     let is_interacted = n.selected() || n.dragged();

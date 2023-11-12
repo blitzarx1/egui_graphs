@@ -1,4 +1,4 @@
-use egui::{Id, Vec2};
+use egui::{Id, Pos2, Vec2};
 
 #[cfg(feature = "egui_persistence")]
 use serde::{Deserialize, Serialize};
@@ -36,5 +36,13 @@ impl Metadata {
         ui.data_mut(|data| {
             data.insert_persisted(Id::null(), self);
         });
+    }
+
+    pub fn canvas_to_screen_pos(&self, pos: Pos2) -> Pos2 {
+        (pos.to_vec2() * self.zoom + self.pan).to_pos2()
+    }
+
+    pub fn canvas_to_screen_size(&self, size: f32) -> f32 {
+        size * self.zoom
     }
 }

@@ -9,13 +9,13 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{Edge, Node};
 
-use super::{custom::WidgetState, Layers};
+use super::{custom::DrawContext, Layers};
 
 pub fn default_edges_draw<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     ctx: &Context,
     bounds: (NodeIndex<Ix>, NodeIndex<Ix>),
     edges: Vec<&Edge<E>>,
-    state: &WidgetState<N, E, Ty, Ix>,
+    state: &DrawContext<N, E, Ty, Ix>,
     l: &mut Layers,
 ) {
     let (idx_start, idx_end) = bounds;
@@ -41,7 +41,7 @@ fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     n_end: &Node<N>,
     e: &Edge<E>,
     order: usize,
-    state: &WidgetState<N, E, Ty, Ix>,
+    state: &DrawContext<N, E, Ty, Ix>,
 ) {
     let loc_start = n_start.screen_location(state.meta).to_pos2();
     let loc_end = n_end.screen_location(state.meta).to_pos2();
@@ -126,7 +126,7 @@ fn draw_edge_looped<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     node: &Node<N>,
     e: &Edge<E>,
     order: usize,
-    state: &WidgetState<N, E, Ty, Ix>,
+    state: &DrawContext<N, E, Ty, Ix>,
 ) {
     let rad = node.screen_radius(state.meta, state.style);
     let center = node.screen_location(state.meta);
