@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use egui::{
     epaint::{CubicBezierShape, QuadraticBezierShape},
-    Color32, Context, Pos2, Shape, Stroke, Vec2,
+    Color32, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::graph::IndexType;
 use petgraph::{stable_graph::NodeIndex, EdgeType};
@@ -12,41 +12,39 @@ use crate::{Edge, Node};
 use super::{custom::DrawContext, Layers};
 
 pub fn default_edges_draw<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
-    ctx: &Context,
+    ctx: &DrawContext<N, E, Ty, Ix>,
     bounds: (NodeIndex<Ix>, NodeIndex<Ix>),
     edges: Vec<&Edge<E>>,
-    state: &DrawContext<N, E, Ty, Ix>,
     l: &mut Layers,
 ) {
     let (idx_start, idx_end) = bounds;
     let mut order = edges.len();
     edges.iter().for_each(|e| {
-        let n_start = state.g.node(idx_start).unwrap();
-        let n_end = state.g.node(idx_end).unwrap();
+        let n_start = ctx.g.node(idx_start).unwrap();
+        let n_end = ctx.g.node(idx_end).unwrap();
 
         order -= 1;
 
         if idx_start == idx_end {
-            draw_edge_looped(ctx, l, n_start, e, order, state);
+            draw_edge_looped(ctx, l, n_start, e, order);
         } else {
-            draw_edge_basic(ctx, l, n_start, n_end, e, order, state);
+            draw_edge_basic(ctx, l, n_start, n_end, e, order);
         }
     });
 }
 
 fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
-    ctx: &Context,
+    ctx: &DrawContext<N, E, Ty, Ix>,
     l: &mut Layers,
     n_start: &Node<N>,
     n_end: &Node<N>,
     e: &Edge<E>,
     order: usize,
-    state: &DrawContext<N, E, Ty, Ix>,
 ) {
-    let loc_start = n_start.screen_location(state.meta).to_pos2();
-    let loc_end = n_end.screen_location(state.meta).to_pos2();
-    let rad_start = n_start.screen_radius(state.meta, state.style);
-    let rad_end = n_end.screen_radius(state.meta, state.style);
+    let loc_start = ctx.meta.canvas_to_screen_pos(n_start.location());
+    let loc_end = ctx.meta.canvas_to_screen_pos(n_end.location());
+    let rad_start = ctx.meta.canvas_to_screen_size(n_start.radius());
+    let rad_end = ctx.meta.canvas_to_screen_size(n_end.radius());
 
     let vec = loc_end - loc_start;
     let dist: f32 = vec.length();
@@ -58,21 +56,21 @@ fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     let tip_end = loc_start + vec - end_node_radius_vec;
 
     let edge_start = loc_start + start_node_radius_vec;
-    let edge_end = match state.g.is_directed() {
-        true => tip_end - e.tip_size() * state.meta.zoom * dir,
+    let edge_end = match ctx.g.is_directed() {
+        true => tip_end - e.tip_size() * ctx.meta.zoom * dir,
         false => tip_end,
     };
 
-    let color = e.color(ctx);
-    let stroke_edge = Stroke::new(e.width() * state.meta.zoom, color);
+    let color = e.color(ctx.ctx);
+    let stroke_edge = Stroke::new(e.width() * ctx.meta.zoom, color);
     let stroke_tip = Stroke::new(0., color);
 
     // draw straight edge
     if order == 0 {
         let tip_start_1 =
-            tip_end - e.tip_size() * state.meta.zoom * rotate_vector(dir, e.tip_angle());
+            tip_end - e.tip_size() * ctx.meta.zoom * rotate_vector(dir, e.tip_angle());
         let tip_start_2 =
-            tip_end - e.tip_size() * state.meta.zoom * rotate_vector(dir, -e.tip_angle());
+            tip_end - e.tip_size() * ctx.meta.zoom * rotate_vector(dir, -e.tip_angle());
 
         let shape = Shape::line_segment([edge_start, edge_end], stroke_edge);
         match e.selected() {
@@ -80,7 +78,7 @@ fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
             false => l.add(shape),
         }
 
-        if !state.g.is_directed() {
+        if !ctx.g.is_directed() {
             return;
         }
 
@@ -99,12 +97,12 @@ fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     let dir_perpendicular = Vec2::new(-dir.y, dir.x);
     let center_point = (edge_start + edge_end.to_vec2()).to_vec2() / 2.0;
     let control_point = (center_point
-        + dir_perpendicular * e.curve_size() * state.meta.zoom * order as f32)
+        + dir_perpendicular * e.curve_size() * ctx.meta.zoom * order as f32)
         .to_pos2();
 
     let tip_vec = control_point - tip_end;
     let tip_dir = tip_vec / tip_vec.length();
-    let tip_size = e.tip_size() * state.meta.zoom;
+    let tip_size = e.tip_size() * ctx.meta.zoom;
 
     let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle()) * tip_size;
     let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle()) * tip_size;
@@ -136,27 +134,26 @@ fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 }
 
 fn draw_edge_looped<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
-    ctx: &Context,
+    ctx: &DrawContext<N, E, Ty, Ix>,
     l: &mut Layers,
     node: &Node<N>,
     e: &Edge<E>,
     order: usize,
-    state: &DrawContext<N, E, Ty, Ix>,
 ) {
-    let rad = node.screen_radius(state.meta, state.style);
-    let center = node.screen_location(state.meta);
+    let rad = ctx.meta.canvas_to_screen_size(node.radius());
+    let center = ctx.meta.canvas_to_screen_pos(node.location());
     let center_horizon_angle = PI / 4.;
     let y_intersect = center.y - rad * center_horizon_angle.sin();
 
     let edge_start = Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
     let edge_end = Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
 
-    let loop_size = rad * (state.style.edge_looped_size + order as f32);
+    let loop_size = rad * (ctx.style.edge_looped_size + order as f32);
 
     let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
     let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
 
-    let stroke = Stroke::new(e.width() * state.meta.zoom, e.color(ctx));
+    let stroke = Stroke::new(e.width() * ctx.meta.zoom, e.color(ctx.ctx));
     let shape = CubicBezierShape::from_points_stroke(
         [edge_end, control_point1, control_point2, edge_start],
         false,

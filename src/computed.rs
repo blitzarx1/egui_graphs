@@ -2,7 +2,7 @@ use egui::{Rect, Vec2};
 use petgraph::graph::{EdgeIndex, IndexType};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
-use crate::{Graph, Node, SettingsStyle};
+use crate::{Graph, Node};
 
 /// The struct stores selections, dragged node and computed elements states.
 #[derive(Debug, Clone)]
@@ -57,8 +57,8 @@ where
         }
     }
 
-    pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N>, settings: &SettingsStyle) {
-        let rad = n.radius() + n.num_connections() as f32 * settings.edge_radius_weight;
+    pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N>) {
+        let rad = n.radius();
         if rad > self.max_rad {
             self.max_rad = rad;
         }

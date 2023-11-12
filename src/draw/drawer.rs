@@ -39,7 +39,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
     }
 
     fn fill_layers_nodes(&self, l: &mut Layers) {
-        let state = &DrawContext {
+        let ctx = &DrawContext {
             ctx: self.p.ctx(),
             g: self.g,
             meta: self.meta,
@@ -47,7 +47,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
         };
         self.g
             .nodes_iter()
-            .for_each(|(_, n)| default_node_draw(self.p.ctx(), n, state, l));
+            .for_each(|(_, n)| default_node_draw(ctx, n, l));
     }
 
     fn fill_layers_edges(&self, l: &mut Layers) {
@@ -59,15 +59,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
             edge_map.entry((source, target)).or_default().push(e);
         });
 
-        let state = &DrawContext {
+        let ctx = &DrawContext {
             ctx: self.p.ctx(),
             g: self.g,
             meta: self.meta,
             style: self.style,
         };
 
-        edge_map.into_iter().for_each(|((start, end), edges)| {
-            default_edges_draw(self.p.ctx(), (start, end), edges, state, l)
-        });
+        edge_map
+            .into_iter()
+            .for_each(|((start, end), edges)| default_edges_draw(ctx, (start, end), edges, l));
     }
 }

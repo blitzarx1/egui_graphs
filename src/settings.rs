@@ -144,7 +144,6 @@ impl SettingsNavigation {
 #[derive(Debug, Clone)]
 pub struct SettingsStyle {
     pub(crate) labels_always: bool,
-    pub(crate) edge_radius_weight: f32,
 
     /// Loop size for looped edges.
     pub(crate) edge_looped_size: f32,
@@ -153,7 +152,6 @@ pub struct SettingsStyle {
 impl Default for SettingsStyle {
     fn default() -> Self {
         Self {
-            edge_radius_weight: 1.,
             edge_looped_size: 3.,
             labels_always: Default::default(),
         }
@@ -175,14 +173,6 @@ impl SettingsStyle {
     /// Default is false.
     pub fn with_labels_always(mut self, always: bool) -> Self {
         self.labels_always = always;
-        self
-    }
-
-    /// For every edge connected to node its radius is getting bigger by this value.
-    ///
-    /// Default: `1.`
-    pub fn with_edge_radius_weight(mut self, weight: f32) -> Self {
-        self.edge_radius_weight = weight;
         self
     }
 }

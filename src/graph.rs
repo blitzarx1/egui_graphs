@@ -43,13 +43,12 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     pub fn node_by_screen_pos(
         &self,
         meta: &'a Metadata,
-        style: &'a SettingsStyle,
         screen_pos: Pos2,
     ) -> Option<(NodeIndex<Ix>, &Node<N>)> {
         let pos_in_graph = (screen_pos.to_vec2() - meta.pan) / meta.zoom;
         self.nodes_iter().find(|(_, n)| {
-            let dist_to_node = (n.location() - pos_in_graph).length();
-            dist_to_node <= n.screen_radius(meta, style) / meta.zoom
+            let dist_to_node = (n.location().to_vec2() - pos_in_graph).length();
+            dist_to_node <= meta.canvas_to_screen_size(n.radius()) / meta.zoom
         })
     }
 
@@ -65,8 +64,8 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
         for ((start, end), edges) in edge_map {
             let mut order = edges.len();
             for (idx_edge, e) in edges {
-                let pos_start = self.g.index(start).location().to_pos2();
-                let pos_end = self.g.index(end).location().to_pos2();
+                let pos_start = self.g.index(start).location();
+                let pos_end = self.g.index(end).location();
 
                 let node_start = self.g.index(start);
                 let node_end = self.g.index(end);
@@ -75,7 +74,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
 
                 if start == end {
                     // edge is a loop (bezier curve)
-                    let rad = node_start.screen_radius(meta, style) / meta.zoom;
+                    let rad = meta.canvas_to_screen_size(node_start.radius()) / meta.zoom;
                     let center = pos_start;
                     let center_horizon_angle = PI / 4.;
                     let y_intersect = center.y - rad * center_horizon_angle.sin();
@@ -118,8 +117,8 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
                 }
 
                 // multiple edges between nodes -> curved
-                let rad_start = node_start.screen_radius(meta, style) / meta.zoom;
-                let rad_end = node_end.screen_radius(meta, style) / meta.zoom;
+                let rad_start = meta.canvas_to_screen_size(node_start.radius()) / meta.zoom;
+                let rad_end = meta.canvas_to_screen_size(node_end.radius()) / meta.zoom;
 
                 let vec = pos_end - pos_start;
                 let dist: f32 = vec.length();
@@ -325,7 +324,7 @@ mod tests {
     #[test]
     fn test_proj_same_vector() {
         let a = Vec2::new(5.3, 4.9);
-        assert_eq!(proj(a,a), a);
+        assert_eq!(proj(a, a), a);
     }
 
     #[test]
@@ -370,5 +369,4 @@ mod tests {
         let p2 = Vec2::new(3.0, 2.0);
         assert!(is_point_on_quadratic_bezier_curve(p2, curve, width, zoom));
     }
-
 }

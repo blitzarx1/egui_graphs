@@ -1,6 +1,6 @@
-use egui::{Color32, Context, Vec2};
+use egui::{Color32, Context, Pos2};
 
-use crate::{draw::NodeGraphDisplay, metadata::Metadata, ComputedNode, SettingsStyle};
+use crate::ComputedNode;
 
 use super::StyleNode;
 
@@ -9,7 +9,7 @@ use super::StyleNode;
 pub struct Node<N: Clone> {
     payload: Option<N>,
 
-    location: Vec2,
+    location: Pos2,
 
     label: String,
 
@@ -18,12 +18,10 @@ pub struct Node<N: Clone> {
     selected: bool,
     dragged: bool,
     computed: ComputedNode,
-
-    // shape: dyn NodeGraphDisplay,
 }
 
 impl<N: Clone> Node<N> {
-    pub fn new(location: Vec2, data: N) -> Self {
+    pub fn new(location: Pos2, data: N) -> Self {
         Self {
             location,
             payload: Some(data),
@@ -33,16 +31,6 @@ impl<N: Clone> Node<N> {
             dragged: Default::default(),
             computed: Default::default(),
         }
-    }
-
-    /// Returns actual location of the node on the screen. It accounts for the current zoom and pan values.
-    pub fn screen_location(&self, m: &Metadata) -> Vec2 {
-        self.location * m.zoom + m.pan
-    }
-
-    /// Returns actual radius of the node on the screen. It accounts for the number of connections and current zoom value.
-    pub fn screen_radius(&self, m: &Metadata, style: &SettingsStyle) -> f32 {
-        (self.radius() + self.num_connections() as f32 * style.edge_radius_weight) * m.zoom
     }
 
     pub fn radius(&self) -> f32 {
@@ -75,11 +63,11 @@ impl<N: Clone> Node<N> {
         res
     }
 
-    pub fn location(&self) -> Vec2 {
+    pub fn location(&self) -> Pos2 {
         self.location
     }
 
-    pub fn set_location(&mut self, loc: Vec2) {
+    pub fn set_location(&mut self, loc: Pos2) {
         self.location = loc
     }
 

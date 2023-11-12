@@ -1,6 +1,6 @@
 use egui::{
     epaint::{CircleShape, TextShape},
-    Context, FontFamily, FontId, Pos2, Stroke,
+    FontFamily, FontId, Pos2, Stroke,
 };
 use petgraph::graph::IndexType;
 use petgraph::EdgeType;
@@ -10,19 +10,18 @@ use crate::Node;
 use super::{custom::DrawContext, Layers};
 
 pub fn default_node_draw<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
-    ctx: &Context,
+    ctx: &DrawContext<N, E, Ty, Ix>,
     n: &Node<N>,
-    state: &DrawContext<N, E, Ty, Ix>,
     l: &mut Layers,
 ) {
     let is_interacted = n.selected() || n.dragged();
-    let loc = n.screen_location(state.meta).to_pos2();
+    let loc = ctx.meta.canvas_to_screen_pos(n.location());
     let rad = match is_interacted {
-        true => n.screen_radius(state.meta, state.style) * 1.5,
-        false => n.screen_radius(state.meta, state.style),
+        true => ctx.meta.canvas_to_screen_size(n.radius()) * 1.5,
+        false => ctx.meta.canvas_to_screen_size(n.radius()),
     };
 
-    let color = n.color(ctx);
+    let color = n.color(ctx.ctx);
     let shape_node = CircleShape {
         center: loc,
         radius: rad,
@@ -34,15 +33,15 @@ pub fn default_node_draw<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
         false => l.add(shape_node),
     };
 
-    let show_label = state.style.labels_always || is_interacted;
+    let show_label = ctx.style.labels_always || is_interacted;
     if !show_label {
         return;
     };
 
-    let color = ctx.style().visuals.text_color();
+    let color = ctx.ctx.style().visuals.text_color();
     let label_pos = Pos2::new(loc.x, loc.y - rad * 2.);
     let label_size = rad;
-    let galley = ctx.fonts(|f| {
+    let galley = ctx.ctx.fonts(|f| {
         f.layout_no_wrap(
             n.label(),
             FontId::new(label_size, FontFamily::Monospace),

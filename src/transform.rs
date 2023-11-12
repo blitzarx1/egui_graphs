@@ -1,5 +1,5 @@
 use crate::{Edge, Graph, Node};
-use egui::Vec2;
+use egui::Pos2;
 use petgraph::{
     graph::IndexType,
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
@@ -78,7 +78,7 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 /// ```
 /// use petgraph::stable_graph::StableGraph;
 /// use egui_graphs::to_graph;
-/// use egui::Vec2;
+/// use egui::Pos2;
 ///
 /// let mut user_graph: StableGraph<&str, &str> = StableGraph::new();
 /// let node1 = user_graph.add_node("A");
@@ -103,8 +103,8 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 ///
 /// let loc_1 = input_graph.g.node_weight(input_node_1).unwrap().location();
 /// let loc_2 = input_graph.g.node_weight(input_node_2).unwrap().location();
-/// assert!(loc_1 != Vec2::ZERO);
-/// assert!(loc_2 != Vec2::ZERO);
+/// assert!(loc_1 != Pos2::ZERO);
+/// assert!(loc_2 != Pos2::ZERO);
 /// ```
 pub fn to_graph<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     g: &StableGraph<N, E, Ty, Ix>,
@@ -133,9 +133,9 @@ pub fn default_edge_transform<E: Clone, Ix: IndexType>(_: EdgeIndex<Ix>, data: &
     Edge::new(data.clone())
 }
 
-fn random_location(size: f32) -> Vec2 {
+fn random_location(size: f32) -> Pos2 {
     let mut rng = rand::thread_rng();
-    Vec2::new(rng.gen_range(0. ..size), rng.gen_range(0. ..size))
+    Pos2::new(rng.gen_range(0. ..size), rng.gen_range(0. ..size))
 }
 
 fn transform<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(

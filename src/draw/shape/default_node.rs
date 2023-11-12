@@ -25,7 +25,7 @@ pub struct DefaultNodeShape {
 impl<N: Clone> From<Node<N>> for DefaultNodeShape {
     fn from(value: Node<N>) -> Self {
         DefaultNodeShape {
-            pos: value.location().to_pos2(),
+            pos: value.location(),
 
             radius: value.radius(),
             selected: value.selected(),
