@@ -1,5 +1,5 @@
 use egui::{Rect, Vec2};
-use petgraph::graph::IndexType;
+use petgraph::graph::{EdgeIndex, IndexType};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{Graph, Node, SettingsStyle};
@@ -8,7 +8,8 @@ use crate::{Graph, Node, SettingsStyle};
 #[derive(Debug, Clone)]
 pub struct ComputedState<Ix: IndexType> {
     pub dragged: Option<NodeIndex<Ix>>,
-    pub selected: Vec<NodeIndex<Ix>>,
+    pub selected_nodes: Vec<NodeIndex<Ix>>,
+    pub selected_edges: Vec<EdgeIndex<Ix>>,
 
     min: Vec2,
     max: Vec2,
@@ -23,7 +24,8 @@ where
         Self {
             dragged: None,
 
-            selected: Vec::new(),
+            selected_nodes: Vec::new(),
+            selected_edges: Vec::new(),
 
             min: Vec2::new(f32::MAX, f32::MAX),
             max: Vec2::new(f32::MIN, f32::MIN),
@@ -47,7 +49,7 @@ where
             self.dragged = Some(idx);
         }
         if n.selected() {
-            self.selected.push(idx);
+            self.selected_nodes.push(idx);
         }
 
         ComputedNode {

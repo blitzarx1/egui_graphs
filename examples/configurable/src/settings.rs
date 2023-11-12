@@ -15,9 +15,12 @@ impl Default for SettingsGraph {
 #[derive(Default)]
 pub struct SettingsInteraction {
     pub dragging_enabled: bool,
-    pub clicking_enabled: bool,
-    pub selection_enabled: bool,
-    pub selection_multi_enabled: bool,
+    pub node_clicking_enabled: bool,
+    pub node_selection_enabled: bool,
+    pub node_selection_multi_enabled: bool,
+    pub edge_clicking_enabled: bool,
+    pub edge_selection_enabled: bool,
+    pub edge_selection_multi_enabled: bool,
 }
 
 pub struct SettingsNavigation {
