@@ -49,7 +49,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeDisplay<N, E, Ty, Ix>
         closest_point_on_circle(self.pos, self.radius, pos)
     }
 
-    fn shape(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape> {
+    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape> {
         let mut res = Vec::with_capacity(2);
 
         let is_interacted = self.selected || self.dragged;
@@ -63,8 +63,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeDisplay<N, E, Ty, Ix>
         let circle_center = ctx.meta.canvas_to_screen_pos(self.pos);
         let circle_radius = ctx.meta.canvas_to_screen_size(self.radius);
         let circle_shape = CircleShape {
-            center: self.pos,
-            radius: self.radius,
+            center: circle_center,
+            radius: circle_radius,
             fill: stroke.color,
             stroke,
         };

@@ -13,17 +13,17 @@ pub trait NodeDisplay<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>:
     /// Could be used to snap the edge ends to the node.
     fn closest_boundary_point(&self, pos: Pos2) -> Pos2;
 
-    /// Draws shape of the node.
+    /// Draws shapes of the node.
     ///
     /// * `ctx` - should be used to determine current global properties.
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
-    fn shape(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
+    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
 }
 pub trait EdgeDisplay<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>:
     Interactable + From<Edge<E>>
 {
-    /// Draws shape of the edges.
+    /// Draws shapes of the edge.
     ///
     /// * `ctx` - should be used to determine current global properties.
     /// * `start` and `end` - start and end points of the edge.
@@ -31,7 +31,7 @@ pub trait EdgeDisplay<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>:
     /// Use `ctx.meta` to properly scale and translate the shape.
     ///
     /// Get [NodeGraphDisplay] from node endpoints to get start and end coordinates using [closest_boundary_point](NodeGraphDisplay::closest_boundary_point).
-    fn shape(&self, start: Node<N>, end: Node<N>, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
+    fn shapes(&self, start: Node<N>, end: Node<N>, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
 }
 
 pub trait Interactable {

@@ -6,7 +6,8 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 use crate::{settings::SettingsStyle, Edge, Graph, Metadata};
 
-use super::{custom::DrawContext, default_edges_draw, default_node_draw, layers::Layers};
+use super::{custom::DrawContext, default_edges_draw, layers::Layers};
+use super::{DefaultNodeShape, NodeDisplay};
 
 /// Mapping for 2 nodes and all edges between them
 type EdgeMap<'a, E, Ix> = HashMap<(NodeIndex<Ix>, NodeIndex<Ix>), Vec<&'a Edge<E>>>;
@@ -33,21 +34,25 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
         let mut l = Layers::default();
 
         self.fill_layers_edges(&mut l);
-        self.fill_layers_nodes(&mut l);
+        self.fill_layers_nodes::<DefaultNodeShape>(&mut l);
 
         l.draw(self.p)
     }
 
-    fn fill_layers_nodes(&self, l: &mut Layers) {
+    fn fill_layers_nodes<D: NodeDisplay<N, E, Ty, Ix>>(&self, l: &mut Layers) {
         let ctx = &DrawContext {
             ctx: self.p.ctx(),
             g: self.g,
             meta: self.meta,
             style: self.style,
         };
-        self.g
-            .nodes_iter()
-            .for_each(|(_, n)| default_node_draw(ctx, n, l));
+        self.g.nodes_iter().for_each(|(_, n)| {
+            let shapes = D::from(n.clone().clone()).shapes(ctx);
+            match n.selected() || n.dragged() {
+                true => shapes.into_iter().for_each(|s| l.add_top(s)),
+                false => shapes.into_iter().for_each(|s| l.add(s)),
+            }
+        });
     }
 
     fn fill_layers_edges(&self, l: &mut Layers) {
