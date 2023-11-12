@@ -2,9 +2,12 @@
 #[derive(Debug, Clone, Default)]
 pub struct SettingsInteraction {
     pub(crate) dragging_enabled: bool,
-    pub(crate) clicking_enabled: bool,
-    pub(crate) selection_enabled: bool,
-    pub(crate) selection_multi_enabled: bool,
+    pub(crate) node_clicking_enabled: bool,
+    pub(crate) node_selection_enabled: bool,
+    pub(crate) node_selection_multi_enabled: bool,
+    pub(crate) edge_clicking_enabled: bool,
+    pub(crate) edge_selection_enabled: bool,
+    pub(crate) edge_selection_multi_enabled: bool,
 }
 
 impl SettingsInteraction {
@@ -24,8 +27,8 @@ impl SettingsInteraction {
     /// Allows clicking on nodes.
     ///
     /// Default: `false`
-    pub fn with_clicking_enabled(mut self, enabled: bool) -> Self {
-        self.clicking_enabled = enabled;
+    pub fn with_node_clicking_enabled(mut self, enabled: bool) -> Self {
+        self.node_clicking_enabled = enabled;
         self
     }
 
@@ -36,16 +39,44 @@ impl SettingsInteraction {
     /// Clicking on empty space deselects all nodes.
     ///
     /// Default: `false`
-    pub fn with_selection_enabled(mut self, enabled: bool) -> Self {
-        self.selection_enabled = enabled;
+    pub fn with_node_selection_enabled(mut self, enabled: bool) -> Self {
+        self.node_selection_enabled = enabled;
         self
     }
 
     /// Multiselection for nodes, enables click and select.
     ///
     /// Default: `false`
-    pub fn with_selection_multi_enabled(mut self, enabled: bool) -> Self {
-        self.selection_multi_enabled = enabled;
+    pub fn with_node_selection_multi_enabled(mut self, enabled: bool) -> Self {
+        self.node_selection_multi_enabled = enabled;
+        self
+    }
+
+    /// Allows clicking on edges.
+    ///
+    /// Default: `false`
+    pub fn with_edge_clicking_enabled(mut self, enabled: bool) -> Self {
+        self.edge_clicking_enabled = enabled;
+        self
+    }
+
+    /// Selects clicked edge, enables clicks.
+    ///
+    /// Select by clicking on a edge, deselect by clicking again.
+    ///
+    /// Clicking on empty space deselects all edges.
+    ///
+    /// Default: `false`
+    pub fn with_edge_selection_enabled(mut self, enabled: bool) -> Self {
+        self.edge_selection_enabled = enabled;
+        self
+    }
+
+    /// Multiselection for edges, enables click and select.
+    ///
+    /// Default: `false`
+    pub fn with_edge_selection_multi_enabled(mut self, enabled: bool) -> Self {
+        self.edge_selection_multi_enabled = enabled;
         self
     }
 }

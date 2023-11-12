@@ -6,7 +6,7 @@ pub struct PayloadPan {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PyaloadZoom {
+pub struct PayloadZoom {
     pub diff: f32,
 }
 
@@ -47,9 +47,24 @@ pub struct PayloadNodeDoubleClick {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadEdgeClick {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadEdgeSelect {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadEdgeDeselect {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Event {
     Pan(PayloadPan),
-    Zoom(PyaloadZoom),
+    Zoom(PayloadZoom),
     NodeMove(PayloadNodeMove),
     NodeDragStart(PayloadNodeDragStart),
     NodeDragEnd(PayloadNodeDragEnd),
@@ -57,4 +72,7 @@ pub enum Event {
     NodeDeselect(PayloadNodeDeselect),
     NodeClick(PayloadNodeClick),
     NodeDoubleClick(PayloadNodeDoubleClick),
+    EdgeClick(PayloadEdgeClick),
+    EdgeSelect(PayloadEdgeSelect),
+    EdgeDeselect(PayloadEdgeDeselect),
 }
