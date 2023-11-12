@@ -25,21 +25,23 @@ impl Interactable for DefaultNodeShape {
     }
 }
 
+impl<N: Clone> From<Node<N>> for DefaultNodeShape {
+    fn from(value: Node<N>) -> Self {
+        DefaultNodeShape {
+            pos: value.location().to_pos2(),
+
+            radius: value.radius(),
+            selected: value.selected(),
+            dragged: value.dragged(),
+
+            label_text: value.label().to_string(),
+        }
+    }
+}
+
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeGraphDisplay<N, E, Ty, Ix>
     for DefaultNodeShape
 {
-    fn from_node(node: &Node<N>) -> Self {
-        DefaultNodeShape {
-            pos: node.location().to_pos2(),
-
-            radius: node.radius(),
-            selected: node.selected(),
-            dragged: node.dragged(),
-
-            label_text: node.label().to_string(),
-        }
-    }
-
     fn closest_boundary_point(&self, ctx: &DrawContext<N, E, Ty, Ix>, pos: Pos2) -> Pos2 {
         let circle_radius = ctx.meta.canvas_to_screen_size(self.radius);
         let circle_center = ctx.meta.canvas_to_screen_pos(self.pos);
