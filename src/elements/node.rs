@@ -64,6 +64,10 @@ impl<N: Clone> Node<N> {
         self.data.as_ref()
     }
 
+    pub fn data_mut(&mut self) -> Option<&mut N> {
+        self.data.as_mut()
+    }
+
     pub fn set_data(&mut self, data: Option<N>) {
         self.data = data;
     }
