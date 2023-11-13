@@ -41,6 +41,9 @@ impl<E: Clone> Edge<E> {
         self.data.as_ref()
     }
 
+    pub fn data_mut(&mut self) -> Option<&mut E> {
+        self.data.as_mut()
+    }
     pub fn color(&self, ctx: &Context) -> Color32 {
         if self.selected {
             return ctx.style().visuals.widgets.hovered.fg_stroke.color;
