@@ -131,8 +131,20 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
                 let control_point =
                     (center_point + dir_perpendicular * e.curve_size() * order as f32).to_pos2();
 
+                let tip_vec = control_point - tip_end;
+                let tip_dir = tip_vec / tip_vec.length();
+                let tip_size = e.tip_size();
+
+                let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle()) * tip_size;
+                let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle()) * tip_size;
+
+                let tip_start_1 = tip_end + arrow_tip_dir_1;
+                let tip_start_2 = tip_end + arrow_tip_dir_2;
+
+                let edge_end_curved = point_between(tip_start_1, tip_start_2);
+
                 let shape = QuadraticBezierShape::from_points_stroke(
-                    [edge_start, control_point, tip_end],
+                    [edge_start, control_point, edge_end_curved],
                     false,
                     Color32::default(),
                     Stroke::default(),
@@ -248,7 +260,7 @@ fn is_point_on_quadratic_bezier_curve(
     width: f32,
     zoom: f32,
 ) -> bool {
-    is_point_on_bezier_curve(point, curve.flatten(Option::new(2.0 / zoom)), width)
+    is_point_on_bezier_curve(point, curve.flatten(Option::new(0.3 / zoom)), width)
 }
 
 fn is_point_on_bezier_curve(point: Pos2, curve_points: Vec<Pos2>, width: f32) -> bool {
@@ -263,6 +275,21 @@ fn is_point_on_bezier_curve(point: Pos2, curve_points: Vec<Pos2>, width: f32) ->
         previous_point = Some(p);
     }
     false
+}
+
+/// rotates vector by angle
+fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
+    let cos = angle.cos();
+    let sin = angle.sin();
+    Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
+}
+
+/// finds point exactly in the middle between 2 points
+fn point_between(p1: Pos2, p2: Pos2) -> Pos2 {
+    let base = p1 - p2;
+    let base_len = base.length();
+    let dir = base / base_len;
+    p1 - (base_len / 2.) * dir
 }
 
 #[cfg(test)]
