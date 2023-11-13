@@ -9,9 +9,9 @@ description = "Interactive graph visualization widget for rust powered by egui"
 edition = "2021"
 
 [dependencies]
-egui = "0.23"
+egui = { version = "0.23", default-features = false }
 rand = "0.8"
-petgraph = "0.6"
+petgraph = { version = "0.6", default-features = false, features = ["stable_graph", "matrix_graph"] }
 crossbeam = { version = "0.8", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
