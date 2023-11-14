@@ -31,6 +31,7 @@ pub struct StyleEdge {
     pub tip_size: f32,
     pub tip_angle: f32,
     pub curve_size: f32,
+    pub loop_size: f32,
 }
 
 impl Default for StyleEdge {
@@ -40,6 +41,7 @@ impl Default for StyleEdge {
             tip_size: 15.,
             tip_angle: std::f32::consts::TAU / 30.,
             curve_size: 20.,
+            loop_size: 3.,
         }
     }
 }
@@ -94,6 +96,10 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
 
     pub fn payload(&self) -> Option<&E> {
         self.payload.as_ref()
+    }
+
+    pub fn style(&self) -> &StyleEdge {
+        &self.style
     }
 
     pub fn color(&self, ctx: &Context) -> Color32 {

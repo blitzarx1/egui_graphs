@@ -144,15 +144,11 @@ impl SettingsNavigation {
 #[derive(Debug, Clone)]
 pub struct SettingsStyle {
     pub(crate) labels_always: bool,
-
-    /// Loop size for looped edges.
-    pub(crate) edge_looped_size: f32,
 }
 
 impl Default for SettingsStyle {
     fn default() -> Self {
         Self {
-            edge_looped_size: 3.,
             labels_always: Default::default(),
         }
     }

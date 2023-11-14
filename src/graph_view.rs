@@ -174,7 +174,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
 
         let found_edge = self.g.edge_by_screen_pos(
             meta,
-            &self.settings_style,
             resp.hover_pos().unwrap(),
         );
         let found_node = self

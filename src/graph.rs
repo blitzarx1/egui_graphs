@@ -2,7 +2,6 @@ use egui::epaint::{CubicBezierShape, QuadraticBezierShape};
 use egui::{Color32, Pos2, Stroke, Vec2};
 use petgraph::stable_graph::DefaultIx;
 use petgraph::Directed;
-use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::ops::Index;
 
@@ -15,7 +14,7 @@ use petgraph::{
 };
 
 use crate::draw::NodeDisplay;
-use crate::{metadata::Metadata, transform, Edge, Node, SettingsStyle};
+use crate::{metadata::Metadata, transform, Edge, Node};
 
 /// Graph type compatible with [`super::GraphView`].
 #[derive(Debug, Clone)]
@@ -44,14 +43,13 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     ) -> Option<(NodeIndex<Ix>, &Node<N, Ix>)> {
         let pos_in_graph = ((screen_pos.to_vec2() - meta.pan) / meta.zoom).to_pos2();
         self.nodes_iter()
-            .find(|(_, n)| D::from(n.clone().clone()).is_inside(&self, pos_in_graph))
+            .find(|(_, n)| D::from(n.clone().clone()).is_inside(self, pos_in_graph))
     }
 
     /// Finds edge by position.
     pub fn edge_by_screen_pos(
         &self,
         meta: &'a Metadata,
-        style: &'a SettingsStyle,
         screen_pos: Pos2,
     ) -> Option<EdgeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
@@ -75,7 +73,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
                     Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
                 let edge_end = Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
 
-                let loop_size = rad * (style.edge_looped_size + e.id().order as f32);
+                let loop_size = rad * (e.style().loop_size + e.id().order as f32);
 
                 let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
                 let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);

@@ -143,7 +143,7 @@ fn draw_edge_looped<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     let edge_start = Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
     let edge_end = Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
 
-    let loop_size = rad * (ctx.style.edge_looped_size + order as f32);
+    let loop_size = rad * (e.style().loop_size + order as f32);
 
     let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
     let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
