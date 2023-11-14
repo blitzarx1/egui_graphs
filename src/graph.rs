@@ -17,10 +17,6 @@ use petgraph::{
 use crate::draw::NodeDisplay;
 use crate::{metadata::Metadata, transform, Edge, Node, SettingsStyle};
 
-/// Mapping for 2 nodes and all edges between them
-pub type EdgeMap<'a, E, Ix> =
-    HashMap<(NodeIndex<Ix>, NodeIndex<Ix>), Vec<(EdgeIndex<Ix>, &'a Edge<E, Ix>)>>;
-
 /// Graph type compatible with [`super::GraphView`].
 #[derive(Debug, Clone)]
 pub struct Graph<N: Clone, E: Clone, Ty: EdgeType = Directed, Ix: IndexType = DefaultIx> {
@@ -57,101 +53,96 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
         meta: &'a Metadata,
         style: &'a SettingsStyle,
         screen_pos: Pos2,
-        edge_map: EdgeMap<E, Ix>,
     ) -> Option<EdgeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
-        for ((start, end), edges) in edge_map {
-            let mut order = edges.len();
-            for (idx_edge, e) in edges {
-                let pos_start = self.g.index(start).location();
-                let pos_end = self.g.index(end).location();
+        for (idx_edge, e) in self.edges_iter() {
+            let (start, end) = self.edge_endpoints(e.id().idx).unwrap();
 
-                let node_start = self.g.index(start);
-                let node_end = self.g.index(end);
+            let pos_start = self.g.index(start).location();
+            let pos_end = self.g.index(end).location();
 
-                order -= 1;
+            let node_start = self.g.index(start);
+            let node_end = self.g.index(end);
 
-                if start == end {
-                    // edge is a loop (bezier curve)
-                    let rad = meta.canvas_to_screen_size(node_start.radius()) / meta.zoom;
-                    let center = pos_start;
-                    let center_horizon_angle = PI / 4.;
-                    let y_intersect = center.y - rad * center_horizon_angle.sin();
+            if start == end {
+                // edge is a loop (bezier curve)
+                let rad = meta.canvas_to_screen_size(node_start.radius()) / meta.zoom;
+                let center = pos_start;
+                let center_horizon_angle = PI / 4.;
+                let y_intersect = center.y - rad * center_horizon_angle.sin();
 
-                    let edge_start =
-                        Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
-                    let edge_end =
-                        Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
+                let edge_start =
+                    Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
+                let edge_end = Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
 
-                    let loop_size = rad * (style.edge_looped_size + order as f32);
+                let loop_size = rad * (style.edge_looped_size + e.id().order as f32);
 
-                    let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
-                    let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
+                let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
+                let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
 
-                    let shape = CubicBezierShape::from_points_stroke(
-                        [edge_end, control_point1, control_point2, edge_start],
-                        false,
-                        Color32::default(),
-                        Stroke::default(),
-                    );
-                    if is_point_on_cubic_bezier_curve(pos_in_graph, shape, e.width(), meta.zoom) {
-                        return Option::new(idx_edge);
-                    }
-
-                    continue;
-                }
-
-                if order == 0 {
-                    // edge is a straight line between nodes
-                    let distance = distance_segment_to_point(pos_start, pos_end, pos_in_graph);
-                    if distance < e.width() {
-                        return Option::new(idx_edge);
-                    }
-
-                    continue;
-                }
-
-                // multiple edges between nodes -> curved
-                let rad_start = meta.canvas_to_screen_size(node_start.radius()) / meta.zoom;
-                let rad_end = meta.canvas_to_screen_size(node_end.radius()) / meta.zoom;
-
-                let vec = pos_end - pos_start;
-                let dist: f32 = vec.length();
-                let dir = vec / dist;
-
-                let start_node_radius_vec = Vec2::new(rad_start, rad_start) * dir;
-                let end_node_radius_vec = Vec2::new(rad_end, rad_end) * dir;
-
-                let tip_end = pos_start + vec - end_node_radius_vec;
-
-                let edge_start = pos_start + start_node_radius_vec;
-
-                let dir_perpendicular = Vec2::new(-dir.y, dir.x);
-                let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
-                let control_point =
-                    (center_point + dir_perpendicular * e.curve_size() * order as f32).to_pos2();
-
-                let tip_vec = control_point - tip_end;
-                let tip_dir = tip_vec / tip_vec.length();
-                let tip_size = e.tip_size();
-
-                let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle()) * tip_size;
-                let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle()) * tip_size;
-
-                let tip_start_1 = tip_end + arrow_tip_dir_1;
-                let tip_start_2 = tip_end + arrow_tip_dir_2;
-
-                let edge_end_curved = point_between(tip_start_1, tip_start_2);
-
-                let shape = QuadraticBezierShape::from_points_stroke(
-                    [edge_start, control_point, edge_end_curved],
+                let shape = CubicBezierShape::from_points_stroke(
+                    [edge_end, control_point1, control_point2, edge_start],
                     false,
                     Color32::default(),
                     Stroke::default(),
                 );
-                if is_point_on_quadratic_bezier_curve(pos_in_graph, shape, e.width(), meta.zoom) {
+                if is_point_on_cubic_bezier_curve(pos_in_graph, shape, e.width(), meta.zoom) {
                     return Option::new(idx_edge);
                 }
+
+                continue;
+            }
+
+            if e.id().order == 0 {
+                // edge is a straight line between nodes
+                let distance = distance_segment_to_point(pos_start, pos_end, pos_in_graph);
+                if distance < e.width() {
+                    return Option::new(idx_edge);
+                }
+
+                continue;
+            }
+
+            // multiple edges between nodes -> curved
+            let rad_start = meta.canvas_to_screen_size(node_start.radius()) / meta.zoom;
+            let rad_end = meta.canvas_to_screen_size(node_end.radius()) / meta.zoom;
+
+            let vec = pos_end - pos_start;
+            let dist: f32 = vec.length();
+            let dir = vec / dist;
+
+            let start_node_radius_vec = Vec2::new(rad_start, rad_start) * dir;
+            let end_node_radius_vec = Vec2::new(rad_end, rad_end) * dir;
+
+            let tip_end = pos_start + vec - end_node_radius_vec;
+
+            let edge_start = pos_start + start_node_radius_vec;
+
+            let dir_perpendicular = Vec2::new(-dir.y, dir.x);
+            let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
+            let control_point =
+                (center_point + dir_perpendicular * e.curve_size() * e.id().order as f32).to_pos2();
+
+            let tip_vec = control_point - tip_end;
+            let tip_dir = tip_vec / tip_vec.length();
+            let tip_size = e.tip_size();
+
+            let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle()) * tip_size;
+            let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle()) * tip_size;
+
+            let tip_start_1 = tip_end + arrow_tip_dir_1;
+            let tip_start_2 = tip_end + arrow_tip_dir_2;
+
+            let edge_end_curved = point_between(tip_start_1, tip_start_2);
+
+            let shape = QuadraticBezierShape::from_points_stroke(
+                [edge_start, control_point, edge_end_curved],
+                false,
+                Color32::default(),
+                Stroke::default(),
+            );
+            if is_point_on_quadratic_bezier_curve(pos_in_graph, shape, e.width(), meta.zoom) {
+                return Option::new(idx_edge);
             }
         }
 

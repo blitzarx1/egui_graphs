@@ -5,7 +5,6 @@ use crate::events::{
     PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd, PayloadNodeDragStart,
     PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
 };
-use crate::graph::EdgeMap;
 use crate::{
     computed::ComputedState,
     draw::Drawer,
@@ -20,7 +19,6 @@ use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::graph::EdgeIndex;
 use petgraph::graph::IndexType;
 use petgraph::{stable_graph::NodeIndex, EdgeType};
-use std::collections::HashMap;
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -174,19 +172,10 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
             return;
         }
 
-        let mut edge_map: EdgeMap<E, Ix> = HashMap::new();
-
-        self.g.edges_iter().for_each(|(idx, e)| {
-            let (source, target) = self.g.edge_endpoints(idx).unwrap();
-            // compute map with edges between 2 nodes
-            edge_map.entry((source, target)).or_default().push((idx, e));
-        });
-
         let found_edge = self.g.edge_by_screen_pos(
             meta,
             &self.settings_style,
             resp.hover_pos().unwrap(),
-            edge_map,
         );
         let found_node = self
             .g
