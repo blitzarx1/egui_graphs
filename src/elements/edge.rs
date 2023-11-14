@@ -6,7 +6,7 @@ use petgraph::stable_graph::{EdgeIndex, IndexType};
 pub struct EdgeID<Ix: IndexType> {
     pub idx: EdgeIndex<Ix>,
 
-    /// Index of the edge in the set of duplicate edges.
+    /// Index of the edge among siblings.
     pub order: usize,
 }
 

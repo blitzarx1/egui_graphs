@@ -307,12 +307,32 @@ impl ConfigurableApp {
             return;
         }
 
+        let order = self.g.g.edge_weight(g_idx.unwrap()).unwrap().order();
+
         self.g.g.remove_edge(g_idx.unwrap()).unwrap();
 
         let sim_idx = self.sim.get_graph_mut().find_edge(start, end).unwrap();
         self.sim.get_graph_mut().remove_edge(sim_idx).unwrap();
 
-        // TODO: fix orders of edges
+        // update order of the edges
+        let left_siblings = self
+            .g
+            .g
+            .edges_connecting(start, end)
+            .map(|edge_ref| edge_ref.id())
+            .collect::<Vec<_>>();
+
+        left_siblings.iter().for_each(|idx| {
+            let sibling_order = self.g.g.edge_weight(*idx).unwrap().order();
+            if sibling_order < order {
+                return;
+            }
+            self.g
+                .g
+                .edge_weight_mut(*idx)
+                .unwrap()
+                .set_order(sibling_order - 1);
+        });
     }
 
     /// Removes all edges between two nodes
