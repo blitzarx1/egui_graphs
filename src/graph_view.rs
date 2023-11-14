@@ -1,4 +1,4 @@
-use crate::draw::DefaultNodeShape;
+use crate::draw::{DefaultNodeShape, DrawContext};
 #[cfg(feature = "events")]
 use crate::events::{
     Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
@@ -62,7 +62,16 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Widget
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut meta, &computed);
 
-        Drawer::new(p, self.g, &self.settings_style, &meta).draw();
+        Drawer::new(
+            p,
+            &DrawContext {
+                ctx: ui.ctx(),
+                g: self.g,
+                meta: &meta,
+                style: &self.settings_style,
+            },
+        )
+        .draw();
 
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();

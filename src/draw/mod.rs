@@ -4,7 +4,7 @@ mod layers;
 mod node;
 mod shape;
 
-pub use self::drawer::Drawer;
+pub use self::drawer::{Drawer, DrawContext};
 pub use self::edge::default_edges_draw;
 pub use self::layers::Layers;
 pub use self::node::default_node_draw;

@@ -4,7 +4,7 @@ use egui::{
 };
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{Node, draw::drawer::DrawContext};
+use crate::{draw::drawer::DrawContext, Graph, Node};
 
 use super::{Interactable, NodeDisplay};
 
@@ -36,21 +36,22 @@ impl<N: Clone, Ix: IndexType> From<Node<N, Ix>> for DefaultNodeShape {
     }
 }
 
-impl Interactable for DefaultNodeShape {
-    fn is_inside(&self, pos: Pos2) -> bool {
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
+    for DefaultNodeShape
+{
+    fn is_inside(&self, _g: &Graph<N, E, Ty, Ix>, pos: Pos2) -> bool {
         is_inside_circle(self.pos, self.radius, pos)
     }
 }
 
-impl<N: Clone, Ix: IndexType> NodeDisplay<N, Ix> for DefaultNodeShape {
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeDisplay<N, E, Ty, Ix>
+    for DefaultNodeShape
+{
     fn closest_boundary_point(&self, pos: Pos2) -> Pos2 {
         closest_point_on_circle(self.pos, self.radius, pos)
     }
 
-    fn shapes<E: Clone, Ty: EdgeType>(
-        &self,
-        ctx: &DrawContext<N, E, Ty, Ix>,
-    ) -> Vec<Shape> {
+    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape> {
         let mut res = Vec::with_capacity(2);
 
         let is_interacted = self.selected || self.dragged;

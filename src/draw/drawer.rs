@@ -17,20 +17,12 @@ pub struct DrawContext<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
     p: Painter,
-
-    g: &'a Graph<N, E, Ty, Ix>,
-    style: &'a SettingsStyle,
-    meta: &'a Metadata,
+    ctx: &'a DrawContext<'a, N, E, Ty, Ix>,
 }
 
 impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, Ix> {
-    pub fn new(
-        p: Painter,
-        g: &'a Graph<N, E, Ty, Ix>,
-        style: &'a SettingsStyle,
-        meta: &'a Metadata,
-    ) -> Self {
-        Drawer { g, p, style, meta }
+    pub fn new(p: Painter, ctx: &'a DrawContext<'a, N, E, Ty, Ix>) -> Self {
+        Drawer { p, ctx }
     }
 
     pub fn draw(self) {
@@ -42,15 +34,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
         l.draw(self.p)
     }
 
-    fn fill_layers_nodes<D: NodeDisplay<N, Ix>>(&self, l: &mut Layers) {
-        let ctx = &DrawContext {
-            ctx: self.p.ctx(),
-            g: self.g,
-            meta: self.meta,
-            style: self.style,
-        };
-        self.g.nodes_iter().for_each(|(_, n)| {
-            let shapes = D::from(n.clone().clone()).shapes(ctx);
+    fn fill_layers_nodes<D: NodeDisplay<N, E, Ty, Ix>>(&self, l: &mut Layers) {
+        self.ctx.g.nodes_iter().for_each(|(_, n)| {
+            let shapes = D::from(n.clone().clone()).shapes(self.ctx);
             match n.selected() || n.dragged() {
                 true => shapes.into_iter().for_each(|s| l.add_top(s)),
                 false => shapes.into_iter().for_each(|s| l.add(s)),
@@ -59,15 +45,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
     }
 
     fn fill_layers_edges(&self, l: &mut Layers) {
-        let ctx = &DrawContext {
-            ctx: self.p.ctx(),
-            g: self.g,
-            meta: self.meta,
-            style: self.style,
-        };
-
-        self.g
+        self.ctx
+            .g
             .edges_iter()
-            .for_each(|(_, e)| default_edges_draw(ctx, e, l));
+            .for_each(|(_, e)| default_edges_draw(self.ctx, e, l));
     }
 }

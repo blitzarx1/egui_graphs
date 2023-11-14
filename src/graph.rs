@@ -41,14 +41,14 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
-    pub fn node_by_screen_pos<D: NodeDisplay<N, Ix>>(
+    pub fn node_by_screen_pos<D: NodeDisplay<N, E, Ty, Ix>>(
         &self,
         meta: &'a Metadata,
         screen_pos: Pos2,
     ) -> Option<(NodeIndex<Ix>, &Node<N, Ix>)> {
         let pos_in_graph = ((screen_pos.to_vec2() - meta.pan) / meta.zoom).to_pos2();
         self.nodes_iter()
-            .find(|(_, n)| D::from(n.clone().clone()).is_inside(pos_in_graph))
+            .find(|(_, n)| D::from(n.clone().clone()).is_inside(&self, pos_in_graph))
     }
 
     /// Finds edge by position.
