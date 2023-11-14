@@ -27,7 +27,7 @@ pub fn default_node_draw<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
         center: loc,
         radius: rad,
         fill: color,
-        stroke: Stroke::new(1., color),
+        stroke: Stroke::NONE,
     };
     match is_interacted {
         true => l.add_top(shape_node),
