@@ -27,8 +27,8 @@ pub struct ConfigurableApp {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
 
-    selected_nodes: Vec<Node<()>>,
-    selected_edges: Vec<Edge<()>>,
+    selected_nodes: Vec<Node<(), DefaultIx>>,
+    selected_edges: Vec<Edge<(), DefaultIx>>,
     last_events: Vec<String>,
 
     simulation_stopped: bool,
@@ -249,7 +249,9 @@ impl ConfigurableApp {
             random_n.location().y + 10. + rng.gen_range(0. ..50.),
         );
 
-        let idx = self.g.g.add_node(Node::new(location, ()));
+        let idx = self.g.g.add_node(Node::new(()));
+        self.g.g[idx].bind(idx, location);
+
         let n = self.g.g.node_weight_mut(idx).unwrap();
         *n = n.with_label(format!("{:?}", idx));
         let mut sim_node = fdg_sim::Node::new(idx.index().to_string().as_str(), ());
@@ -280,7 +282,9 @@ impl ConfigurableApp {
     }
 
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
-        self.g.g.add_edge(start, end, Edge::new(()));
+        let idx = self.g.g.add_edge(start, end, Edge::new(()));
+        let order = self.g.g.edges_connecting(start, end).count();
+        self.g.g.edge_weight_mut(idx).unwrap().bind(idx, order);
         self.sim.get_graph_mut().add_edge(start, end, 1.);
     }
 
@@ -307,6 +311,8 @@ impl ConfigurableApp {
 
         let sim_idx = self.sim.get_graph_mut().find_edge(start, end).unwrap();
         self.sim.get_graph_mut().remove_edge(sim_idx).unwrap();
+
+        // TODO: fix orders of edges
     }
 
     /// Removes all edges between two nodes

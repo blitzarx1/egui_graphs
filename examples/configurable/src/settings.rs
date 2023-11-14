@@ -41,14 +41,7 @@ impl Default for SettingsNavigation {
     }
 }
 
+#[derive(Default)]
 pub struct SettingsStyle {
     pub labels_always: bool,
-}
-
-impl Default for SettingsStyle {
-    fn default() -> Self {
-        Self {
-            labels_always: false,
-        }
-    }
 }

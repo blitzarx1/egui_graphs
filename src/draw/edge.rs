@@ -5,40 +5,35 @@ use egui::{
     Color32, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::graph::IndexType;
-use petgraph::{stable_graph::NodeIndex, EdgeType};
+use petgraph::EdgeType;
 
 use crate::{Edge, Node};
 
-use super::{custom::DrawContext, Layers};
+use super::{drawer::DrawContext, Layers};
 
 pub fn default_edges_draw<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     ctx: &DrawContext<N, E, Ty, Ix>,
-    bounds: (NodeIndex<Ix>, NodeIndex<Ix>),
-    edges: Vec<&Edge<E>>,
+    e: &Edge<E, Ix>,
     l: &mut Layers,
 ) {
-    let (idx_start, idx_end) = bounds;
-    let mut order = edges.len();
-    edges.iter().for_each(|e| {
-        let n_start = ctx.g.node(idx_start).unwrap();
-        let n_end = ctx.g.node(idx_end).unwrap();
+    let edge_id = e.id();
+    let (idx_start, idx_end) = ctx.g.edge_endpoints(edge_id.idx).unwrap();
+    let n_start = ctx.g.node(idx_start).unwrap();
+    let n_end = ctx.g.node(idx_end).unwrap();
 
-        order -= 1;
-
-        if idx_start == idx_end {
-            draw_edge_looped(ctx, l, n_start, e, order);
-        } else {
-            draw_edge_basic(ctx, l, n_start, n_end, e, order);
-        }
-    });
+    if idx_start == idx_end {
+        draw_edge_looped(ctx, l, n_start, e, edge_id.order);
+    } else {
+        draw_edge_basic(ctx, l, n_start, n_end, e, edge_id.order);
+    }
 }
 
 fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     ctx: &DrawContext<N, E, Ty, Ix>,
     l: &mut Layers,
-    n_start: &Node<N>,
-    n_end: &Node<N>,
-    e: &Edge<E>,
+    n_start: &Node<N, Ix>,
+    n_end: &Node<N, Ix>,
+    e: &Edge<E, Ix>,
     order: usize,
 ) {
     let loc_start = ctx.meta.canvas_to_screen_pos(n_start.location());
@@ -136,8 +131,8 @@ fn draw_edge_basic<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 fn draw_edge_looped<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     ctx: &DrawContext<N, E, Ty, Ix>,
     l: &mut Layers,
-    node: &Node<N>,
-    e: &Edge<E>,
+    node: &Node<N, Ix>,
+    e: &Edge<E, Ix>,
     order: usize,
 ) {
     let rad = ctx.meta.canvas_to_screen_size(node.radius());

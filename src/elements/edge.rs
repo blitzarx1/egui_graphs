@@ -1,9 +1,54 @@
-use super::StyleEdge;
 use egui::{Color32, Context};
+use petgraph::stable_graph::{EdgeIndex, IndexType};
+
+/// Uniquely identifies edge with source, target and index in the set of duplicate edges.
+#[derive(Clone, Debug)]
+pub struct EdgeID<Ix: IndexType> {
+    pub idx: EdgeIndex<Ix>,
+
+    /// Index of the edge in the set of duplicate edges.
+    pub order: usize,
+}
+
+impl<Ix: IndexType> EdgeID<Ix> {
+    pub fn new(idx: EdgeIndex<Ix>) -> Self {
+        Self {
+            idx,
+            order: Default::default(),
+        }
+    }
+
+    pub fn with_order(mut self, order: usize) -> Self {
+        self.order = order;
+        self
+    }
+}
+
+// TODO: move to shape
+#[derive(Clone, Debug)]
+pub struct StyleEdge {
+    pub width: f32,
+    pub tip_size: f32,
+    pub tip_angle: f32,
+    pub curve_size: f32,
+}
+
+impl Default for StyleEdge {
+    fn default() -> Self {
+        Self {
+            width: 2.,
+            tip_size: 15.,
+            tip_angle: std::f32::consts::TAU / 30.,
+            curve_size: 20.,
+        }
+    }
+}
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug)]
-pub struct Edge<E: Clone> {
+pub struct Edge<E: Clone, Ix: IndexType> {
+    id: Option<EdgeID<Ix>>,
+
     /// Client data
     payload: Option<E>,
 
@@ -12,25 +57,35 @@ pub struct Edge<E: Clone> {
     selected: bool,
 }
 
-impl<E: Clone> Default for Edge<E> {
-    fn default() -> Self {
+impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
+    pub fn new(payload: E) -> Self {
         Self {
+            payload: Some(payload),
+
+            id: Default::default(),
             style: Default::default(),
-
-            payload: Default::default(),
-
             selected: Default::default(),
         }
     }
-}
 
-impl<E: Clone> Edge<E> {
-    pub fn new(data: E) -> Self {
-        Self {
-            payload: Some(data),
+    /// Binds node to the actual node and position in the graph.
+    pub fn bind(&mut self, idx: EdgeIndex<Ix>, order: usize) {
+        let id = EdgeID::new(idx).with_order(order);
+        self.id = Some(id);
+    }
 
-            ..Default::default()
-        }
+    pub fn id(&self) -> EdgeID<Ix> {
+        self.id.clone().unwrap()
+    }
+
+    // TODO: handle unwrap
+    pub fn order(&self) -> usize {
+        self.id.as_ref().unwrap().order
+    }
+
+    // TODO: handle unwrap
+    pub fn set_order(&mut self, order: usize) {
+        self.id.as_mut().unwrap().order = order;
     }
 
     pub fn tip_angle(&self) -> f32 {

@@ -57,7 +57,7 @@ where
         }
     }
 
-    pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N>) {
+    pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N, Ix>) {
         let rad = n.radius();
         if rad > self.max_rad {
             self.max_rad = rad;

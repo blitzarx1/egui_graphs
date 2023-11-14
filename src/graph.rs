@@ -19,12 +19,12 @@ use crate::{metadata::Metadata, transform, Edge, Node, SettingsStyle};
 
 /// Mapping for 2 nodes and all edges between them
 pub type EdgeMap<'a, E, Ix> =
-    HashMap<(NodeIndex<Ix>, NodeIndex<Ix>), Vec<(EdgeIndex<Ix>, &'a Edge<E>)>>;
+    HashMap<(NodeIndex<Ix>, NodeIndex<Ix>), Vec<(EdgeIndex<Ix>, &'a Edge<E, Ix>)>>;
 
 /// Graph type compatible with [`super::GraphView`].
 #[derive(Debug, Clone)]
 pub struct Graph<N: Clone, E: Clone, Ty: EdgeType = Directed, Ix: IndexType = DefaultIx> {
-    pub g: StableGraph<Node<N>, Edge<E>, Ty, Ix>,
+    pub g: StableGraph<Node<N, Ix>, Edge<E, Ix>, Ty, Ix>,
 }
 
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> From<&StableGraph<N, E, Ty, Ix>>
@@ -36,16 +36,16 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> From<&StableGraph<N, E, Ty
 }
 
 impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, Ix> {
-    pub fn new(g: StableGraph<Node<N>, Edge<E>, Ty, Ix>) -> Self {
+    pub fn new(g: StableGraph<Node<N, Ix>, Edge<E, Ix>, Ty, Ix>) -> Self {
         Self { g }
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
-    pub fn node_by_screen_pos<D: NodeDisplay<N, E, Ty, Ix>>(
+    pub fn node_by_screen_pos<D: NodeDisplay<N, Ix>>(
         &self,
         meta: &'a Metadata,
         screen_pos: Pos2,
-    ) -> Option<(NodeIndex<Ix>, &Node<N>)> {
+    ) -> Option<(NodeIndex<Ix>, &Node<N, Ix>)> {
         let pos_in_graph = ((screen_pos.to_vec2() - meta.pan) / meta.zoom).to_pos2();
         self.nodes_iter()
             .find(|(_, n)| D::from(n.clone().clone()).is_inside(pos_in_graph))
@@ -158,25 +158,25 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
         None
     }
 
-    pub fn g(&mut self) -> &mut StableGraph<Node<N>, Edge<E>, Ty, Ix> {
+    pub fn g(&mut self) -> &mut StableGraph<Node<N, Ix>, Edge<E, Ix>, Ty, Ix> {
         &mut self.g
     }
 
     ///Provides iterator over all nodes and their indices.
-    pub fn nodes_iter(&'a self) -> impl Iterator<Item = (NodeIndex<Ix>, &Node<N>)> {
+    pub fn nodes_iter(&'a self) -> impl Iterator<Item = (NodeIndex<Ix>, &Node<N, Ix>)> {
         self.g.node_references()
     }
 
     /// Provides iterator over all edges and their indices.
-    pub fn edges_iter(&'a self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<E>)> {
+    pub fn edges_iter(&'a self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<E, Ix>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
 
-    pub fn node(&self, i: NodeIndex<Ix>) -> Option<&Node<N>> {
+    pub fn node(&self, i: NodeIndex<Ix>) -> Option<&Node<N, Ix>> {
         self.g.node_weight(i)
     }
 
-    pub fn edge(&self, i: EdgeIndex<Ix>) -> Option<&Edge<E>> {
+    pub fn edge(&self, i: EdgeIndex<Ix>) -> Option<&Edge<E, Ix>> {
         self.g.edge_weight(i)
     }
 
@@ -184,11 +184,11 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
         self.g.edge_endpoints(i)
     }
 
-    pub fn node_mut(&mut self, i: NodeIndex<Ix>) -> Option<&mut Node<N>> {
+    pub fn node_mut(&mut self, i: NodeIndex<Ix>) -> Option<&mut Node<N, Ix>> {
         self.g.node_weight_mut(i)
     }
 
-    pub fn edge_mut(&mut self, i: EdgeIndex<Ix>) -> Option<&mut Edge<E>> {
+    pub fn edge_mut(&mut self, i: EdgeIndex<Ix>) -> Option<&mut Edge<E, Ix>> {
         self.g.edge_weight_mut(i)
     }
 
@@ -204,7 +204,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
         &self,
         idx: NodeIndex<Ix>,
         dir: Direction,
-    ) -> impl Iterator<Item = EdgeReference<Edge<E>, Ix>> {
+    ) -> impl Iterator<Item = EdgeReference<Edge<E, Ix>, Ix>> {
         self.g.edges_directed(idx, dir)
     }
 }

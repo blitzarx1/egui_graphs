@@ -1,16 +1,19 @@
-use std::collections::HashMap;
-
-use egui::Painter;
+use egui::{Context, Painter};
 use petgraph::graph::IndexType;
-use petgraph::{stable_graph::NodeIndex, EdgeType};
+use petgraph::EdgeType;
 
-use crate::{settings::SettingsStyle, Edge, Graph, Metadata};
+use crate::{settings::SettingsStyle, Graph, Metadata};
 
-use super::{custom::DrawContext, default_edges_draw, layers::Layers};
+use super::{default_edges_draw, layers::Layers};
 use super::{DefaultNodeShape, NodeDisplay};
 
-/// Mapping for 2 nodes and all edges between them
-type EdgeMap<'a, E, Ix> = HashMap<(NodeIndex<Ix>, NodeIndex<Ix>), Vec<&'a Edge<E>>>;
+/// Contains all the data about current widget state which is needed for custom drawing functions.
+pub struct DrawContext<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+    pub ctx: &'a Context,
+    pub g: &'a Graph<N, E, Ty, Ix>,
+    pub style: &'a SettingsStyle,
+    pub meta: &'a Metadata,
+}
 
 pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
     p: Painter,
@@ -39,7 +42,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
         l.draw(self.p)
     }
 
-    fn fill_layers_nodes<D: NodeDisplay<N, E, Ty, Ix>>(&self, l: &mut Layers) {
+    fn fill_layers_nodes<D: NodeDisplay<N, Ix>>(&self, l: &mut Layers) {
         let ctx = &DrawContext {
             ctx: self.p.ctx(),
             g: self.g,
@@ -56,14 +59,6 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
     }
 
     fn fill_layers_edges(&self, l: &mut Layers) {
-        let mut edge_map: EdgeMap<E, Ix> = HashMap::new();
-
-        self.g.edges_iter().for_each(|(idx, e)| {
-            let (source, target) = self.g.edge_endpoints(idx).unwrap();
-            // compute map with edges between 2 nodes
-            edge_map.entry((source, target)).or_default().push(e);
-        });
-
         let ctx = &DrawContext {
             ctx: self.p.ctx(),
             g: self.g,
@@ -71,8 +66,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
             style: self.style,
         };
 
-        edge_map
-            .into_iter()
-            .for_each(|((start, end), edges)| default_edges_draw(ctx, (start, end), edges, l));
+        self.g
+            .edges_iter()
+            .for_each(|(_, e)| default_edges_draw(ctx, e, l));
     }
 }

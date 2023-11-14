@@ -1,31 +1,30 @@
 use egui::{Color32, Context, Pos2};
+use petgraph::stable_graph::{IndexType, NodeIndex};
 
 use crate::ComputedNode;
 
-use super::StyleNode;
-
 /// Stores properties of a node.
 #[derive(Clone, Debug)]
-pub struct Node<N: Clone> {
+pub struct Node<N: Clone, Ix: IndexType> {
+    id: Option<NodeIndex<Ix>>,
+    location: Option<Pos2>,
+
     payload: Option<N>,
 
-    location: Pos2,
-
     label: String,
-
-    style: StyleNode,
 
     selected: bool,
     dragged: bool,
     computed: ComputedNode,
 }
 
-impl<N: Clone> Node<N> {
-    pub fn new(location: Pos2, data: N) -> Self {
+impl<N: Clone, Ix: IndexType> Node<N, Ix> {
+    pub fn new(payload: N) -> Self {
         Self {
-            location,
-            payload: Some(data),
-            style: Default::default(),
+            payload: Some(payload),
+
+            id: Default::default(),
+            location: Default::default(),
             label: Default::default(),
             selected: Default::default(),
             dragged: Default::default(),
@@ -33,16 +32,19 @@ impl<N: Clone> Node<N> {
         }
     }
 
+    /// Binds node to the actual node and position in the graph.
+    pub fn bind(&mut self, id: NodeIndex<Ix>, location: Pos2) {
+        self.id = Some(id);
+        self.location = Some(location);
+    }
+
+    // TODO: remove this. Shape should define radius
     pub fn radius(&self) -> f32 {
-        self.style.radius
+        5.0
     }
 
     pub fn num_connections(&self) -> usize {
         self.computed.num_connections
-    }
-
-    pub fn set_radius(&mut self, new_rad: f32) {
-        self.style.radius = new_rad
     }
 
     pub(crate) fn set_computed(&mut self, comp: ComputedNode) {
@@ -63,12 +65,13 @@ impl<N: Clone> Node<N> {
         res
     }
 
+    // TODO: handle unbinded node
     pub fn location(&self) -> Pos2 {
-        self.location
+        self.location.unwrap()
     }
 
     pub fn set_location(&mut self, loc: Pos2) {
-        self.location = loc
+        self.location = Some(loc)
     }
 
     pub fn selected(&self) -> bool {
