@@ -1,4 +1,4 @@
-use crate::draw::{DefaultNodeShape, DrawContext};
+use crate::draw::{DefaultNodeShape, DrawContext, DefaultEdgeShape};
 #[cfg(feature = "events")]
 use crate::events::{
     Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
@@ -172,7 +172,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
             return;
         }
 
-        let found_edge = self.g.edge_by_screen_pos(
+        let found_edge = self.g.edge_by_screen_pos::<DefaultEdgeShape<Ix>>(
             meta,
             resp.hover_pos().unwrap(),
         );

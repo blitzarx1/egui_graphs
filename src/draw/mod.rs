@@ -8,4 +8,4 @@ pub use self::drawer::{Drawer, DrawContext};
 pub use self::edge::default_edges_draw;
 pub use self::layers::Layers;
 pub use self::node::default_node_draw;
-pub use self::shape::{DefaultNodeShape, EdgeDisplay, Interactable, NodeDisplay};
+pub use self::shape::{DefaultNodeShape, DefaultEdgeShape, EdgeDisplay, Interactable, NodeDisplay};

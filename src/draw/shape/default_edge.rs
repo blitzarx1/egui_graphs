@@ -1,9 +1,14 @@
-use egui::{Pos2, Vec2, epaint::{CubicBezierShape, QuadraticBezierShape}};
-use petgraph::{stable_graph::IndexType, EdgeType, matrix_graph::Nullable};
+use std::f32::consts::PI;
 
-use crate::{elements::EdgeID, Edge, Graph};
+use egui::{
+    epaint::{CubicBezierShape, QuadraticBezierShape},
+    Color32, Pos2, Stroke, Vec2,
+};
+use petgraph::{matrix_graph::Nullable, stable_graph::IndexType, EdgeType};
 
-use super::Interactable;
+use crate::{draw::DrawContext, elements::EdgeID, Edge, Graph, Node};
+
+use super::{EdgeDisplay, Interactable};
 
 #[derive(Clone, Debug)]
 pub struct DefaultEdgeShape<Ix: IndexType> {
@@ -27,28 +32,129 @@ impl<E: Clone, Ix: IndexType> From<Edge<E, Ix>> for DefaultEdgeShape<Ix> {
     }
 }
 
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> EdgeDisplay<N, E, Ty, Ix>
+    for DefaultEdgeShape<Ix>
+{
+    fn shapes(
+        &self,
+        start: Node<N, Ix>,
+        end: Node<N, Ix>,
+        ctx: &DrawContext<N, E, Ty, Ix>,
+    ) -> Vec<egui::Shape> {
+        todo!()
+    }
+}
+
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
     for DefaultEdgeShape<Ix>
 {
     fn is_inside(&self, g: &Graph<N, E, Ty, Ix>, pos: egui::Pos2) -> bool {
+        let e = g.edge(self.edge_id.idx).unwrap();
+
         let (idx_start, idx_end) = g.edge_endpoints(self.edge_id.idx).unwrap();
-        let start = g.node(idx_start).unwrap();
-        let end = g.node(idx_end).unwrap();
+        let node_start = g.node(idx_start).unwrap();
+        let node_end = g.node(idx_end).unwrap();
+
+        if idx_start == idx_end {
+            return is_inside_loop(node_start, e, pos);
+        }
 
         if self.edge_id.order == 0 {
-            is_inside_line(start.location(), end.location(), pos)
-        } else {
-            is_inside_curve(start.location(), end.location(), self.edge_id.order, pos)
+            return is_inside_line(node_start, node_end, e, pos);
         }
+
+        is_inside_curve(node_start, node_end, e, pos)
     }
 }
 
-fn is_inside_line(start_loc: Pos2, end_loc: Pos2, pos: Pos2) -> bool {
-    !todo!()
+fn is_inside_line<E: Clone, N: Clone, Ix: IndexType>(
+    node_start: &Node<N, Ix>,
+    node_end: &Node<N, Ix>,
+    e: &Edge<E, Ix>,
+    pos: Pos2,
+) -> bool {
+    let start_pos = node_start.location();
+    let end_pos = node_end.location();
+
+    let distance = distance_segment_to_point(start_pos, end_pos, pos);
+    distance <= e.width()
 }
 
-fn is_inside_curve(start_loc: Pos2, end_loc: Pos2, order: usize, pos: Pos2) -> bool {
-    !todo!()
+fn is_inside_loop<E: Clone, N: Clone, Ix: IndexType>(
+    node: &Node<N, Ix>,
+    e: &Edge<E, Ix>,
+    pos: Pos2,
+) -> bool {
+    let rad = node.radius();
+    let center = node.location();
+    let center_horizon_angle = PI / 4.;
+    let y_intersect = center.y - rad * center_horizon_angle.sin();
+
+    let edge_start = Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
+    let edge_end = Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
+
+    let loop_size = rad * (e.style().loop_size + e.id().order as f32);
+
+    let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
+    let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
+
+    let shape = CubicBezierShape::from_points_stroke(
+        [edge_end, control_point1, control_point2, edge_start],
+        false,
+        Color32::default(),
+        Stroke::default(),
+    );
+
+    is_point_on_cubic_bezier_curve(pos, shape, e.width())
+}
+
+fn is_inside_curve<E: Clone, N: Clone, Ix: IndexType>(
+    node_start: &Node<N, Ix>,
+    node_end: &Node<N, Ix>,
+    e: &Edge<E, Ix>,
+    pos: Pos2,
+) -> bool {
+    let pos_start = node_start.location();
+    let pos_end = node_end.location();
+    let rad_start = node_start.radius();
+    let rad_end = node_end.radius();
+
+    let vec = pos_end - pos_start;
+    let dist: f32 = vec.length();
+    let dir = vec / dist;
+
+    let start_node_radius_vec = Vec2::new(rad_start, rad_start) * dir;
+    let end_node_radius_vec = Vec2::new(rad_end, rad_end) * dir;
+
+    let tip_end = pos_start + vec - end_node_radius_vec;
+
+    let edge_start = pos_start + start_node_radius_vec;
+
+    let dir_perpendicular = Vec2::new(-dir.y, dir.x);
+    let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
+    let control_point =
+        (center_point + dir_perpendicular * e.curve_size() * e.id().order as f32).to_pos2();
+
+    let tip_vec = control_point - tip_end;
+    let tip_dir = tip_vec / tip_vec.length();
+    let tip_size = e.tip_size();
+
+    let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle()) * tip_size;
+    let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle()) * tip_size;
+
+    let tip_start_1 = tip_end + arrow_tip_dir_1;
+    let tip_start_2 = tip_end + arrow_tip_dir_2;
+
+    let edge_end_curved = point_between(tip_start_1, tip_start_2);
+
+    let shape = QuadraticBezierShape::from_points_stroke(
+        [edge_start, control_point, edge_end_curved],
+        false,
+        Color32::default(),
+        Stroke::default(),
+    );
+
+    is_point_on_quadratic_bezier_curve(pos, shape, e.width())
 }
 
 /// Returns the distance from line segment `a``b` to point `c`.
@@ -87,22 +193,16 @@ fn proj(a: Vec2, b: Vec2) -> Vec2 {
     Vec2::new(k * b.x, k * b.y)
 }
 
-fn is_point_on_cubic_bezier_curve(
-    point: Pos2,
-    curve: CubicBezierShape,
-    width: f32,
-    zoom: f32,
-) -> bool {
-    is_point_on_bezier_curve(point, curve.flatten(Option::new(10.0 / zoom)), width)
+fn is_point_on_cubic_bezier_curve(point: Pos2, curve: CubicBezierShape, width: f32) -> bool {
+    is_point_on_bezier_curve(point, curve.flatten(Option::new(10.0)), width)
 }
 
 fn is_point_on_quadratic_bezier_curve(
     point: Pos2,
     curve: QuadraticBezierShape,
     width: f32,
-    zoom: f32,
 ) -> bool {
-    is_point_on_bezier_curve(point, curve.flatten(Option::new(0.3 / zoom)), width)
+    is_point_on_bezier_curve(point, curve.flatten(Option::new(0.3)), width)
 }
 
 fn is_point_on_bezier_curve(point: Pos2, curve_points: Vec<Pos2>, width: f32) -> bool {
@@ -206,13 +306,12 @@ mod tests {
             Stroke::default(),
         );
 
-        let zoom = 5.0;
         let width = 1.0;
         let p1 = Pos2::new(0.0, 2.0);
-        assert!(is_point_on_cubic_bezier_curve(p1, curve, width, zoom));
+        assert!(!is_point_on_cubic_bezier_curve(p1, curve, width));
 
         let p2 = Pos2::new(2.0, 1.0);
-        assert!(is_point_on_cubic_bezier_curve(p2, curve, width, zoom));
+        assert!(!is_point_on_cubic_bezier_curve(p2, curve, width));
     }
 
     #[test]
@@ -227,12 +326,11 @@ mod tests {
             Stroke::default(),
         );
 
-        let zoom = 5.0;
         let width = 1.0;
         let p1 = Pos2::new(10.0, 4.0);
-        assert!(is_point_on_quadratic_bezier_curve(p1, curve, width, zoom));
+        assert!(is_point_on_quadratic_bezier_curve(p1, curve, width));
 
         let p2 = Pos2::new(3.0, 2.0);
-        assert!(is_point_on_quadratic_bezier_curve(p2, curve, width, zoom));
+        assert!(is_point_on_quadratic_bezier_curve(p2, curve, width));
     }
 }

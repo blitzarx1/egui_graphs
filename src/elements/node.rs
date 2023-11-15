@@ -38,6 +38,10 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
         self.location = Some(location);
     }
 
+    pub fn id(&self) -> NodeIndex<Ix> {
+        self.id.unwrap()
+    }
+
     // TODO: remove this. Shape should define radius
     pub fn radius(&self) -> f32 {
         5.0
