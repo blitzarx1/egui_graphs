@@ -1,6 +1,6 @@
 use egui::{
     epaint::{CircleShape, TextShape},
-    FontFamily, FontId, Pos2, Shape, Stroke,
+    FontFamily, FontId, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::{stable_graph::IndexType, EdgeType};
 
@@ -39,7 +39,11 @@ impl<N: Clone, Ix: IndexType> From<Node<N, Ix>> for DefaultNodeShape {
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
     for DefaultNodeShape
 {
-    fn is_inside(&self, _g: &Graph<N, E, Ty, Ix>, pos: Pos2) -> bool {
+    fn is_inside<Nd: DisplayNode<N, E, Ty, Ix>>(
+        &self,
+        _g: &Graph<N, E, Ty, Ix>,
+        pos: Pos2,
+    ) -> bool {
         is_inside_circle(self.pos, self.radius, pos)
     }
 }
@@ -47,8 +51,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
     for DefaultNodeShape
 {
-    fn closest_boundary_point(&self, pos: Pos2) -> Pos2 {
-        closest_point_on_circle(self.pos, self.radius, pos)
+    fn closest_boundary_point(&self, dir: Vec2) -> Pos2 {
+        closest_point_on_circle(self.pos, self.radius, dir)
     }
 
     fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape> {
@@ -94,8 +98,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
     }
 }
 
-fn closest_point_on_circle(center: Pos2, radius: f32, pos: Pos2) -> Pos2 {
-    let dir = pos - center;
+fn closest_point_on_circle(center: Pos2, radius: f32, dir: Vec2) -> Pos2 {
     center + dir.normalized() * radius
 }
 
@@ -112,15 +115,15 @@ mod test {
     #[test]
     fn test_closest_point_on_circle() {
         assert_eq!(
-            closest_point_on_circle(Pos2::new(0.0, 0.0), 10.0, Pos2::new(5.0, 0.0)),
+            closest_point_on_circle(Pos2::new(0.0, 0.0), 10.0, Vec2::new(5.0, 0.0)),
             Pos2::new(10.0, 0.0)
         );
         assert_eq!(
-            closest_point_on_circle(Pos2::new(0.0, 0.0), 10.0, Pos2::new(15.0, 0.0)),
+            closest_point_on_circle(Pos2::new(0.0, 0.0), 10.0, Vec2::new(15.0, 0.0)),
             Pos2::new(10.0, 0.0)
         );
         assert_eq!(
-            closest_point_on_circle(Pos2::new(0.0, 0.0), 10.0, Pos2::new(0.0, 10.0)),
+            closest_point_on_circle(Pos2::new(0.0, 0.0), 10.0, Vec2::new(0.0, 10.0)),
             Pos2::new(0.0, 10.0)
         );
     }

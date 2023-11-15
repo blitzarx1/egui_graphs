@@ -4,7 +4,7 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
 use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Slider, Ui};
 use egui_graphs::events::Event;
-use egui_graphs::{to_graph, Edge, Graph, GraphView, Node};
+use egui_graphs::{to_graph, DefaultEdgeShape, DefaultNodeShape, Edge, Graph, GraphView, Node};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
@@ -588,11 +588,13 @@ impl App for ConfigurableApp {
             let settings_style = &egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always);
             ui.add(
-                &mut GraphView::new(&mut self.g)
-                    .with_interactions(settings_interaction)
-                    .with_navigations(settings_navigation)
-                    .with_styles(settings_style)
-                    .with_events(&self.event_publisher),
+                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape<_>>::new(
+                    &mut self.g,
+                )
+                .with_interactions(settings_interaction)
+                .with_navigations(settings_navigation)
+                .with_styles(settings_style)
+                .with_events(&self.event_publisher),
             );
         });
 

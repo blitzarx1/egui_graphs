@@ -1,6 +1,8 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Graph, GraphView, SettingsInteraction, SettingsStyle};
+use egui_graphs::{
+    DefaultEdgeShape, DefaultNodeShape, Graph, GraphView, SettingsInteraction, SettingsStyle,
+};
 use petgraph::{
     stable_graph::{DefaultIx, StableGraph},
     Directed,
@@ -30,9 +32,11 @@ impl App for InteractiveApp {
                 .with_edge_selection_multi_enabled(true);
             let style_settings = &SettingsStyle::new().with_labels_always(true);
             ui.add(
-                &mut GraphView::new(&mut self.g)
-                    .with_styles(style_settings)
-                    .with_interactions(interaction_settings),
+                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape<_>>::new(
+                    &mut self.g,
+                )
+                .with_styles(style_settings)
+                .with_interactions(interaction_settings),
             );
         });
     }

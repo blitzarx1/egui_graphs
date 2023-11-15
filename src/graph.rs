@@ -39,7 +39,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, Ix> {
     ) -> Option<(NodeIndex<Ix>, &Node<N, Ix>)> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, node) in self.nodes_iter() {
-            if D::from(node.clone()).is_inside(self, pos_in_graph) {
+            if D::from(node.clone()).is_inside::<D>(self, pos_in_graph) {
                 return Some((idx, node));
             }
         }
@@ -47,14 +47,14 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, Ix> {
     }
 
     /// Finds edge by position.
-    pub fn edge_by_screen_pos<D: DisplayEdge<N, E, Ty, Ix>>(
+    pub fn edge_by_screen_pos<De: DisplayEdge<N, E, Ty, Ix>, Dn: DisplayNode<N, E, Ty, Ix>>(
         &self,
         meta: &Metadata,
         screen_pos: Pos2,
     ) -> Option<EdgeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, e) in self.edges_iter() {
-            if D::from(e.clone()).is_inside(self, pos_in_graph) {
+            if De::from(e.clone()).is_inside::<Dn>(self, pos_in_graph) {
                 return Some(idx);
             }
         }

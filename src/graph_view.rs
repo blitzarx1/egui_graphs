@@ -1,4 +1,5 @@
-use crate::draw::{DefaultNodeShape, DrawContext, DefaultEdgeShape};
+use std::marker::PhantomData;
+
 #[cfg(feature = "events")]
 use crate::events::{
     Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
@@ -13,11 +14,15 @@ use crate::{
     settings::{SettingsInteraction, SettingsStyle},
     Graph,
 };
+use crate::{
+    draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext},
+    DisplayEdge, DisplayNode,
+};
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
-use petgraph::graph::IndexType;
+use petgraph::{graph::IndexType, Directed};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 /// Widget for visualizing and interacting with graphs.
@@ -35,18 +40,42 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 /// When the user performs navigation actions (zoom & pan or fit to screen), they do not
 /// produce changes. This is because these actions are performed on the global coordinates and do not change any
 /// properties of the nodes or edges.
-pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType = DefaultIx> {
+pub struct GraphView<
+    'a,
+    N,
+    E,
+    Ty = Directed,
+    Ix = DefaultIx,
+    Nd = DefaultNodeShape,
+    Ed = DefaultEdgeShape<Ix>,
+> where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Nd: DisplayNode<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix>,
+{
+    g: &'a mut Graph<N, E, Ty, Ix>,
+
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
-    g: &'a mut Graph<N, E, Ty, Ix>,
 
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
+
+    _marker: PhantomData<(Nd, Ed)>,
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Widget
-    for &mut GraphView<'a, N, E, Ty, Ix>
+impl<'a, N, E, Ty, Ix, Nd, Ed> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Nd: DisplayNode<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix>,
 {
     fn ui(self, ui: &mut Ui) -> Response {
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
@@ -60,7 +89,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Widget
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut meta, &computed);
 
-        Drawer::new(
+        Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
             p,
             &DrawContext {
                 ctx: ui.ctx(),
@@ -78,7 +107,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Widget
     }
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty, Ix> {
+impl<'a, N, E, Ty, Ix, Nd, Ed> GraphView<'a, N, E, Ty, Ix, Nd, Ed>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Nd: DisplayNode<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix>,
+{
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
     pub fn new(g: &'a mut Graph<N, E, Ty, Ix>) -> Self {
@@ -91,6 +128,8 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
 
             #[cfg(feature = "events")]
             events_publisher: Default::default(),
+
+            _marker: PhantomData,
         }
     }
 
@@ -172,13 +211,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
             return;
         }
 
-        let found_edge = self.g.edge_by_screen_pos::<DefaultEdgeShape<Ix>>(
-            meta,
-            resp.hover_pos().unwrap(),
-        );
+        let found_edge = self
+            .g
+            .edge_by_screen_pos::<Ed, Nd>(meta, resp.hover_pos().unwrap());
         let found_node = self
             .g
-            .node_by_screen_pos::<DefaultNodeShape>(meta, resp.hover_pos().unwrap());
+            .node_by_screen_pos::<Nd>(meta, resp.hover_pos().unwrap());
         if found_node.is_none() && found_edge.is_none() {
             // click on empty space
             let nodes_selectable = self.settings_interaction.node_selection_enabled
