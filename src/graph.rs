@@ -26,7 +26,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> From<&StableGraph<N, E, Ty
     }
 }
 
-impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, Ix> {
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, Ix> {
     pub fn new(g: StableGraph<Node<N, Ix>, Edge<E, Ix>, Ty, Ix>) -> Self {
         Self { g }
     }
@@ -34,7 +34,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
     pub fn node_by_screen_pos<D: DisplayNode<N, E, Ty, Ix>>(
         &self,
-        meta: &'a Metadata,
+        meta: &Metadata,
         screen_pos: Pos2,
     ) -> Option<(NodeIndex<Ix>, &Node<N, Ix>)> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
@@ -49,7 +49,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     /// Finds edge by position.
     pub fn edge_by_screen_pos<D: DisplayEdge<N, E, Ty, Ix>>(
         &self,
-        meta: &'a Metadata,
+        meta: &Metadata,
         screen_pos: Pos2,
     ) -> Option<EdgeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
@@ -67,12 +67,12 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     }
 
     ///Provides iterator over all nodes and their indices.
-    pub fn nodes_iter(&'a self) -> impl Iterator<Item = (NodeIndex<Ix>, &Node<N, Ix>)> {
+    pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeIndex<Ix>, &Node<N, Ix>)> {
         self.g.node_references()
     }
 
     /// Provides iterator over all edges and their indices.
-    pub fn edges_iter(&'a self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<E, Ix>)> {
+    pub fn edges_iter(&self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<E, Ix>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
 
