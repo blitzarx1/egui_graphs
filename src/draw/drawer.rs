@@ -4,8 +4,8 @@ use petgraph::EdgeType;
 
 use crate::{settings::SettingsStyle, Graph, Metadata};
 
-use super::{default_edges_draw, layers::Layers};
-use super::{DefaultNodeShape, NodeDisplay};
+use super::layers::Layers;
+use super::{DefaultEdgeShape, DefaultNodeShape, EdgeDisplay, NodeDisplay};
 
 /// Contains all the data about current widget state which is needed for custom drawing functions.
 pub struct DrawContext<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
@@ -28,7 +28,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
     pub fn draw(self) {
         let mut l = Layers::default();
 
-        self.fill_layers_edges(&mut l);
+        self.fill_layers_edges::<DefaultEdgeShape<Ix>>(&mut l);
         self.fill_layers_nodes::<DefaultNodeShape>(&mut l);
 
         l.draw(self.p)
@@ -44,10 +44,13 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
         });
     }
 
-    fn fill_layers_edges(&self, l: &mut Layers) {
-        self.ctx
-            .g
-            .edges_iter()
-            .for_each(|(_, e)| default_edges_draw(self.ctx, e, l));
+    fn fill_layers_edges<D: EdgeDisplay<N, E, Ty, Ix>>(&self, l: &mut Layers) {
+        self.ctx.g.edges_iter().for_each(|(_, e)| {
+            let shapes = D::from(e.clone().clone()).shapes(self.ctx);
+            match e.selected() {
+                true => shapes.into_iter().for_each(|s| l.add_top(s)),
+                false => shapes.into_iter().for_each(|s| l.add(s)),
+            }
+        });
     }
 }

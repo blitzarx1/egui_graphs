@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use egui::{
     epaint::{CubicBezierShape, QuadraticBezierShape},
-    Color32, Pos2, Stroke, Vec2,
+    vec2, Color32, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::{matrix_graph::Nullable, stable_graph::IndexType, EdgeType};
 
@@ -14,20 +14,27 @@ use super::{EdgeDisplay, Interactable};
 pub struct DefaultEdgeShape<Ix: IndexType> {
     pub edge_id: EdgeID<Ix>,
 
+    pub selected: bool,
+
     pub width: f32,
     pub tip_size: f32,
     pub tip_angle: f32,
     pub curve_size: f32,
+    pub loop_size: f32,
 }
 
 impl<E: Clone, Ix: IndexType> From<Edge<E, Ix>> for DefaultEdgeShape<Ix> {
     fn from(value: Edge<E, Ix>) -> Self {
         Self {
             edge_id: value.id(),
+
+            selected: value.selected(),
+
             width: value.width(),
             tip_size: value.tip_size(),
             tip_angle: value.tip_angle(),
             curve_size: value.curve_size(),
+            loop_size: value.loop_size(),
         }
     }
 }
@@ -35,14 +42,164 @@ impl<E: Clone, Ix: IndexType> From<Edge<E, Ix>> for DefaultEdgeShape<Ix> {
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> EdgeDisplay<N, E, Ty, Ix>
     for DefaultEdgeShape<Ix>
 {
-    fn shapes(
-        &self,
-        start: Node<N, Ix>,
-        end: Node<N, Ix>,
-        ctx: &DrawContext<N, E, Ty, Ix>,
-    ) -> Vec<egui::Shape> {
-        todo!()
+    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<egui::Shape> {
+        let (idx_start, idx_end) = ctx.g.edge_endpoints(self.edge_id.idx).unwrap();
+        let n_start = ctx.g.node(idx_start).unwrap();
+        let n_end = ctx.g.node(idx_end).unwrap();
+
+        let style = match self.selected {
+            true => ctx.ctx.style().visuals.widgets.active,
+            false => ctx.ctx.style().visuals.widgets.inactive,
+        };
+
+        if idx_start == idx_end {
+            // draw loop
+
+            let node_rad = ctx.meta.canvas_to_screen_size(n_start.radius());
+            let node_center = ctx.meta.canvas_to_screen_pos(n_start.location());
+
+            let stroke = Stroke::new(self.width * ctx.meta.zoom, style.fg_stroke.color);
+            return vec![shape_looped(
+                node_rad,
+                node_center,
+                self.edge_id.order,
+                self.loop_size,
+                stroke,
+            )
+            .into()];
+        }
+
+        let mut res = vec![];
+
+        let pos_start = ctx.meta.canvas_to_screen_pos(n_start.location());
+        let pos_end = ctx.meta.canvas_to_screen_pos(n_end.location());
+        let rad_start = ctx.meta.canvas_to_screen_size(n_start.radius());
+        let rad_end = ctx.meta.canvas_to_screen_size(n_end.radius());
+        let color = style.fg_stroke.color;
+
+        let vec = pos_end - pos_start;
+        let dist: f32 = vec.length();
+        let dir = vec / dist;
+
+        let start_node_radius_vec = Vec2::new(rad_start, rad_start) * dir;
+        let end_node_radius_vec = Vec2::new(rad_end, rad_end) * dir;
+
+        let tip_end = pos_start + vec - end_node_radius_vec;
+
+        let edge_start = pos_start + start_node_radius_vec;
+        let edge_end = match ctx.g.is_directed() {
+            true => tip_end - self.tip_size * ctx.meta.zoom * dir,
+            false => tip_end,
+        };
+
+        let stroke_edge = Stroke::new(self.width * ctx.meta.zoom, color);
+        let stroke_tip = Stroke::new(0., color);
+
+        if self.edge_id.order == 0 {
+            // draw straight edge
+
+            let tip_start_1 =
+                tip_end - self.tip_size * ctx.meta.zoom * rotate_vector(dir, self.tip_angle);
+            let tip_start_2 =
+                tip_end - self.tip_size * ctx.meta.zoom * rotate_vector(dir, -self.tip_angle);
+
+            let line = Shape::line_segment([edge_start, edge_end], stroke_edge);
+            res.push(line);
+            if !ctx.g.is_directed() {
+                return res;
+            }
+
+            // draw tips for directed edges
+            let line_tip =
+                Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_tip);
+            res.push(line_tip);
+
+            return res;
+        }
+
+        // draw curved edge
+        let dir_perpendicular = Vec2::new(-dir.y, dir.x);
+        let center_point = (edge_start + edge_end.to_vec2()).to_vec2() / 2.0;
+        let control_point = (center_point
+            + dir_perpendicular * self.curve_size * ctx.meta.zoom * self.edge_id.order as f32)
+            .to_pos2();
+
+        let tip_vec = control_point - tip_end;
+        let tip_dir = tip_vec / tip_vec.length();
+        let tip_size = self.tip_size * ctx.meta.zoom;
+
+        let arrow_tip_dir_1 = rotate_vector(tip_dir, self.tip_angle) * tip_size;
+        let arrow_tip_dir_2 = rotate_vector(tip_dir, -self.tip_angle) * tip_size;
+
+        let tip_start_1 = tip_end + arrow_tip_dir_1;
+        let tip_start_2 = tip_end + arrow_tip_dir_2;
+
+        let edge_end_curved = point_between(tip_start_1, tip_start_2);
+
+        let line_curved = QuadraticBezierShape::from_points_stroke(
+            [edge_start, control_point, edge_end_curved],
+            false,
+            Color32::TRANSPARENT,
+            stroke_edge,
+        );
+        res.push(line_curved.into());
+
+        let line_curved_tip =
+            Shape::convex_polygon(vec![tip_end, tip_start_1, tip_start_2], color, stroke_tip);
+        res.push(line_curved_tip);
+
+        res
     }
+}
+
+fn is_inside_loop<E: Clone, N: Clone, Ix: IndexType>(
+    node: &Node<N, Ix>,
+    e: &Edge<E, Ix>,
+    pos: Pos2,
+) -> bool {
+    let node_rad = node.radius();
+    let node_center = node.location();
+
+    let shape = shape_looped(
+        node_rad,
+        node_center,
+        e.id().order,
+        e.style().loop_size,
+        Stroke::default(),
+    );
+    is_point_on_cubic_bezier_curve(pos, shape, e.width())
+}
+
+fn shape_looped(
+    node_rad: f32,
+    node_center: Pos2,
+    order: usize,
+    loop_size: f32,
+    stroke: Stroke,
+) -> CubicBezierShape {
+    let center_horizon_angle = PI / 4.;
+    let y_intersect = node_center.y - node_rad * center_horizon_angle.sin();
+
+    let edge_start = Pos2::new(
+        node_center.x - node_rad * center_horizon_angle.cos(),
+        y_intersect,
+    );
+    let edge_end = Pos2::new(
+        node_center.x + node_rad * center_horizon_angle.cos(),
+        y_intersect,
+    );
+
+    let loop_size = node_rad * (loop_size + order as f32);
+
+    let control_point1 = Pos2::new(node_center.x + loop_size, node_center.y - loop_size);
+    let control_point2 = Pos2::new(node_center.x - loop_size, node_center.y - loop_size);
+
+    CubicBezierShape::from_points_stroke(
+        [edge_end, control_point1, control_point2, edge_start],
+        false,
+        Color32::default(),
+        stroke,
+    )
 }
 
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
@@ -59,53 +216,25 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
             return is_inside_loop(node_start, e, pos);
         }
 
+        let pos_start = node_start.location();
+        let pos_end = node_end.location();
+
         if self.edge_id.order == 0 {
-            return is_inside_line(node_start, node_end, e, pos);
+            return is_inside_line(pos_start, pos_end, pos, self);
         }
 
         is_inside_curve(node_start, node_end, e, pos)
     }
 }
 
-fn is_inside_line<E: Clone, N: Clone, Ix: IndexType>(
-    node_start: &Node<N, Ix>,
-    node_end: &Node<N, Ix>,
-    e: &Edge<E, Ix>,
+fn is_inside_line<Ix: IndexType>(
+    pos_start: Pos2,
+    pos_end: Pos2,
     pos: Pos2,
+    e: &DefaultEdgeShape<Ix>,
 ) -> bool {
-    let start_pos = node_start.location();
-    let end_pos = node_end.location();
-
-    let distance = distance_segment_to_point(start_pos, end_pos, pos);
-    distance <= e.width()
-}
-
-fn is_inside_loop<E: Clone, N: Clone, Ix: IndexType>(
-    node: &Node<N, Ix>,
-    e: &Edge<E, Ix>,
-    pos: Pos2,
-) -> bool {
-    let rad = node.radius();
-    let center = node.location();
-    let center_horizon_angle = PI / 4.;
-    let y_intersect = center.y - rad * center_horizon_angle.sin();
-
-    let edge_start = Pos2::new(center.x - rad * center_horizon_angle.cos(), y_intersect);
-    let edge_end = Pos2::new(center.x + rad * center_horizon_angle.cos(), y_intersect);
-
-    let loop_size = rad * (e.style().loop_size + e.id().order as f32);
-
-    let control_point1 = Pos2::new(center.x + loop_size, center.y - loop_size);
-    let control_point2 = Pos2::new(center.x - loop_size, center.y - loop_size);
-
-    let shape = CubicBezierShape::from_points_stroke(
-        [edge_end, control_point1, control_point2, edge_start],
-        false,
-        Color32::default(),
-        Stroke::default(),
-    );
-
-    is_point_on_cubic_bezier_curve(pos, shape, e.width())
+    let distance = distance_segment_to_point(pos_start, pos_end, pos);
+    distance <= e.width
 }
 
 fn is_inside_curve<E: Clone, N: Clone, Ix: IndexType>(

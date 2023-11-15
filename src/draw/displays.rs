@@ -31,12 +31,7 @@ pub trait EdgeDisplay<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>:
     /// Use `ctx.meta` to properly scale and translate the shape.
     ///
     /// Get [NodeGraphDisplay] from node endpoints to get start and end coordinates using [closest_boundary_point](NodeGraphDisplay::closest_boundary_point).
-    fn shapes(
-        &self,
-        start: Node<N, Ix>,
-        end: Node<N, Ix>,
-        ctx: &DrawContext<N, E, Ty, Ix>,
-    ) -> Vec<Shape>;
+    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
 }
 
 pub trait Interactable<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {

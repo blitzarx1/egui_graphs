@@ -141,17 +141,9 @@ impl SettingsNavigation {
 }
 
 /// `SettingsStyle` stores settings for the style of the graph.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SettingsStyle {
     pub(crate) labels_always: bool,
-}
-
-impl Default for SettingsStyle {
-    fn default() -> Self {
-        Self {
-            labels_always: Default::default(),
-        }
-    }
 }
 
 impl SettingsStyle {

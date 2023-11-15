@@ -137,4 +137,8 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
     pub fn selected(&self) -> bool {
         self.selected
     }
+
+    pub fn loop_size(&self) -> f32 {
+        self.style.loop_size
+    }
 }
