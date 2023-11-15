@@ -24,28 +24,6 @@ impl<Ix: IndexType> EdgeID<Ix> {
     }
 }
 
-// TODO: move to shape
-#[derive(Clone, Debug)]
-pub struct StyleEdge {
-    pub width: f32,
-    pub tip_size: f32,
-    pub tip_angle: f32,
-    pub curve_size: f32,
-    pub loop_size: f32,
-}
-
-impl Default for StyleEdge {
-    fn default() -> Self {
-        Self {
-            width: 2.,
-            tip_size: 15.,
-            tip_angle: std::f32::consts::TAU / 30.,
-            curve_size: 20.,
-            loop_size: 3.,
-        }
-    }
-}
-
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug)]
 pub struct Edge<E: Clone, Ix: IndexType> {
@@ -53,8 +31,6 @@ pub struct Edge<E: Clone, Ix: IndexType> {
 
     /// Client data
     payload: Option<E>,
-
-    style: StyleEdge,
 
     selected: bool,
 }
@@ -65,7 +41,6 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
             payload: Some(payload),
 
             id: Default::default(),
-            style: Default::default(),
             selected: Default::default(),
         }
     }
@@ -90,16 +65,8 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
         self.id.as_mut().unwrap().order = order;
     }
 
-    pub fn tip_angle(&self) -> f32 {
-        self.style.tip_angle
-    }
-
     pub fn payload(&self) -> Option<&E> {
         self.payload.as_ref()
-    }
-
-    pub fn style(&self) -> &StyleEdge {
-        &self.style
     }
 
     pub fn color(&self, ctx: &Context) -> Color32 {
@@ -112,33 +79,11 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
             .gray_out(ctx.style().visuals.widgets.inactive.fg_stroke.color)
     }
 
-    pub fn width(&self) -> f32 {
-        self.style.width
-    }
-
-    pub fn with_width(&mut self, width: f32) -> Self {
-        let mut ne = self.clone();
-        ne.style.width = width;
-        ne
-    }
-
-    pub fn curve_size(&self) -> f32 {
-        self.style.curve_size
-    }
-
-    pub fn tip_size(&self) -> f32 {
-        self.style.tip_size
-    }
-
     pub fn set_selected(&mut self, selected: bool) {
         self.selected = selected;
     }
 
     pub fn selected(&self) -> bool {
         self.selected
-    }
-
-    pub fn loop_size(&self) -> f32 {
-        self.style.loop_size
     }
 }

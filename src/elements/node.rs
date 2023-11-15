@@ -1,4 +1,4 @@
-use egui::{Color32, Context, Pos2};
+use egui::Pos2;
 use petgraph::stable_graph::{IndexType, NodeIndex};
 
 use crate::ComputedNode;
@@ -10,7 +10,6 @@ pub struct Node<N: Clone, Ix: IndexType> {
     location: Option<Pos2>,
 
     payload: Option<N>,
-
     label: String,
 
     selected: bool,
@@ -40,11 +39,6 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
 
     pub fn id(&self) -> NodeIndex<Ix> {
         self.id.unwrap()
-    }
-
-    // TODO: remove this. Shape should define radius
-    pub fn radius(&self) -> f32 {
-        5.0
     }
 
     pub fn num_connections(&self) -> usize {
@@ -102,17 +96,5 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
         let mut res = self.clone();
         res.label = label;
         res
-    }
-
-    pub fn color(&self, ctx: &Context) -> Color32 {
-        if self.dragged {
-            return ctx.style().visuals.widgets.active.fg_stroke.color;
-        }
-
-        if self.selected {
-            return ctx.style().visuals.widgets.hovered.fg_stroke.color;
-        }
-
-        ctx.style().visuals.widgets.inactive.fg_stroke.color
     }
 }

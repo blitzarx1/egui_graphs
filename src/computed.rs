@@ -13,7 +13,6 @@ pub struct ComputedState<Ix: IndexType> {
 
     min: Vec2,
     max: Vec2,
-    max_rad: f32,
 }
 
 impl<Ix> Default for ComputedState<Ix>
@@ -29,7 +28,6 @@ where
 
             min: Vec2::new(f32::MAX, f32::MAX),
             max: Vec2::new(f32::MIN, f32::MIN),
-            max_rad: f32::MIN,
         }
     }
 }
@@ -58,11 +56,6 @@ where
     }
 
     pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N, Ix>) {
-        let rad = n.radius();
-        if rad > self.max_rad {
-            self.max_rad = rad;
-        }
-
         let loc = n.location();
         if loc.x < self.min.x {
             self.min.x = loc.x;
@@ -79,9 +72,7 @@ where
     }
 
     pub fn graph_bounds(&self) -> Rect {
-        let min = self.min - Vec2::new(self.max_rad, self.max_rad);
-        let max = self.max + Vec2::new(self.max_rad, self.max_rad);
-        Rect::from_min_max(min.to_pos2(), max.to_pos2())
+        Rect::from_min_max(self.min.to_pos2(), self.max.to_pos2())
     }
 }
 

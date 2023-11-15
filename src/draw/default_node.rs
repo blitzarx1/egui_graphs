@@ -15,11 +15,13 @@ use super::{DisplayNode, Interactable};
 pub struct DefaultNodeShape {
     pub pos: Pos2,
 
-    pub radius: f32,
     pub selected: bool,
     pub dragged: bool,
 
     pub label_text: String,
+
+    /// Shape defined property
+    pub radius: f32,
 }
 
 impl<N: Clone, Ix: IndexType> From<Node<N, Ix>> for DefaultNodeShape {
@@ -27,11 +29,12 @@ impl<N: Clone, Ix: IndexType> From<Node<N, Ix>> for DefaultNodeShape {
         DefaultNodeShape {
             pos: value.location(),
 
-            radius: value.radius(),
             selected: value.selected(),
             dragged: value.dragged(),
 
             label_text: value.label().to_string(),
+
+            radius: 5.0,
         }
     }
 }
