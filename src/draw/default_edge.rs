@@ -1,14 +1,16 @@
+// TODO: refactor to increase usage of shapes
+
 use std::f32::consts::PI;
 
 use egui::{
     epaint::{CubicBezierShape, QuadraticBezierShape},
-    vec2, Color32, Pos2, Shape, Stroke, Vec2,
+    Color32, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::{matrix_graph::Nullable, stable_graph::IndexType, EdgeType};
 
 use crate::{draw::DrawContext, elements::EdgeID, Edge, Graph, Node};
 
-use super::{EdgeDisplay, Interactable};
+use super::{DisplayEdge, Interactable};
 
 #[derive(Clone, Debug)]
 pub struct DefaultEdgeShape<Ix: IndexType> {
@@ -39,7 +41,7 @@ impl<E: Clone, Ix: IndexType> From<Edge<E, Ix>> for DefaultEdgeShape<Ix> {
     }
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> EdgeDisplay<N, E, Ty, Ix>
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayEdge<N, E, Ty, Ix>
     for DefaultEdgeShape<Ix>
 {
     fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<egui::Shape> {
@@ -363,6 +365,7 @@ fn point_between(p1: Pos2, p2: Pos2) -> Pos2 {
     p1 - (base_len / 2.) * dir
 }
 
+// TODO: check test cases
 #[cfg(test)]
 mod tests {
     use egui::{Color32, Stroke};

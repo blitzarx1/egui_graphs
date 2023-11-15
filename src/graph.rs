@@ -9,7 +9,7 @@ use petgraph::{
     Direction, EdgeType,
 };
 
-use crate::draw::{EdgeDisplay, NodeDisplay};
+use crate::draw::{DisplayEdge, DisplayNode};
 use crate::{metadata::Metadata, transform, Edge, Node};
 
 /// Graph type compatible with [`super::GraphView`].
@@ -32,7 +32,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
-    pub fn node_by_screen_pos<D: NodeDisplay<N, E, Ty, Ix>>(
+    pub fn node_by_screen_pos<D: DisplayNode<N, E, Ty, Ix>>(
         &self,
         meta: &'a Metadata,
         screen_pos: Pos2,
@@ -47,7 +47,7 @@ impl<'a, N: Clone, E: Clone + 'a, Ty: EdgeType, Ix: IndexType> Graph<N, E, Ty, I
     }
 
     /// Finds edge by position.
-    pub fn edge_by_screen_pos<D: EdgeDisplay<N, E, Ty, Ix>>(
+    pub fn edge_by_screen_pos<D: DisplayEdge<N, E, Ty, Ix>>(
         &self,
         meta: &'a Metadata,
         screen_pos: Pos2,

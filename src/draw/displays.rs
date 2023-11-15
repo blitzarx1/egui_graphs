@@ -3,7 +3,7 @@ use petgraph::{stable_graph::IndexType, EdgeType};
 
 use crate::{draw::drawer::DrawContext, Edge, Graph, Node};
 
-pub trait NodeDisplay<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>:
+pub trait DisplayNode<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>:
     Interactable<N, E, Ty, Ix> + From<Node<N, Ix>>
 {
     /// Returns the closest point on the shape boundary to the provided `pos`.
@@ -20,7 +20,7 @@ pub trait NodeDisplay<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>:
     /// Use `ctx.meta` to properly scale and translate the shape.
     fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
 }
-pub trait EdgeDisplay<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>:
+pub trait DisplayEdge<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>:
     Interactable<N, E, Ty, Ix> + From<Edge<E, Ix>>
 {
     /// Draws shapes of the edge.

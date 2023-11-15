@@ -1,12 +1,12 @@
 use egui::{
     epaint::{CircleShape, TextShape},
-    FontFamily, FontId, Pos2, Shape,
+    FontFamily, FontId, Pos2, Shape, Stroke,
 };
 use petgraph::{stable_graph::IndexType, EdgeType};
 
 use crate::{draw::drawer::DrawContext, Graph, Node};
 
-use super::{Interactable, NodeDisplay};
+use super::{DisplayNode, Interactable};
 
 /// This is the default node shape which is used to display nodes in the graph.
 ///
@@ -44,7 +44,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
     }
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeDisplay<N, E, Ty, Ix>
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
     for DefaultNodeShape
 {
     fn closest_boundary_point(&self, pos: Pos2) -> Pos2 {
@@ -60,15 +60,15 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeDisplay<N, E, Ty, Ix>
             true => ctx.ctx.style().visuals.widgets.active,
             false => ctx.ctx.style().visuals.widgets.inactive,
         };
-        let stroke = style.fg_stroke;
+        let color = style.fg_stroke.color;
 
         let circle_center = ctx.meta.canvas_to_screen_pos(self.pos);
         let circle_radius = ctx.meta.canvas_to_screen_size(self.radius);
         let circle_shape = CircleShape {
             center: circle_center,
             radius: circle_radius,
-            fill: stroke.color,
-            stroke,
+            fill: color,
+            stroke: Stroke::default(),
         };
         res.push(circle_shape.into());
 
@@ -83,7 +83,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> NodeDisplay<N, E, Ty, Ix>
             f.layout_no_wrap(
                 self.label_text.clone(),
                 FontId::new(circle_radius, FontFamily::Monospace),
-                stroke.color,
+                color,
             )
         });
 

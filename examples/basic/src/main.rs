@@ -1,13 +1,10 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
 use egui_graphs::{Graph, GraphView};
-use petgraph::{
-    stable_graph::{DefaultIx, StableGraph},
-    Directed,
-};
+use petgraph::stable_graph::StableGraph;
 
 pub struct BasicApp {
-    g: Graph<(), (), Directed, DefaultIx>,
+    g: Graph<(), ()>,
 }
 
 impl BasicApp {

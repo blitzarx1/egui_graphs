@@ -16,7 +16,7 @@ use crate::{
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::graph::EdgeIndex;
+use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::graph::IndexType;
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
@@ -35,7 +35,7 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 /// When the user performs navigation actions (zoom & pan or fit to screen), they do not
 /// produce changes. This is because these actions are performed on the global coordinates and do not change any
 /// properties of the nodes or edges.
-pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType = DefaultIx> {
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
