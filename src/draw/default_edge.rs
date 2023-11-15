@@ -1,6 +1,3 @@
-// TODO: refactor to increase usage of shapes
-// TOOD: remove usage of node.radius() use node_shape.closest_boundary_point() instead
-
 use std::f32::consts::PI;
 
 use egui::{
@@ -65,9 +62,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayEdge<N, E, Ty, Ix>
             return vec![shape_looped(
                 ctx.meta.canvas_to_screen_size(node_size),
                 ctx.meta.canvas_to_screen_pos(n_start.location()),
-                self.edge_id.order,
-                self.loop_size,
                 stroke,
+                self,
             )
             .into()];
         }
@@ -133,6 +129,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayEdge<N, E, Ty, Ix>
 
         let edge_end_curved = point_between(tip_start_1, tip_start_2);
 
+        // TODO: use shape_curved func
         let line_curved = QuadraticBezierShape::from_points_stroke(
             [edge_start, control_point, edge_end_curved],
             false,
@@ -149,12 +146,11 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayEdge<N, E, Ty, Ix>
     }
 }
 
-fn shape_looped(
+fn shape_looped<Ix: IndexType>(
     node_size: f32,
     node_center: Pos2,
-    order: usize,
-    loop_size: f32,
     stroke: Stroke,
+    e: &DefaultEdgeShape<Ix>,
 ) -> CubicBezierShape {
     let center_horizon_angle = PI / 4.;
     let y_intersect = node_center.y - node_size * center_horizon_angle.sin();
@@ -168,7 +164,7 @@ fn shape_looped(
         y_intersect,
     );
 
-    let loop_size = node_size * (loop_size + order as f32);
+    let loop_size = node_size * (e.loop_size + e.edge_id.order as f32);
 
     let control_point1 = Pos2::new(node_center.x + loop_size, node_center.y - loop_size);
     let control_point2 = Pos2::new(node_center.x - loop_size, node_center.y - loop_size);
@@ -177,6 +173,50 @@ fn shape_looped(
         [edge_end, control_point1, control_point2, edge_start],
         false,
         Color32::default(),
+        stroke,
+    )
+}
+
+fn shape_curved<Ix: IndexType>(
+    pos_start: Pos2,
+    pos_end: Pos2,
+    size_start: f32,
+    size_end: f32,
+    stroke: Stroke,
+    e: &DefaultEdgeShape<Ix>,
+) -> QuadraticBezierShape {
+    let vec = pos_end - pos_start;
+    let dist: f32 = vec.length();
+    let dir = vec / dist;
+
+    let start_node_radius_vec = Vec2::new(size_start, size_start) * dir;
+    let end_node_radius_vec = Vec2::new(size_end, size_end) * dir;
+
+    let tip_end = pos_start + vec - end_node_radius_vec;
+
+    let edge_start = pos_start + start_node_radius_vec;
+
+    let dir_perpendicular = Vec2::new(-dir.y, dir.x);
+    let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
+    let control_point =
+        (center_point + dir_perpendicular * e.curve_size * e.edge_id.order as f32).to_pos2();
+
+    let tip_vec = control_point - tip_end;
+    let tip_dir = tip_vec / tip_vec.length();
+    let tip_size = e.tip_size;
+
+    let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle) * tip_size;
+    let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle) * tip_size;
+
+    let tip_start_1 = tip_end + arrow_tip_dir_1;
+    let tip_start_2 = tip_end + arrow_tip_dir_2;
+
+    let edge_end_curved = point_between(tip_start_1, tip_start_2);
+
+    QuadraticBezierShape::from_points_stroke(
+        [edge_start, control_point, edge_end_curved],
+        false,
+        stroke.color,
         stroke,
     )
 }
@@ -221,13 +261,7 @@ fn is_inside_loop<
 ) -> bool {
     let node_size = node_size::<_, _, _, _, Dn>(node);
 
-    let shape = shape_looped(
-        node_size,
-        node.location(),
-        e.edge_id.order,
-        e.loop_size,
-        Stroke::default(),
-    );
+    let shape = shape_looped(node_size, node.location(), Stroke::default(), e);
     is_point_on_cubic_bezier_curve(pos, shape, e.width)
 }
 
@@ -259,41 +293,14 @@ fn is_inside_curve<
     let size_start = node_size::<_, _, _, _, Dn>(node_start);
     let size_end = node_size::<_, _, _, _, Dn>(node_end);
 
-    let vec = pos_end - pos_start;
-    let dist: f32 = vec.length();
-    let dir = vec / dist;
-
-    let start_node_radius_vec = Vec2::new(size_start, size_start) * dir;
-    let end_node_radius_vec = Vec2::new(size_end, size_end) * dir;
-
-    let tip_end = pos_start + vec - end_node_radius_vec;
-
-    let edge_start = pos_start + start_node_radius_vec;
-
-    let dir_perpendicular = Vec2::new(-dir.y, dir.x);
-    let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
-    let control_point =
-        (center_point + dir_perpendicular * e.curve_size * e.edge_id.order as f32).to_pos2();
-
-    let tip_vec = control_point - tip_end;
-    let tip_dir = tip_vec / tip_vec.length();
-    let tip_size = e.tip_size;
-
-    let arrow_tip_dir_1 = rotate_vector(tip_dir, e.tip_angle) * tip_size;
-    let arrow_tip_dir_2 = rotate_vector(tip_dir, -e.tip_angle) * tip_size;
-
-    let tip_start_1 = tip_end + arrow_tip_dir_1;
-    let tip_start_2 = tip_end + arrow_tip_dir_2;
-
-    let edge_end_curved = point_between(tip_start_1, tip_start_2);
-
-    let shape = QuadraticBezierShape::from_points_stroke(
-        [edge_start, control_point, edge_end_curved],
-        false,
-        Color32::default(),
+    let shape = shape_curved(
+        pos_start,
+        pos_end,
+        size_start,
+        size_end,
         Stroke::default(),
+        e,
     );
-
     is_point_on_quadratic_bezier_curve(pos, shape, e.width)
 }
 
