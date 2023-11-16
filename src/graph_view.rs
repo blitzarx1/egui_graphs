@@ -86,7 +86,7 @@ where
         self.handle_fit_to_screen(&resp, &mut meta, &computed);
         self.handle_navigation(ui, &resp, &mut meta, &computed);
 
-        self.handle_node_drag(&resp, &mut computed, &mut meta);
+        self.handle_node_drag::<Nd>(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut meta, &computed);
 
         Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
@@ -317,7 +317,7 @@ where
         self.select_edge(idx);
     }
 
-    fn handle_node_drag(
+    fn handle_node_drag<Dn: DisplayNode<N, E, Ty, Ix>>(
         &mut self,
         resp: &Response,
         comp: &mut ComputedState<Ix>,
@@ -330,7 +330,7 @@ where
         if resp.drag_started() {
             if let Some((idx, _)) = self
                 .g
-                .node_by_screen_pos::<DefaultNodeShape>(meta, resp.hover_pos().unwrap())
+                .node_by_screen_pos::<Dn>(meta, resp.hover_pos().unwrap())
             {
                 self.set_drag_start(idx);
             }

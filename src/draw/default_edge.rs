@@ -24,11 +24,11 @@ pub struct DefaultEdgeShape<Ix: IndexType> {
 }
 
 impl<E: Clone, Ix: IndexType> From<Edge<E, Ix>> for DefaultEdgeShape<Ix> {
-    fn from(value: Edge<E, Ix>) -> Self {
+    fn from(edge: Edge<E, Ix>) -> Self {
         Self {
-            edge_id: value.id(),
+            edge_id: edge.id(),
 
-            selected: value.selected(),
+            selected: edge.selected(),
 
             width: 2.,
             tip_size: 15.,

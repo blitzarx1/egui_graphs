@@ -25,14 +25,14 @@ pub struct DefaultNodeShape {
 }
 
 impl<N: Clone, Ix: IndexType> From<Node<N, Ix>> for DefaultNodeShape {
-    fn from(value: Node<N, Ix>) -> Self {
+    fn from(node: Node<N, Ix>) -> Self {
         DefaultNodeShape {
-            pos: value.location(),
+            pos: node.location(),
 
-            selected: value.selected(),
-            dragged: value.dragged(),
+            selected: node.selected(),
+            dragged: node.dragged(),
 
-            label_text: value.label().to_string(),
+            label_text: node.label().to_string(),
 
             radius: 5.0,
         }
