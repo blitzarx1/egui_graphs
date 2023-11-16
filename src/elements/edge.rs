@@ -69,8 +69,8 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
         self.payload.as_ref()
     }
 
-    pub fn data_mut(&mut self) -> Option<&mut E> {
-        self.data.as_mut()
+    pub fn payload_mut(&mut self) -> Option<&mut E> {
+        self.payload.as_mut()
     }
     pub fn color(&self, ctx: &Context) -> Color32 {
         if self.selected {
