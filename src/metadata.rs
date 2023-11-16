@@ -12,6 +12,8 @@ pub struct Metadata {
     pub zoom: f32,
     /// Current pan offset
     pub pan: Vec2,
+    /// Top left position of widget
+    pub left_top: Pos2,
 }
 
 impl Default for Metadata {
@@ -20,6 +22,7 @@ impl Default for Metadata {
             first_frame: true,
             zoom: 1.,
             pan: Default::default(),
+            left_top: Default::default(),
         }
     }
 }

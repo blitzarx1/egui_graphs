@@ -100,6 +100,7 @@ where
         )
         .draw();
 
+        meta.first_frame = false;
         meta.store_into_ui(ui);
         ui.ctx().request_repaint();
 
@@ -192,7 +193,6 @@ where
         }
 
         self.fit_to_screen(&r.rect, meta, comp);
-        meta.first_frame = false;
     }
 
     fn handle_click(&mut self, resp: &Response, meta: &mut Metadata, comp: &ComputedState<Ix>) {
@@ -394,6 +394,11 @@ where
         meta: &mut Metadata,
         comp: &ComputedState<Ix>,
     ) {
+        if !meta.first_frame {
+            meta.pan += resp.rect.left_top() - meta.left_top;
+        }
+        meta.left_top = resp.rect.left_top();
+
         self.handle_zoom(ui, resp, meta);
         self.handle_pan(resp, meta, comp);
     }
@@ -430,10 +435,7 @@ where
 
     /// Zooms the graph by the given delta. It also compensates with pan to keep the zoom center in the same place.
     fn zoom(&self, rect: &Rect, delta: f32, zoom_center: Option<Pos2>, meta: &mut Metadata) {
-        let center_pos = match zoom_center {
-            Some(center_pos) => center_pos - rect.min,
-            None => rect.center() - rect.min,
-        };
+        let center_pos = zoom_center.unwrap_or(rect.center()).to_vec2();
         let graph_center_pos = (center_pos - meta.pan) / meta.zoom;
         let factor = 1. + delta;
         let new_zoom = meta.zoom * factor;

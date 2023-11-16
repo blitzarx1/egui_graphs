@@ -53,6 +53,10 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
         self.payload.as_ref()
     }
 
+    pub fn data_mut(&mut self) -> Option<&mut N> {
+        self.data.as_mut()
+    }
+
     pub fn set_data(&mut self, data: Option<N>) {
         self.payload = data;
     }
