@@ -1,34 +1,30 @@
 use egui::Pos2;
-use petgraph::stable_graph::{IndexType, NodeIndex, DefaultIx};
-
-use crate::ComputedNode;
+use petgraph::stable_graph::{DefaultIx, IndexType, NodeIndex};
 
 /// Stores properties of a node.
 #[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
-pub struct Node<N: Clone, Ix: IndexType=DefaultIx> {
+pub struct Node<N: Clone, Ix: IndexType = DefaultIx> {
     id: Option<NodeIndex<Ix>>,
     location: Option<Pos2>,
 
     pub data: N,
+
     label: String,
 
     selected: bool,
     dragged: bool,
-    computed: ComputedNode,
 }
 
 impl<N: Clone, Ix: IndexType> Node<N, Ix> {
     pub fn new(data: N) -> Self {
         Self {
             data,
-
             id: Default::default(),
             location: Default::default(),
             label: Default::default(),
             selected: Default::default(),
             dragged: Default::default(),
-            computed: Default::default(),
         }
     }
 
@@ -38,6 +34,7 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
         self.location = Some(location);
     }
 
+    // TODO: handle unbinded node
     pub fn id(&self) -> NodeIndex<Ix> {
         self.id.unwrap()
     }

@@ -158,6 +158,7 @@ where
     }
 
     #[cfg(feature = "events")]
+    /// Allows to supply channel where events happening in the graph will be reported.
     pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
         self.events_publisher = Some(events_publisher);
         self
@@ -166,13 +167,14 @@ where
     fn compute_state(&mut self) -> ComputedState<Ix> {
         let mut computed = ComputedState::<Ix>::default();
 
-        let n_idxs = self.g.g.node_indices().collect::<Vec<_>>();
-        n_idxs.iter().for_each(|idx| {
-            let comp = computed.compute_for_node(self.g, *idx);
-
-            let n = self.g.node_mut(*idx).unwrap();
-            n.set_computed(comp);
-
+        self.g.g.node_indices().for_each(|idx| {
+            let n = self.g.node(idx).unwrap();
+            if n.dragged() {
+                computed.dragged = Some(idx);
+            }
+            if n.selected() {
+                computed.selected_nodes.push(idx);
+            }
             computed.comp_iter_bounds(n);
         });
 
@@ -519,12 +521,14 @@ where
 
     fn move_node(&mut self, idx: NodeIndex<Ix>, delta: Vec2) {
         let n = self.g.node_mut(idx).unwrap();
-        n.set_location(n.location() + delta);
+        let new_loc = n.location() + delta;
+        n.set_location(new_loc);
 
         #[cfg(feature = "events")]
         self.publish_event(Event::NodeMove(PayloadNodeMove {
             id: idx.index(),
             diff: delta.into(),
+            new_pos: [new_loc.x, new_loc.y],
         }));
     }
 
@@ -552,7 +556,10 @@ where
         meta.pan = new_pan;
 
         #[cfg(feature = "events")]
-        self.publish_event(Event::Pan(PayloadPan { diff: diff.into(), new_pan: new_pan.into() }));
+        self.publish_event(Event::Pan(PayloadPan {
+            diff: diff.into(),
+            new_pan: new_pan.into(),
+        }));
     }
 
     #[allow(unused_variables)]

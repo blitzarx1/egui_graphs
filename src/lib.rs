@@ -7,7 +7,6 @@ mod metadata;
 mod settings;
 mod transform;
 
-pub use self::computed::ComputedNode;
 pub use self::draw::{
     DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext, Interactable,
 };
