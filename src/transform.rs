@@ -97,13 +97,13 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 /// let mut input_indices = input_graph.g.node_indices();
 /// let input_node_1 = input_indices.next().unwrap();
 /// let input_node_2 = input_indices.next().unwrap();
-/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().payload().clone().unwrap(), "A");
-/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().payload().clone().unwrap(), "B");
+/// assert_eq!(input_graph.g.node_weight(input_node_1).unwrap().data, "A");
+/// assert_eq!(input_graph.g.node_weight(input_node_2).unwrap().data, "B");
 ///
-/// assert_eq!(*input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().payload().clone().unwrap(), "edge1");
+/// assert_eq!(input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().data, "edge1");
 ///
-/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().label().clone(), input_node_1.index().to_string());
-/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().label().clone(), input_node_2.index().to_string());
+/// assert_eq!(input_graph.g.node_weight(input_node_1).unwrap().label().clone(), input_node_1.index().to_string());
+/// assert_eq!(input_graph.g.node_weight(input_node_2).unwrap().label().clone(), input_node_2.index().to_string());
 ///
 /// let loc_1 = input_graph.g.node_weight(input_node_1).unwrap().location();
 /// let loc_2 = input_graph.g.node_weight(input_node_2).unwrap().location();

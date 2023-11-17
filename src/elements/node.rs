@@ -19,9 +19,9 @@ pub struct Node<N: Clone, Ix: IndexType=DefaultIx> {
 }
 
 impl<N: Clone, Ix: IndexType> Node<N, Ix> {
-    pub fn new(payload: N) -> Self {
+    pub fn new(data: N) -> Self {
         Self {
-            data: payload,
+            data,
 
             id: Default::default(),
             location: Default::default(),
