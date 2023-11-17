@@ -4,6 +4,7 @@ use petgraph::stable_graph::{IndexType, NodeIndex, DefaultIx};
 use crate::ComputedNode;
 
 /// Stores properties of a node.
+#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
 pub struct Node<N: Clone, Ix: IndexType=DefaultIx> {
     id: Option<NodeIndex<Ix>>,

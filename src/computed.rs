@@ -76,6 +76,7 @@ where
     }
 }
 
+#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct ComputedNode {
     pub num_connections: usize,
