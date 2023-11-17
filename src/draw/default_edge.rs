@@ -43,7 +43,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayEdge<N, E, Ty, Ix>
     for DefaultEdgeShape<Ix>
 {
     fn shapes<Dn: DisplayNode<N, E, Ty, Ix>>(
-        &self,
+        &mut self,
         ctx: &DrawContext<N, E, Ty, Ix>,
     ) -> Vec<egui::Shape> {
         let (idx_start, idx_end) = ctx.g.edge_endpoints(self.edge_id.idx).unwrap();

@@ -58,7 +58,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         closest_point_on_circle(self.pos, self.radius, dir)
     }
 
-    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape> {
+    fn shapes(&mut self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape> {
         let mut res = Vec::with_capacity(2);
 
         let is_interacted = self.selected || self.dragged;
