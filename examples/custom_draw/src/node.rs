@@ -42,7 +42,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix> 
         find_intersection(self.loc, self.size + margin, dir)
     }
 
-    fn shapes(&mut self, ctx: &egui_graphs::DrawContext<N, E, Ty, Ix>) -> Vec<egui::Shape> {
+    fn shapes(&self, ctx: &egui_graphs::DrawContext<N, E, Ty, Ix>) -> Vec<egui::Shape> {
         // lets draw a rect with label in the center for every node
 
         // find node center location on the screen coordinates

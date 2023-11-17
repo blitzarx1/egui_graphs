@@ -32,15 +32,15 @@ pub struct Edge<E: Clone, Ix: IndexType=DefaultIx> {
     id: Option<EdgeID<Ix>>,
 
     /// Client data
-    payload: Option<E>,
+    pub data: E,
 
     selected: bool,
 }
 
 impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
-    pub fn new(payload: E) -> Self {
+    pub fn new(data: E) -> Self {
         Self {
-            payload: Some(payload),
+            data,
 
             id: Default::default(),
             selected: Default::default(),
@@ -67,13 +67,6 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
         self.id.as_mut().unwrap().order = order;
     }
 
-    pub fn payload(&self) -> Option<&E> {
-        self.payload.as_ref()
-    }
-
-    pub fn payload_mut(&mut self) -> Option<&mut E> {
-        self.payload.as_mut()
-    }
     pub fn color(&self, ctx: &Context) -> Color32 {
         if self.selected {
             return ctx.style().visuals.widgets.hovered.fg_stroke.color;

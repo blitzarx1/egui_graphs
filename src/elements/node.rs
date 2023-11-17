@@ -10,7 +10,7 @@ pub struct Node<N: Clone, Ix: IndexType=DefaultIx> {
     id: Option<NodeIndex<Ix>>,
     location: Option<Pos2>,
 
-    payload: Option<N>,
+    pub data: N,
     label: String,
 
     selected: bool,
@@ -21,7 +21,7 @@ pub struct Node<N: Clone, Ix: IndexType=DefaultIx> {
 impl<N: Clone, Ix: IndexType> Node<N, Ix> {
     pub fn new(payload: N) -> Self {
         Self {
-            payload: Some(payload),
+            data: payload,
 
             id: Default::default(),
             location: Default::default(),
@@ -48,23 +48,6 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
 
     pub(crate) fn set_computed(&mut self, comp: ComputedNode) {
         self.computed = comp;
-    }
-
-    pub fn payload(&self) -> Option<&N> {
-        self.payload.as_ref()
-    }
-
-    pub fn payload_mut(&mut self) -> Option<&mut N> {
-        self.payload.as_mut()
-    }
-
-    pub fn set_data(&mut self, data: Option<N>) {
-        self.payload = data;
-    }
-
-    pub fn with_data(mut self, data: Option<N>) -> Self {
-        self.payload = data;
-        self
     }
 
     // TODO: handle unbinded node

@@ -22,7 +22,7 @@ where
     /// * `ctx` - should be used to determine current global properties.
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
-    fn shapes(&mut self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
+    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
 }
 pub trait DisplayEdge<N, E, Ty, Ix>: Interactable<N, E, Ty, Ix> + From<Edge<E, Ix>>
 where
@@ -39,7 +39,7 @@ where
     /// Use `ctx.meta` to properly scale and translate the shape.
     ///
     /// Get [NodeGraphDisplay] from node endpoints to get start and end coordinates using [closest_boundary_point](NodeGraphDisplay::closest_boundary_point).
-    fn shapes<Dn: DisplayNode<N, E, Ty, Ix>>(&mut self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
+    fn shapes<Dn: DisplayNode<N, E, Ty, Ix>>(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
 }
 
 pub trait Interactable<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
