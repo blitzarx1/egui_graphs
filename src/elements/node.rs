@@ -62,15 +62,19 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
         self.payload = data;
     }
 
-    pub fn with_data(&self, data: Option<N>) -> Self {
-        let mut res = self.clone();
-        res.payload = data;
-        res
+    pub fn with_data(mut self, data: Option<N>) -> Self {
+        self.payload = data;
+        self
     }
 
     // TODO: handle unbinded node
     pub fn location(&self) -> Pos2 {
         self.location.unwrap()
+    }
+
+    pub fn with_location(mut self, loc: Pos2) -> Self {
+        self.location = Some(loc);
+        self
     }
 
     pub fn set_location(&mut self, loc: Pos2) {
