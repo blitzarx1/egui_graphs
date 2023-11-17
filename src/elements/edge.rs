@@ -26,7 +26,7 @@ impl<Ix: IndexType> EdgeID<Ix> {
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug)]
-pub struct Edge<E: Clone, Ix: IndexType> {
+pub struct Edge<E: Clone, Ix: IndexType=DefaultIx> {
     id: Option<EdgeID<Ix>>,
 
     /// Client data
