@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PayloadPan {
     pub diff: [f32; 2],
+    pub new_pan: [f32; 2]
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PayloadZoom {
     pub diff: f32,
+    pub new_zoom: f32
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
