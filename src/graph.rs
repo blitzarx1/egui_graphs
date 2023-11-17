@@ -13,7 +13,7 @@ use crate::draw::{DisplayEdge, DisplayNode};
 use crate::{metadata::Metadata, transform, Edge, Node};
 
 /// Graph type compatible with [`super::GraphView`].
-#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Graph<N: Clone, E: Clone, Ty: EdgeType = Directed, Ix: IndexType = DefaultIx> {
     pub g: StableGraph<Node<N, Ix>, Edge<E, Ix>, Ty, Ix>,

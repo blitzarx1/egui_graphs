@@ -2,7 +2,7 @@ use egui::Pos2;
 use petgraph::stable_graph::{DefaultIx, IndexType, NodeIndex};
 
 /// Stores properties of a node.
-#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
 pub struct Node<N: Clone, Ix: IndexType = DefaultIx> {
     id: Option<NodeIndex<Ix>>,
