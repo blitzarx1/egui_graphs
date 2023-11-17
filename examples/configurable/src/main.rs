@@ -2,9 +2,9 @@ use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
-use egui::{CollapsingHeader, Context, ScrollArea, Slider, Ui, Vec2};
+use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Slider, Ui};
 use egui_graphs::events::Event;
-use egui_graphs::{to_graph, Edge, Graph, GraphView, Node};
+use egui_graphs::{to_graph, DefaultEdgeShape, DefaultNodeShape, Edge, Graph, GraphView, Node};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
@@ -27,8 +27,8 @@ pub struct ConfigurableApp {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
 
-    selected_nodes: Vec<Node<()>>,
-    selected_edges: Vec<Edge<()>>,
+    selected_nodes: Vec<Node<(), DefaultIx>>,
+    selected_edges: Vec<Edge<(), DefaultIx>>,
     last_events: Vec<String>,
 
     simulation_stopped: bool,
@@ -135,7 +135,7 @@ impl ConfigurableApp {
             let sim_n = self.sim.get_graph_mut().node_weight_mut(*g_n_idx).unwrap();
 
             let loc = sim_n.location;
-            g_n.set_location(Vec2::new(loc.x, loc.y));
+            g_n.set_location(Pos2::new(loc.x, loc.y));
 
             if g_n.selected() {
                 self.selected_nodes.push(g_n.clone());
@@ -244,12 +244,14 @@ impl ConfigurableApp {
 
         // location of new node is in surrounging of random existing node
         let mut rng = rand::thread_rng();
-        let location = Vec2::new(
+        let location = Pos2::new(
             random_n.location().x + 10. + rng.gen_range(0. ..50.),
             random_n.location().y + 10. + rng.gen_range(0. ..50.),
         );
 
-        let idx = self.g.g.add_node(Node::new(location, ()));
+        let idx = self.g.g.add_node(Node::new(()));
+        self.g.g[idx].bind(idx, location);
+
         let n = self.g.g.node_weight_mut(idx).unwrap();
         *n = n.with_label(format!("{:?}", idx));
         let mut sim_node = fdg_sim::Node::new(idx.index().to_string().as_str(), ());
@@ -280,7 +282,9 @@ impl ConfigurableApp {
     }
 
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
-        self.g.g.add_edge(start, end, Edge::new(()));
+        let idx = self.g.g.add_edge(start, end, Edge::new(()));
+        let order = self.g.g.edges_connecting(start, end).count();
+        self.g.g.edge_weight_mut(idx).unwrap().bind(idx, order);
         self.sim.get_graph_mut().add_edge(start, end, 1.);
     }
 
@@ -303,10 +307,32 @@ impl ConfigurableApp {
             return;
         }
 
+        let order = self.g.g.edge_weight(g_idx.unwrap()).unwrap().order();
+
         self.g.g.remove_edge(g_idx.unwrap()).unwrap();
 
         let sim_idx = self.sim.get_graph_mut().find_edge(start, end).unwrap();
         self.sim.get_graph_mut().remove_edge(sim_idx).unwrap();
+
+        // update order of the edges
+        let left_siblings = self
+            .g
+            .g
+            .edges_connecting(start, end)
+            .map(|edge_ref| edge_ref.id())
+            .collect::<Vec<_>>();
+
+        left_siblings.iter().for_each(|idx| {
+            let sibling_order = self.g.g.edge_weight(*idx).unwrap().order();
+            if sibling_order < order {
+                return;
+            }
+            self.g
+                .g
+                .edge_weight_mut(*idx)
+                .unwrap()
+                .set_order(sibling_order - 1);
+        });
     }
 
     /// Removes all edges between two nodes
@@ -396,12 +422,6 @@ impl ConfigurableApp {
             });
 
             CollapsingHeader::new("Style").show(ui, |ui| {
-                ui.add(Slider::new(&mut self.settings_style.edge_radius_weight, 0. ..=5.)
-                .text("edge_radius_weight"));
-                ui.label("For every edge connected to node its radius is getting bigger by this value.");
-
-                ui.add_space(5.);
-
                 ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
                 ui.label("Wheter to show labels always or when interacted only.");
             });
@@ -551,25 +571,30 @@ impl App for ConfigurableApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             let settings_interaction = &egui_graphs::SettingsInteraction::new()
                 .with_node_selection_enabled(self.settings_interaction.node_selection_enabled)
-                .with_node_selection_multi_enabled(self.settings_interaction.node_selection_multi_enabled)
+                .with_node_selection_multi_enabled(
+                    self.settings_interaction.node_selection_multi_enabled,
+                )
                 .with_dragging_enabled(self.settings_interaction.dragging_enabled)
                 .with_node_clicking_enabled(self.settings_interaction.node_clicking_enabled)
                 .with_edge_clicking_enabled(self.settings_interaction.edge_clicking_enabled)
                 .with_edge_selection_enabled(self.settings_interaction.edge_selection_enabled)
-                .with_edge_selection_multi_enabled(self.settings_interaction.edge_selection_multi_enabled);
+                .with_edge_selection_multi_enabled(
+                    self.settings_interaction.edge_selection_multi_enabled,
+                );
             let settings_navigation = &egui_graphs::SettingsNavigation::new()
                 .with_zoom_and_pan_enabled(self.settings_navigation.zoom_and_pan_enabled)
                 .with_fit_to_screen_enabled(self.settings_navigation.fit_to_screen_enabled)
                 .with_zoom_speed(self.settings_navigation.zoom_speed);
             let settings_style = &egui_graphs::SettingsStyle::new()
-                .with_labels_always(self.settings_style.labels_always)
-                .with_edge_radius_weight(self.settings_style.edge_radius_weight);
+                .with_labels_always(self.settings_style.labels_always);
             ui.add(
-                &mut GraphView::new(&mut self.g)
-                    .with_interactions(settings_interaction)
-                    .with_navigations(settings_navigation)
-                    .with_styles(settings_style)
-                    .with_events(&self.event_publisher),
+                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape<_>>::new(
+                    &mut self.g,
+                )
+                .with_interactions(settings_interaction)
+                .with_navigations(settings_navigation)
+                .with_styles(settings_style)
+                .with_events(&self.event_publisher),
             );
         });
 

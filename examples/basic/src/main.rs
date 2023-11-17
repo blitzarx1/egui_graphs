@@ -1,13 +1,10 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Graph, GraphView};
-use petgraph::{
-    stable_graph::{DefaultIx, StableGraph},
-    Directed,
-};
+use egui_graphs::{DefaultEdgeShape, DefaultNodeShape, Graph, GraphView};
+use petgraph::stable_graph::StableGraph;
 
 pub struct BasicApp {
-    g: Graph<(), (), Directed, DefaultIx>,
+    g: Graph<(), ()>,
 }
 
 impl BasicApp {
@@ -20,7 +17,14 @@ impl BasicApp {
 impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut GraphView::new(&mut self.g));
+            ui.add(&mut GraphView::<
+                _,
+                _,
+                _,
+                _,
+                DefaultNodeShape,
+                DefaultEdgeShape<_>,
+            >::new(&mut self.g));
         });
     }
 }

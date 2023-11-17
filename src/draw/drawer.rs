@@ -1,47 +1,50 @@
-use std::collections::HashMap;
+use std::marker::PhantomData;
 
-use egui::Painter;
+use egui::{Context, Painter};
 use petgraph::graph::IndexType;
-use petgraph::{stable_graph::NodeIndex, EdgeType};
+use petgraph::EdgeType;
 
-use crate::{settings::SettingsStyle, Edge, Graph, Metadata};
+use crate::{settings::SettingsStyle, Graph, Metadata};
 
-use super::{
-    custom::{FnCustomEdgeDraw, FnCustomNodeDraw, WidgetState},
-    default_edges_draw, default_node_draw,
-    layers::Layers,
-};
+use super::layers::Layers;
+use super::{DisplayEdge, DisplayNode};
 
-/// Mapping for 2 nodes and all edges between them
-type EdgeMap<'a, E, Ix> = HashMap<(NodeIndex<Ix>, NodeIndex<Ix>), Vec<&'a Edge<E>>>;
-
-pub struct Drawer<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
-    p: Painter,
-
-    g: &'a Graph<N, E, Ty, Ix>,
-    style: &'a SettingsStyle,
-    meta: &'a Metadata,
-
-    custom_node_draw: Option<FnCustomNodeDraw<N, E, Ty, Ix>>,
-    custom_edge_draw: Option<FnCustomEdgeDraw<N, E, Ty, Ix>>,
+/// Contains all the data about current widget state which is needed for custom drawing functions.
+pub struct DrawContext<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+    pub ctx: &'a Context,
+    pub g: &'a Graph<N, E, Ty, Ix>,
+    pub style: &'a SettingsStyle,
+    pub meta: &'a Metadata,
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, Ix> {
-    pub fn new(
-        p: Painter,
-        g: &'a Graph<N, E, Ty, Ix>,
-        style: &'a SettingsStyle,
-        meta: &'a Metadata,
-        custom_node_draw: Option<FnCustomNodeDraw<N, E, Ty, Ix>>,
-        custom_edge_draw: Option<FnCustomEdgeDraw<N, E, Ty, Ix>>,
-    ) -> Self {
+pub struct Drawer<'a, N, E, Ty, Ix, Nd, Ed>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Nd: DisplayNode<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix>,
+{
+    p: Painter,
+    ctx: &'a DrawContext<'a, N, E, Ty, Ix>,
+    _marker: PhantomData<(Nd, Ed)>,
+}
+
+impl<'a, N, E, Ty, Ix, Nd, Ed> Drawer<'a, N, E, Ty, Ix, Nd, Ed>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Nd: DisplayNode<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix>,
+{
+    pub fn new(p: Painter, ctx: &'a DrawContext<'a, N, E, Ty, Ix>) -> Self {
         Drawer {
-            g,
             p,
-            style,
-            meta,
-            custom_node_draw,
-            custom_edge_draw,
+            ctx,
+            _marker: PhantomData,
         }
     }
 
@@ -55,39 +58,22 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Drawer<'a, N, E, Ty, I
     }
 
     fn fill_layers_nodes(&self, l: &mut Layers) {
-        let state = &WidgetState {
-            g: self.g,
-            meta: self.meta,
-            style: self.style,
-        };
-        self.g
-            .nodes_iter()
-            .for_each(|(_, n)| match self.custom_node_draw {
-                Some(f) => f(self.p.ctx(), n, state, l),
-                None => default_node_draw(self.p.ctx(), n, state, l),
-            });
+        self.ctx.g.nodes_iter().for_each(|(_, n)| {
+            let shapes = Nd::from(n.clone().clone()).shapes(self.ctx);
+            match n.selected() || n.dragged() {
+                true => shapes.into_iter().for_each(|s| l.add_top(s)),
+                false => shapes.into_iter().for_each(|s| l.add(s)),
+            }
+        });
     }
 
     fn fill_layers_edges(&self, l: &mut Layers) {
-        let mut edge_map: EdgeMap<E, Ix> = HashMap::new();
-
-        self.g.edges_iter().for_each(|(idx, e)| {
-            let (source, target) = self.g.edge_endpoints(idx).unwrap();
-            // compute map with edges between 2 nodes
-            edge_map.entry((source, target)).or_default().push(e);
+        self.ctx.g.edges_iter().for_each(|(_, e)| {
+            let shapes = Ed::from(e.clone().clone()).shapes::<Nd>(self.ctx);
+            match e.selected() {
+                true => shapes.into_iter().for_each(|s| l.add_top(s)),
+                false => shapes.into_iter().for_each(|s| l.add(s)),
+            }
         });
-
-        let state = &WidgetState {
-            g: self.g,
-            meta: self.meta,
-            style: self.style,
-        };
-
-        edge_map
-            .into_iter()
-            .for_each(|((start, end), edges)| match self.custom_edge_draw {
-                Some(f) => f(self.p.ctx(), (start, end), edges, state, l),
-                None => default_edges_draw(self.p.ctx(), (start, end), edges, state, l),
-            });
     }
 }

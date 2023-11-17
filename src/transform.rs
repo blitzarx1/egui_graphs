@@ -1,5 +1,5 @@
 use crate::{Edge, Graph, Node};
-use egui::Vec2;
+use egui::Pos2;
 use petgraph::{
     graph::IndexType,
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
@@ -10,6 +10,9 @@ use rand::Rng;
 use std::collections::HashMap;
 
 pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
+
+pub type EdgeTransform<E, Ix> = fn(EdgeIndex<Ix>, &E, usize) -> Edge<E, Ix>;
+pub type NodeTransform<N, Ix> = fn(NodeIndex<Ix>, &N) -> Node<N, Ix>;
 
 /// Helper function which adds user's node to the [`super::Graph`] instance.
 ///
@@ -27,7 +30,7 @@ pub fn add_node<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 pub fn add_node_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     g: &mut Graph<N, E, Ty, Ix>,
     n: &N,
-    node_transform: impl Fn(NodeIndex<Ix>, &N) -> Node<N>,
+    node_transform: NodeTransform<N, Ix>,
 ) -> NodeIndex<Ix> {
     g.g.add_node(node_transform(
         NodeIndex::<Ix>::new(g.g.node_count() + 1),
@@ -51,12 +54,13 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     start: NodeIndex<Ix>,
     end: NodeIndex<Ix>,
     e: &E,
-    edge_transform: impl Fn(EdgeIndex<Ix>, &E) -> Edge<E>,
+    edge_transform: EdgeTransform<E, Ix>,
 ) -> EdgeIndex<Ix> {
+    let order = g.g.edges_connecting(start, end).count();
     g.g.add_edge(
         start,
         end,
-        edge_transform(EdgeIndex::<Ix>::new(g.g.edge_count() + 1), e),
+        edge_transform(EdgeIndex::<Ix>::new(g.g.edge_count() + 1), e, order),
     )
 }
 
@@ -78,7 +82,7 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 /// ```
 /// use petgraph::stable_graph::StableGraph;
 /// use egui_graphs::to_graph;
-/// use egui::Vec2;
+/// use egui::Pos2;
 ///
 /// let mut user_graph: StableGraph<&str, &str> = StableGraph::new();
 /// let node1 = user_graph.add_node("A");
@@ -93,18 +97,18 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 /// let mut input_indices = input_graph.g.node_indices();
 /// let input_node_1 = input_indices.next().unwrap();
 /// let input_node_2 = input_indices.next().unwrap();
-/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().data().clone().unwrap(), "A");
-/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().data().clone().unwrap(), "B");
+/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().payload().clone().unwrap(), "A");
+/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().payload().clone().unwrap(), "B");
 ///
-/// assert_eq!(*input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().data().clone().unwrap(), "edge1");
+/// assert_eq!(*input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().payload().clone().unwrap(), "edge1");
 ///
 /// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().label().clone(), input_node_1.index().to_string());
 /// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().label().clone(), input_node_2.index().to_string());
 ///
 /// let loc_1 = input_graph.g.node_weight(input_node_1).unwrap().location();
 /// let loc_2 = input_graph.g.node_weight(input_node_2).unwrap().location();
-/// assert!(loc_1 != Vec2::ZERO);
-/// assert!(loc_2 != Vec2::ZERO);
+/// assert!(loc_1 != Pos2::ZERO);
+/// assert!(loc_2 != Pos2::ZERO);
 /// ```
 pub fn to_graph<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     g: &StableGraph<N, E, Ty, Ix>,
@@ -115,35 +119,46 @@ pub fn to_graph<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 /// The same as [`to_graph`], but allows to define custom transformation procedures for nodes and edges.
 pub fn to_graph_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     g: &StableGraph<N, E, Ty, Ix>,
-    node_transform: impl Fn(NodeIndex<Ix>, &N) -> Node<N>,
-    edge_transform: impl Fn(EdgeIndex<Ix>, &E) -> Edge<E>,
+    node_transform: NodeTransform<N, Ix>,
+    edge_transform: EdgeTransform<E, Ix>,
 ) -> Graph<N, E, Ty, Ix> {
     transform(g, node_transform, edge_transform)
 }
 
 /// Default node transform function. Keeps original data and creates a new node with a random location and
 /// label equal to the index of the node in the graph.
-pub fn default_node_transform<N: Clone, Ix: IndexType>(idx: NodeIndex<Ix>, data: &N) -> Node<N> {
+pub fn default_node_transform<N: Clone, Ix: IndexType>(
+    idx: NodeIndex<Ix>,
+    payload: &N,
+) -> Node<N, Ix> {
+    let mut n = Node::new(payload.clone()).with_label(idx.index().to_string());
     let loc = random_location(DEFAULT_SPAWN_SIZE);
-    Node::new(loc, data.clone()).with_label(idx.index().to_string())
+    n.bind(idx, loc);
+    n
 }
 
 /// Default edge transform function. Keeps original data and creates a new edge.
-pub fn default_edge_transform<E: Clone, Ix: IndexType>(_: EdgeIndex<Ix>, data: &E) -> Edge<E> {
-    Edge::new(data.clone())
+pub fn default_edge_transform<E: Clone, Ix: IndexType>(
+    idx: EdgeIndex<Ix>,
+    payload: &E,
+    order: usize,
+) -> Edge<E, Ix> {
+    let mut e = Edge::new(payload.clone());
+    e.bind(idx, order);
+    e
 }
 
-fn random_location(size: f32) -> Vec2 {
+fn random_location(size: f32) -> Pos2 {
     let mut rng = rand::thread_rng();
-    Vec2::new(rng.gen_range(0. ..size), rng.gen_range(0. ..size))
+    Pos2::new(rng.gen_range(0. ..size), rng.gen_range(0. ..size))
 }
 
 fn transform<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     g: &StableGraph<N, E, Ty, Ix>,
-    node_transform: impl Fn(NodeIndex<Ix>, &N) -> Node<N>,
-    edge_transform: impl Fn(EdgeIndex<Ix>, &E) -> Edge<E>,
+    node_transform: NodeTransform<N, Ix>,
+    edge_transform: EdgeTransform<E, Ix>,
 ) -> Graph<N, E, Ty, Ix> {
-    let mut input_g = StableGraph::<Node<N>, Edge<E>, Ty, Ix>::default();
+    let mut input_g = StableGraph::<Node<N, Ix>, Edge<E, Ix>, Ty, Ix>::default();
 
     let input_by_user = g
         .node_references()
@@ -160,10 +175,13 @@ fn transform<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
         let input_source_n = *input_by_user.get(&user_source_n_idx).unwrap();
         let input_target_n = *input_by_user.get(&user_target_n_idx).unwrap();
 
+        let order = input_g
+            .edges_connecting(input_source_n, input_target_n)
+            .count();
         input_g.add_edge(
             input_source_n,
             input_target_n,
-            edge_transform(user_e_idx, user_e),
+            edge_transform(user_e_idx, user_e, order),
         );
     });
 
@@ -193,7 +211,7 @@ mod tests {
             let user_n = user_g.node_weight(user_idx).unwrap();
             let input_n = input_g.g.node_weight(input_idx).unwrap();
 
-            assert_eq!(*input_n.data().unwrap(), *user_n);
+            assert_eq!(*input_n.payload().unwrap(), *user_n);
 
             assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
             assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
@@ -222,7 +240,7 @@ mod tests {
             let user_n = user_g.node_weight(user_idx).unwrap();
             let input_n = input_g.g.node_weight(input_idx).unwrap();
 
-            assert_eq!(*input_n.data().unwrap(), *user_n);
+            assert_eq!(*input_n.payload().unwrap(), *user_n);
 
             assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
             assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);

@@ -1,11 +1,11 @@
-mod custom;
+mod default_edge;
+mod default_node;
+mod displays;
 mod drawer;
-mod edge;
 mod layers;
-mod node;
 
-pub use self::custom::{FnCustomEdgeDraw, FnCustomNodeDraw};
-pub use self::drawer::Drawer;
-pub use self::edge::default_edges_draw;
+pub use self::drawer::{DrawContext, Drawer};
 pub use self::layers::Layers;
-pub use self::node::default_node_draw;
+pub use default_edge::DefaultEdgeShape;
+pub use default_node::DefaultNodeShape;
+pub use displays::{DisplayEdge, DisplayNode, Interactable};

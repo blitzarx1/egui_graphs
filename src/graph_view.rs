@@ -1,25 +1,29 @@
+use std::marker::PhantomData;
+
 #[cfg(feature = "events")]
 use crate::events::{
     Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
     PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd, PayloadNodeDragStart,
     PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
 };
-use crate::graph::EdgeMap;
 use crate::{
     computed::ComputedState,
-    draw::{Drawer, FnCustomEdgeDraw, FnCustomNodeDraw},
+    draw::Drawer,
     metadata::Metadata,
     settings::SettingsNavigation,
     settings::{SettingsInteraction, SettingsStyle},
     Graph,
 };
+use crate::{
+    draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext},
+    DisplayEdge, DisplayNode,
+};
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
 use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::graph::EdgeIndex;
-use petgraph::graph::IndexType;
+use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
+use petgraph::{graph::IndexType, Directed};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
-use std::collections::HashMap;
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -36,21 +40,42 @@ use std::collections::HashMap;
 /// When the user performs navigation actions (zoom & pan or fit to screen), they do not
 /// produce changes. This is because these actions are performed on the global coordinates and do not change any
 /// properties of the nodes or edges.
-pub struct GraphView<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+pub struct GraphView<
+    'a,
+    N,
+    E,
+    Ty = Directed,
+    Ix = DefaultIx,
+    Nd = DefaultNodeShape,
+    Ed = DefaultEdgeShape<Ix>,
+> where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Nd: DisplayNode<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix>,
+{
+    g: &'a mut Graph<N, E, Ty, Ix>,
+
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
-    g: &'a mut Graph<N, E, Ty, Ix>,
-
-    custom_edge_draw: Option<FnCustomEdgeDraw<N, E, Ty, Ix>>,
-    custom_node_draw: Option<FnCustomNodeDraw<N, E, Ty, Ix>>,
 
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
+
+    _marker: PhantomData<(Nd, Ed)>,
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Widget
-    for &mut GraphView<'a, N, E, Ty, Ix>
+impl<'a, N, E, Ty, Ix, Nd, Ed> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Nd: DisplayNode<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix>,
 {
     fn ui(self, ui: &mut Ui) -> Response {
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
@@ -61,16 +86,17 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Widget
         self.handle_fit_to_screen(&resp, &mut meta, &computed);
         self.handle_navigation(ui, &resp, &mut meta, &computed);
 
-        self.handle_node_drag(&resp, &mut computed, &mut meta);
+        self.handle_node_drag::<Nd>(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut meta, &computed);
 
-        Drawer::new(
+        Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
             p,
-            self.g,
-            &self.settings_style,
-            &meta,
-            self.custom_node_draw,
-            self.custom_edge_draw,
+            &DrawContext {
+                ctx: ui.ctx(),
+                g: self.g,
+                meta: &meta,
+                style: &self.settings_style,
+            },
         )
         .draw();
 
@@ -82,7 +108,15 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Widget
     }
 }
 
-impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty, Ix> {
+impl<'a, N, E, Ty, Ix, Nd, Ed> GraphView<'a, N, E, Ty, Ix, Nd, Ed>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Nd: DisplayNode<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix>,
+{
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
     pub fn new(g: &'a mut Graph<N, E, Ty, Ix>) -> Self {
@@ -93,24 +127,11 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
             settings_interaction: Default::default(),
             settings_navigation: Default::default(),
 
-            custom_node_draw: Default::default(),
-            custom_edge_draw: Default::default(),
-
             #[cfg(feature = "events")]
             events_publisher: Default::default(),
+
+            _marker: PhantomData,
         }
-    }
-
-    /// Sets a function that will be called instead of the default drawer for every node to draw custom shapes.
-    pub fn with_custom_node_draw(mut self, func: FnCustomNodeDraw<N, E, Ty, Ix>) -> Self {
-        self.custom_node_draw = Some(func);
-        self
-    }
-
-    /// Sets a function that will be called instead of the default drawer for every pair of nodes connected with edges to draw custom shapes.
-    pub fn with_custom_edge_draw(mut self, func: FnCustomEdgeDraw<N, E, Ty, Ix>) -> Self {
-        self.custom_edge_draw = Some(func);
-        self
     }
 
     /// Makes widget interactive according to the provided settings.
@@ -152,7 +173,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
             let n = self.g.node_mut(*idx).unwrap();
             n.set_computed(comp);
 
-            computed.comp_iter_bounds(n, &self.settings_style);
+            computed.comp_iter_bounds(n);
         });
 
         self.g.edges_iter().for_each(|(idx, e)| {
@@ -190,23 +211,12 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
             return;
         }
 
-        let mut edge_map: EdgeMap<E, Ix> = HashMap::new();
-
-        self.g.edges_iter().for_each(|(idx, e)| {
-            let (source, target) = self.g.edge_endpoints(idx).unwrap();
-            // compute map with edges between 2 nodes
-            edge_map.entry((source, target)).or_default().push((idx, e));
-        });
-
-        let found_edge = self.g.edge_by_screen_pos(
-            meta,
-            &self.settings_style,
-            resp.hover_pos().unwrap(),
-            edge_map,
-        );
-        let found_node =
-            self.g
-                .node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap());
+        let found_edge = self
+            .g
+            .edge_by_screen_pos::<Ed, Nd>(meta, resp.hover_pos().unwrap());
+        let found_node = self
+            .g
+            .node_by_screen_pos::<Nd>(meta, resp.hover_pos().unwrap());
         if found_node.is_none() && found_edge.is_none() {
             // click on empty space
             let nodes_selectable = self.settings_interaction.node_selection_enabled
@@ -307,7 +317,7 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
         self.select_edge(idx);
     }
 
-    fn handle_node_drag(
+    fn handle_node_drag<Dn: DisplayNode<N, E, Ty, Ix>>(
         &mut self,
         resp: &Response,
         comp: &mut ComputedState<Ix>,
@@ -318,9 +328,9 @@ impl<'a, N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> GraphView<'a, N, E, Ty
         }
 
         if resp.drag_started() {
-            if let Some((idx, _)) =
-                self.g
-                    .node_by_screen_pos(meta, &self.settings_style, resp.hover_pos().unwrap())
+            if let Some((idx, _)) = self
+                .g
+                .node_by_screen_pos::<Dn>(meta, resp.hover_pos().unwrap())
             {
                 self.set_drag_start(idx);
             }

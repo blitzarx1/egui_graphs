@@ -40,4 +40,16 @@ impl Metadata {
             data.insert_persisted(Id::null(), self);
         });
     }
+
+    pub fn canvas_to_screen_pos(&self, pos: Pos2) -> Pos2 {
+        (pos.to_vec2() * self.zoom + self.pan).to_pos2()
+    }
+
+    pub fn canvas_to_screen_size(&self, size: f32) -> f32 {
+        size * self.zoom
+    }
+
+    pub fn screen_to_canvas_pos(&self, pos: Pos2) -> Pos2 {
+        ((pos.to_vec2() - self.pan) / self.zoom).to_pos2()
+    }
 }

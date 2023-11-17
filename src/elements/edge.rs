@@ -1,48 +1,76 @@
-use super::StyleEdge;
 use egui::{Color32, Context};
+use petgraph::stable_graph::{EdgeIndex, IndexType};
+
+/// Uniquely identifies edge with source, target and index in the set of duplicate edges.
+#[derive(Clone, Debug)]
+pub struct EdgeID<Ix: IndexType> {
+    pub idx: EdgeIndex<Ix>,
+
+    /// Index of the edge among siblings.
+    pub order: usize,
+}
+
+impl<Ix: IndexType> EdgeID<Ix> {
+    pub fn new(idx: EdgeIndex<Ix>) -> Self {
+        Self {
+            idx,
+            order: Default::default(),
+        }
+    }
+
+    pub fn with_order(mut self, order: usize) -> Self {
+        self.order = order;
+        self
+    }
+}
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug)]
-pub struct Edge<E: Clone> {
-    /// Client data
-    data: Option<E>,
+pub struct Edge<E: Clone, Ix: IndexType> {
+    id: Option<EdgeID<Ix>>,
 
-    style: StyleEdge,
+    /// Client data
+    payload: Option<E>,
 
     selected: bool,
 }
 
-impl<E: Clone> Default for Edge<E> {
-    fn default() -> Self {
+impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
+    pub fn new(payload: E) -> Self {
         Self {
-            style: Default::default(),
+            payload: Some(payload),
 
-            data: Default::default(),
-
+            id: Default::default(),
             selected: Default::default(),
         }
     }
-}
 
-impl<E: Clone> Edge<E> {
-    pub fn new(data: E) -> Self {
-        Self {
-            data: Some(data),
-
-            ..Default::default()
-        }
+    /// Binds node to the actual node and position in the graph.
+    pub fn bind(&mut self, idx: EdgeIndex<Ix>, order: usize) {
+        let id = EdgeID::new(idx).with_order(order);
+        self.id = Some(id);
     }
 
-    pub fn tip_angle(&self) -> f32 {
-        self.style.tip_angle
+    pub fn id(&self) -> EdgeID<Ix> {
+        self.id.clone().unwrap()
     }
 
-    pub fn data(&self) -> Option<&E> {
-        self.data.as_ref()
+    // TODO: handle unwrap
+    pub fn order(&self) -> usize {
+        self.id.as_ref().unwrap().order
     }
 
-    pub fn data_mut(&mut self) -> Option<&mut E> {
-        self.data.as_mut()
+    // TODO: handle unwrap
+    pub fn set_order(&mut self, order: usize) {
+        self.id.as_mut().unwrap().order = order;
+    }
+
+    pub fn payload(&self) -> Option<&E> {
+        self.payload.as_ref()
+    }
+
+    pub fn payload_mut(&mut self) -> Option<&mut E> {
+        self.payload.as_mut()
     }
     pub fn color(&self, ctx: &Context) -> Color32 {
         if self.selected {
@@ -52,24 +80,6 @@ impl<E: Clone> Edge<E> {
         ctx.style()
             .visuals
             .gray_out(ctx.style().visuals.widgets.inactive.fg_stroke.color)
-    }
-
-    pub fn width(&self) -> f32 {
-        self.style.width
-    }
-
-    pub fn with_width(&mut self, width: f32) -> Self {
-        let mut ne = self.clone();
-        ne.style.width = width;
-        ne
-    }
-
-    pub fn curve_size(&self) -> f32 {
-        self.style.curve_size
-    }
-
-    pub fn tip_size(&self) -> f32 {
-        self.style.tip_size
     }
 
     pub fn set_selected(&mut self, selected: bool) {
