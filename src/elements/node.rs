@@ -1,11 +1,11 @@
 use egui::Pos2;
-use petgraph::stable_graph::{IndexType, NodeIndex};
+use petgraph::stable_graph::{IndexType, NodeIndex, DefaultIx};
 
 use crate::ComputedNode;
 
 /// Stores properties of a node.
 #[derive(Clone, Debug)]
-pub struct Node<N: Clone, Ix: IndexType> {
+pub struct Node<N: Clone, Ix: IndexType=DefaultIx> {
     id: Option<NodeIndex<Ix>>,
     location: Option<Pos2>,
 

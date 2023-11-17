@@ -1,9 +1,9 @@
 use egui::{Color32, Context};
-use petgraph::stable_graph::{EdgeIndex, IndexType};
+use petgraph::stable_graph::{EdgeIndex, IndexType, DefaultIx};
 
 /// Uniquely identifies edge with source, target and index in the set of duplicate edges.
 #[derive(Clone, Debug)]
-pub struct EdgeID<Ix: IndexType> {
+pub struct EdgeID<Ix: IndexType=DefaultIx> {
     pub idx: EdgeIndex<Ix>,
 
     /// Index of the edge among siblings.
