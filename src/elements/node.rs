@@ -39,14 +39,6 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
         self.id.unwrap()
     }
 
-    pub fn num_connections(&self) -> usize {
-        self.computed.num_connections
-    }
-
-    pub(crate) fn set_computed(&mut self, comp: ComputedNode) {
-        self.computed = comp;
-    }
-
     // TODO: handle unbinded node
     pub fn location(&self) -> Pos2 {
         self.location.unwrap()
