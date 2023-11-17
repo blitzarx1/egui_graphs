@@ -19,7 +19,7 @@ impl<N: Clone, Ix: IndexType> From<Node<N, Ix>> for NodeShape {
             selected: node.selected(),
             dragged: node.dragged(),
 
-            size: 10.,
+            size: 30.,
         }
     }
 }
@@ -38,20 +38,24 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
 
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix> for NodeShape {
     fn closest_boundary_point(&self, dir: Vec2) -> Pos2 {
-        let p = find_intersection(self.loc, self.size, dir);
-        p
+        let margin = 5.0;
+        find_intersection(self.loc, self.size + margin, dir)
     }
 
     fn shapes(&self, ctx: &egui_graphs::DrawContext<N, E, Ty, Ix>) -> Vec<egui::Shape> {
         // lets draw a rect with label in the center for every node
 
         // find node center location on the screen coordinates
-
         let center = ctx.meta.canvas_to_screen_pos(self.loc);
         let size = ctx.meta.canvas_to_screen_size(self.size);
         let rect = Rect::from_center_size(center, Vec2::new(size, size));
 
-        let rect_color = ctx.ctx.style().visuals.weak_text_color();
+        let interacted = self.selected || self.dragged;
+        let rect_color = match interacted {
+            true => ctx.ctx.style().visuals.selection.bg_fill,
+            false => ctx.ctx.style().visuals.weak_text_color(),
+        };
+
         let shape_rect = Shape::rect_stroke(rect, Rounding::default(), Stroke::new(1., rect_color));
 
         // create label
@@ -59,7 +63,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix> 
         let galley = ctx.ctx.fonts(|f| {
             f.layout_no_wrap(
                 self.label.clone(),
-                FontId::new(rect.width(), FontFamily::Monospace),
+                FontId::new(ctx.meta.canvas_to_screen_size(10.), FontFamily::Monospace),
                 color,
             )
         });

@@ -1,5 +1,5 @@
 use eframe::{run_native, App, CreationContext};
-use egui::{epaint::TextShape, Context, FontFamily, FontId, Rect, Rounding, Shape, Stroke, Vec2};
+use egui::Context;
 use egui_graphs::{DefaultEdgeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation};
 use node::NodeShape;
 use petgraph::{
@@ -33,7 +33,8 @@ impl App for CustomDrawApp {
                     .with_interactions(
                         &SettingsInteraction::default()
                             .with_dragging_enabled(true)
-                            .with_node_selection_enabled(true),
+                            .with_node_selection_enabled(true)
+                            .with_edge_selection_enabled(true),
                     ),
             );
         });

@@ -154,7 +154,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayEdge<N, E, Ty, Ix>
             stroke_tip,
         );
 
-        return vec![line_curved.into(), line_curved_tip];
+        vec![line_curved.into(), line_curved_tip]
     }
 }
 
