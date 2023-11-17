@@ -522,7 +522,7 @@ where
     fn move_node(&mut self, idx: NodeIndex<Ix>, delta: Vec2) {
         let n = self.g.node_mut(idx).unwrap();
         let new_loc = n.location() + delta;
-        n.set_location(new_loc.clone());
+        n.set_location(new_loc);
 
         #[cfg(feature = "events")]
         self.publish_event(Event::NodeMove(PayloadNodeMove {
