@@ -1,8 +1,8 @@
 use egui::{Rect, Vec2};
 use petgraph::graph::{EdgeIndex, IndexType};
-use petgraph::{stable_graph::NodeIndex, EdgeType};
+use petgraph::stable_graph::NodeIndex;
 
-use crate::{Graph, Node};
+use crate::Node;
 
 /// The struct stores selections, dragged node and computed elements states.
 #[derive(Debug, Clone)]
@@ -32,29 +32,11 @@ where
     }
 }
 
+/// TODO: take into account node and edges sizes
 impl<Ix> ComputedState<Ix>
 where
     Ix: IndexType,
 {
-    pub fn compute_for_node<N: Clone, E: Clone, Ty: EdgeType>(
-        &mut self,
-        g: &Graph<N, E, Ty, Ix>,
-        idx: NodeIndex<Ix>,
-    ) -> ComputedNode {
-        let n = g.node(idx).unwrap();
-
-        if n.dragged() {
-            self.dragged = Some(idx);
-        }
-        if n.selected() {
-            self.selected_nodes.push(idx);
-        }
-
-        ComputedNode {
-            num_connections: g.edges_num(idx),
-        }
-    }
-
     pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N, Ix>) {
         let loc = n.location();
         if loc.x < self.min.x {
@@ -74,9 +56,4 @@ where
     pub fn graph_bounds(&self) -> Rect {
         Rect::from_min_max(self.min.to_pos2(), self.max.to_pos2())
     }
-}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
-pub struct ComputedNode {
-    pub num_connections: usize,
 }

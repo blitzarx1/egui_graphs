@@ -1,9 +1,9 @@
 use egui::{Color32, Context};
-use petgraph::stable_graph::{EdgeIndex, IndexType, DefaultIx};
+use petgraph::stable_graph::{DefaultIx, EdgeIndex, IndexType};
 
 /// Uniquely identifies edge with source, target and index in the set of duplicate edges.
 #[derive(Clone, Debug)]
-pub struct EdgeID<Ix: IndexType=DefaultIx> {
+pub struct EdgeID<Ix: IndexType = DefaultIx> {
     pub idx: EdgeIndex<Ix>,
 
     /// Index of the edge among siblings.
@@ -26,11 +26,11 @@ impl<Ix: IndexType> EdgeID<Ix> {
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
 #[derive(Clone, Debug)]
-pub struct Edge<E: Clone, Ix: IndexType=DefaultIx> {
+pub struct Edge<E: Clone, Ix: IndexType = DefaultIx> {
     id: Option<EdgeID<Ix>>,
 
     /// Client data
-    payload: Option<E>,
+    payload: E,
 
     selected: bool,
 }
@@ -38,7 +38,7 @@ pub struct Edge<E: Clone, Ix: IndexType=DefaultIx> {
 impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
     pub fn new(payload: E) -> Self {
         Self {
-            payload: Some(payload),
+            payload,
 
             id: Default::default(),
             selected: Default::default(),
@@ -65,13 +65,14 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
         self.id.as_mut().unwrap().order = order;
     }
 
-    pub fn payload(&self) -> Option<&E> {
-        self.payload.as_ref()
+    pub fn payload(&self) -> &E {
+        &self.payload
     }
 
-    pub fn payload_mut(&mut self) -> Option<&mut E> {
-        self.payload.as_mut()
+    pub fn payload_mut(&mut self) -> &mut E {
+        &mut self.payload
     }
+
     pub fn color(&self, ctx: &Context) -> Color32 {
         if self.selected {
             return ctx.style().visuals.widgets.hovered.fg_stroke.color;
