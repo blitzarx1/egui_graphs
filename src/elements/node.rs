@@ -1,33 +1,29 @@
 use egui::Pos2;
-use petgraph::stable_graph::{IndexType, NodeIndex, DefaultIx};
-
-use crate::ComputedNode;
+use petgraph::stable_graph::{DefaultIx, IndexType, NodeIndex};
 
 /// Stores properties of a node.
 #[derive(Clone, Debug)]
-pub struct Node<N: Clone, Ix: IndexType=DefaultIx> {
+pub struct Node<N: Clone, Ix: IndexType = DefaultIx> {
     id: Option<NodeIndex<Ix>>,
     location: Option<Pos2>,
 
-    payload: Option<N>,
+    payload: N,
     label: String,
 
     selected: bool,
     dragged: bool,
-    computed: ComputedNode,
 }
 
 impl<N: Clone, Ix: IndexType> Node<N, Ix> {
     pub fn new(payload: N) -> Self {
         Self {
-            payload: Some(payload),
+            payload,
 
             id: Default::default(),
             location: Default::default(),
             label: Default::default(),
             selected: Default::default(),
             dragged: Default::default(),
-            computed: Default::default(),
         }
     }
 
@@ -37,34 +33,17 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
         self.location = Some(location);
     }
 
+    // TODO: handle unbinded node
     pub fn id(&self) -> NodeIndex<Ix> {
         self.id.unwrap()
     }
 
-    pub fn num_connections(&self) -> usize {
-        self.computed.num_connections
+    pub fn payload(&self) -> &N {
+        &self.payload
     }
 
-    pub(crate) fn set_computed(&mut self, comp: ComputedNode) {
-        self.computed = comp;
-    }
-
-    pub fn payload(&self) -> Option<&N> {
-        self.payload.as_ref()
-    }
-
-    pub fn payload_mut(&mut self) -> Option<&mut N> {
-        self.payload.as_mut()
-    }
-
-    pub fn set_data(&mut self, data: Option<N>) {
-        self.payload = data;
-    }
-
-    pub fn with_data(&self, data: Option<N>) -> Self {
-        let mut res = self.clone();
-        res.payload = data;
-        res
+    pub fn payload_mut(&mut self) -> &mut N {
+        &mut self.payload
     }
 
     // TODO: handle unbinded node
