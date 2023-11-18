@@ -4,9 +4,9 @@ use egui::{
 };
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{draw::drawer::DrawContext, Graph, Node};
+use crate::{draw::drawer::DrawContext, Graph, NodeProps};
 
-use super::{DisplayNode, Interactable};
+use super::DisplayNode;
 
 /// This is the default node shape which is used to display nodes in the graph.
 ///
@@ -24,41 +24,34 @@ pub struct DefaultNodeShape {
     pub radius: f32,
 }
 
-impl<N: Clone, Ix: IndexType> From<Node<N, Ix>> for DefaultNodeShape {
-    fn from(node: Node<N, Ix>) -> Self {
+impl From<NodeProps> for DefaultNodeShape {
+    fn from(node_props: NodeProps) -> Self {
         DefaultNodeShape {
-            pos: node.location(),
-
-            selected: node.selected(),
-            dragged: node.dragged(),
-
-            label_text: node.label().to_string(),
+            pos: node_props.location,
+            selected: node_props.selected,
+            dragged: node_props.dragged,
+            label_text: node_props.label.to_string(),
 
             radius: 5.0,
         }
     }
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
-    for DefaultNodeShape
-{
-    fn is_inside<Nd: DisplayNode<N, E, Ty, Ix>>(
-        &self,
-        _g: &Graph<N, E, Ty, Ix>,
-        pos: Pos2,
-    ) -> bool {
-        is_inside_circle(self.pos, self.radius, pos)
-    }
-}
-
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
     for DefaultNodeShape
 {
+    fn is_inside(&self, pos: Pos2) -> bool {
+        is_inside_circle(self.pos, self.radius, pos)
+    }
+
     fn closest_boundary_point(&self, dir: Vec2) -> Pos2 {
         closest_point_on_circle(self.pos, self.radius, dir)
     }
 
-    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape> {
+    fn shapes<D: DisplayNode<N, E, Ty, Ix>>(
+        &self,
+        ctx: &DrawContext<N, E, Ty, Ix, D>,
+    ) -> Vec<Shape> {
         let mut res = Vec::with_capacity(2);
 
         let is_interacted = self.selected || self.dragged;

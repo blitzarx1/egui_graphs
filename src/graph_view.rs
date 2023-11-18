@@ -33,8 +33,8 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 /// struct to visualize and interact with the graph. `N` and `E` is arbitrary client data associated with nodes and edges.
 /// You can customize the visualization and interaction behavior using [SettingsInteraction], [SettingsNavigation] and [SettingsStyle] structs.
 ///
-/// When any interaction or node property change occurs, the widget sends [Change] struct to the provided
-/// [Sender<Change>] channel, which can be set via the `with_interactions` method. The [Change] struct contains information about
+/// When any interaction or node property change occurs, the widget sends [Event] struct to the provided
+/// [Sender<Event>] channel, which can be set via the `with_interactions` method. The [Event] struct contains information about
 /// a change that occurred in the graph. Client can use this information to modify external state of his application if needed.
 ///
 /// When the user performs navigation actions (zoom & pan or fit to screen), they do not
@@ -54,9 +54,9 @@ pub struct GraphView<
     Ty: EdgeType,
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
-    Ed: DisplayEdge<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
 {
-    g: &'a mut Graph<N, E, Ty, Ix>,
+    g: &'a mut Graph<N, E, Ty, Ix, Nd>,
 
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
@@ -75,7 +75,7 @@ where
     Ty: EdgeType,
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
-    Ed: DisplayEdge<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
 {
     fn ui(self, ui: &mut Ui) -> Response {
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
@@ -86,7 +86,7 @@ where
         self.handle_fit_to_screen(&resp, &mut meta, &computed);
         self.handle_navigation(ui, &resp, &mut meta, &computed);
 
-        self.handle_node_drag::<Nd>(&resp, &mut computed, &mut meta);
+        self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut meta, &computed);
 
         Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
@@ -108,18 +108,18 @@ where
     }
 }
 
-impl<'a, N, E, Ty, Ix, Nd, Ed> GraphView<'a, N, E, Ty, Ix, Nd, Ed>
+impl<'a, N, E, Ty, Ix, Dn, De> GraphView<'a, N, E, Ty, Ix, Dn, De>
 where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
     Ix: IndexType,
-    Nd: DisplayNode<N, E, Ty, Ix>,
-    Ed: DisplayEdge<N, E, Ty, Ix>,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut Graph<N, E, Ty, Ix>) -> Self {
+    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn>) -> Self {
         Self {
             g,
 
@@ -215,10 +215,8 @@ where
 
         let found_edge = self
             .g
-            .edge_by_screen_pos::<Ed, Nd>(meta, resp.hover_pos().unwrap());
-        let found_node = self
-            .g
-            .node_by_screen_pos::<Nd>(meta, resp.hover_pos().unwrap());
+            .edge_by_screen_pos::<De>(meta, resp.hover_pos().unwrap());
+        let found_node = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap());
         if found_node.is_none() && found_edge.is_none() {
             // click on empty space
             let nodes_selectable = self.settings_interaction.node_selection_enabled
@@ -319,7 +317,7 @@ where
         self.select_edge(idx);
     }
 
-    fn handle_node_drag<Dn: DisplayNode<N, E, Ty, Ix>>(
+    fn handle_node_drag(
         &mut self,
         resp: &Response,
         comp: &mut ComputedState<Ix>,
@@ -330,10 +328,7 @@ where
         }
 
         if resp.drag_started() {
-            if let Some((idx, _)) = self
-                .g
-                .node_by_screen_pos::<Dn>(meta, resp.hover_pos().unwrap())
-            {
+            if let Some((idx, _)) = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap()) {
                 self.set_drag_start(idx);
             }
         }

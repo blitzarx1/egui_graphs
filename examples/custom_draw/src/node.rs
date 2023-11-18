@@ -1,7 +1,8 @@
 use egui::{epaint::TextShape, FontFamily, FontId, Pos2, Rect, Rounding, Shape, Stroke, Vec2};
-use egui_graphs::{DisplayNode, Graph, Interactable, Node};
+use egui_graphs::{DisplayNode, NodeProps};
 use petgraph::{stable_graph::IndexType, EdgeType};
 
+#[derive(Clone)]
 pub struct NodeShape {
     label: String,
     loc: Pos2,
@@ -11,38 +12,34 @@ pub struct NodeShape {
     size: f32,
 }
 
-impl<N: Clone, Ix: IndexType> From<Node<N, Ix>> for NodeShape {
-    fn from(node: Node<N, Ix>) -> Self {
+impl From<NodeProps> for NodeShape {
+    fn from(node_props: NodeProps) -> Self {
         Self {
-            label: node.label(),
-            loc: node.location(),
-            selected: node.selected(),
-            dragged: node.dragged(),
+            label: node_props.label,
+            loc: node_props.location,
+            selected: node_props.selected,
+            dragged: node_props.dragged,
 
             size: 30.,
         }
     }
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix> for NodeShape {
-    fn is_inside<Dn: egui_graphs::DisplayNode<N, E, Ty, Ix>>(
-        &self,
-        _g: &Graph<N, E, Ty, Ix>,
-        pos: Pos2,
-    ) -> bool {
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix> for NodeShape {
+    fn is_inside(&self, pos: Pos2) -> bool {
         let rect = Rect::from_center_size(self.loc, Vec2::new(self.size, self.size));
 
         rect.contains(pos)
     }
-}
-
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix> for NodeShape {
     fn closest_boundary_point(&self, dir: Vec2) -> Pos2 {
         let margin = 5.0;
         find_intersection(self.loc, self.size + margin, dir)
     }
 
-    fn shapes(&self, ctx: &egui_graphs::DrawContext<N, E, Ty, Ix>) -> Vec<egui::Shape> {
+    fn shapes<D: DisplayNode<N, E, Ty, Ix>>(
+        &self,
+        ctx: &egui_graphs::DrawContext<N, E, Ty, Ix, D>,
+    ) -> Vec<egui::Shape> {
         // lets draw a rect with label in the center for every node
 
         // find node center location on the screen coordinates

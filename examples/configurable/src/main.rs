@@ -27,7 +27,7 @@ pub struct ConfigurableApp {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
 
-    selected_nodes: Vec<Node<(), DefaultIx>>,
+    selected_nodes: Vec<Node<(), (), Directed, DefaultIx>>,
     selected_edges: Vec<Edge<(), DefaultIx>>,
     last_events: Vec<String>,
 
@@ -253,7 +253,8 @@ impl ConfigurableApp {
         self.g.g[idx].bind(idx, location);
 
         let n = self.g.g.node_weight_mut(idx).unwrap();
-        *n = n.with_label(format!("{:?}", idx));
+        n.set_label(format!("{:?}", idx));
+
         let mut sim_node = fdg_sim::Node::new(idx.index().to_string().as_str(), ());
         sim_node.location = Vec3::new(location.x, location.y, 0.);
         self.sim.get_graph_mut().add_node(sim_node);

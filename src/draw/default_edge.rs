@@ -6,9 +6,9 @@ use egui::{
 };
 use petgraph::{matrix_graph::Nullable, stable_graph::IndexType, EdgeType};
 
-use crate::{draw::DrawContext, elements::EdgeID, DisplayNode, Edge, Graph, Node};
+use crate::{draw::DrawContext, elements::EdgeID, DisplayNode, Edge, Node};
 
-use super::{DisplayEdge, Interactable};
+use super::DisplayEdge;
 
 #[derive(Clone, Debug)]
 pub struct DefaultEdgeShape<Ix: IndexType> {
@@ -39,13 +39,30 @@ impl<E: Clone, Ix: IndexType> From<Edge<E, Ix>> for DefaultEdgeShape<Ix> {
     }
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayEdge<N, E, Ty, Ix>
-    for DefaultEdgeShape<Ix>
+impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>
+    DisplayEdge<N, E, Ty, Ix, D> for DefaultEdgeShape<Ix>
 {
-    fn shapes<Dn: DisplayNode<N, E, Ty, Ix>>(
+    fn is_inside(
         &self,
-        ctx: &DrawContext<N, E, Ty, Ix>,
-    ) -> Vec<egui::Shape> {
+        start: &Node<N, E, Ty, Ix, D>,
+        end: &Node<N, E, Ty, Ix, D>,
+        pos: egui::Pos2,
+    ) -> bool {
+        if start.id() == end.id() {
+            return is_inside_loop(start, self, pos);
+        }
+
+        let pos_start = start.location();
+        let pos_end = end.location();
+
+        if self.edge_id.order == 0 {
+            return is_inside_line(pos_start, pos_end, pos, self);
+        }
+
+        is_inside_curve(start, end, self, pos)
+    }
+
+    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix, D>) -> Vec<egui::Shape> {
         let (idx_start, idx_end) = ctx.g.edge_endpoints(self.edge_id.idx).unwrap();
         let n_start = ctx.g.node(idx_start).unwrap();
         let n_end = ctx.g.node(idx_end).unwrap();
@@ -58,7 +75,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayEdge<N, E, Ty, Ix>
 
         if idx_start == idx_end {
             // draw loop
-            let node_size = node_size::<_, _, _, _, Dn>(n_start);
+            let node_size = node_size(n_start);
             let stroke = Stroke::new(self.width * ctx.meta.zoom, color);
             return vec![shape_looped(
                 ctx.meta.canvas_to_screen_size(node_size),
@@ -70,8 +87,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayEdge<N, E, Ty, Ix>
         }
 
         let dir = (n_end.location() - n_start.location()).normalized();
-        let start_connector_point = Dn::from(n_start.clone()).closest_boundary_point(dir);
-        let end_connector_point = Dn::from(n_end.clone()).closest_boundary_point(-dir);
+        let start_connector_point = n_start.display().closest_boundary_point(dir);
+        let end_connector_point = n_end.display().closest_boundary_point(-dir);
 
         let tip_end = end_connector_point;
 
@@ -222,45 +239,12 @@ fn shape_curved<Ix: IndexType>(
     )
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> Interactable<N, E, Ty, Ix>
-    for DefaultEdgeShape<Ix>
-{
-    fn is_inside<Nd: DisplayNode<N, E, Ty, Ix>>(
-        &self,
-        g: &Graph<N, E, Ty, Ix>,
-        pos: egui::Pos2,
-    ) -> bool {
-        let (idx_start, idx_end) = g.edge_endpoints(self.edge_id.idx).unwrap();
-        let node_start = g.node(idx_start).unwrap();
-        let node_end = g.node(idx_end).unwrap();
-
-        if idx_start == idx_end {
-            return is_inside_loop::<_, _, _, _, Nd>(node_start, self, pos);
-        }
-
-        let pos_start = node_start.location();
-        let pos_end = node_end.location();
-
-        if self.edge_id.order == 0 {
-            return is_inside_line(pos_start, pos_end, pos, self);
-        }
-
-        is_inside_curve::<N, E, Ty, Ix, Nd>(node_start, node_end, self, pos)
-    }
-}
-
-fn is_inside_loop<
-    E: Clone,
-    N: Clone,
-    Ix: IndexType,
-    Ty: EdgeType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
->(
-    node: &Node<N, Ix>,
+fn is_inside_loop<E: Clone, N: Clone, Ix: IndexType, Ty: EdgeType, D: DisplayNode<N, E, Ty, Ix>>(
+    node: &Node<N, E, Ty, Ix, D>,
     e: &DefaultEdgeShape<Ix>,
     pos: Pos2,
 ) -> bool {
-    let node_size = node_size::<_, _, _, _, Dn>(node);
+    let node_size = node_size(node);
 
     let shape = shape_looped(node_size, node.location(), Stroke::default(), e);
     is_point_on_cubic_bezier_curve(pos, shape, e.width)
@@ -281,18 +265,18 @@ fn is_inside_curve<
     E: Clone,
     Ty: EdgeType,
     Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
+    D: DisplayNode<N, E, Ty, Ix>,
 >(
-    node_start: &Node<N, Ix>,
-    node_end: &Node<N, Ix>,
+    node_start: &Node<N, E, Ty, Ix, D>,
+    node_end: &Node<N, E, Ty, Ix, D>,
     e: &DefaultEdgeShape<Ix>,
     pos: Pos2,
 ) -> bool {
     let pos_start = node_start.location();
     let pos_end = node_end.location();
 
-    let size_start = node_size::<_, _, _, _, Dn>(node_start);
-    let size_end = node_size::<_, _, _, _, Dn>(node_end);
+    let size_start = node_size(node_start);
+    let size_end = node_size(node_end);
 
     let shape = shape_curved(
         pos_start,
@@ -305,12 +289,12 @@ fn is_inside_curve<
     is_point_on_quadratic_bezier_curve(pos, shape, e.width)
 }
 
-fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, Dn: DisplayNode<N, E, Ty, Ix>>(
-    node: &Node<N, Ix>,
+fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
+    node: &Node<N, E, Ty, Ix, D>,
 ) -> f32 {
     let left_dir = Vec2::new(-1., 0.);
-    let connector_left = Dn::from(node.clone()).closest_boundary_point(left_dir);
-    let connector_right = Dn::from(node.clone()).closest_boundary_point(-left_dir);
+    let connector_left = node.display().closest_boundary_point(left_dir);
+    let connector_right = node.display().closest_boundary_point(-left_dir);
 
     (connector_right.x - connector_left.x) / 2.
 }

@@ -1,8 +1,9 @@
 use egui::{Rect, Vec2};
 use petgraph::graph::{EdgeIndex, IndexType};
 use petgraph::stable_graph::NodeIndex;
+use petgraph::EdgeType;
 
-use crate::Node;
+use crate::{DisplayNode, Node};
 
 /// The struct stores selections, dragged node and computed elements states.
 #[derive(Debug, Clone)]
@@ -37,7 +38,10 @@ impl<Ix> ComputedState<Ix>
 where
     Ix: IndexType,
 {
-    pub fn comp_iter_bounds<N: Clone>(&mut self, n: &Node<N, Ix>) {
+    pub fn comp_iter_bounds<N: Clone, E: Clone, Ty: EdgeType, D: DisplayNode<N, E, Ty, Ix>>(
+        &mut self,
+        n: &Node<N, E, Ty, Ix, D>,
+    ) {
         let loc = n.location();
         if loc.x < self.min.x {
             self.min.x = loc.x;

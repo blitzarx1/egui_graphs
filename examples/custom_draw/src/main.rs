@@ -1,6 +1,8 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{DefaultEdgeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation};
+use egui_graphs::{
+    DefaultEdgeShape, DisplayNode, Graph, GraphView, SettingsInteraction, SettingsNavigation,
+};
 use node::NodeShape;
 use petgraph::{
     stable_graph::{DefaultIx, StableGraph},
@@ -9,7 +11,7 @@ use petgraph::{
 
 mod node;
 
-pub struct CustomDrawApp {
+pub struct CustomDrawApp<D: DisplayNode> {
     g: Graph<(), (), Directed, DefaultIx>,
 }
 

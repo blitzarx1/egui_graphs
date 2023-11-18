@@ -1,9 +1,9 @@
 use egui::{Pos2, Shape, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{draw::drawer::DrawContext, Edge, Graph, Node};
+use crate::{draw::drawer::DrawContext, Edge, Node, NodeProps};
 
-pub trait DisplayNode<N, E, Ty, Ix>: Interactable<N, E, Ty, Ix> + From<Node<N, Ix>>
+pub trait DisplayNode<N, E, Ty, Ix>: Clone + From<NodeProps>
 where
     N: Clone,
     E: Clone,
@@ -22,14 +22,26 @@ where
     /// * `ctx` - should be used to determine current global properties.
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
-    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
+    fn shapes<D: DisplayNode<N, E, Ty, Ix>>(
+        &self,
+        ctx: &DrawContext<N, E, Ty, Ix, D>,
+    ) -> Vec<Shape>;
+
+    /// Checks if the provided `pos` is inside the shape.
+    ///
+    /// * `pos` - position is in the canvas coordinates.
+    ///
+    /// Could be used to bind mouse events to the custom drawn nodes.
+    fn is_inside(&self, pos: Pos2) -> bool;
 }
-pub trait DisplayEdge<N, E, Ty, Ix>: Interactable<N, E, Ty, Ix> + From<Edge<E, Ix>>
+
+pub trait DisplayEdge<N, E, Ty, Ix, D>: From<Edge<E, Ix>>
 where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
     Ix: IndexType,
+    D: DisplayNode<N, E, Ty, Ix>,
 {
     /// Draws shapes of the edge.
     ///
@@ -39,14 +51,19 @@ where
     /// Use `ctx.meta` to properly scale and translate the shape.
     ///
     /// Get [NodeGraphDisplay] from node endpoints to get start and end coordinates using [closest_boundary_point](NodeGraphDisplay::closest_boundary_point).
-    fn shapes<Dn: DisplayNode<N, E, Ty, Ix>>(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
-}
+    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix, D>) -> Vec<Shape>;
 
-pub trait Interactable<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
     /// Checks if the provided `pos` is inside the shape.
     ///
-    /// * `pos` - position is in the canvas coordinates.
+    /// * `start` - start node of the edge.
+    /// * `end`   - end node of the edge.
+    /// * `pos`   - position is in the canvas coordinates.
     ///
     /// Could be used to bind mouse events to the custom drawn nodes.
-    fn is_inside<Dn: DisplayNode<N, E, Ty, Ix>>(&self, g: &Graph<N, E, Ty, Ix>, pos: Pos2) -> bool;
+    fn is_inside(
+        &self,
+        start: &Node<N, E, Ty, Ix, D>,
+        end: &Node<N, E, Ty, Ix, D>,
+        pos: Pos2,
+    ) -> bool;
 }

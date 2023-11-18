@@ -1,4 +1,4 @@
-use crate::{Edge, Graph, Node};
+use crate::{DisplayNode, Edge, Graph, Node};
 use egui::Pos2;
 use petgraph::{
     graph::IndexType,
@@ -12,13 +12,13 @@ use std::collections::HashMap;
 pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 
 pub type EdgeTransform<E, Ix> = fn(EdgeIndex<Ix>, &E, usize) -> Edge<E, Ix>;
-pub type NodeTransform<N, Ix> = fn(NodeIndex<Ix>, &N) -> Node<N, Ix>;
+pub type NodeTransform<N, E, Ty, Ix, D> = fn(NodeIndex<Ix>, &N) -> Node<N, E, Ty, Ix, D>;
 
 /// Helper function which adds user's node to the [`super::Graph`] instance.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-pub fn add_node<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
-    g: &mut Graph<N, E, Ty, Ix>,
+pub fn add_node<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
+    g: &mut Graph<N, E, Ty, Ix, D>,
     n: &N,
 ) -> NodeIndex<Ix> {
     add_node_custom(g, n, default_node_transform)
@@ -27,10 +27,16 @@ pub fn add_node<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 /// Helper function which adds user's node to the [`super::Graph`] instance with custom node transform function.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-pub fn add_node_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
-    g: &mut Graph<N, E, Ty, Ix>,
+pub fn add_node_custom<
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    D: DisplayNode<N, E, Ty, Ix>,
+>(
+    g: &mut Graph<N, E, Ty, Ix, D>,
     n: &N,
-    node_transform: NodeTransform<N, Ix>,
+    node_transform: NodeTransform<N, E, Ty, Ix, D>,
 ) -> NodeIndex<Ix> {
     g.g.add_node(node_transform(
         NodeIndex::<Ix>::new(g.g.node_count() + 1),
@@ -110,28 +116,42 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
 /// assert!(loc_1 != Pos2::ZERO);
 /// assert!(loc_2 != Pos2::ZERO);
 /// ```
-pub fn to_graph<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
+pub fn to_graph<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
     g: &StableGraph<N, E, Ty, Ix>,
-) -> Graph<N, E, Ty, Ix> {
+) -> Graph<N, E, Ty, Ix, D> {
     transform(g, default_node_transform, default_edge_transform)
 }
 
 /// The same as [`to_graph`], but allows to define custom transformation procedures for nodes and edges.
-pub fn to_graph_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
+pub fn to_graph_custom<
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    D: DisplayNode<N, E, Ty, Ix>,
+>(
     g: &StableGraph<N, E, Ty, Ix>,
-    node_transform: NodeTransform<N, Ix>,
+    node_transform: NodeTransform<N, E, Ty, Ix, D>,
     edge_transform: EdgeTransform<E, Ix>,
-) -> Graph<N, E, Ty, Ix> {
+) -> Graph<N, E, Ty, Ix, D> {
     transform(g, node_transform, edge_transform)
 }
 
 /// Default node transform function. Keeps original data and creates a new node with a random location and
 /// label equal to the index of the node in the graph.
-pub fn default_node_transform<N: Clone, Ix: IndexType>(
+pub fn default_node_transform<
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    D: DisplayNode<N, E, Ty, Ix>,
+>(
     idx: NodeIndex<Ix>,
     payload: &N,
-) -> Node<N, Ix> {
-    let mut n = Node::new(payload.clone()).with_label(idx.index().to_string());
+) -> Node<N, E, Ty, Ix, D> {
+    let mut n = Node::new(payload.clone());
+    n.set_label(idx.index().to_string());
+
     let loc = random_location(DEFAULT_SPAWN_SIZE);
     n.bind(idx, loc);
     n
@@ -153,12 +173,12 @@ fn random_location(size: f32) -> Pos2 {
     Pos2::new(rng.gen_range(0. ..size), rng.gen_range(0. ..size))
 }
 
-fn transform<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
+fn transform<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
     g: &StableGraph<N, E, Ty, Ix>,
-    node_transform: NodeTransform<N, Ix>,
+    node_transform: NodeTransform<N, E, Ty, Ix, D>,
     edge_transform: EdgeTransform<E, Ix>,
-) -> Graph<N, E, Ty, Ix> {
-    let mut input_g = StableGraph::<Node<N, Ix>, Edge<E, Ix>, Ty, Ix>::default();
+) -> Graph<N, E, Ty, Ix, D> {
+    let mut input_g = StableGraph::<Node<N, E, Ty, Ix, D>, Edge<E, Ix>, Ty, Ix>::default();
 
     let input_by_user = g
         .node_references()
