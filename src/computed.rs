@@ -32,7 +32,7 @@ where
     }
 }
 
-/// TODO: take into account node and edges sizes
+// TODO: take into account node and edges sizes
 impl<Ix> ComputedState<Ix>
 where
     Ix: IndexType,
