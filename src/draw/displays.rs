@@ -1,7 +1,7 @@
 use egui::{Pos2, Shape, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{draw::drawer::DrawContext, Edge, Node, NodeProps};
+use crate::{draw::drawer::DrawContext, elements::EdgeProps, Edge, Node, NodeProps};
 
 pub trait DisplayNode<N, E, Ty, Ix>: Clone + From<NodeProps>
 where
@@ -34,7 +34,7 @@ where
     fn is_inside(&self, pos: Pos2) -> bool;
 }
 
-pub trait DisplayEdge<N, E, Ty, Ix, D>: From<Edge<E, Ix>>
+pub trait DisplayEdge<N, E, Ty, Ix, D>: Clone + From<EdgeProps>
 where
     N: Clone,
     E: Clone,
@@ -49,9 +49,9 @@ where
     /// * `ctx` - should be used to determine current global properties.
     /// * `start` and `end` - start and end points of the edge.
     ///
-    /// Use `ctx.meta` to properly scale and translate the shape.
+    /// Uses `ctx.meta` to properly scale and translate the shape.
     ///
-    /// Get [NodeGraphDisplay] from node endpoints to get start and end coordinates using [closest_boundary_point](NodeGraphDisplay::closest_boundary_point).
+    /// Uses [DisplayNode] implementation from node endpoints to get start and end coordinates using [closest_boundary_point](DisplayNode::closest_boundary_point).
     fn shapes(
         &mut self,
         start: &Node<N, E, Ty, Ix, D>,

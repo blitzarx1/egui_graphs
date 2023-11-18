@@ -10,8 +10,8 @@ use petgraph::{
 };
 
 use crate::draw::{DisplayEdge, DisplayNode};
-use crate::DefaultNodeShape;
 use crate::{metadata::Metadata, transform, Edge, Node};
+use crate::{DefaultEdgeShape, DefaultNodeShape};
 
 /// Graph type compatible with [`super::GraphView`].
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -21,9 +21,10 @@ pub struct Graph<
     E: Clone,
     Ty: EdgeType = Directed,
     Ix: IndexType = DefaultIx,
-    D: DisplayNode<N, E, Ty, Ix> = DefaultNodeShape,
+    Dn: DisplayNode<N, E, Ty, Ix> = DefaultNodeShape,
+    De: DisplayEdge<N, E, Ty, Ix, Dn> = DefaultEdgeShape,
 > {
-    pub g: StableGraph<Node<N, E, Ty, Ix, D>, Edge<E, Ix>, Ty, Ix>,
+    pub g: StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>,
 }
 
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>
@@ -34,10 +35,16 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
     }
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>
-    Graph<N, E, Ty, Ix, D>
+impl<
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    > Graph<N, E, Ty, Ix, Dn>
 {
-    pub fn new(g: StableGraph<Node<N, E, Ty, Ix, D>, Edge<E, Ix>, Ty, Ix>) -> Self {
+    pub fn new(g: StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>) -> Self {
         Self { g }
     }
 
@@ -46,7 +53,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         &self,
         meta: &Metadata,
         screen_pos: Pos2,
-    ) -> Option<(NodeIndex<Ix>, &Node<N, E, Ty, Ix, D>)> {
+    ) -> Option<(NodeIndex<Ix>, &Node<N, E, Ty, Ix, Dn>)> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, node) in self.nodes_iter() {
             let display = node.display();
@@ -58,14 +65,10 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
     }
 
     /// Finds edge by position.
-    pub fn edge_by_screen_pos<De: DisplayEdge<N, E, Ty, Ix, D>>(
-        &self,
-        meta: &Metadata,
-        screen_pos: Pos2,
-    ) -> Option<EdgeIndex<Ix>> {
+    pub fn edge_by_screen_pos(&self, meta: &Metadata, screen_pos: Pos2) -> Option<EdgeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, e) in self.edges_iter() {
-            let (idx_start, idx_end) = self.g.edge_endpoints(e.id().idx).unwrap();
+            let (idx_start, idx_end) = self.g.edge_endpoints(e.id()).unwrap();
             let start = self.g.node_weight(idx_start).unwrap();
             let end = self.g.node_weight(idx_end).unwrap();
             if De::from(e.clone()).is_inside(start, end, pos_in_graph) {
@@ -76,25 +79,27 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         None
     }
 
-    pub fn g(&mut self) -> &mut StableGraph<Node<N, E, Ty, Ix, D>, Edge<E, Ix>, Ty, Ix> {
+    pub fn g(
+        &mut self,
+    ) -> &mut StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn>, Ty, Ix> {
         &mut self.g
     }
 
     ///Provides iterator over all nodes and their indices.
-    pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeIndex<Ix>, &Node<N, E, Ty, Ix, D>)> {
+    pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeIndex<Ix>, &Node<N, E, Ty, Ix, Dn>)> {
         self.g.node_references()
     }
 
     /// Provides iterator over all edges and their indices.
-    pub fn edges_iter(&self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<E, Ix>)> {
+    pub fn edges_iter(&self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<N, E, Ty, Ix, Dn>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
 
-    pub fn node(&self, i: NodeIndex<Ix>) -> Option<&Node<N, E, Ty, Ix, D>> {
+    pub fn node(&self, i: NodeIndex<Ix>) -> Option<&Node<N, E, Ty, Ix, Dn>> {
         self.g.node_weight(i)
     }
 
-    pub fn edge(&self, i: EdgeIndex<Ix>) -> Option<&Edge<E, Ix>> {
+    pub fn edge(&self, i: EdgeIndex<Ix>) -> Option<&Edge<N, E, Ty, Ix, Dn>> {
         self.g.edge_weight(i)
     }
 
@@ -102,11 +107,11 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         self.g.edge_endpoints(i)
     }
 
-    pub fn node_mut(&mut self, i: NodeIndex<Ix>) -> Option<&mut Node<N, E, Ty, Ix, D>> {
+    pub fn node_mut(&mut self, i: NodeIndex<Ix>) -> Option<&mut Node<N, E, Ty, Ix, Dn>> {
         self.g.node_weight_mut(i)
     }
 
-    pub fn edge_mut(&mut self, i: EdgeIndex<Ix>) -> Option<&mut Edge<E, Ix>> {
+    pub fn edge_mut(&mut self, i: EdgeIndex<Ix>) -> Option<&mut Edge<N, E, Ty, Ix, Dn>> {
         self.g.edge_weight_mut(i)
     }
 
@@ -122,7 +127,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         &self,
         idx: NodeIndex<Ix>,
         dir: Direction,
-    ) -> impl Iterator<Item = EdgeReference<Edge<E, Ix>, Ix>> {
+    ) -> impl Iterator<Item = EdgeReference<Edge<N, E, Ty, Ix, Dn>, Ix>> {
         self.g.edges_directed(idx, dir)
     }
 }

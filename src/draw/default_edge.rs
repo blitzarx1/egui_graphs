@@ -6,14 +6,13 @@ use egui::{
 };
 use petgraph::{matrix_graph::Nullable, stable_graph::IndexType, EdgeType};
 
-use crate::{draw::DrawContext, elements::EdgeID, DisplayNode, Edge, Node};
+use crate::{draw::DrawContext, elements::EdgeProps, DisplayNode, Edge, Node};
 
 use super::DisplayEdge;
 
 #[derive(Clone, Debug)]
-pub struct DefaultEdgeShape<Ix: IndexType> {
-    pub edge_id: EdgeID<Ix>,
-
+pub struct DefaultEdgeShape {
+    pub order: usize,
     pub selected: bool,
 
     pub width: f32,
@@ -23,12 +22,11 @@ pub struct DefaultEdgeShape<Ix: IndexType> {
     pub loop_size: f32,
 }
 
-impl<E: Clone, Ix: IndexType> From<Edge<E, Ix>> for DefaultEdgeShape<Ix> {
-    fn from(edge: Edge<E, Ix>) -> Self {
+impl From<EdgeProps> for DefaultEdgeShape {
+    fn from(edge: EdgeProps) -> Self {
         Self {
-            edge_id: edge.id(),
-
-            selected: edge.selected(),
+            order: edge.order,
+            selected: edge.selected,
 
             width: 2.,
             tip_size: 15.,
@@ -40,7 +38,7 @@ impl<E: Clone, Ix: IndexType> From<Edge<E, Ix>> for DefaultEdgeShape<Ix> {
 }
 
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>
-    DisplayEdge<N, E, Ty, Ix, D> for DefaultEdgeShape<Ix>
+    DisplayEdge<N, E, Ty, Ix, D> for DefaultEdgeShape
 {
     fn is_inside(
         &self,
@@ -176,11 +174,11 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
     }
 }
 
-fn shape_looped<Ix: IndexType>(
+fn shape_looped(
     node_size: f32,
     node_center: Pos2,
     stroke: Stroke,
-    e: &DefaultEdgeShape<Ix>,
+    e: &DefaultEdgeShape,
 ) -> CubicBezierShape {
     let center_horizon_angle = PI / 4.;
     let y_intersect = node_center.y - node_size * center_horizon_angle.sin();
@@ -207,13 +205,13 @@ fn shape_looped<Ix: IndexType>(
     )
 }
 
-fn shape_curved<Ix: IndexType>(
+fn shape_curved(
     pos_start: Pos2,
     pos_end: Pos2,
     size_start: f32,
     size_end: f32,
     stroke: Stroke,
-    e: &DefaultEdgeShape<Ix>,
+    e: &DefaultEdgeShape,
 ) -> QuadraticBezierShape {
     let vec = pos_end - pos_start;
     let dist: f32 = vec.length();
@@ -242,7 +240,7 @@ fn shape_curved<Ix: IndexType>(
 
 fn is_inside_loop<E: Clone, N: Clone, Ix: IndexType, Ty: EdgeType, D: DisplayNode<N, E, Ty, Ix>>(
     node: &Node<N, E, Ty, Ix, D>,
-    e: &DefaultEdgeShape<Ix>,
+    e: &DefaultEdgeShape,
     pos: Pos2,
 ) -> bool {
     let node_size = node_size(node);
@@ -255,7 +253,7 @@ fn is_inside_line<Ix: IndexType>(
     pos_start: Pos2,
     pos_end: Pos2,
     pos: Pos2,
-    e: &DefaultEdgeShape<Ix>,
+    e: &DefaultEdgeShape,
 ) -> bool {
     let distance = distance_segment_to_point(pos_start, pos_end, pos);
     distance <= e.width
@@ -270,7 +268,7 @@ fn is_inside_curve<
 >(
     node_start: &Node<N, E, Ty, Ix, D>,
     node_end: &Node<N, E, Ty, Ix, D>,
-    e: &DefaultEdgeShape<Ix>,
+    e: &DefaultEdgeShape,
     pos: Pos2,
 ) -> bool {
     let pos_start = node_start.location();

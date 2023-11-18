@@ -11,7 +11,8 @@ use std::collections::HashMap;
 
 pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 
-pub type EdgeTransform<E, Ix> = fn(EdgeIndex<Ix>, &E, usize) -> Edge<E, Ix>;
+pub type EdgeTransform<N, E, Ty, Ix, Dn, D> =
+    fn(EdgeIndex<Ix>, &E, usize) -> Edge<N, E, Ty, Ix, Dn, D>;
 pub type NodeTransform<N, E, Ty, Ix, D> = fn(NodeIndex<Ix>, &N) -> Node<N, E, Ty, Ix, D>;
 
 /// Helper function which adds user's node to the [`super::Graph`] instance.
@@ -60,7 +61,7 @@ pub fn add_edge_custom<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType>(
     start: NodeIndex<Ix>,
     end: NodeIndex<Ix>,
     e: &E,
-    edge_transform: EdgeTransform<E, Ix>,
+    edge_transform: EdgeTransform<N, E, Ty, Ix, Dn, D>,
 ) -> EdgeIndex<Ix> {
     let order = g.g.edges_connecting(start, end).count();
     g.g.add_edge(

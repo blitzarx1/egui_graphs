@@ -47,7 +47,7 @@ pub struct GraphView<
     Ty = Directed,
     Ix = DefaultIx,
     Nd = DefaultNodeShape,
-    Ed = DefaultEdgeShape<Ix>,
+    Ed = DefaultEdgeShape,
 > where
     N: Clone,
     E: Clone,

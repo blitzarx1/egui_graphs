@@ -1,5 +1,5 @@
 mod edge;
 mod node;
 
-pub use self::edge::{Edge, EdgeID};
+pub use self::edge::{Edge, EdgeProps};
 pub use self::node::{Node, NodeProps};
