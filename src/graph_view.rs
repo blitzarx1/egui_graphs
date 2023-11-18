@@ -89,12 +89,14 @@ where
         self.handle_node_drag(&resp, &mut computed, &mut meta);
         self.handle_click(&resp, &mut meta, &computed);
 
+        let is_directed = self.g.is_directed();
         Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
             p,
+            &mut self.g,
             &DrawContext {
                 ctx: ui.ctx(),
-                g: self.g,
                 meta: &meta,
+                is_directed,
                 style: &self.settings_style,
             },
         )

@@ -19,13 +19,12 @@ where
 
     /// Draws shapes of the node.
     ///
+    /// Has mutable reference to itself for possibility to change internal state for the visualizations where this is important.
+    ///
     /// * `ctx` - should be used to determine current global properties.
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
-    fn shapes<D: DisplayNode<N, E, Ty, Ix>>(
-        &self,
-        ctx: &DrawContext<N, E, Ty, Ix, D>,
-    ) -> Vec<Shape>;
+    fn shapes(&mut self, ctx: &DrawContext) -> Vec<Shape>;
 
     /// Checks if the provided `pos` is inside the shape.
     ///
@@ -45,13 +44,20 @@ where
 {
     /// Draws shapes of the edge.
     ///
+    /// Has mutable reference to itself for possibility to change internal state for the visualizations where this is important.
+    ///
     /// * `ctx` - should be used to determine current global properties.
     /// * `start` and `end` - start and end points of the edge.
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
     ///
     /// Get [NodeGraphDisplay] from node endpoints to get start and end coordinates using [closest_boundary_point](NodeGraphDisplay::closest_boundary_point).
-    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix, D>) -> Vec<Shape>;
+    fn shapes(
+        &mut self,
+        start: &Node<N, E, Ty, Ix, D>,
+        end: &Node<N, E, Ty, Ix, D>,
+        ctx: &DrawContext,
+    ) -> Vec<Shape>;
 
     /// Checks if the provided `pos` is inside the shape.
     ///

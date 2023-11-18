@@ -62,33 +62,34 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         is_inside_curve(start, end, self, pos)
     }
 
-    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix, D>) -> Vec<egui::Shape> {
-        let (idx_start, idx_end) = ctx.g.edge_endpoints(self.edge_id.idx).unwrap();
-        let n_start = ctx.g.node(idx_start).unwrap();
-        let n_end = ctx.g.node(idx_end).unwrap();
-
+    fn shapes(
+        &mut self,
+        start: &Node<N, E, Ty, Ix, D>,
+        end: &Node<N, E, Ty, Ix, D>,
+        ctx: &DrawContext,
+    ) -> Vec<egui::Shape> {
         let style = match self.selected {
             true => ctx.ctx.style().visuals.widgets.active,
             false => ctx.ctx.style().visuals.widgets.inactive,
         };
         let color = style.fg_stroke.color;
 
-        if idx_start == idx_end {
+        if start.id() == end.id() {
             // draw loop
-            let node_size = node_size(n_start);
+            let node_size = node_size(start);
             let stroke = Stroke::new(self.width * ctx.meta.zoom, color);
             return vec![shape_looped(
                 ctx.meta.canvas_to_screen_size(node_size),
-                ctx.meta.canvas_to_screen_pos(n_start.location()),
+                ctx.meta.canvas_to_screen_pos(start.location()),
                 stroke,
                 self,
             )
             .into()];
         }
 
-        let dir = (n_end.location() - n_start.location()).normalized();
-        let start_connector_point = n_start.display().closest_boundary_point(dir);
-        let end_connector_point = n_end.display().closest_boundary_point(-dir);
+        let dir = (end.location() - start.location()).normalized();
+        let start_connector_point = start.display().closest_boundary_point(dir);
+        let end_connector_point = end.display().closest_boundary_point(-dir);
 
         let tip_end = end_connector_point;
 
@@ -107,7 +108,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
                 ],
                 stroke_edge,
             );
-            if !ctx.g.is_directed() {
+            if !ctx.is_directed {
                 return vec![line];
             }
 
@@ -157,7 +158,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             stroke_edge,
         );
 
-        if !ctx.g.is_directed() {
+        if !ctx.is_directed {
             return vec![line_curved.into()];
         }
 

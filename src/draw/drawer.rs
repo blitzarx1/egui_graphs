@@ -10,17 +10,10 @@ use super::layers::Layers;
 use super::{DisplayEdge, DisplayNode};
 
 /// Contains all the data about current widget state which is needed for custom drawing functions.
-pub struct DrawContext<
-    'a,
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Nd: DisplayNode<N, E, Ty, Ix>,
-> {
+pub struct DrawContext<'a> {
     pub ctx: &'a Context,
-    pub g: &'a Graph<N, E, Ty, Ix, Nd>,
     pub style: &'a SettingsStyle,
+    pub is_directed: bool,
     pub meta: &'a Metadata,
 }
 
@@ -34,7 +27,8 @@ where
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
 {
     p: Painter,
-    ctx: &'a DrawContext<'a, N, E, Ty, Ix, Nd>,
+    ctx: &'a DrawContext<'a>,
+    g: &'a mut Graph<N, E, Ty, Ix, Nd>,
     _marker: PhantomData<(Nd, Ed)>,
 }
 
@@ -47,15 +41,16 @@ where
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
 {
-    pub fn new(p: Painter, ctx: &'a DrawContext<'a, N, E, Ty, Ix, Nd>) -> Self {
+    pub fn new(p: Painter, g: &'a mut Graph<N, E, Ty, Ix, Nd>, ctx: &'a DrawContext<'a>) -> Self {
         Drawer {
             p,
             ctx,
+            g,
             _marker: PhantomData,
         }
     }
 
-    pub fn draw(self) {
+    pub fn draw(mut self) {
         let mut l = Layers::default();
 
         self.fill_layers_edges(&mut l);
@@ -64,23 +59,42 @@ where
         l.draw(self.p)
     }
 
-    fn fill_layers_nodes(&self, l: &mut Layers) {
-        self.ctx.g.nodes_iter().for_each(|(_, n)| {
-            let shapes = n.display().shapes(self.ctx);
-            match n.selected() || n.dragged() {
-                true => shapes.into_iter().for_each(|s| l.add_top(s)),
-                false => shapes.into_iter().for_each(|s| l.add(s)),
-            }
-        });
+    fn fill_layers_nodes(&mut self, l: &mut Layers) {
+        self.g
+            .g
+            .node_indices()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|idx| {
+                let n = self.g.node_mut(idx).unwrap();
+
+                let shapes = n.display_mut().shapes(self.ctx);
+                match n.selected() || n.dragged() {
+                    true => shapes.into_iter().for_each(|s| l.add_top(s)),
+                    false => shapes.into_iter().for_each(|s| l.add(s)),
+                }
+            });
     }
 
-    fn fill_layers_edges(&self, l: &mut Layers) {
-        self.ctx.g.edges_iter().for_each(|(_, e)| {
-            let shapes = Ed::from(e.clone().clone()).shapes(self.ctx);
-            match e.selected() {
-                true => shapes.into_iter().for_each(|s| l.add_top(s)),
-                false => shapes.into_iter().for_each(|s| l.add(s)),
-            }
-        });
+    fn fill_layers_edges(&mut self, l: &mut Layers) {
+        self.g
+            .g
+            .edge_indices()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|idx| {
+                let (idx_start, idx_end) = self.g.edge_endpoints(idx).unwrap();
+                let start = self.g.node(idx_start).unwrap();
+                let end = self.g.node(idx_end).unwrap();
+
+                let e = self.g.edge_mut(idx).unwrap();
+
+                let shapes =
+                    Ed::from(e.clone().clone()).shapes(start.clone(), end.clone(), self.ctx);
+                match e.selected() {
+                    true => shapes.into_iter().for_each(|s| l.add_top(s)),
+                    false => shapes.into_iter().for_each(|s| l.add(s)),
+                }
+            });
     }
 }
