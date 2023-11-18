@@ -32,7 +32,7 @@ where
     }
 }
 
-/// TODO: take into account node and edges sizes
+// TODO: take into account node and edges sizes
 impl<Ix> ComputedState<Ix>
 where
     Ix: IndexType,
@@ -56,10 +56,4 @@ where
     pub fn graph_bounds(&self) -> Rect {
         Rect::from_min_max(self.min.to_pos2(), self.max.to_pos2())
     }
-}
-
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
-pub struct ComputedNode {
-    pub num_connections: usize,
 }

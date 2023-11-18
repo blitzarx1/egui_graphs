@@ -8,8 +8,7 @@ pub struct Node<N: Clone, Ix: IndexType = DefaultIx> {
     id: Option<NodeIndex<Ix>>,
     location: Option<Pos2>,
 
-    pub data: N,
-
+    payload: N,
     label: String,
 
     selected: bool,
@@ -17,9 +16,10 @@ pub struct Node<N: Clone, Ix: IndexType = DefaultIx> {
 }
 
 impl<N: Clone, Ix: IndexType> Node<N, Ix> {
-    pub fn new(data: N) -> Self {
+    pub fn new(payload: N) -> Self {
         Self {
-            data,
+            payload,
+
             id: Default::default(),
             location: Default::default(),
             label: Default::default(),
@@ -39,14 +39,17 @@ impl<N: Clone, Ix: IndexType> Node<N, Ix> {
         self.id.unwrap()
     }
 
+    pub fn payload(&self) -> &N {
+        &self.payload
+    }
+
+    pub fn payload_mut(&mut self) -> &mut N {
+        &mut self.payload
+    }
+
     // TODO: handle unbinded node
     pub fn location(&self) -> Pos2 {
         self.location.unwrap()
-    }
-
-    pub fn with_location(mut self, loc: Pos2) -> Self {
-        self.location = Some(loc);
-        self
     }
 
     pub fn set_location(&mut self, loc: Pos2) {

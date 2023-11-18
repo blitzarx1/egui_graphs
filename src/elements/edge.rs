@@ -32,15 +32,15 @@ pub struct Edge<E: Clone, Ix: IndexType = DefaultIx> {
     id: Option<EdgeID<Ix>>,
 
     /// Client data
-    pub data: E,
+    payload: E,
 
     selected: bool,
 }
 
 impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
-    pub fn new(data: E) -> Self {
+    pub fn new(payload: E) -> Self {
         Self {
-            data,
+            payload,
 
             id: Default::default(),
             selected: Default::default(),
@@ -65,6 +65,14 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
     // TODO: handle unwrap
     pub fn set_order(&mut self, order: usize) {
         self.id.as_mut().unwrap().order = order;
+    }
+
+    pub fn payload(&self) -> &E {
+        &self.payload
+    }
+
+    pub fn payload_mut(&mut self) -> &mut E {
+        &mut self.payload
     }
 
     pub fn color(&self, ctx: &Context) -> Color32 {
