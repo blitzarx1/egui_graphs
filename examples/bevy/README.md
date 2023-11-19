@@ -1,7 +1,7 @@
-# Basic
-Basic example which demonstrates the usage of `GraphView` widget.
+# Bevy
+Basic example which demonstrates the usage of `GraphView` widget in Bevy.
 
 ## run
 ```bash
-cargo run --release -p basic
+cargo run --release -p bevy
 ```
