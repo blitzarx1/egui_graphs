@@ -6,7 +6,7 @@ use egui::{
 };
 use petgraph::{matrix_graph::Nullable, stable_graph::IndexType, EdgeType};
 
-use crate::{draw::DrawContext, elements::EdgeProps, DisplayNode, Edge, Node};
+use crate::{draw::DrawContext, elements::EdgeProps, DisplayNode, Node};
 
 use super::DisplayEdge;
 
@@ -53,8 +53,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         let pos_start = start.location();
         let pos_end = end.location();
 
-        if self.edge_id.order == 0 {
-            return is_inside_line(pos_start, pos_end, pos, self);
+        if self.order == 0 {
+            return is_inside_line::<Ix>(pos_start, pos_end, pos, self);
         }
 
         is_inside_curve(start, end, self, pos)
@@ -96,7 +96,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
         let stroke_edge = Stroke::new(self.width * ctx.meta.zoom, color);
         let stroke_tip = Stroke::new(0., color);
-        if self.edge_id.order == 0 {
+        if self.order == 0 {
             // draw straight edge
 
             let line = Shape::line_segment(
@@ -131,9 +131,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
         let dir_perpendicular = Vec2::new(-dir.y, dir.x);
         let center_point = (edge_start + edge_end.to_vec2()).to_vec2() / 2.;
-        let control_point = (center_point
-            + dir_perpendicular * self.curve_size * self.edge_id.order as f32)
-            .to_pos2();
+        let control_point =
+            (center_point + dir_perpendicular * self.curve_size * self.order as f32).to_pos2();
 
         let tip_dir = (control_point - tip_end).normalized();
 
@@ -192,7 +191,7 @@ fn shape_looped(
         y_intersect,
     );
 
-    let loop_size = node_size * (e.loop_size + e.edge_id.order as f32);
+    let loop_size = node_size * (e.loop_size + e.order as f32);
 
     let control_point1 = Pos2::new(node_center.x + loop_size, node_center.y - loop_size);
     let control_point2 = Pos2::new(node_center.x - loop_size, node_center.y - loop_size);
@@ -228,7 +227,7 @@ fn shape_curved(
     let dir_perpendicular = Vec2::new(-dir.y, dir.x);
     let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
     let control_point =
-        (center_point + dir_perpendicular * e.curve_size * e.edge_id.order as f32).to_pos2();
+        (center_point + dir_perpendicular * e.curve_size * e.order as f32).to_pos2();
 
     QuadraticBezierShape::from_points_stroke(
         [edge_start, control_point, edge_end],

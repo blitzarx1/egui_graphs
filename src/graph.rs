@@ -42,7 +42,7 @@ impl<
         Ix: IndexType,
         Dn: DisplayNode<N, E, Ty, Ix>,
         De: DisplayEdge<N, E, Ty, Ix, Dn>,
-    > Graph<N, E, Ty, Ix, Dn>
+    > Graph<N, E, Ty, Ix, Dn, De>
 {
     pub fn new(g: StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>) -> Self {
         Self { g }
@@ -71,7 +71,7 @@ impl<
             let (idx_start, idx_end) = self.g.edge_endpoints(e.id()).unwrap();
             let start = self.g.node_weight(idx_start).unwrap();
             let end = self.g.node_weight(idx_end).unwrap();
-            if De::from(e.clone()).is_inside(start, end, pos_in_graph) {
+            if e.display().is_inside(start, end, pos_in_graph) {
                 return Some(idx);
             }
         }
@@ -81,7 +81,7 @@ impl<
 
     pub fn g(
         &mut self,
-    ) -> &mut StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn>, Ty, Ix> {
+    ) -> &mut StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix> {
         &mut self.g
     }
 
@@ -91,7 +91,7 @@ impl<
     }
 
     /// Provides iterator over all edges and their indices.
-    pub fn edges_iter(&self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<N, E, Ty, Ix, Dn>)> {
+    pub fn edges_iter(&self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<N, E, Ty, Ix, Dn, De>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
 
@@ -99,7 +99,7 @@ impl<
         self.g.node_weight(i)
     }
 
-    pub fn edge(&self, i: EdgeIndex<Ix>) -> Option<&Edge<N, E, Ty, Ix, Dn>> {
+    pub fn edge(&self, i: EdgeIndex<Ix>) -> Option<&Edge<N, E, Ty, Ix, Dn, De>> {
         self.g.edge_weight(i)
     }
 
@@ -111,7 +111,7 @@ impl<
         self.g.node_weight_mut(i)
     }
 
-    pub fn edge_mut(&mut self, i: EdgeIndex<Ix>) -> Option<&mut Edge<N, E, Ty, Ix, Dn>> {
+    pub fn edge_mut(&mut self, i: EdgeIndex<Ix>) -> Option<&mut Edge<N, E, Ty, Ix, Dn, De>> {
         self.g.edge_weight_mut(i)
     }
 
@@ -127,7 +127,7 @@ impl<
         &self,
         idx: NodeIndex<Ix>,
         dir: Direction,
-    ) -> impl Iterator<Item = EdgeReference<Edge<N, E, Ty, Ix, Dn>, Ix>> {
+    ) -> impl Iterator<Item = EdgeReference<Edge<N, E, Ty, Ix, Dn, De>, Ix>> {
         self.g.edges_directed(idx, dir)
     }
 }

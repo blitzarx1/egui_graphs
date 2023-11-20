@@ -28,7 +28,7 @@ pub struct ConfigurableApp {
     settings_style: SettingsStyle,
 
     selected_nodes: Vec<Node<(), (), Directed, DefaultIx>>,
-    selected_edges: Vec<Edge<(), DefaultIx>>,
+    selected_edges: Vec<Edge<(), (), Directed>>,
     last_events: Vec<String>,
 
     simulation_stopped: bool,
@@ -589,13 +589,11 @@ impl App for ConfigurableApp {
             let settings_style = &egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always);
             ui.add(
-                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape<_>>::new(
-                    &mut self.g,
-                )
-                .with_interactions(settings_interaction)
-                .with_navigations(settings_navigation)
-                .with_styles(settings_style)
-                .with_events(&self.event_publisher),
+                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(&mut self.g)
+                    .with_interactions(settings_interaction)
+                    .with_navigations(settings_navigation)
+                    .with_styles(settings_style)
+                    .with_events(&self.event_publisher),
             );
         });
 

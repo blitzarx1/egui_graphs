@@ -4,7 +4,7 @@ use egui::{
 };
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{draw::drawer::DrawContext, Graph, NodeProps};
+use crate::{draw::drawer::DrawContext, NodeProps};
 
 use super::DisplayNode;
 

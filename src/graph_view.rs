@@ -215,9 +215,7 @@ where
             return;
         }
 
-        let found_edge = self
-            .g
-            .edge_by_screen_pos::<De>(meta, resp.hover_pos().unwrap());
+        let found_edge = self.g.edge_by_screen_pos(meta, resp.hover_pos().unwrap());
         let found_node = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap());
         if found_node.is_none() && found_edge.is_none() {
             // click on empty space

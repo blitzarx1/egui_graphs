@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use petgraph::{
     stable_graph::{DefaultIx, EdgeIndex, IndexType},
     EdgeType,
@@ -31,6 +33,7 @@ pub struct Edge<
     display: D,
 
     props: EdgeProps,
+    _marker: PhantomData<(N, Ty, Dn)>,
 }
 
 impl<
@@ -44,7 +47,7 @@ impl<
 {
     pub fn new(payload: E) -> Self {
         let props = EdgeProps::default();
-        let display = D::from(props);
+        let display = D::from(props.clone());
         Self {
             payload,
 
@@ -52,13 +55,13 @@ impl<
             display,
 
             id: Default::default(),
+            _marker: Default::default(),
         }
     }
 
     /// Binds edge to the actual node ends and fixes its index in the set of duplicate edges.
     pub fn bind(&mut self, idx: EdgeIndex<Ix>, order: usize) {
-        let id = Some(idx);
-        self.id = Some(id);
+        self.id = Some(idx);
         self.props.order = order;
     }
 
@@ -74,14 +77,12 @@ impl<
         self.id.unwrap()
     }
 
-    // TODO: handle unwrap
     pub fn order(&self) -> usize {
-        self.id.as_ref().unwrap().order
+        self.props.order
     }
 
-    // TODO: handle unwrap
     pub fn set_order(&mut self, order: usize) {
-        self.id.as_mut().unwrap().order = order;
+        self.props.order = order;
     }
 
     pub fn payload(&self) -> &E {

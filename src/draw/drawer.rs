@@ -84,13 +84,14 @@ where
             .into_iter()
             .for_each(|idx| {
                 let (idx_start, idx_end) = self.g.edge_endpoints(idx).unwrap();
-                let start = self.g.node(idx_start).unwrap();
-                let end = self.g.node(idx_end).unwrap();
+
+                // FIXME: not a good decision to clone nodes for every edge
+                let start = self.g.node(idx_start).cloned().unwrap();
+                let end = self.g.node(idx_end).cloned().unwrap();
 
                 let e = self.g.edge_mut(idx).unwrap();
 
-                let shapes =
-                    Ed::from(e.clone().clone()).shapes(start.clone(), end.clone(), self.ctx);
+                let shapes = e.display_mut().shapes(&start, &end.clone(), self.ctx);
                 match e.selected() {
                     true => shapes.into_iter().for_each(|s| l.add_top(s)),
                     false => shapes.into_iter().for_each(|s| l.add(s)),

@@ -32,11 +32,9 @@ impl App for InteractiveApp {
                 .with_edge_selection_multi_enabled(true);
             let style_settings = &SettingsStyle::new().with_labels_always(true);
             ui.add(
-                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape<_>>::new(
-                    &mut self.g,
-                )
-                .with_styles(style_settings)
-                .with_interactions(interaction_settings),
+                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(&mut self.g)
+                    .with_styles(style_settings)
+                    .with_interactions(interaction_settings),
             );
         });
     }

@@ -26,7 +26,7 @@ impl App for UndirectedApp {
                 _,
                 _,
                 DefaultNodeShape,
-                DefaultEdgeShape<_>,
+                DefaultEdgeShape,
             >::new(&mut self.g));
         });
     }

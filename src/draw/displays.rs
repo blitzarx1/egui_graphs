@@ -1,7 +1,7 @@
 use egui::{Pos2, Shape, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{draw::drawer::DrawContext, elements::EdgeProps, Edge, Node, NodeProps};
+use crate::{draw::drawer::DrawContext, elements::EdgeProps, Node, NodeProps};
 
 pub trait DisplayNode<N, E, Ty, Ix>: Clone + From<NodeProps>
 where

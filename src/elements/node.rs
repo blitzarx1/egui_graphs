@@ -19,7 +19,7 @@ pub struct NodeProps {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Node<N, E, Ty, Ix = DefaultIx, D = DefaultNodeShape>
 where
     N: Clone,
@@ -35,6 +35,26 @@ where
     display: D,
 
     _marker: PhantomData<(E, Ty)>,
+}
+
+impl<N, E, Ty, Ix, D> Clone for Node<N, E, Ty, Ix, D>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    D: DisplayNode<N, E, Ty, Ix>,
+{
+    fn clone(&self) -> Self {
+        let idx = self.id().index();
+        Self {
+            id: Some(NodeIndex::new(idx)),
+            payload: self.payload().clone(),
+            props: self.props.clone(),
+            display: self.display.clone(),
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<N, E, Ty, Ix, D> Node<N, E, Ty, Ix, D>

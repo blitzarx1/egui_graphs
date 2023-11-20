@@ -1,8 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{
-    DefaultEdgeShape, DisplayNode, Graph, GraphView, SettingsInteraction, SettingsNavigation,
-};
+use egui_graphs::{DefaultEdgeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation};
 use node::NodeShape;
 use petgraph::{
     stable_graph::{DefaultIx, StableGraph},
@@ -11,8 +9,8 @@ use petgraph::{
 
 mod node;
 
-pub struct CustomDrawApp<D: DisplayNode> {
-    g: Graph<(), (), Directed, DefaultIx>,
+pub struct CustomDrawApp {
+    g: Graph<(), (), Directed, DefaultIx, NodeShape>,
 }
 
 impl CustomDrawApp {
@@ -26,7 +24,7 @@ impl App for CustomDrawApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(
-                &mut GraphView::<_, _, _, _, NodeShape, DefaultEdgeShape<_>>::new(&mut self.g)
+                &mut GraphView::<_, _, _, _, NodeShape, DefaultEdgeShape>::new(&mut self.g)
                     .with_navigations(
                         &SettingsNavigation::default()
                             .with_fit_to_screen_enabled(false)
