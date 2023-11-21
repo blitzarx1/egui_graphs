@@ -116,7 +116,7 @@ pub fn add_edge_custom<
 /// let node2 = user_graph.add_node("B");
 /// user_graph.add_edge(node1, node2, "edge1");
 ///
-/// let input_graph = to_graph(&user_graph);
+/// let input_graph: egui_graphs::Graph<_, _, _, _, egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape> = to_graph(&user_graph);
 ///
 /// assert_eq!(input_graph.g.node_count(), 2);
 /// assert_eq!(input_graph.g.edge_count(), 1);
