@@ -641,16 +641,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_basic_multiple"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_egui",
- "egui_graphs",
- "petgraph",
-]
-
-[[package]]
 name = "bevy_core"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3109,6 +3099,16 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "multiple"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_graphs",
+ "petgraph",
 ]
 
 [[package]]
