@@ -53,7 +53,7 @@ fn ui_example_system(mut contexts: EguiContexts, mut graph_provider: ResMut<Grap
         .show(ctx, |ui| {
             ui.child_ui(ui.max_rect(), Layout::default());
             ui.add(
-                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape<_>>::new(
+                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(
                     &mut graph_provider.g,
                 )
                 .with_navigations(&SettingsNavigation::default().with_fit_to_screen_enabled(false)),
@@ -64,7 +64,7 @@ fn ui_example_system(mut contexts: EguiContexts, mut graph_provider: ResMut<Grap
         .resizable(true)
         .show(ctx, |ui| {
             ui.add(
-                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape<_>>::new(
+                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(
                     &mut graph_provider.g,
                 )
                 .with_navigations(&SettingsNavigation::default().with_fit_to_screen_enabled(false)),
@@ -72,7 +72,7 @@ fn ui_example_system(mut contexts: EguiContexts, mut graph_provider: ResMut<Grap
         });
     egui::CentralPanel::default().show(ctx, |ui| {
         ui.add(
-            &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape<_>>::new(
+            &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(
                 &mut graph_provider.g,
             )
             .with_navigations(&SettingsNavigation::default().with_fit_to_screen_enabled(false)),

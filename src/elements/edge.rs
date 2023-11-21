@@ -1,70 +1,92 @@
-use egui::{Color32, Context};
-use petgraph::stable_graph::{DefaultIx, EdgeIndex, IndexType};
+use std::marker::PhantomData;
 
-/// Uniquely identifies edge with source, target and index in the set of duplicate edges.
+use petgraph::{
+    stable_graph::{DefaultIx, EdgeIndex, IndexType},
+    EdgeType,
+};
+
+use crate::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode};
+
+/// Stores properties of an [Edge]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug)]
-pub struct EdgeID<Ix: IndexType = DefaultIx> {
-    pub idx: EdgeIndex<Ix>,
-
-    /// Index of the edge among siblings.
+#[derive(Clone, Debug, Default)]
+pub struct EdgeProps {
     pub order: usize,
-}
-
-impl<Ix: IndexType> EdgeID<Ix> {
-    pub fn new(idx: EdgeIndex<Ix>) -> Self {
-        Self {
-            idx,
-            order: Default::default(),
-        }
-    }
-
-    pub fn with_order(mut self, order: usize) -> Self {
-        self.order = order;
-        self
-    }
+    pub selected: bool,
 }
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
-pub struct Edge<E: Clone, Ix: IndexType = DefaultIx> {
-    id: Option<EdgeID<Ix>>,
+pub struct Edge<
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType = DefaultIx,
+    Dn: DisplayNode<N, E, Ty, Ix> = DefaultNodeShape,
+    D: DisplayEdge<N, E, Ty, Ix, Dn> = DefaultEdgeShape,
+> {
+    id: Option<EdgeIndex<Ix>>,
 
     /// Client data
     payload: E,
+    display: D,
 
-    selected: bool,
+    props: EdgeProps,
+    _marker: PhantomData<(N, Ty, Dn)>,
 }
 
-impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
+impl<
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        D: DisplayEdge<N, E, Ty, Ix, Dn>,
+    > Edge<N, E, Ty, Ix, Dn, D>
+{
     pub fn new(payload: E) -> Self {
+        let props = EdgeProps::default();
+        let display = D::from(props.clone());
         Self {
             payload,
 
+            props,
+            display,
+
             id: Default::default(),
-            selected: Default::default(),
+            _marker: Default::default(),
         }
     }
 
-    /// Binds node to the actual node and position in the graph.
+    pub fn props(&self) -> &EdgeProps {
+        &self.props
+    }
+
+    /// Binds edge to the actual node ends and fixes its index in the set of duplicate edges.
     pub fn bind(&mut self, idx: EdgeIndex<Ix>, order: usize) {
-        let id = EdgeID::new(idx).with_order(order);
-        self.id = Some(id);
+        self.id = Some(idx);
+        self.props.order = order;
     }
 
-    pub fn id(&self) -> EdgeID<Ix> {
-        self.id.clone().unwrap()
+    pub fn display(&self) -> &D {
+        &self.display
     }
 
-    // TODO: handle unwrap
+    pub fn display_mut(&mut self) -> &mut D {
+        &mut self.display
+    }
+
+    pub fn id(&self) -> EdgeIndex<Ix> {
+        self.id.unwrap()
+    }
+
     pub fn order(&self) -> usize {
-        self.id.as_ref().unwrap().order
+        self.props.order
     }
 
-    // TODO: handle unwrap
     pub fn set_order(&mut self, order: usize) {
-        self.id.as_mut().unwrap().order = order;
+        self.props.order = order;
     }
 
     pub fn payload(&self) -> &E {
@@ -75,21 +97,11 @@ impl<E: Clone, Ix: IndexType> Edge<E, Ix> {
         &mut self.payload
     }
 
-    pub fn color(&self, ctx: &Context) -> Color32 {
-        if self.selected {
-            return ctx.style().visuals.widgets.hovered.fg_stroke.color;
-        }
-
-        ctx.style()
-            .visuals
-            .gray_out(ctx.style().visuals.widgets.inactive.fg_stroke.color)
-    }
-
     pub fn set_selected(&mut self, selected: bool) {
-        self.selected = selected;
+        self.props.selected = selected;
     }
 
     pub fn selected(&self) -> bool {
-        self.selected
+        self.props.selected
     }
 }

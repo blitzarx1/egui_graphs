@@ -27,8 +27,8 @@ pub struct ConfigurableApp {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
 
-    selected_nodes: Vec<Node<(), DefaultIx>>,
-    selected_edges: Vec<Edge<(), DefaultIx>>,
+    selected_nodes: Vec<Node<(), (), Directed, DefaultIx>>,
+    selected_edges: Vec<Edge<(), (), Directed>>,
     last_events: Vec<String>,
 
     simulation_stopped: bool,
@@ -58,13 +58,13 @@ impl ConfigurableApp {
 
             settings_graph,
 
-            settings_interaction: Default::default(),
-            settings_navigation: Default::default(),
-            settings_style: Default::default(),
+            settings_interaction: SettingsInteraction::default(),
+            settings_navigation: SettingsNavigation::default(),
+            settings_style: SettingsStyle::default(),
 
-            selected_nodes: Default::default(),
-            selected_edges: Default::default(),
-            last_events: Default::default(),
+            selected_nodes: Vec::default(),
+            selected_edges: Vec::default(),
+            last_events: Vec::default(),
 
             simulation_stopped: false,
 
@@ -72,8 +72,8 @@ impl ConfigurableApp {
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
 
-            pan: Default::default(),
-            zoom: Default::default(),
+            pan: Option::default(),
+            zoom: Option::default(),
         }
     }
 
@@ -130,7 +130,7 @@ impl ConfigurableApp {
         self.selected_nodes = vec![];
 
         let g_indices = self.g.g.node_indices().collect::<Vec<_>>();
-        g_indices.iter().for_each(|g_n_idx| {
+        for g_n_idx in &g_indices {
             let g_n = self.g.g.node_weight_mut(*g_n_idx).unwrap();
             let sim_n = self.sim.get_graph_mut().node_weight_mut(*g_n_idx).unwrap();
 
@@ -140,7 +140,7 @@ impl ConfigurableApp {
             if g_n.selected() {
                 self.selected_nodes.push(g_n.clone());
             }
-        });
+        }
 
         // reset the weights of the edges
         self.sim.get_graph_mut().edge_weights_mut().for_each(|w| {
@@ -166,7 +166,7 @@ impl ConfigurableApp {
         self.g = g;
         self.sim = sim;
         self.settings_graph = settings_graph;
-        self.last_events = Default::default();
+        self.last_events = Vec::default();
 
         GraphView::<(), (), Directed, DefaultIx>::reset_metadata(ui);
     }
@@ -253,7 +253,8 @@ impl ConfigurableApp {
         self.g.g[idx].bind(idx, location);
 
         let n = self.g.g.node_weight_mut(idx).unwrap();
-        *n = n.with_label(format!("{:?}", idx));
+        n.set_label(format!("{idx:?}"));
+
         let mut sim_node = fdg_sim::Node::new(idx.index().to_string().as_str(), ());
         sim_node.location = Vec3::new(location.x, location.y, 0.);
         self.sim.get_graph_mut().add_node(sim_node);
@@ -262,10 +263,10 @@ impl ConfigurableApp {
     fn remove_node(&mut self, idx: NodeIndex) {
         // before removing nodes we need to remove all edges connected to it
         let neighbors = self.g.g.neighbors_undirected(idx).collect::<Vec<_>>();
-        neighbors.iter().for_each(|n| {
+        for n in &neighbors {
             self.remove_edges(idx, *n);
             self.remove_edges(*n, idx);
-        });
+        }
 
         self.g.g.remove_node(idx).unwrap();
         self.sim.get_graph_mut().remove_node(idx).unwrap();
@@ -322,7 +323,7 @@ impl ConfigurableApp {
             .map(|edge_ref| edge_ref.id())
             .collect::<Vec<_>>();
 
-        left_siblings.iter().for_each(|idx| {
+        for idx in &left_siblings {
             let sibling_order = self.g.g.edge_weight(*idx).unwrap().order();
             if sibling_order < order {
                 return;
@@ -332,7 +333,7 @@ impl ConfigurableApp {
                 .edge_weight_mut(*idx)
                 .unwrap()
                 .set_order(sibling_order - 1);
-        });
+        }
     }
 
     /// Removes all edges between two nodes
@@ -588,13 +589,11 @@ impl App for ConfigurableApp {
             let settings_style = &egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always);
             ui.add(
-                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape<_>>::new(
-                    &mut self.g,
-                )
-                .with_interactions(settings_interaction)
-                .with_navigations(settings_navigation)
-                .with_styles(settings_style)
-                .with_events(&self.event_publisher),
+                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(&mut self.g)
+                    .with_interactions(settings_interaction)
+                    .with_navigations(settings_navigation)
+                    .with_styles(settings_style)
+                    .with_events(&self.event_publisher),
             );
         });
 
@@ -618,7 +617,7 @@ fn construct_simulation(g: &Graph<(), (), Directed, DefaultIx>) -> Simulation<()
     let mut force_graph = ForceGraph::with_capacity(g.g.node_count(), g.g.edge_count());
     g.g.node_indices().for_each(|idx| {
         let idx = idx.index();
-        force_graph.add_force_node(format!("{}", idx).as_str(), ());
+        force_graph.add_force_node(format!("{idx}").as_str(), ());
     });
     g.g.edge_indices().for_each(|idx| {
         let (source, target) = g.g.edge_endpoints(idx).unwrap();

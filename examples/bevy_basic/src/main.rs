@@ -52,7 +52,7 @@ fn update_graph(mut contexts: EguiContexts, mut q_graph: Query<&mut BasicGraph>)
             _,
             _,
             DefaultNodeShape,
-            DefaultEdgeShape<_>,
+            DefaultEdgeShape,
         >::new(&mut graph.0));
     });
 }

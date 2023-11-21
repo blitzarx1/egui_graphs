@@ -1,9 +1,9 @@
 use egui::{Pos2, Shape, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{draw::drawer::DrawContext, Edge, Graph, Node};
+use crate::{draw::drawer::DrawContext, elements::EdgeProps, Node, NodeProps};
 
-pub trait DisplayNode<N, E, Ty, Ix>: Interactable<N, E, Ty, Ix> + From<Node<N, Ix>>
+pub trait DisplayNode<N, E, Ty, Ix>: Clone + From<NodeProps>
 where
     N: Clone,
     E: Clone,
@@ -19,34 +19,63 @@ where
 
     /// Draws shapes of the node.
     ///
+    /// Has mutable reference to itself for possibility to change internal state for the visualizations where this is important.
+    ///
     /// * `ctx` - should be used to determine current global properties.
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
-    fn shapes(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
-}
-pub trait DisplayEdge<N, E, Ty, Ix>: Interactable<N, E, Ty, Ix> + From<Edge<E, Ix>>
-where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-{
-    /// Draws shapes of the edge.
-    ///
-    /// * `ctx` - should be used to determine current global properties.
-    /// * `start` and `end` - start and end points of the edge.
-    ///
-    /// Use `ctx.meta` to properly scale and translate the shape.
-    ///
-    /// Get [NodeGraphDisplay] from node endpoints to get start and end coordinates using [closest_boundary_point](NodeGraphDisplay::closest_boundary_point).
-    fn shapes<Dn: DisplayNode<N, E, Ty, Ix>>(&self, ctx: &DrawContext<N, E, Ty, Ix>) -> Vec<Shape>;
-}
+    fn shapes(&mut self, ctx: &DrawContext) -> Vec<Shape>;
 
-pub trait Interactable<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> {
+    /// Is called on every framte. Can be used for updating state of the implementation of [DisplayNode]
+    fn update(&mut self, state: &NodeProps);
+
     /// Checks if the provided `pos` is inside the shape.
     ///
     /// * `pos` - position is in the canvas coordinates.
     ///
     /// Could be used to bind mouse events to the custom drawn nodes.
-    fn is_inside<Dn: DisplayNode<N, E, Ty, Ix>>(&self, g: &Graph<N, E, Ty, Ix>, pos: Pos2) -> bool;
+    fn is_inside(&self, pos: Pos2) -> bool;
+}
+
+pub trait DisplayEdge<N, E, Ty, Ix, D>: Clone + From<EdgeProps>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    D: DisplayNode<N, E, Ty, Ix>,
+{
+    /// Draws shapes of the edge.
+    ///
+    /// Has mutable reference to itself for possibility to change internal state for the visualizations where this is important.
+    ///
+    /// * `ctx` - should be used to determine current global properties.
+    /// * `start` and `end` - start and end points of the edge.
+    ///
+    /// Uses `ctx.meta` to properly scale and translate the shape.
+    ///
+    /// Uses [DisplayNode] implementation from node endpoints to get start and end coordinates using [closest_boundary_point](DisplayNode::closest_boundary_point).
+    fn shapes(
+        &mut self,
+        start: &Node<N, E, Ty, Ix, D>,
+        end: &Node<N, E, Ty, Ix, D>,
+        ctx: &DrawContext,
+    ) -> Vec<Shape>;
+
+    /// Is called on every frame. Can be used for updating state of the implementation of [DisplayNode]
+    fn update(&mut self, state: &EdgeProps);
+
+    /// Checks if the provided `pos` is inside the shape.
+    ///
+    /// * `start` - start node of the edge.
+    /// * `end`   - end node of the edge.
+    /// * `pos`   - position is in the canvas coordinates.
+    ///
+    /// Could be used to bind mouse events to the custom drawn nodes.
+    fn is_inside(
+        &self,
+        start: &Node<N, E, Ty, Ix, D>,
+        end: &Node<N, E, Ty, Ix, D>,
+        pos: Pos2,
+    ) -> bool;
 }
