@@ -92,7 +92,7 @@ where
         let is_directed = self.g.is_directed();
         Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
             p,
-            &mut self.g,
+            self.g,
             &DrawContext {
                 ctx: ui.ctx(),
                 meta: &meta,
@@ -233,16 +233,15 @@ where
             return;
         }
 
-        if let Some(n) = found_node {
+        if let Some(idx) = found_node {
             // first click of double click is handled by the lib as single click
             // so if you double click a node it will handle it as single click at first
             // and only after as double click
-            let node_idx = n.0;
             if resp.double_clicked() {
-                self.handle_node_double_click(node_idx);
+                self.handle_node_double_click(idx);
                 return;
             }
-            self.handle_node_click(node_idx, comp);
+            self.handle_node_click(idx, comp);
             return;
         }
 
@@ -328,7 +327,7 @@ where
         }
 
         if resp.drag_started() {
-            if let Some((idx, _)) = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap()) {
+            if let Some(idx) = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap()) {
                 self.set_drag_start(idx);
             }
         }

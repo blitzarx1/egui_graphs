@@ -13,6 +13,9 @@ use crate::draw::{DisplayEdge, DisplayNode};
 use crate::{metadata::Metadata, transform, Edge, Node};
 use crate::{DefaultEdgeShape, DefaultNodeShape};
 
+type StableGraphType<N, E, Ty, Ix, Dn, De> =
+    StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
+
 /// Graph type compatible with [`super::GraphView`].
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
@@ -24,7 +27,7 @@ pub struct Graph<
     Dn: DisplayNode<N, E, Ty, Ix> = DefaultNodeShape,
     De: DisplayEdge<N, E, Ty, Ix, Dn> = DefaultEdgeShape,
 > {
-    pub g: StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>,
+    pub g: StableGraphType<N, E, Ty, Ix, Dn, De>,
 }
 
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>
@@ -44,21 +47,17 @@ impl<
         De: DisplayEdge<N, E, Ty, Ix, Dn>,
     > Graph<N, E, Ty, Ix, Dn, De>
 {
-    pub fn new(g: StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>) -> Self {
+    pub fn new(g: StableGraphType<N, E, Ty, Ix, Dn, De>) -> Self {
         Self { g }
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
-    pub fn node_by_screen_pos(
-        &self,
-        meta: &Metadata,
-        screen_pos: Pos2,
-    ) -> Option<(NodeIndex<Ix>, &Node<N, E, Ty, Ix, Dn>)> {
+    pub fn node_by_screen_pos(&self, meta: &Metadata, screen_pos: Pos2) -> Option<NodeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, node) in self.nodes_iter() {
             let display = node.display();
             if display.is_inside(pos_in_graph) {
-                return Some((idx, node));
+                return Some(idx);
             }
         }
         None
@@ -79,9 +78,7 @@ impl<
         None
     }
 
-    pub fn g(
-        &mut self,
-    ) -> &mut StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix> {
+    pub fn g(&mut self) -> &mut StableGraphType<N, E, Ty, Ix, Dn, De> {
         &mut self.g
     }
 
