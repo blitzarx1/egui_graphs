@@ -11,8 +11,9 @@ use crate::{DefaultNodeShape, DisplayNode};
 
 /// Stores properties of a [Node]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, Default)]
-pub struct NodeProps {
+#[derive(Clone, Debug)]
+pub struct NodeProps<N: Clone> {
+    pub payload: N,
     pub location: Pos2,
     pub label: String,
     pub selected: bool,
@@ -29,9 +30,8 @@ where
     D: DisplayNode<N, E, Ty, Ix>,
 {
     id: Option<NodeIndex<Ix>>,
-    payload: N,
 
-    props: NodeProps,
+    props: NodeProps<N>,
     display: D,
 
     _marker: PhantomData<(E, Ty)>,
@@ -46,10 +46,7 @@ where
     D: DisplayNode<N, E, Ty, Ix>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut res = String::default();
-        res += format!("id : {:?}", self.id).as_str();
-        res += format!(", props: {:?}", self.props()).as_str();
-        f.write_str(format!("Node {{{}}}", res).as_str())
+        f.debug_struct("Node").field("id", &self.id).finish()
     }
 }
 
@@ -65,7 +62,6 @@ where
         let idx = self.id().index();
         Self {
             id: Some(NodeIndex::new(idx)),
-            payload: self.payload().clone(),
             props: self.props.clone(),
             display: self.display.clone(),
             _marker: PhantomData,
@@ -82,10 +78,16 @@ where
     D: DisplayNode<N, E, Ty, Ix>,
 {
     pub fn new(payload: N) -> Self {
-        let props = NodeProps::default();
+        let props = NodeProps {
+            payload,
+            location: Pos2::default(),
+            label: String::default(),
+            selected: bool::default(),
+            dragged: bool::default(),
+        };
+
         let display = D::from(props.clone());
         Self {
-            payload,
             props,
             display,
 
@@ -94,7 +96,7 @@ where
         }
     }
 
-    pub fn props(&self) -> &NodeProps {
+    pub fn props(&self) -> &NodeProps<N> {
         &self.props
     }
 
@@ -119,11 +121,11 @@ where
     }
 
     pub fn payload(&self) -> &N {
-        &self.payload
+        &self.props.payload
     }
 
     pub fn payload_mut(&mut self) -> &mut N {
-        &mut self.payload
+        &mut self.props.payload
     }
 
     pub fn location(&self) -> Pos2 {
