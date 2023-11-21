@@ -21,8 +21,8 @@ pub struct NodeShapeAnimated {
     size: f32,
 }
 
-impl From<NodeProps> for NodeShapeAnimated {
-    fn from(node_props: NodeProps) -> Self {
+impl<N: Clone> From<NodeProps<N>> for NodeShapeAnimated {
+    fn from(node_props: NodeProps<N>) -> Self {
         Self {
             label: node_props.label,
             loc: node_props.location,
@@ -118,7 +118,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         vec![shape_rect, shape_label.into()]
     }
 
-    fn update(&mut self, state: &NodeProps) {
+    fn update(&mut self, state: &NodeProps<N>) {
         self.label = state.label.clone();
         self.loc = state.location;
         self.dragged = state.dragged;

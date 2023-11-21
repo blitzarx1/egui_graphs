@@ -9,8 +9,9 @@ use crate::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode};
 
 /// Stores properties of an [Edge]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, Default)]
-pub struct EdgeProps {
+#[derive(Clone, Debug)]
+pub struct EdgeProps<E: Clone> {
+    pub payload: E,
     pub order: usize,
     pub selected: bool,
 }
@@ -28,11 +29,9 @@ pub struct Edge<
 > {
     id: Option<EdgeIndex<Ix>>,
 
-    /// Client data
-    payload: E,
     display: D,
 
-    props: EdgeProps,
+    props: EdgeProps<E>,
     _marker: PhantomData<(N, Ty, Dn)>,
 }
 
@@ -46,11 +45,15 @@ impl<
     > Edge<N, E, Ty, Ix, Dn, D>
 {
     pub fn new(payload: E) -> Self {
-        let props = EdgeProps::default();
-        let display = D::from(props.clone());
-        Self {
+        let props = EdgeProps {
             payload,
 
+            order: usize::default(),
+            selected: bool::default(),
+        };
+
+        let display = D::from(props.clone());
+        Self {
             props,
             display,
 
@@ -59,7 +62,7 @@ impl<
         }
     }
 
-    pub fn props(&self) -> &EdgeProps {
+    pub fn props(&self) -> &EdgeProps<E> {
         &self.props
     }
 
@@ -90,11 +93,11 @@ impl<
     }
 
     pub fn payload(&self) -> &E {
-        &self.payload
+        &self.props.payload
     }
 
     pub fn payload_mut(&mut self) -> &mut E {
-        &mut self.payload
+        &mut self.props.payload
     }
 
     pub fn set_selected(&mut self, selected: bool) {

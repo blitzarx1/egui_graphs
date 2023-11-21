@@ -22,8 +22,8 @@ pub struct DefaultEdgeShape {
     pub loop_size: f32,
 }
 
-impl From<EdgeProps> for DefaultEdgeShape {
-    fn from(edge: EdgeProps) -> Self {
+impl<E: Clone> From<EdgeProps<E>> for DefaultEdgeShape {
+    fn from(edge: EdgeProps<E>) -> Self {
         Self {
             order: edge.order,
             selected: edge.selected,
@@ -172,7 +172,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         vec![line_curved.into(), line_curved_tip]
     }
 
-    fn update(&mut self, state: &EdgeProps) {
+    fn update(&mut self, state: &EdgeProps<E>) {
         self.order = state.order;
         self.selected = state.selected;
     }

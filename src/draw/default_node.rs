@@ -24,8 +24,8 @@ pub struct DefaultNodeShape {
     pub radius: f32,
 }
 
-impl From<NodeProps> for DefaultNodeShape {
-    fn from(node_props: NodeProps) -> Self {
+impl<N: Clone> From<NodeProps<N>> for DefaultNodeShape {
+    fn from(node_props: NodeProps<N>) -> Self {
         DefaultNodeShape {
             pos: node_props.location,
             selected: node_props.selected,
@@ -90,7 +90,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         res
     }
 
-    fn update(&mut self, state: &NodeProps) {
+    fn update(&mut self, state: &NodeProps<N>) {
         self.pos = state.location;
         self.pos = state.location;
         self.selected = state.selected;
