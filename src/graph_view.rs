@@ -56,7 +56,7 @@ pub struct GraphView<
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
 {
-    g: &'a mut Graph<N, E, Ty, Ix, Nd>,
+    g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
 
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
@@ -121,7 +121,7 @@ where
 {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn>) -> Self {
+    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De>) -> Self {
         Self {
             g,
 

@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use egui::Pos2;
@@ -19,7 +20,6 @@ pub struct NodeProps {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug)]
 pub struct Node<N, E, Ty, Ix = DefaultIx, D = DefaultNodeShape>
 where
     N: Clone,
@@ -35,6 +35,22 @@ where
     display: D,
 
     _marker: PhantomData<(E, Ty)>,
+}
+
+impl<N, E, Ty, Ix, D> Debug for Node<N, E, Ty, Ix, D>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    D: DisplayNode<N, E, Ty, Ix>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut res = String::default();
+        res += format!("id : {:?}", self.id).as_str();
+        res += format!(", props: {:?}", self.props()).as_str();
+        f.write_str(format!("Node {{{}}}", res).as_str())
+    }
 }
 
 impl<N, E, Ty, Ix, D> Clone for Node<N, E, Ty, Ix, D>
@@ -76,6 +92,10 @@ where
             id: Default::default(),
             _marker: Default::default(),
         }
+    }
+
+    pub fn props(&self) -> &NodeProps {
+        &self.props
     }
 
     pub fn display(&self) -> &D {

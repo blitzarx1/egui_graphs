@@ -89,6 +89,14 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
 
         res
     }
+
+    fn update(&mut self, state: &NodeProps) {
+        self.pos = state.location;
+        self.pos = state.location;
+        self.selected = state.selected;
+        self.dragged = state.dragged;
+        self.label_text = state.label.to_string();
+    }
 }
 
 fn closest_point_on_circle(center: Pos2, radius: f32, dir: Vec2) -> Pos2 {

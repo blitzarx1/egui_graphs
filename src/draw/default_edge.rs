@@ -54,7 +54,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         let pos_end = end.location();
 
         if self.order == 0 {
-            return is_inside_line::<Ix>(pos_start, pos_end, pos, self);
+            return is_inside_line(pos_start, pos_end, pos, self);
         }
 
         is_inside_curve(start, end, self, pos)
@@ -171,6 +171,11 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
         vec![line_curved.into(), line_curved_tip]
     }
+
+    fn update(&mut self, state: &EdgeProps) {
+        self.order = state.order;
+        self.selected = state.selected;
+    }
 }
 
 fn shape_looped(
@@ -248,12 +253,7 @@ fn is_inside_loop<E: Clone, N: Clone, Ix: IndexType, Ty: EdgeType, D: DisplayNod
     is_point_on_cubic_bezier_curve(pos, shape, e.width)
 }
 
-fn is_inside_line<Ix: IndexType>(
-    pos_start: Pos2,
-    pos_end: Pos2,
-    pos: Pos2,
-    e: &DefaultEdgeShape,
-) -> bool {
+fn is_inside_line(pos_start: Pos2, pos_end: Pos2, pos: Pos2, e: &DefaultEdgeShape) -> bool {
     let distance = distance_segment_to_point(pos_start, pos_end, pos);
     distance <= e.width
 }

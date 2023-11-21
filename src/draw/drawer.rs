@@ -28,7 +28,7 @@ where
 {
     p: Painter,
     ctx: &'a DrawContext<'a>,
-    g: &'a mut Graph<N, E, Ty, Ix, Nd>,
+    g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
     _marker: PhantomData<(Nd, Ed)>,
 }
 
@@ -41,7 +41,11 @@ where
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
 {
-    pub fn new(p: Painter, g: &'a mut Graph<N, E, Ty, Ix, Nd>, ctx: &'a DrawContext<'a>) -> Self {
+    pub fn new(
+        p: Painter,
+        g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
+        ctx: &'a DrawContext<'a>,
+    ) -> Self {
         Drawer {
             p,
             ctx,
@@ -68,7 +72,12 @@ where
             .for_each(|idx| {
                 let n = self.g.node_mut(idx).unwrap();
 
-                let shapes = n.display_mut().shapes(self.ctx);
+                let props = n.props().clone();
+
+                let display = n.display_mut();
+                display.update(&props);
+
+                let shapes = display.shapes(self.ctx);
                 match n.selected() || n.dragged() {
                     true => shapes.into_iter().for_each(|s| l.add_top(s)),
                     false => shapes.into_iter().for_each(|s| l.add(s)),
@@ -91,7 +100,11 @@ where
 
                 let e = self.g.edge_mut(idx).unwrap();
 
-                let shapes = e.display_mut().shapes(&start, &end.clone(), self.ctx);
+                let props = e.props().clone();
+                let display = e.display_mut();
+                display.update(&props);
+
+                let shapes = display.shapes(&start, &end, self.ctx);
                 match e.selected() {
                     true => shapes.into_iter().for_each(|s| l.add_top(s)),
                     false => shapes.into_iter().for_each(|s| l.add(s)),
