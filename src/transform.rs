@@ -108,7 +108,7 @@ pub fn add_edge_custom<
 /// # Example
 /// ```
 /// use petgraph::stable_graph::StableGraph;
-/// use egui_graphs::to_graph;
+/// use egui_graphs::{to_graph, DefaultNodeShape, DefaultEdgeShape, Graph};
 /// use egui::Pos2;
 ///
 /// let mut user_graph: StableGraph<&str, &str> = StableGraph::new();
@@ -116,7 +116,7 @@ pub fn add_edge_custom<
 /// let node2 = user_graph.add_node("B");
 /// user_graph.add_edge(node1, node2, "edge1");
 ///
-/// let input_graph: egui_graphs::Graph<_, _, _, _, egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape> = to_graph(&user_graph);
+/// let input_graph: Graph<_, _, _, _, DefaultNodeShape, DefaultEdgeShape> = to_graph(&user_graph);
 ///
 /// assert_eq!(input_graph.g.node_count(), 2);
 /// assert_eq!(input_graph.g.edge_count(), 1);
