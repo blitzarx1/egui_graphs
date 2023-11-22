@@ -8,7 +8,7 @@ mod settings;
 mod transform;
 
 pub use self::draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext};
-pub use self::elements::{Edge, Node, NodeProps};
+pub use self::elements::{Edge, EdgeProps, Node, NodeProps};
 pub use self::graph::Graph;
 pub use self::graph_view::GraphView;
 pub use self::metadata::Metadata;
