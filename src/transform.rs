@@ -11,10 +11,6 @@ use std::collections::HashMap;
 
 pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 
-pub type EdgeTransform<N, E, Ty, Ix, Dn, D> =
-    fn(EdgeIndex<Ix>, &E, usize) -> Edge<N, E, Ty, Ix, Dn, D>;
-pub type NodeTransform<N, E, Ty, Ix, D> = fn(NodeIndex<Ix>, &N) -> Node<N, E, Ty, Ix, D>;
-
 /// Helper function which adds user's node to the [`super::Graph`] instance.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
@@ -37,7 +33,7 @@ pub fn add_node_custom<
 >(
     g: &mut Graph<N, E, Ty, Ix, D>,
     n: &N,
-    node_transform: NodeTransform<N, E, Ty, Ix, D>,
+    node_transform: impl FnOnce(NodeIndex<Ix>, &N) -> Node<N, E, Ty, Ix, D>,
 ) -> NodeIndex<Ix> {
     g.g.add_node(node_transform(
         NodeIndex::<Ix>::new(g.g.node_count() + 1),
@@ -81,7 +77,7 @@ pub fn add_edge_custom<
     start: NodeIndex<Ix>,
     end: NodeIndex<Ix>,
     e: &E,
-    edge_transform: EdgeTransform<N, E, Ty, Ix, Dn, De>,
+    edge_transform: impl FnOnce(EdgeIndex<Ix>, &E, usize) -> Edge<N, E, Ty, Ix, Dn, De>,
 ) -> EdgeIndex<Ix> {
     let order = g.g.edges_connecting(start, end).count();
     g.g.add_edge(
@@ -147,7 +143,7 @@ pub fn to_graph<
 >(
     g: &StableGraph<N, E, Ty, Ix>,
 ) -> Graph<N, E, Ty, Ix, Dn, De> {
-    transform(g, default_node_transform, default_edge_transform)
+    transform(g, &mut default_node_transform, &mut default_edge_transform)
 }
 
 /// The same as [`to_graph`], but allows to define custom transformation procedures for nodes and edges.
@@ -160,10 +156,10 @@ pub fn to_graph_custom<
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 >(
     g: &StableGraph<N, E, Ty, Ix>,
-    node_transform: NodeTransform<N, E, Ty, Ix, Dn>,
-    edge_transform: EdgeTransform<N, E, Ty, Ix, Dn, De>,
+    mut node_transform: impl FnMut(NodeIndex<Ix>, &N) -> Node<N, E, Ty, Ix, Dn>,
+    mut edge_transform: impl FnMut(EdgeIndex<Ix>, &E, usize) -> Edge<N, E, Ty, Ix, Dn, De>,
 ) -> Graph<N, E, Ty, Ix, Dn, De> {
-    transform(g, node_transform, edge_transform)
+    transform(g, &mut node_transform, &mut edge_transform)
 }
 
 /// Default node transform function. Keeps original data and creates a new node with a random location and
@@ -218,8 +214,8 @@ fn transform<
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 >(
     g: &StableGraph<N, E, Ty, Ix>,
-    node_transform: NodeTransform<N, E, Ty, Ix, Dn>,
-    edge_transform: EdgeTransform<N, E, Ty, Ix, Dn, De>,
+    node_transform: &mut impl FnMut(NodeIndex<Ix>, &N) -> Node<N, E, Ty, Ix, Dn>,
+    edge_transform: &mut impl FnMut(EdgeIndex<Ix>, &E, usize) -> Edge<N, E, Ty, Ix, Dn, De>,
 ) -> Graph<N, E, Ty, Ix, Dn, De> {
     let mut input_g =
         StableGraph::<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>::default();

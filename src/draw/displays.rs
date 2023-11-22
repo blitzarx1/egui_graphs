@@ -26,7 +26,7 @@ where
     /// Use `ctx.meta` to properly scale and translate the shape.
     fn shapes(&mut self, ctx: &DrawContext) -> Vec<Shape>;
 
-    /// Is called on every framte. Can be used for updating state of the implementation of [DisplayNode]
+    /// Is called on every frame. Can be used for updating state of the implementation of [DisplayNode]
     fn update(&mut self, state: &NodeProps<N>);
 
     /// Checks if the provided `pos` is inside the shape.
