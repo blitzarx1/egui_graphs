@@ -159,4 +159,9 @@ where
     pub fn set_label(&mut self, label: String) {
         self.props.label = label
     }
+
+    pub fn with_label(mut self, label: String) -> Self {
+        self.props.label = label;
+        self
+    }
 }

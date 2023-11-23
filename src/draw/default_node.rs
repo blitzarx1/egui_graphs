@@ -11,6 +11,7 @@ use super::DisplayNode;
 /// This is the default node shape which is used to display nodes in the graph.
 ///
 /// You can use this implementation as an example for implementing your own custom node shapes.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
 pub struct DefaultNodeShape {
     pub pos: Pos2,
