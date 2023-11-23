@@ -136,11 +136,6 @@ where
         self.props.location = loc
     }
 
-    pub fn with_location(mut self, loc: Pos2) -> Self {
-        self.props.location = loc;
-        self
-    }
-
     pub fn selected(&self) -> bool {
         self.props.selected
     }
