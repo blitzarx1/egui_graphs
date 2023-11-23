@@ -10,6 +10,7 @@ use crate::{draw::DrawContext, elements::EdgeProps, DisplayNode, Node};
 
 use super::DisplayEdge;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
 pub struct DefaultEdgeShape {
     pub order: usize,
