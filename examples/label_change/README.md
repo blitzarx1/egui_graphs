@@ -3,5 +3,5 @@ Simple example which demonstrates the API for changing node props including spec
 
 ## run
 ```bash
-cargo run --release -p label_chage
+cargo run --release -p label_change
 ```
