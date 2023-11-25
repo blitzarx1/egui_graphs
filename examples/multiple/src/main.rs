@@ -1,5 +1,5 @@
 use eframe::{run_native, App, CreationContext, Frame};
-use egui::{CentralPanel, Context, Layout, SidePanel};
+use egui::{CentralPanel, Context, Label, Layout, SidePanel};
 use egui_graphs::{
     DefaultEdgeShape, DefaultNodeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation,
 };
@@ -19,30 +19,30 @@ impl BasicApp {
 impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut Frame) {
         let available_width = ctx.available_rect().width();
-        SidePanel::left("left_panel")
-            .default_width(available_width / 3.)
-            .resizable(true)
-            .show(ctx, |ui| {
-                ui.child_ui(ui.max_rect(), Layout::default());
-                ui.add(
-                    &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(
-                        &mut self.g,
-                    )
-                    .with_navigations(
-                        &SettingsNavigation::default()
-                            .with_fit_to_screen_enabled(false)
-                            .with_zoom_and_pan_enabled(true),
-                    )
-                    .with_interactions(
-                        &SettingsInteraction::default()
-                            .with_node_selection_multi_enabled(true)
-                            .with_node_selection_enabled(true)
-                            .with_edge_selection_enabled(true)
-                            .with_edge_selection_multi_enabled(true)
-                            .with_dragging_enabled(true),
-                    ),
-                )
-            });
+        // SidePanel::left("left_panel")
+        //     .default_width(available_width / 3.)
+        //     .resizable(true)
+        //     .show(ctx, |ui| {
+        //         ui.child_ui(ui.max_rect(), Layout::default());
+        //         ui.add(
+        //             &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(
+        //                 &mut self.g,
+        //             )
+        //             .with_navigations(
+        //                 &SettingsNavigation::default()
+        //                     .with_fit_to_screen_enabled(false)
+        //                     .with_zoom_and_pan_enabled(true),
+        //             )
+        //             .with_interactions(
+        //                 &SettingsInteraction::default()
+        //                     .with_node_selection_multi_enabled(true)
+        //                     .with_node_selection_enabled(true)
+        //                     .with_edge_selection_enabled(true)
+        //                     .with_edge_selection_multi_enabled(true)
+        //                     .with_dragging_enabled(true),
+        //             ),
+        //         )
+        //     });
         SidePanel::right("right_panel")
             .default_width(available_width / 3.)
             .resizable(true)
@@ -53,7 +53,7 @@ impl App for BasicApp {
                     )
                     .with_navigations(
                         &SettingsNavigation::default()
-                            .with_fit_to_screen_enabled(false)
+                            // .with_fit_to_screen_enabled(false)
                             .with_zoom_and_pan_enabled(true),
                     )
                     .with_interactions(
@@ -68,20 +68,20 @@ impl App for BasicApp {
             });
         CentralPanel::default().show(ctx, |ui| {
             ui.add(
-                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(&mut self.g)
-                    .with_navigations(
-                        &SettingsNavigation::default()
-                            .with_fit_to_screen_enabled(false)
-                            .with_zoom_and_pan_enabled(true),
-                    )
-                    .with_interactions(
-                        &SettingsInteraction::default()
-                            .with_node_selection_multi_enabled(true)
-                            .with_node_selection_enabled(true)
-                            .with_edge_selection_enabled(true)
-                            .with_edge_selection_multi_enabled(true)
-                            .with_dragging_enabled(true),
-                    ),
+                Label::new("long long long long long long long"), //     &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(&mut self.g)
+                                                                  //         .with_navigations(
+                                                                  //             &SettingsNavigation::default()
+                                                                  //                 // .with_fit_to_screen_enabled(false)
+                                                                  //                 .with_zoom_and_pan_enabled(true),
+                                                                  //         )
+                                                                  //         .with_interactions(
+                                                                  //             &SettingsInteraction::default()
+                                                                  //                 .with_node_selection_multi_enabled(true)
+                                                                  //                 .with_node_selection_enabled(true)
+                                                                  //                 .with_edge_selection_enabled(true)
+                                                                  //                 .with_edge_selection_multi_enabled(true)
+                                                                  //                 .with_dragging_enabled(true),
+                                                                  //         ),
             )
         });
     }
