@@ -31,9 +31,14 @@ impl BasicApp {
     fn render(&mut self, ctx: &Context) {
         SidePanel::right("right_panel").show(ctx, |ui| {
             ui.label("Change Label");
-            TextEdit::singleline(&mut self.label_input)
-                .hint_text("select node")
-                .show(ui);
+            ui.add_enabled_ui(self.selected_node.is_some(), |ui| {
+                TextEdit::singleline(&mut self.label_input)
+                    .hint_text("select node")
+                    .show(ui)
+            });
+            if ui.button("reset").clicked() {
+                self.reset()
+            }
         });
         egui::CentralPanel::default().show(ctx, |ui| {
             let widget =
@@ -60,6 +65,15 @@ impl BasicApp {
             .node_mut(idx)
             .unwrap()
             .set_label(self.label_input.clone());
+    }
+
+    fn reset(&mut self) {
+        let g = generate_graph();
+        *self = Self {
+            g: Graph::from(&g),
+            label_input: String::default(),
+            selected_node: Option::default(),
+        };
     }
 }
 
