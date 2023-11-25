@@ -4,7 +4,7 @@ use egui::{Id, Pos2, Vec2};
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "egui_persistence", derive(Serialize, Deserialize))]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Metadata {
     /// Whether the frame is the first one
     pub first_frame: bool,

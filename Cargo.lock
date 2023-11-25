@@ -2903,6 +2903,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "label_change"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_graphs",
+ "petgraph",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
