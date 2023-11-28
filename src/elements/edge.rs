@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use petgraph::{
     stable_graph::{DefaultIx, EdgeIndex, IndexType},
-    EdgeType,
+    Directed, EdgeType,
 };
 
 use crate::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode};
@@ -22,7 +22,7 @@ pub struct EdgeProps<E: Clone> {
 pub struct Edge<
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType = Directed,
     Ix: IndexType = DefaultIx,
     Dn: DisplayNode<N, E, Ty, Ix> = DefaultNodeShape,
     D: DisplayEdge<N, E, Ty, Ix, Dn> = DefaultEdgeShape,

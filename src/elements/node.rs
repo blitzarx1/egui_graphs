@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use egui::Pos2;
 use petgraph::{
     stable_graph::{DefaultIx, IndexType, NodeIndex},
-    EdgeType,
+    EdgeType, Directed,
 };
 
 use crate::{DefaultNodeShape, DisplayNode};
@@ -21,7 +21,7 @@ pub struct NodeProps<N: Clone> {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Node<N, E, Ty, Ix = DefaultIx, D = DefaultNodeShape>
+pub struct Node<N, E, Ty = Directed, Ix = DefaultIx, D = DefaultNodeShape>
 where
     N: Clone,
     E: Clone,

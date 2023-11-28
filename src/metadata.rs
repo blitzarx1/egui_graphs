@@ -1,9 +1,53 @@
-use egui::{Id, Pos2, Vec2};
+use egui::{Id, Pos2, Rect, Vec2};
+use petgraph::{stable_graph::IndexType, EdgeType};
 
-#[cfg(feature = "egui_persistence")]
-use serde::{Deserialize, Serialize};
+use crate::{DisplayNode, Node};
+#[derive(Clone, Debug)]
+struct BoundsIterator {
+    min: Vec2,
+    max: Vec2,
+}
 
-#[cfg_attr(feature = "egui_persistence", derive(Serialize, Deserialize))]
+impl Default for BoundsIterator {
+    fn default() -> Self {
+        Self {
+            min: Vec2::new(f32::MAX, f32::MAX),
+            max: Vec2::new(f32::MIN, f32::MIN),
+        }
+    }
+}
+
+impl BoundsIterator {
+    pub fn comp_iter<
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        D: DisplayNode<N, E, Ty, Ix>,
+    >(
+        &mut self,
+        n: &Node<N, E, Ty, Ix, D>,
+    ) {
+        let loc = n.location();
+        if loc.x < self.min.x {
+            self.min.x = loc.x;
+        };
+        if loc.x > self.max.x {
+            self.max.x = loc.x;
+        };
+        if loc.y < self.min.y {
+            self.min.y = loc.y;
+        };
+        if loc.y > self.max.y {
+            self.max.y = loc.y;
+        };
+    }
+}
+
+#[cfg_attr(
+    feature = "egui_persistence",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Clone, Debug)]
 pub struct Metadata {
     /// Whether the frame is the first one
@@ -13,7 +57,10 @@ pub struct Metadata {
     /// Current pan offset
     pub pan: Vec2,
     /// Top left position of widget
-    pub left_top: Pos2,
+    pub top_left: Pos2,
+
+    /// State of bounds iteration
+    bounds_iterator: BoundsIterator,
 }
 
 impl Default for Metadata {
@@ -22,7 +69,8 @@ impl Default for Metadata {
             first_frame: true,
             zoom: 1.,
             pan: Default::default(),
-            left_top: Default::default(),
+            top_left: Default::default(),
+            bounds_iterator: Default::default(),
         }
     }
 }
@@ -51,5 +99,26 @@ impl Metadata {
 
     pub fn screen_to_canvas_pos(&self, pos: Pos2) -> Pos2 {
         ((pos.to_vec2() - self.pan) / self.zoom).to_pos2()
+    }
+
+    pub fn comp_iter_bounds<
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        D: DisplayNode<N, E, Ty, Ix>,
+    >(
+        &mut self,
+        n: &Node<N, E, Ty, Ix, D>,
+    ) {
+        self.bounds_iterator.comp_iter(n);
+    }
+
+    /// Returns bounding rect of the graph.
+    pub fn graph_bounds(&self) -> Rect {
+        Rect::from_min_max(
+            self.bounds_iterator.min.to_pos2(),
+            self.bounds_iterator.max.to_pos2(),
+        )
     }
 }

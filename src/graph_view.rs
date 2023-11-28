@@ -7,7 +7,6 @@ use crate::events::{
     PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
 };
 use crate::{
-    computed::ComputedState,
     draw::Drawer,
     metadata::Metadata,
     settings::SettingsNavigation,
@@ -81,13 +80,13 @@ where
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
         let mut meta = Metadata::get(ui);
-        let mut computed = self.compute_state();
+        self.sync_state(&mut meta);
 
-        self.handle_fit_to_screen(&resp, &mut meta, &computed);
-        self.handle_navigation(ui, &resp, &mut meta, &computed);
+        self.handle_fit_to_screen(&resp, &mut meta);
+        self.handle_navigation(ui, &resp, &mut meta);
 
-        self.handle_node_drag(&resp, &mut computed, &mut meta);
-        self.handle_click(&resp, &mut meta, &computed);
+        self.handle_node_drag(&resp, &mut meta);
+        self.handle_click(&resp, &mut meta);
 
         let is_directed = self.g.is_directed();
         Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
@@ -166,40 +165,44 @@ where
         self
     }
 
-    fn compute_state(&mut self) -> ComputedState<Ix> {
-        let mut computed = ComputedState::<Ix>::default();
+    fn sync_state(&mut self, meta: &mut Metadata) {
+        let mut selected_nodes = Vec::new();
+        let mut selected_edges = Vec::new();
+        let mut dragged = None;
 
-        self.g.g.node_indices().for_each(|idx| {
-            let n = self.g.node(idx).unwrap();
+        self.g.nodes_iter().for_each(|(idx, n)| {
             if n.dragged() {
-                computed.dragged = Some(idx);
+                dragged = Some(idx);
             }
             if n.selected() {
-                computed.selected_nodes.push(idx);
+                selected_nodes.push(idx);
             }
-            computed.comp_iter_bounds(n);
+
+            meta.comp_iter_bounds(n);
         });
 
         self.g.edges_iter().for_each(|(idx, e)| {
             if e.selected() {
-                computed.selected_edges.push(idx);
+                selected_edges.push(idx);
             }
         });
 
-        computed
+        self.g.set_selected_nodes(selected_nodes);
+        self.g.set_selected_edges(selected_edges);
+        self.g.set_dragged_node(dragged);
     }
 
     /// Fits the graph to the screen if it is the first frame or
     /// fit to screen setting is enabled;
-    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata, comp: &ComputedState<Ix>) {
+    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata) {
         if !meta.first_frame && !self.settings_navigation.fit_to_screen_enabled {
             return;
         }
 
-        self.fit_to_screen(&r.rect, meta, comp);
+        self.fit_to_screen(&r.rect, meta);
     }
 
-    fn handle_click(&mut self, resp: &Response, meta: &mut Metadata, comp: &ComputedState<Ix>) {
+    fn handle_click(&mut self, resp: &Response, meta: &mut Metadata) {
         if !resp.clicked() && !resp.double_clicked() {
             return;
         }
@@ -222,13 +225,13 @@ where
             let nodes_selectable = self.settings_interaction.node_selection_enabled
                 || self.settings_interaction.node_selection_multi_enabled;
             if nodes_selectable {
-                self.deselect_all_nodes(comp);
+                self.deselect_all_nodes();
             }
 
             let edges_selectable = self.settings_interaction.edge_selection_enabled
                 || self.settings_interaction.edge_selection_multi_enabled;
             if edges_selectable {
-                self.deselect_all_edges(comp);
+                self.deselect_all_edges();
             }
             return;
         }
@@ -241,12 +244,12 @@ where
                 self.handle_node_double_click(idx);
                 return;
             }
-            self.handle_node_click(idx, comp);
+            self.handle_node_click(idx);
             return;
         }
 
         if let Some(edge_idx) = found_edge {
-            self.handle_edge_click(edge_idx, comp);
+            self.handle_edge_click(edge_idx);
         }
     }
 
@@ -260,7 +263,7 @@ where
         }
     }
 
-    fn handle_node_click(&mut self, idx: NodeIndex<Ix>, comp: &ComputedState<Ix>) {
+    fn handle_node_click(&mut self, idx: NodeIndex<Ix>) {
         if !self.settings_interaction.node_clicking_enabled
             && !self.settings_interaction.node_selection_enabled
         {
@@ -282,13 +285,13 @@ where
         }
 
         if !self.settings_interaction.node_selection_multi_enabled {
-            self.deselect_all(comp);
+            self.deselect_all();
         }
 
         self.select_node(idx);
     }
 
-    fn handle_edge_click(&mut self, idx: EdgeIndex<Ix>, comp: &ComputedState<Ix>) {
+    fn handle_edge_click(&mut self, idx: EdgeIndex<Ix>) {
         if !self.settings_interaction.edge_clicking_enabled
             && !self.settings_interaction.edge_selection_enabled
         {
@@ -310,18 +313,13 @@ where
         }
 
         if !self.settings_interaction.edge_selection_multi_enabled {
-            self.deselect_all(comp);
+            self.deselect_all();
         }
 
         self.select_edge(idx);
     }
 
-    fn handle_node_drag(
-        &mut self,
-        resp: &Response,
-        comp: &mut ComputedState<Ix>,
-        meta: &mut Metadata,
-    ) {
+    fn handle_node_drag(&mut self, resp: &Response, meta: &mut Metadata) {
         if !self.settings_interaction.dragging_enabled {
             return;
         }
@@ -333,23 +331,23 @@ where
         }
 
         if resp.dragged()
-            && comp.dragged.is_some()
+            && self.g.dragged_node().is_some()
             && (resp.drag_delta().x.abs() > 0. || resp.drag_delta().y.abs() > 0.)
         {
-            let n_idx_dragged = comp.dragged.unwrap();
+            let n_idx_dragged = self.g.dragged_node().unwrap();
             let delta_in_graph_coords = resp.drag_delta() / meta.zoom;
             self.move_node(n_idx_dragged, delta_in_graph_coords);
         }
 
-        if resp.drag_released() && comp.dragged.is_some() {
-            let n_idx = comp.dragged.unwrap();
+        if resp.drag_released() && self.g.dragged_node().is_some() {
+            let n_idx = self.g.dragged_node().unwrap();
             self.set_drag_end(n_idx);
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata, comp: &ComputedState<Ix>) {
+    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata) {
         // calculate graph dimensions with decorative padding
-        let bounds = comp.graph_bounds();
+        let bounds = meta.graph_bounds();
         let mut diag = bounds.max - bounds.min;
 
         // if the graph is empty or consists from one node, use a default size
@@ -383,20 +381,14 @@ where
         self.set_pan(new_pan, meta);
     }
 
-    fn handle_navigation(
-        &self,
-        ui: &Ui,
-        resp: &Response,
-        meta: &mut Metadata,
-        comp: &ComputedState<Ix>,
-    ) {
+    fn handle_navigation(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
         if !meta.first_frame {
-            meta.pan += resp.rect.left_top() - meta.left_top;
+            meta.pan += resp.rect.left_top() - meta.top_left;
         }
-        meta.left_top = resp.rect.left_top();
+        meta.top_left = resp.rect.left_top();
 
         self.handle_zoom(ui, resp, meta);
-        self.handle_pan(resp, meta, comp);
+        self.handle_pan(resp, meta);
     }
 
     fn handle_zoom(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
@@ -415,13 +407,13 @@ where
         });
     }
 
-    fn handle_pan(&self, resp: &Response, meta: &mut Metadata, comp: &ComputedState<Ix>) {
+    fn handle_pan(&self, resp: &Response, meta: &mut Metadata) {
         if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
 
         if resp.dragged()
-            && comp.dragged.is_none()
+            && self.g.dragged_node().is_none()
             && (resp.drag_delta().x.abs() > 0. || resp.drag_delta().y.abs() > 0.)
         {
             let new_pan = meta.pan + resp.drag_delta();
@@ -496,20 +488,22 @@ where
     }
 
     /// Deselects all nodes AND edges.
-    fn deselect_all(&mut self, comp: &ComputedState<Ix>) {
-        self.deselect_all_nodes(comp);
-        self.deselect_all_edges(comp);
+    fn deselect_all(&mut self) {
+        self.deselect_all_nodes();
+        self.deselect_all_edges();
     }
 
-    fn deselect_all_nodes(&mut self, comp: &ComputedState<Ix>) {
-        comp.selected_nodes.iter().for_each(|idx| {
-            self.deselect_node(*idx);
+    fn deselect_all_nodes(&mut self) {
+        let selected_nodes = self.g.selected_nodes().to_vec();
+        selected_nodes.into_iter().for_each(|idx| {
+            self.deselect_node(idx);
         });
     }
 
-    fn deselect_all_edges(&mut self, comp: &ComputedState<Ix>) {
-        comp.selected_edges.iter().for_each(|idx| {
-            self.deselect_edge(*idx);
+    fn deselect_all_edges(&mut self) {
+        let selected_edges = self.g.selected_edges().to_vec();
+        selected_edges.into_iter().for_each(|idx| {
+            self.deselect_edge(idx);
         });
     }
 
