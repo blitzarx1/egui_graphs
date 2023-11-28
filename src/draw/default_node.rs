@@ -75,8 +75,6 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
             return res;
         }
 
-        // display label centered over the circle
-        let label_pos = Pos2::new(circle_center.x, circle_center.y - circle_radius * 2.);
         let galley = ctx.ctx.fonts(|f| {
             f.layout_no_wrap(
                 self.label_text.clone(),
@@ -84,6 +82,12 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
                 color,
             )
         });
+
+        // display label centered over the circle
+        let label_pos = Pos2::new(
+            circle_center.x - galley.size().x / 2.,
+            circle_center.y - circle_radius * 2.,
+        );
 
         let label_shape = TextShape::new(label_pos, galley);
         res.push(label_shape.into());
