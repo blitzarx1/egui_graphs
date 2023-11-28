@@ -27,8 +27,8 @@ pub struct ConfigurableApp {
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
 
-    selected_nodes: Vec<Node<(), (), Directed, DefaultIx>>,
-    selected_edges: Vec<Edge<(), (), Directed>>,
+    selected_nodes: Vec<NodeIndex>,
+    selected_edges: Vec<EdgeIndex>,
     last_events: Vec<String>,
 
     simulation_stopped: bool,
@@ -128,6 +128,7 @@ impl ConfigurableApp {
     /// If node or edge is selected it is added to the corresponding selected field in `self`.
     fn sync_graph_with_simulation(&mut self) {
         self.selected_nodes = vec![];
+        self.selected_edges = vec![];
 
         let g_indices = self.g.g.node_indices().collect::<Vec<_>>();
         for g_n_idx in &g_indices {
@@ -138,7 +139,14 @@ impl ConfigurableApp {
             g_n.set_location(Pos2::new(loc.x, loc.y));
 
             if g_n.selected() {
-                self.selected_nodes.push(g_n.clone());
+                self.selected_nodes.push(*g_n_idx);
+            }
+        }
+
+        for g_e_idx in self.g.g.edge_indices() {
+            let g_e = self.g.g.edge_weight(g_e_idx).unwrap();
+            if g_e.selected() {
+                self.selected_edges.push(g_e_idx);
             }
         }
 
@@ -489,10 +497,10 @@ impl ConfigurableApp {
             CollapsingHeader::new("Selected").default_open(true).show(ui, |ui| {
                 ScrollArea::vertical().auto_shrink([false, true]).max_height(200.).show(ui, |ui| {
                     self.selected_nodes.iter().for_each(|node| {
-                        ui.label(format!("{:?}", node));
+                        ui.label(format!("{node:?}"));
                     });
                     self.selected_edges.iter().for_each(|edge| {
-                        ui.label(format!("{:?}", edge));
+                        ui.label(format!("{edge:?}"));
                     });
                 });
             });

@@ -23,7 +23,7 @@ impl BasicApp {
 
     fn read_data(&mut self) {
         if let Some((selected_idx, _)) = self.g.nodes_iter().find(|(_, n)| n.selected()) {
-            self.selected_node = Some(selected_idx.clone());
+            self.selected_node = Some(selected_idx);
             self.label_input = self.g.node(selected_idx).unwrap().label();
         }
     }
