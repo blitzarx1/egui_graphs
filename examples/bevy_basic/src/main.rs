@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use egui_graphs::{DefaultEdgeShape, DefaultNodeShape, Graph, GraphView};
-use petgraph::stable_graph::StableGraph;
+use petgraph::stable_graph::{DefaultIx, StableGraph};
 
 fn main() {
     App::new()
@@ -52,7 +52,7 @@ fn update_graph(mut contexts: EguiContexts, mut q_graph: Query<&mut BasicGraph>)
             _,
             _,
             DefaultNodeShape,
-            DefaultEdgeShape,
+            DefaultEdgeShape<DefaultIx>,
         >::new(&mut graph.0));
     });
 }
