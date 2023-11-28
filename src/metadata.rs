@@ -78,14 +78,14 @@ impl Default for Metadata {
 impl Metadata {
     pub fn get(ui: &egui::Ui) -> Self {
         ui.data_mut(|data| {
-            data.get_persisted::<Metadata>(Id::null())
+            data.get_persisted::<Metadata>(Id::NULL)
                 .unwrap_or_default()
         })
     }
 
     pub fn store_into_ui(self, ui: &mut egui::Ui) {
         ui.data_mut(|data| {
-            data.insert_persisted(Id::null(), self);
+            data.insert_persisted(Id::NULL, self);
         });
     }
 
@@ -120,5 +120,10 @@ impl Metadata {
             self.bounds_iterator.min.to_pos2(),
             self.bounds_iterator.max.to_pos2(),
         )
+    }
+
+    /// Resets the bounds iterator.
+    pub fn reset_bounds_iterator(&mut self) {
+        self.bounds_iterator = Default::default();
     }
 }
