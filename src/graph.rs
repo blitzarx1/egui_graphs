@@ -16,7 +16,8 @@ use crate::{DefaultEdgeShape, DefaultNodeShape};
 type StableGraphType<N, E, Ty, Ix, Dn, De> =
     StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
 
-/// Graph type compatible with [`super::GraphView`].
+/// Wrapper around [`petgraph::stable_graph::StableGraph`] compatible with [`super::GraphView`].
+/// It is used to store graph data and provide access to it.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Graph<
@@ -28,6 +29,9 @@ pub struct Graph<
     De: DisplayEdge<N, E, Ty, Ix, Dn> = DefaultEdgeShape,
 > {
     pub g: StableGraphType<N, E, Ty, Ix, Dn, De>,
+    selected_nodes: Vec<NodeIndex<Ix>>,
+    selected_edges: Vec<EdgeIndex<Ix>>,
+    dragged_node: Option<NodeIndex<Ix>>,
 }
 
 impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>
@@ -48,7 +52,12 @@ impl<
     > Graph<N, E, Ty, Ix, Dn, De>
 {
     pub fn new(g: StableGraphType<N, E, Ty, Ix, Dn, De>) -> Self {
-        Self { g }
+        Self {
+            g,
+            selected_nodes: Vec::default(),
+            selected_edges: Vec::default(),
+            dragged_node: Option::default(),
+        }
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
@@ -126,5 +135,29 @@ impl<
         dir: Direction,
     ) -> impl Iterator<Item = EdgeReference<Edge<N, E, Ty, Ix, Dn, De>, Ix>> {
         self.g.edges_directed(idx, dir)
+    }
+
+    pub fn selected_nodes(&self) -> &[NodeIndex<Ix>] {
+        &self.selected_nodes
+    }
+
+    pub fn set_selected_nodes(&mut self, nodes: Vec<NodeIndex<Ix>>) {
+        self.selected_nodes = nodes;
+    }
+
+    pub fn selected_edges(&self) -> &[EdgeIndex<Ix>] {
+        &self.selected_edges
+    }
+
+    pub fn set_selected_edges(&mut self, edges: Vec<EdgeIndex<Ix>>) {
+        self.selected_edges = edges;
+    }
+
+    pub fn dragged_node(&self) -> Option<NodeIndex<Ix>> {
+        self.dragged_node
+    }
+
+    pub fn set_dragged_node(&mut self, node: Option<NodeIndex<Ix>>) {
+        self.dragged_node = node;
     }
 }

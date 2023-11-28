@@ -1,4 +1,3 @@
-mod computed;
 mod draw;
 mod elements;
 mod graph;

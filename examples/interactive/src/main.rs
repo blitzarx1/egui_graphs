@@ -3,13 +3,10 @@ use egui::Context;
 use egui_graphs::{
     DefaultEdgeShape, DefaultNodeShape, Graph, GraphView, SettingsInteraction, SettingsStyle,
 };
-use petgraph::{
-    stable_graph::{DefaultIx, StableGraph},
-    Directed,
-};
+use petgraph::stable_graph::StableGraph;
 
 pub struct InteractiveApp {
-    g: Graph<(), (), Directed, DefaultIx>,
+    g: Graph<(), ()>,
 }
 
 impl InteractiveApp {
