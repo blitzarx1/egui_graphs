@@ -1,0 +1,30 @@
+[package]
+name = "wasm_example"
+version = "0.1.0"
+authors = ["Atlas16A"]
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+egui_graphs = "0.17.0"
+egui = "0.24.0"
+eframe = "0.24.0"
+petgraph = "0.6"
+# Wasm related dependencies
+"getrandom" = {version = "0.2.10", features = ["js"] }
+log = "0.4"
+#Required for wasm if using std::time::Instant in your code
+#instant =  {version = "0.1.12", features = ["wasm-bindgen"] }
+
+
+# native:
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.10"
+
+# web:
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+
+
+[profile.release]
+opt-level = 2 # fast and small wasm
