@@ -2,6 +2,11 @@ use egui::{Id, Pos2, Rect, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
 
 use crate::{DisplayNode, Node};
+
+#[cfg_attr(
+    feature = "egui_persistence",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Clone, Debug)]
 struct BoundsIterator {
     min: Vec2,
@@ -77,10 +82,7 @@ impl Default for Metadata {
 
 impl Metadata {
     pub fn get(ui: &egui::Ui) -> Self {
-        ui.data_mut(|data| {
-            data.get_persisted::<Metadata>(Id::NULL)
-                .unwrap_or_default()
-        })
+        ui.data_mut(|data| data.get_persisted::<Metadata>(Id::NULL).unwrap_or_default())
     }
 
     pub fn store_into_ui(self, ui: &mut egui::Ui) {
