@@ -4669,6 +4669,7 @@ dependencies = [
  "egui_graphs 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger",
  "getrandom",
+ "instant",
  "log",
  "petgraph",
  "wasm-bindgen-futures",

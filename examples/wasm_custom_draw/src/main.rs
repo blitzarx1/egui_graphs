@@ -1,30 +1,42 @@
 use eframe::{App, CreationContext};
 use egui::Context;
-use egui_graphs::{DefaultEdgeShape, DefaultNodeShape, Graph, GraphView};
-use petgraph::stable_graph::StableGraph;
+use egui_graphs::{DefaultEdgeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation};
+use node::NodeShapeAnimated;
+use petgraph::{
+    stable_graph::{DefaultIx, StableGraph},
+    Directed,
+};
 
-pub struct BasicApp {
-    g: Graph<(), ()>,
+mod node;
+
+pub struct CustomDrawApp {
+    g: Graph<(), (), Directed, DefaultIx, NodeShapeAnimated>,
 }
 
-impl BasicApp {
+impl CustomDrawApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
         Self { g: Graph::from(&g) }
     }
 }
 
-impl App for BasicApp {
+impl App for CustomDrawApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut GraphView::<
-                _,
-                _,
-                _,
-                _,
-                DefaultNodeShape,
-                DefaultEdgeShape,
-            >::new(&mut self.g));
+            ui.add(
+                &mut GraphView::<_, _, _, _, NodeShapeAnimated, DefaultEdgeShape>::new(&mut self.g)
+                    .with_navigations(
+                        &SettingsNavigation::default()
+                            .with_fit_to_screen_enabled(false)
+                            .with_zoom_and_pan_enabled(true),
+                    )
+                    .with_interactions(
+                        &SettingsInteraction::default()
+                            .with_dragging_enabled(true)
+                            .with_node_selection_enabled(true)
+                            .with_edge_selection_enabled(true),
+                    ),
+            );
         });
     }
 }
@@ -48,9 +60,9 @@ fn generate_graph() -> StableGraph<(), ()> {
 fn main() {
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
-        "egui_graphs_basic_demo",
+        "egui_graphs_custom_draw_demo",
         native_options,
-        Box::new(|cc| Box::new(BasicApp::new(cc))),
+        Box::new(|cc| Box::new(CustomDrawApp::new(cc))),
     )
     .unwrap();
 }
@@ -68,7 +80,7 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|cc| Box::new(BasicApp::new(cc))),
+                Box::new(|cc| Box::new(CustomDrawApp::new(cc))),
             )
             .await
             .expect("failed to start eframe");

@@ -10,11 +10,11 @@ egui_graphs = "0.17.0"
 egui = "0.24.0"
 eframe = "0.24.0"
 petgraph = "0.6"
+
 # Wasm related dependencies
-"getrandom" = {version = "0.2.10", features = ["js"] }
+"getrandom" = { version = "0.2.10", features = ["js"] }
 log = "0.4"
-#Required for wasm if using std::time::Instant in your code
-#instant =  {version = "0.1.12", features = ["wasm-bindgen"] }
+instant = { version = "0.1.12", features = ["wasm-bindgen"] }
 
 
 # native:
