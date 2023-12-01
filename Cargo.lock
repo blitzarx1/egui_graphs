@@ -1991,6 +1991,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_graphs"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41a8b4233ff957d7e65c4727ebe014b1d81f1bc15032f8656f88d15724259f38"
+dependencies = [
+ "egui 0.24.0",
+ "petgraph",
+ "rand",
+]
+
+[[package]]
 name = "emath"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2071,6 +2082,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.38",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95b3f3e67048839cb0d0781f445682a35113da7121f7c949db0e2be96a4fbece"
+dependencies = [
+ "humantime",
+ "is-terminal",
+ "log",
+ "regex",
+ "termcolor",
 ]
 
 [[package]]
@@ -2705,6 +2729,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "humantime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
+
+[[package]]
 name = "idna"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2815,6 +2845,17 @@ checksum = "eae7b9aee968036d54dce06cebaefd919e4472e753296daccd6d344e3e2df0c2"
 dependencies = [
  "hermit-abi",
  "libc",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "is-terminal"
+version = "0.4.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb0889898416213fab133e1d33a0e5858a48177452750691bde3666d0fdbaf8b"
+dependencies = [
+ "hermit-abi",
+ "rustix 0.38.19",
  "windows-sys 0.48.0",
 ]
 
@@ -4618,6 +4659,21 @@ name = "wasm-bindgen-shared"
 version = "0.2.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca6ad05a4870b2bf5fe995117d3728437bd27d7cd5f06f13c17443ef369775a1"
+
+[[package]]
+name = "wasm_example"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui 0.24.0",
+ "egui_graphs 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger",
+ "getrandom",
+ "instant",
+ "log",
+ "petgraph",
+ "wasm-bindgen-futures",
+]
 
 [[package]]
 name = "wayland-client"
