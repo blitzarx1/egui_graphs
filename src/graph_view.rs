@@ -90,10 +90,10 @@ where
 
         let is_directed = self.g.is_directed();
         Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
-            p,
             self.g,
             &DrawContext {
                 ctx: ui.ctx(),
+                painter: &p,
                 meta: &meta,
                 is_directed,
                 style: &self.settings_style,
