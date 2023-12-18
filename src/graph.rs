@@ -34,8 +34,14 @@ pub struct Graph<
     dragged_node: Option<NodeIndex<Ix>>,
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>
-    From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, D>
+impl<
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    > From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
 {
     fn from(value: &StableGraph<N, E, Ty, Ix>) -> Self {
         transform::to_graph(value)
