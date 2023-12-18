@@ -17,13 +17,13 @@ where
     /// Could be used to snap the edge ends to the node.
     fn closest_boundary_point(&self, dir: Vec2) -> Pos2;
 
-    /// Draws shapes of the node.
-    ///
+    /// Draws shapes of the node. If the node is interacted these shapes will be used for drawing on foreground layer, otherwise on background layer.
     /// Has mutable reference to itself for possibility to change internal state for the visualizations where this is important.
     ///
-    /// * `ctx` - should be used to determine current global properties.
+    /// * `ctx` - contains [`egui::Context`] and graph metadata.
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
+    /// Use `ctx.painter` to have low level access to egui painting process.
     fn shapes(&mut self, ctx: &DrawContext) -> Vec<Shape>;
 
     /// Is called on every frame. Can be used for updating state of the implementation of [DisplayNode]
@@ -45,16 +45,15 @@ where
     Ix: IndexType,
     D: DisplayNode<N, E, Ty, Ix>,
 {
-    /// Draws shapes of the edge.
-    ///
+    /// Draws shapes of the edge. Uses [DisplayNode] implementation from node endpoints to get start and end coordinates using [closest_boundary_point](DisplayNode::closest_boundary_point).
+    /// If the node is interacted these shapes will be used for drawing on foreground layer, otherwise on background layer.
     /// Has mutable reference to itself for possibility to change internal state for the visualizations where this is important.
     ///
-    /// * `ctx` - should be used to determine current global properties.
+    /// * `ctx` - contains [`egui::Context`] and graph metadata.
     /// * `start` and `end` - start and end points of the edge.
     ///
-    /// Uses `ctx.meta` to properly scale and translate the shape.
-    ///
-    /// Uses [DisplayNode] implementation from node endpoints to get start and end coordinates using [closest_boundary_point](DisplayNode::closest_boundary_point).
+    /// Use `ctx.meta` to properly scale and translate the shape.
+    /// Use `ctx.painter` to have low level access to egui painting process.
     fn shapes(
         &mut self,
         start: &Node<N, E, Ty, Ix, D>,

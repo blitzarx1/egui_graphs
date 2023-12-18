@@ -11,6 +11,7 @@ use super::{DisplayEdge, DisplayNode};
 /// Contains all the data about current widget state which is needed for custom drawing functions.
 pub struct DrawContext<'a> {
     pub ctx: &'a Context,
+    pub painter: &'a Painter,
     pub style: &'a SettingsStyle,
     pub is_directed: bool,
     pub meta: &'a Metadata,
@@ -41,15 +42,12 @@ where
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
 {
-    pub fn new(
-        p: Painter,
-        g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
-        ctx: &'a DrawContext<'a>,
-    ) -> Self {
-        let layer_top = p
+    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>, ctx: &'a DrawContext<'a>) -> Self {
+        let layer_top = ctx
+            .painter
             .clone()
             .with_layer_id(LayerId::new(Order::Foreground, Id::new("top")));
-        let layer_bot = p.with_layer_id(LayerId::background());
+        let layer_bot = ctx.painter.clone().with_layer_id(LayerId::background());
         Drawer {
             layer_top,
             layer_bot,
