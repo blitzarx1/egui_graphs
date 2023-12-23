@@ -485,7 +485,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.24.0",
- "egui_graphs 0.17.0",
+ "egui_graphs 0.17.1",
  "petgraph",
 ]
 
@@ -1562,7 +1562,7 @@ dependencies = [
  "crossbeam",
  "eframe",
  "egui 0.24.0",
- "egui_graphs 0.17.0",
+ "egui_graphs 0.17.1",
  "fdg-sim",
  "petgraph",
  "rand",
@@ -1792,7 +1792,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.24.0",
- "egui_graphs 0.17.0",
+ "egui_graphs 0.17.1",
  "petgraph",
 ]
 
@@ -1981,6 +1981,17 @@ dependencies = [
 [[package]]
 name = "egui_graphs"
 version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41a8b4233ff957d7e65c4727ebe014b1d81f1bc15032f8656f88d15724259f38"
+dependencies = [
+ "egui 0.24.0",
+ "petgraph",
+ "rand",
+]
+
+[[package]]
+name = "egui_graphs"
+version = "0.17.1"
 dependencies = [
  "crossbeam",
  "egui 0.24.0",
@@ -1988,17 +1999,6 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "egui_graphs"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41a8b4233ff957d7e65c4727ebe014b1d81f1bc15032f8656f88d15724259f38"
-dependencies = [
- "egui 0.24.0",
- "petgraph",
- "rand",
 ]
 
 [[package]]
@@ -2823,7 +2823,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.24.0",
- "egui_graphs 0.17.0",
+ "egui_graphs 0.17.1",
  "petgraph",
 ]
 
@@ -2971,7 +2971,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.24.0",
- "egui_graphs 0.17.0",
+ "egui_graphs 0.17.1",
  "petgraph",
 ]
 
@@ -3180,7 +3180,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.24.0",
- "egui_graphs 0.17.0",
+ "egui_graphs 0.17.1",
  "petgraph",
 ]
 
@@ -4496,7 +4496,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.24.0",
- "egui_graphs 0.17.0",
+ "egui_graphs 0.17.1",
  "petgraph",
 ]
 
@@ -4666,7 +4666,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.24.0",
- "egui_graphs 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "egui_graphs 0.17.0",
  "env_logger",
  "getrandom",
  "instant",
