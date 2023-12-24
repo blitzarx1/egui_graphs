@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use egui::Pos2;
 use petgraph::{
     stable_graph::{DefaultIx, IndexType, NodeIndex},
-    EdgeType, Directed,
+    Directed, EdgeType,
 };
 
 use crate::{DefaultNodeShape, DisplayNode};
