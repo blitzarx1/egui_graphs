@@ -93,7 +93,10 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         let tip_end = end_connector_point;
 
         let edge_start = start_connector_point;
-        let edge_end = end_connector_point - self.tip_size * dir;
+        let edge_end = match ctx.is_directed {
+            true => end_connector_point - self.tip_size * dir,
+            false => end_connector_point,
+        };
 
         let stroke_edge = Stroke::new(self.width * ctx.meta.zoom, color);
         let stroke_tip = Stroke::new(0., color);
