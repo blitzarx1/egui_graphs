@@ -14,6 +14,7 @@ pub struct EdgeProps<E: Clone> {
     pub payload: E,
     pub order: usize,
     pub selected: bool,
+    pub label: String,
 }
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
@@ -50,6 +51,7 @@ impl<
 
             order: usize::default(),
             selected: bool::default(),
+            label: String::default(),
         };
 
         let display = D::from(props.clone());
@@ -106,5 +108,14 @@ impl<
 
     pub fn selected(&self) -> bool {
         self.props.selected
+    }
+
+    pub fn set_label(&mut self, label: String) {
+        self.props.label = label
+    }
+
+    pub fn with_label(mut self, label: String) -> Self {
+        self.props.label = label;
+        self
     }
 }

@@ -1,8 +1,8 @@
 use std::f32::consts::PI;
 
 use egui::{
-    epaint::{CubicBezierShape, QuadraticBezierShape},
-    Color32, Pos2, Shape, Stroke, Vec2,
+    epaint::{CubicBezierShape, QuadraticBezierShape, TextShape},
+    Color32, FontFamily, FontId, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::{matrix_graph::Nullable, stable_graph::IndexType, EdgeType};
 
@@ -21,6 +21,7 @@ pub struct DefaultEdgeShape {
     pub tip_angle: f32,
     pub curve_size: f32,
     pub loop_size: f32,
+    pub label_text: String,
 }
 
 impl<E: Clone> From<EdgeProps<E>> for DefaultEdgeShape {
@@ -28,6 +29,7 @@ impl<E: Clone> From<EdgeProps<E>> for DefaultEdgeShape {
         Self {
             order: edge.order,
             selected: edge.selected,
+            label_text: edge.label,
 
             width: 2.,
             tip_size: 15.,
@@ -67,6 +69,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         end: &Node<N, E, Ty, Ix, D>,
         ctx: &DrawContext,
     ) -> Vec<egui::Shape> {
+        let mut res = vec![];
+
         let style = match self.selected {
             true => ctx.ctx.style().visuals.widgets.active,
             false => ctx.ctx.style().visuals.widgets.inactive,
@@ -98,7 +102,10 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             false => end_connector_point,
         };
 
-        let stroke_edge = Stroke::new(self.width * ctx.meta.zoom, color);
+        let label_visible = ctx.style.labels_always || self.selected;
+
+        let edge_width = ctx.meta.canvas_to_screen_size(self.width);
+        let stroke_edge = Stroke::new(edge_width, color);
         let stroke_tip = Stroke::new(0., color);
         if self.order == 0 {
             // draw straight edge
@@ -110,8 +117,33 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
                 ],
                 stroke_edge,
             );
+            res.push(line);
+
+            // TODO: export to func
+            if label_visible {
+                let size = (node_size(start) + node_size(end)) / 2.;
+                let galley = ctx.ctx.fonts(|f| {
+                    f.layout_no_wrap(
+                        self.label_text.clone(),
+                        FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
+                        color,
+                    )
+                });
+
+                let dist = end_connector_point - start_connector_point;
+                let center = ctx
+                    .meta
+                    .canvas_to_screen_pos(start_connector_point + dist / 2.);
+                let label_width = galley.rect.width();
+                let label_height = galley.rect.height();
+                let pos = Pos2::new(center.x - label_width / 2., center.y - label_height);
+
+                let label_shape = TextShape::new(pos, galley);
+                res.push(label_shape.into());
+            }
+
             if !ctx.is_directed {
-                return vec![line];
+                return res;
             }
 
             let tip_start_1 = tip_end - self.tip_size * rotate_vector(dir, self.tip_angle);
@@ -128,7 +160,9 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
                 color,
                 stroke_tip,
             );
-            return vec![line, line_tip];
+            res.push(line_tip);
+
+            return res;
         }
 
         // draw curved edge
@@ -179,6 +213,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
     fn update(&mut self, state: &EdgeProps<E>) {
         self.order = state.order;
         self.selected = state.selected;
+        self.label_text = state.label.to_string();
     }
 }
 
@@ -291,6 +326,7 @@ fn is_inside_curve<
     is_point_on_quadratic_bezier_curve(pos, shape, e.width)
 }
 
+// TOOD: export this func as common drawing func
 fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
     node: &Node<N, E, Ty, Ix, D>,
 ) -> f32 {
@@ -378,7 +414,6 @@ fn point_between(p1: Pos2, p2: Pos2) -> Pos2 {
     p1 - (base_len / 2.) * dir
 }
 
-// TODO: check test cases
 #[cfg(test)]
 mod tests {
     use egui::{Color32, Stroke};
