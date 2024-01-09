@@ -89,7 +89,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
             circle_center.y - circle_radius * 2.,
         );
 
-        let label_shape = TextShape::new(label_pos, galley);
+        let label_shape = TextShape::new(label_pos, galley, color);
         res.push(label_shape.into());
 
         res
