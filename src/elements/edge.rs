@@ -118,4 +118,8 @@ impl<
         self.props.label = label;
         self
     }
+
+    pub fn label(&self) -> String {
+        self.props.label.clone()
+    }
 }
