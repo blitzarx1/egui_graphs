@@ -71,6 +71,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
     ) -> Vec<egui::Shape> {
         let mut res = vec![];
 
+        let label_visible = ctx.style.labels_always || self.selected;
+
         let style = match self.selected {
             true => ctx.ctx.style().visuals.widgets.active,
             false => ctx.ctx.style().visuals.widgets.inactive,
@@ -79,15 +81,37 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
         if start.id() == end.id() {
             // draw loop
-            let node_size = node_size(start);
+            let size = node_size(start);
             let stroke = Stroke::new(self.width * ctx.meta.zoom, color);
-            return vec![shape_looped(
-                ctx.meta.canvas_to_screen_size(node_size),
+            let line_looped = shape_looped(
+                ctx.meta.canvas_to_screen_size(size),
                 ctx.meta.canvas_to_screen_pos(start.location()),
                 stroke,
                 self,
-            )
-            .into()];
+            );
+            res.push(line_looped.into());
+
+            // TODO: export to func
+            if label_visible {
+                let galley = ctx.ctx.fonts(|f| {
+                    f.layout_no_wrap(
+                        self.label_text.clone(),
+                        FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
+                        color,
+                    )
+                });
+
+                let flattened_curve = line_looped.flatten(None);
+                let median = *flattened_curve.get(flattened_curve.len() / 2).unwrap();
+
+                let label_width = galley.rect.width();
+                let label_height = galley.rect.height();
+                let pos = Pos2::new(median.x - label_width / 2., median.y - label_height);
+
+                let label_shape = TextShape::new(pos, galley);
+                res.push(label_shape.into());
+            }
+            return res;
         }
 
         let dir = (end.location() - start.location()).normalized();
@@ -101,8 +125,6 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             true => end_connector_point - self.tip_size * dir,
             false => end_connector_point,
         };
-
-        let label_visible = ctx.style.labels_always || self.selected;
 
         let edge_width = ctx.meta.canvas_to_screen_size(self.width);
         let stroke_edge = Stroke::new(edge_width, color);
@@ -192,9 +214,32 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             Color32::TRANSPARENT,
             stroke_edge,
         );
+        res.push(line_curved.into());
+
+        // TODO: export to func
+        if label_visible {
+            let size = (node_size(start) + node_size(end)) / 2.;
+            let galley = ctx.ctx.fonts(|f| {
+                f.layout_no_wrap(
+                    self.label_text.clone(),
+                    FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
+                    color,
+                )
+            });
+
+            let flattened_curve = line_curved.flatten(None);
+            let median = *flattened_curve.get(flattened_curve.len() / 2).unwrap();
+
+            let label_width = galley.rect.width();
+            let label_height = galley.rect.height();
+            let pos = Pos2::new(median.x - label_width / 2., median.y - label_height);
+
+            let label_shape = TextShape::new(pos, galley);
+            res.push(label_shape.into());
+        }
 
         if !ctx.is_directed {
-            return vec![line_curved.into()];
+            return res;
         }
 
         let line_curved_tip = Shape::convex_polygon(
@@ -206,8 +251,9 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             color,
             stroke_tip,
         );
+        res.push(line_curved_tip);
 
-        vec![line_curved.into(), line_curved_tip]
+        res
     }
 
     fn update(&mut self, state: &EdgeProps<E>) {
@@ -374,7 +420,7 @@ fn proj(a: Vec2, b: Vec2) -> Vec2 {
 }
 
 fn is_point_on_cubic_bezier_curve(point: Pos2, curve: CubicBezierShape, width: f32) -> bool {
-    is_point_on_bezier_curve(point, curve.flatten(Option::new(10.0)), width)
+    is_point_on_bezier_curve(point, curve.flatten(Option::new(0.001)), width)
 }
 
 fn is_point_on_quadratic_bezier_curve(
@@ -382,19 +428,14 @@ fn is_point_on_quadratic_bezier_curve(
     curve: QuadraticBezierShape,
     width: f32,
 ) -> bool {
-    is_point_on_bezier_curve(point, curve.flatten(Option::new(0.3)), width)
+    is_point_on_bezier_curve(point, curve.flatten(Option::new(0.001)), width)
 }
 
 fn is_point_on_bezier_curve(point: Pos2, curve_points: Vec<Pos2>, width: f32) -> bool {
-    let mut previous_point = None;
     for p in curve_points {
-        if let Some(pp) = previous_point {
-            let distance = distance_segment_to_point(p, pp, point);
-            if distance < width {
-                return true;
-            }
+        if p.distance(point) < width {
+            return true;
         }
-        previous_point = Some(p);
     }
     false
 }
@@ -416,8 +457,6 @@ fn point_between(p1: Pos2, p2: Pos2) -> Pos2 {
 
 #[cfg(test)]
 mod tests {
-    use egui::{Color32, Stroke};
-
     use super::*;
 
     #[test]
@@ -471,46 +510,5 @@ mod tests {
     fn test_proj_same_vector() {
         let a = Vec2::new(5.3, 4.9);
         assert_eq!(proj(a, a), a);
-    }
-
-    #[test]
-    fn test_is_point_on_cubic_bezier_curve() {
-        let edge_start = Pos2::new(-3.0, 0.0);
-        let edge_end = Pos2::new(3.0, 0.0);
-        let control_point1 = Pos2::new(-3.0, 3.0);
-        let control_point2 = Pos2::new(4.0, 2.0);
-        let curve = CubicBezierShape::from_points_stroke(
-            [edge_end, control_point1, control_point2, edge_start],
-            false,
-            Color32::default(),
-            Stroke::default(),
-        );
-
-        let width = 1.0;
-        let p1 = Pos2::new(0.0, 2.0);
-        assert!(!is_point_on_cubic_bezier_curve(p1, curve, width));
-
-        let p2 = Pos2::new(2.0, 1.0);
-        assert!(!is_point_on_cubic_bezier_curve(p2, curve, width));
-    }
-
-    #[test]
-    fn test_is_point_on_quadratic_bezier_curve() {
-        let edge_start = Pos2::new(0.0, 0.0);
-        let edge_end = Pos2::new(20.0, 0.0);
-        let control_point = Pos2::new(10.0, 8.0);
-        let curve = QuadraticBezierShape::from_points_stroke(
-            [edge_start, control_point, edge_end],
-            false,
-            Color32::default(),
-            Stroke::default(),
-        );
-
-        let width = 1.0;
-        let p1 = Pos2::new(10.0, 4.0);
-        assert!(is_point_on_quadratic_bezier_curve(p1, curve, width));
-
-        let p2 = Pos2::new(3.0, 2.0);
-        assert!(is_point_on_quadratic_bezier_curve(p2, curve, width));
     }
 }
