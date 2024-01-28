@@ -10,7 +10,7 @@ use petgraph::{
 mod node;
 
 pub struct CustomDrawApp {
-    g: Graph<(), (), Directed, DefaultIx, NodeShapeAnimated>,
+    g: Graph<node::NodeData, (), Directed, DefaultIx, NodeShapeAnimated>,
 }
 
 impl CustomDrawApp {
@@ -41,12 +41,12 @@ impl App for CustomDrawApp {
     }
 }
 
-fn generate_graph() -> StableGraph<(), ()> {
+fn generate_graph() -> StableGraph<node::NodeData, ()> {
     let mut g = StableGraph::new();
 
-    let a = g.add_node(());
-    let b = g.add_node(());
-    let c = g.add_node(());
+    let a = g.add_node(node::NodeData { clockwise: true });
+    let b = g.add_node(node::NodeData { clockwise: false });
+    let c = g.add_node(node::NodeData { clockwise: false });
 
     g.add_edge(a, b, ());
     g.add_edge(b, c, ());

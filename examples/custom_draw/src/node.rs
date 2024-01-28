@@ -6,12 +6,28 @@ use egui::{
 use egui_graphs::{DisplayNode, NodeProps};
 use petgraph::{stable_graph::IndexType, EdgeType};
 
+pub trait IsClockwise {
+    fn get_is_clockwise(&self) -> bool;
+}
+
+#[derive(Clone, Debug)]
+pub struct NodeData {
+    pub clockwise: bool,
+}
+
+impl IsClockwise for NodeData {
+    fn get_is_clockwise(&self) -> bool {
+        self.clockwise
+    }
+}
+
 /// Rotates node whent the node is being dragged.
 #[derive(Clone)]
 pub struct NodeShapeAnimated {
     label: String,
     loc: Pos2,
     dragged: bool,
+    clockwise: bool,
 
     angle_rad: f32,
     speed_per_second: f32,
@@ -21,12 +37,34 @@ pub struct NodeShapeAnimated {
     size: f32,
 }
 
-impl<N: Clone> From<NodeProps<N>> for NodeShapeAnimated {
+impl NodeShapeAnimated {
+    pub fn get_rotation_increment(&mut self) -> f32 {
+        let now = Instant::now();
+        let mult = match self.clockwise {
+            true => 1.,
+            false => -1.,
+        };
+        match self.last_time_update {
+            Some(last_time) => {
+                self.last_time_update = Some(now);
+                let seconds_passed = now.duration_since(last_time);
+                seconds_passed.as_secs_f32() * self.speed_per_second * mult
+            }
+            None => {
+                self.last_time_update = Some(now);
+                0.
+            }
+        }
+    }
+}
+
+impl<N: Clone + IsClockwise> From<NodeProps<N>> for NodeShapeAnimated {
     fn from(node_props: NodeProps<N>) -> Self {
         Self {
             label: node_props.label,
             loc: node_props.location,
             dragged: node_props.dragged,
+            clockwise: node_props.payload.get_is_clockwise(),
 
             angle_rad: Default::default(),
             last_time_update: Default::default(),
@@ -37,7 +75,7 @@ impl<N: Clone> From<NodeProps<N>> for NodeShapeAnimated {
     }
 }
 
-impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
+impl<N: Clone + IsClockwise, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
     for NodeShapeAnimated
 {
     fn is_inside(&self, pos: Pos2) -> bool {
@@ -64,20 +102,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         let color = ctx.ctx.style().visuals.weak_text_color();
 
         let diff = match self.dragged {
-            true => {
-                let now = Instant::now();
-                match self.last_time_update {
-                    Some(last_time) => {
-                        self.last_time_update = Some(now);
-                        let seconds_passed = now.duration_since(last_time);
-                        seconds_passed.as_secs_f32() * self.speed_per_second
-                    }
-                    None => {
-                        self.last_time_update = Some(now);
-                        0.
-                    }
-                }
-            }
+            true => self.get_rotation_increment(),
             false => {
                 if self.last_time_update.is_some() {
                     self.last_time_update = None;
@@ -86,7 +111,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
             }
         };
 
-        if diff > 0. {
+        if diff.abs() > 0. {
             let curr_angle = self.angle_rad + diff;
             let rot = Rot2::from_angle(curr_angle).normalized();
             self.angle_rad = rot.angle();
@@ -122,6 +147,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         self.label = state.label.clone();
         self.loc = state.location;
         self.dragged = state.dragged;
+        self.clockwise = state.payload.get_is_clockwise();
     }
 }
 
