@@ -1,5 +1,7 @@
 # Custom draw
-Example demonstrates how to use custom drawing functions for edge and nodes and handle animation state. Here we draw nodes as squares and adding edge labels for the standard edge shape. We also rotate node when it is in the state of dragging.
+Example demonstrates how to use custom drawing functions nodes, handle animation state and access `node` payload in the drawing function. 
+
+Nodes are drawn as squares with labels in their center. Node is rotating when it is in the state of dragging. It is rotating clockwise if the `node` payload has `clockwise` field setting set to `true` and vice-verse.
 
 ## run
 ```bash
