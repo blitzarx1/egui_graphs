@@ -113,7 +113,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         let offset = Vec2::new(-galley.size().x / 2., -galley.size().y / 2.);
 
         // create the shape and add it to the layers
-        let shape_label = TextShape::new(center + offset, galley);
+        let shape_label = TextShape::new(center + offset, galley, color);
 
         vec![shape_rect, shape_label.into()]
     }
