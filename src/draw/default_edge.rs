@@ -108,7 +108,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
                 let label_height = galley.rect.height();
                 let pos = Pos2::new(median.x - label_width / 2., median.y - label_height);
 
-                let label_shape = TextShape::new(pos, galley);
+                let label_shape = TextShape::new(pos, galley, color);
                 res.push(label_shape.into());
             }
             return res;
@@ -160,7 +160,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
                 let label_height = galley.rect.height();
                 let pos = Pos2::new(center.x - label_width / 2., center.y - label_height);
 
-                let label_shape = TextShape::new(pos, galley);
+                let label_shape = TextShape::new(pos, galley, color);
                 res.push(label_shape.into());
             }
 
@@ -234,7 +234,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             let label_height = galley.rect.height();
             let pos = Pos2::new(median.x - label_width / 2., median.y - label_height);
 
-            let label_shape = TextShape::new(pos, galley);
+            let label_shape = TextShape::new(pos, galley, color);
             res.push(label_shape.into());
         }
 
