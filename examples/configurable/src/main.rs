@@ -276,7 +276,9 @@ impl ConfigurableApp {
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
         let order = self.g.g.edges_connecting(start, end).count();
         let idx = self.g.g.add_edge(start, end, Edge::new(()));
-        self.g.g.edge_weight_mut(idx).unwrap().bind(idx, order);
+        let e = self.g.g.edge_weight_mut(idx).unwrap();
+        e.bind(idx, order);
+        e.set_label(e.id().index().to_string());
         self.sim.get_graph_mut().add_edge(start, end, 1.);
     }
 
