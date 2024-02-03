@@ -200,17 +200,21 @@ impl<'a> EdgeShapeBuilder<'a> {
         let (start, end) = bounds;
         let mut stroke = self.stroke;
 
-        let dir = (end - start).normalized();
-        let dir_perpendicular = Vec2::new(-dir.y, dir.x);
+        let dist = end - start;
+        let dir = dist.normalized();
+        let dir_p = Vec2::new(-dir.y, dir.x);
         let center_point = (start + end.to_vec2()) / 2.0;
-        let height: Vec2 = dir_perpendicular * curve_size * order as f32;
-        let control_point = center_point + height;
+        let height = dir_p * curve_size * order as f32;
+        let cp = center_point + height;
 
-        let mut points_curve = vec![start, control_point, end];
+        let cp_start = cp - dir * curve_size / (order as f32 * dist * 0.5);
+        let cp_end = cp + dir * curve_size / (order as f32 * dist * 0.5);
+
+        let mut points_curve = vec![start, cp_start, cp_end, end];
 
         let mut points_tip = match self.tip {
             Some(tip_props) => {
-                let tip_dir = (end - control_point).normalized();
+                let tip_dir = (end - cp).normalized();
 
                 let arrow_tip_dir_1 = rotate_vector(tip_dir, tip_props.angle) * tip_props.size;
                 let arrow_tip_dir_2 = rotate_vector(tip_dir, -tip_props.angle) * tip_props.size;
@@ -219,7 +223,7 @@ impl<'a> EdgeShapeBuilder<'a> {
                 let tip_start_2 = end - arrow_tip_dir_2;
 
                 // replace end of an edge with start of tip
-                *points_curve.get_mut(2).unwrap() = end - tip_props.size * tip_dir;
+                *points_curve.get_mut(3).unwrap() = end - tip_props.size * tip_dir;
 
                 vec![end, tip_start_1, tip_start_2]
             }
@@ -243,8 +247,8 @@ impl<'a> EdgeShapeBuilder<'a> {
                 [
                     points_curve[0],
                     points_curve[1],
-                    points_curve[1],
                     points_curve[2],
+                    points_curve[3],
                 ],
                 false,
                 Color32::default(),
