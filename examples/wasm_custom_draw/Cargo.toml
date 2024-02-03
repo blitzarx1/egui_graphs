@@ -1,5 +1,5 @@
 [package]
-name = "wasm_example"
+name = "wasm_custom_draw"
 version = "0.1.0"
 authors = ["Atlas16A"]
 license = "MIT"
@@ -19,7 +19,7 @@ instant = { version = "0.1.12", features = ["wasm-bindgen"] }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger = "0.10"
+env_logger = "0.11.1"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]

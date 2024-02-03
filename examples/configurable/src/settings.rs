@@ -6,8 +6,8 @@ pub struct SettingsGraph {
 impl Default for SettingsGraph {
     fn default() -> Self {
         Self {
-            count_node: 2,
-            count_edge: 10,
+            count_node: 300,
+            count_edge: 500,
         }
     }
 }
