@@ -1,14 +1,14 @@
-use std::f32::consts::PI;
+use core::panic;
 
 use egui::{
-    epaint::{CubicBezierShape, QuadraticBezierShape, TextShape},
+    epaint::{CubicBezierShape, TextShape},
     Color32, FontFamily, FontId, Pos2, Shape, Stroke, Vec2,
 };
-use petgraph::{matrix_graph::Nullable, stable_graph::IndexType, EdgeType};
+use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{draw::DrawContext, elements::EdgeProps, DisplayNode, Node};
+use crate::{draw::DrawContext, elements::EdgeProps, DisplayEdge, DisplayNode, Node};
 
-use super::DisplayEdge;
+use super::edge_shape_builder::{EdgeShapeBuilder, TipProps};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
@@ -50,17 +50,17 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         pos: egui::Pos2,
     ) -> bool {
         if start.id() == end.id() {
-            return is_inside_loop(start, self, pos);
+            return self.is_inside_loop(start, pos);
         }
 
         let pos_start = start.location();
         let pos_end = end.location();
 
         if self.order == 0 {
-            return is_inside_line(pos_start, pos_end, pos, self);
+            return self.is_inside_line(pos_start, pos_end, pos);
         }
 
-        is_inside_curve(start, end, self, pos)
+        self.is_inside_curve(start, end, pos)
     }
 
     fn shapes(
@@ -78,18 +78,22 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             false => ctx.ctx.style().visuals.widgets.inactive,
         };
         let color = style.fg_stroke.color;
+        let stroke = Stroke::new(self.width, color);
 
         if start.id() == end.id() {
             // draw loop
             let size = node_size(start);
-            let stroke = Stroke::new(self.width * ctx.meta.zoom, color);
-            let line_looped = shape_looped(
-                ctx.meta.canvas_to_screen_size(size),
-                ctx.meta.canvas_to_screen_pos(start.location()),
-                stroke,
-                self,
-            );
-            res.push(line_looped.into());
+            let mut line_looped_shapes = EdgeShapeBuilder::new(stroke)
+                .looped(start.location(), size, self.loop_size, self.order)
+                .with_scaler(ctx.meta)
+                .build();
+            let line_looped_shape = line_looped_shapes.clone().pop().unwrap();
+            res.push(line_looped_shape);
+
+            let line_looped = match line_looped_shapes.pop().unwrap() {
+                Shape::CubicBezier(cubic) => cubic,
+                _ => panic!("Invalid shape type"),
+            };
 
             // TODO: export to func
             if label_visible {
@@ -118,28 +122,22 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         let start_connector_point = start.display().closest_boundary_point(dir);
         let end_connector_point = end.display().closest_boundary_point(-dir);
 
-        let tip_end = end_connector_point;
-
-        let edge_start = start_connector_point;
-        let edge_end = match ctx.is_directed {
-            true => end_connector_point - self.tip_size * dir,
-            false => end_connector_point,
-        };
-
-        let edge_width = ctx.meta.canvas_to_screen_size(self.width);
-        let stroke_edge = Stroke::new(edge_width, color);
-        let stroke_tip = Stroke::new(0., color);
         if self.order == 0 {
             // draw straight edge
 
-            let line = Shape::line_segment(
-                [
-                    ctx.meta.canvas_to_screen_pos(edge_start),
-                    ctx.meta.canvas_to_screen_pos(edge_end),
-                ],
-                stroke_edge,
-            );
-            res.push(line);
+            let mut builder = EdgeShapeBuilder::new(stroke)
+                .straight((start_connector_point, end_connector_point))
+                .with_scaler(ctx.meta);
+
+            let tip_props = TipProps {
+                size: self.tip_size,
+                angle: self.tip_angle,
+            };
+            if ctx.is_directed {
+                builder = builder.with_tip(&tip_props);
+            };
+            let straight_shapes = builder.build();
+            res.extend(straight_shapes);
 
             // TODO: export to func
             if label_visible {
@@ -164,57 +162,30 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
                 res.push(label_shape.into());
             }
 
-            if !ctx.is_directed {
-                return res;
-            }
-
-            let tip_start_1 = tip_end - self.tip_size * rotate_vector(dir, self.tip_angle);
-            let tip_start_2 = tip_end - self.tip_size * rotate_vector(dir, -self.tip_angle);
-
-            // draw tips for directed edges
-
-            let line_tip = Shape::convex_polygon(
-                vec![
-                    ctx.meta.canvas_to_screen_pos(tip_end),
-                    ctx.meta.canvas_to_screen_pos(tip_start_1),
-                    ctx.meta.canvas_to_screen_pos(tip_start_2),
-                ],
-                color,
-                stroke_tip,
-            );
-            res.push(line_tip);
-
             return res;
         }
 
-        // draw curved edge
+        let mut builder = EdgeShapeBuilder::new(stroke)
+            .curved(
+                (start_connector_point, end_connector_point),
+                self.curve_size,
+                self.order,
+            )
+            .with_scaler(ctx.meta);
 
-        let dir_perpendicular = Vec2::new(-dir.y, dir.x);
-        let center_point = (edge_start + edge_end.to_vec2()).to_vec2() / 2.;
-        let control_point =
-            (center_point + dir_perpendicular * self.curve_size * self.order as f32).to_pos2();
-
-        let tip_dir = (control_point - tip_end).normalized();
-
-        let arrow_tip_dir_1 = rotate_vector(tip_dir, self.tip_angle) * self.tip_size;
-        let arrow_tip_dir_2 = rotate_vector(tip_dir, -self.tip_angle) * self.tip_size;
-
-        let tip_start_1 = tip_end + arrow_tip_dir_1;
-        let tip_start_2 = tip_end + arrow_tip_dir_2;
-
-        let edge_end_curved = point_between(tip_start_1, tip_start_2);
-
-        let line_curved = QuadraticBezierShape::from_points_stroke(
-            [
-                ctx.meta.canvas_to_screen_pos(edge_start),
-                ctx.meta.canvas_to_screen_pos(control_point),
-                ctx.meta.canvas_to_screen_pos(edge_end_curved),
-            ],
-            false,
-            Color32::TRANSPARENT,
-            stroke_edge,
-        );
-        res.push(line_curved.into());
+        let tip_props = TipProps {
+            size: self.tip_size,
+            angle: self.tip_angle,
+        };
+        if ctx.is_directed {
+            builder = builder.with_tip(&tip_props);
+        };
+        let curved_shapes = builder.build();
+        let line_curved = match curved_shapes.clone().first() {
+            Some(Shape::CubicBezier(curve)) => *curve,
+            _ => panic!("Invalid shape type"),
+        };
+        res.extend(curved_shapes);
 
         // TODO: export to func
         if label_visible {
@@ -238,21 +209,6 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             res.push(label_shape.into());
         }
 
-        if !ctx.is_directed {
-            return res;
-        }
-
-        let line_curved_tip = Shape::convex_polygon(
-            vec![
-                ctx.meta.canvas_to_screen_pos(tip_end),
-                ctx.meta.canvas_to_screen_pos(tip_start_1),
-                ctx.meta.canvas_to_screen_pos(tip_start_2),
-            ],
-            color,
-            stroke_tip,
-        );
-        res.push(line_curved_tip);
-
         res
     }
 
@@ -263,113 +219,61 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
     }
 }
 
-fn shape_looped(
-    node_size: f32,
-    node_center: Pos2,
-    stroke: Stroke,
-    e: &DefaultEdgeShape,
-) -> CubicBezierShape {
-    let center_horizon_angle = PI / 4.;
-    let y_intersect = node_center.y - node_size * center_horizon_angle.sin();
+impl DefaultEdgeShape {
+    fn is_inside_loop<
+        E: Clone,
+        N: Clone,
+        Ix: IndexType,
+        Ty: EdgeType,
+        D: DisplayNode<N, E, Ty, Ix>,
+    >(
+        &self,
+        node: &Node<N, E, Ty, Ix, D>,
+        pos: Pos2,
+    ) -> bool {
+        let node_size = node_size(node);
 
-    let edge_start = Pos2::new(
-        node_center.x - node_size * center_horizon_angle.cos(),
-        y_intersect,
-    );
-    let edge_end = Pos2::new(
-        node_center.x + node_size * center_horizon_angle.cos(),
-        y_intersect,
-    );
+        let shape = EdgeShapeBuilder::new(Stroke::new(self.width, Color32::default()))
+            .looped(node.location(), node_size, self.loop_size, self.order)
+            .build();
 
-    let loop_size = node_size * (e.loop_size + e.order as f32);
+        match shape.first() {
+            Some(Shape::CubicBezier(cubic)) => is_point_on_curve(pos, *cubic),
+            _ => panic!("Invalid shape type"),
+        }
+    }
 
-    let control_point1 = Pos2::new(node_center.x + loop_size, node_center.y - loop_size);
-    let control_point2 = Pos2::new(node_center.x - loop_size, node_center.y - loop_size);
+    fn is_inside_line(&self, pos_start: Pos2, pos_end: Pos2, pos: Pos2) -> bool {
+        let distance = distance_segment_to_point(pos_start, pos_end, pos);
+        distance <= self.width
+    }
 
-    CubicBezierShape::from_points_stroke(
-        [edge_end, control_point1, control_point2, edge_start],
-        false,
-        Color32::default(),
-        stroke,
-    )
-}
+    fn is_inside_curve<
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        D: DisplayNode<N, E, Ty, Ix>,
+    >(
+        &self,
+        node_start: &Node<N, E, Ty, Ix, D>,
+        node_end: &Node<N, E, Ty, Ix, D>,
+        pos: Pos2,
+    ) -> bool {
+        let dir = (node_end.location() - node_start.location()).normalized();
+        let start = node_start.display().closest_boundary_point(dir);
+        let end = node_end.display().closest_boundary_point(-dir);
 
-fn shape_curved(
-    pos_start: Pos2,
-    pos_end: Pos2,
-    size_start: f32,
-    size_end: f32,
-    stroke: Stroke,
-    e: &DefaultEdgeShape,
-) -> QuadraticBezierShape {
-    let vec = pos_end - pos_start;
-    let dist: f32 = vec.length();
-    let dir = vec / dist;
+        let curved_shapes = EdgeShapeBuilder::new(Stroke::new(self.width, Color32::default()))
+            .curved((start, end), self.curve_size, self.order)
+            .build();
+        let curved_shape = match curved_shapes.first() {
+            Some(Shape::CubicBezier(curve)) => *curve,
+            _ => panic!("Invalid shape type"),
+        };
 
-    let start_node_radius_vec = Vec2::new(size_start, size_start) * dir;
-    let end_node_radius_vec = Vec2::new(size_end, size_end) * dir;
-
-    let tip_end = pos_start + vec - end_node_radius_vec;
-
-    let edge_start = pos_start + start_node_radius_vec;
-    let edge_end = pos_end + end_node_radius_vec;
-
-    let dir_perpendicular = Vec2::new(-dir.y, dir.x);
-    let center_point = (edge_start + tip_end.to_vec2()).to_vec2() / 2.0;
-    let control_point =
-        (center_point + dir_perpendicular * e.curve_size * e.order as f32).to_pos2();
-
-    QuadraticBezierShape::from_points_stroke(
-        [edge_start, control_point, edge_end],
-        false,
-        stroke.color,
-        stroke,
-    )
-}
-
-fn is_inside_loop<E: Clone, N: Clone, Ix: IndexType, Ty: EdgeType, D: DisplayNode<N, E, Ty, Ix>>(
-    node: &Node<N, E, Ty, Ix, D>,
-    e: &DefaultEdgeShape,
-    pos: Pos2,
-) -> bool {
-    let node_size = node_size(node);
-
-    let shape = shape_looped(node_size, node.location(), Stroke::default(), e);
-    is_point_on_cubic_bezier_curve(pos, shape, e.width)
-}
-
-fn is_inside_line(pos_start: Pos2, pos_end: Pos2, pos: Pos2, e: &DefaultEdgeShape) -> bool {
-    let distance = distance_segment_to_point(pos_start, pos_end, pos);
-    distance <= e.width
-}
-
-fn is_inside_curve<
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    D: DisplayNode<N, E, Ty, Ix>,
->(
-    node_start: &Node<N, E, Ty, Ix, D>,
-    node_end: &Node<N, E, Ty, Ix, D>,
-    e: &DefaultEdgeShape,
-    pos: Pos2,
-) -> bool {
-    let pos_start = node_start.location();
-    let pos_end = node_end.location();
-
-    let size_start = node_size(node_start);
-    let size_end = node_size(node_end);
-
-    let shape = shape_curved(
-        pos_start,
-        pos_end,
-        size_start,
-        size_end,
-        Stroke::default(),
-        e,
-    );
-    is_point_on_quadratic_bezier_curve(pos, shape, e.width)
+        is_point_on_curve(pos, curved_shape)
+    }
 }
 
 // TOOD: export this func as common drawing func
@@ -419,40 +323,13 @@ fn proj(a: Vec2, b: Vec2) -> Vec2 {
     Vec2::new(k * b.x, k * b.y)
 }
 
-fn is_point_on_cubic_bezier_curve(point: Pos2, curve: CubicBezierShape, width: f32) -> bool {
-    is_point_on_bezier_curve(point, curve.flatten(Option::new(0.001)), width)
-}
-
-fn is_point_on_quadratic_bezier_curve(
-    point: Pos2,
-    curve: QuadraticBezierShape,
-    width: f32,
-) -> bool {
-    is_point_on_bezier_curve(point, curve.flatten(Option::new(0.001)), width)
-}
-
-fn is_point_on_bezier_curve(point: Pos2, curve_points: Vec<Pos2>, width: f32) -> bool {
-    for p in curve_points {
-        if p.distance(point) < width {
+fn is_point_on_curve(point: Pos2, curve: CubicBezierShape) -> bool {
+    for p in curve.flatten(None) {
+        if p.distance(point) < curve.stroke.width {
             return true;
         }
     }
     false
-}
-
-/// rotates vector by angle
-fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
-    let cos = angle.cos();
-    let sin = angle.sin();
-    Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
-}
-
-/// finds point exactly in the middle between 2 points
-fn point_between(p1: Pos2, p2: Pos2) -> Pos2 {
-    let base = p1 - p2;
-    let base_len = base.length();
-    let dir = base / base_len;
-    p1 - (base_len / 2.) * dir
 }
 
 #[cfg(test)]

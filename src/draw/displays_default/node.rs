@@ -4,9 +4,7 @@ use egui::{
 };
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{draw::drawer::DrawContext, NodeProps};
-
-use super::DisplayNode;
+use crate::{draw::drawer::DrawContext, DisplayNode, NodeProps};
 
 /// This is the default node shape which is used to display nodes in the graph.
 ///

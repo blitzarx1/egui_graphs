@@ -40,6 +40,7 @@ fn generate_graph() -> StableGraph<(), (), Undirected> {
     let c = g.add_node(());
 
     g.add_edge(a, b, ());
+    g.add_edge(a, b, ());
     g.add_edge(b, c, ());
     g.add_edge(c, a, ());
 
