@@ -1,9 +1,8 @@
-mod default_edge;
-mod default_node;
 mod displays;
+mod displays_default;
 mod drawer;
 
-pub use default_edge::DefaultEdgeShape;
-pub use default_node::DefaultNodeShape;
 pub use displays::{DisplayEdge, DisplayNode};
 pub use drawer::{DrawContext, Drawer};
+pub use displays_default::DefaultEdgeShape;
+pub use displays_default::DefaultNodeShape;

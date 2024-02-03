@@ -197,6 +197,7 @@ pub fn default_edge_transform<
 ) -> Edge<N, E, Ty, Ix, Dn, D> {
     let mut e = Edge::new(payload.clone());
     e.bind(idx, order);
+    e.set_label(e.id().index().to_string());
     e
 }
 

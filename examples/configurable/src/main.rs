@@ -274,9 +274,11 @@ impl ConfigurableApp {
     }
 
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
-        let idx = self.g.g.add_edge(start, end, Edge::new(()));
         let order = self.g.g.edges_connecting(start, end).count();
-        self.g.g.edge_weight_mut(idx).unwrap().bind(idx, order);
+        let idx = self.g.g.add_edge(start, end, Edge::new(()));
+        let e = self.g.g.edge_weight_mut(idx).unwrap();
+        e.bind(idx, order);
+        e.set_label(e.id().index().to_string());
         self.sim.get_graph_mut().add_edge(start, end, 1.);
     }
 
@@ -290,9 +292,6 @@ impl ConfigurableApp {
         self.remove_edge(endpoints.0, endpoints.1);
     }
 
-    /// Removes random edge. Can not remove edge by idx because
-    /// there can be multiple edges between two nodes in 2 graphs
-    /// and we can't be sure that they are indexed the same way.
     fn remove_edge(&mut self, start: NodeIndex, end: NodeIndex) {
         let g_idx = self.g.g.find_edge(start, end);
         if g_idx.is_none() {
@@ -307,14 +306,14 @@ impl ConfigurableApp {
         self.sim.get_graph_mut().remove_edge(sim_idx).unwrap();
 
         // update order of the edges
-        let left_siblings = self
+        let siblings = self
             .g
             .g
             .edges_connecting(start, end)
             .map(|edge_ref| edge_ref.id())
             .collect::<Vec<_>>();
 
-        for idx in &left_siblings {
+        for idx in &siblings {
             let sibling_order = self.g.g.edge_weight(*idx).unwrap().order();
             if sibling_order < order {
                 return;
