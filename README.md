@@ -11,12 +11,11 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 
 - [x] Visualization of any complex graphs;
 - [x] Zooming and panning;
-- [x] Node labels;
+- [x] Node and Edge labels;
 - [x] Node and edges interactions and events reporting: click, double click, select, drag;
 - [x] Style configuration via egui context styles;
 - [x] Dark/Light theme support via egui context styles;
 - [x] Events reporting to extend the graph functionality by the user handling them;
-- [ ] Edge labels;
 
 ## Status
 The project is on track for a stable release v1.0.0. For the moment, breaking releases are still possible.
