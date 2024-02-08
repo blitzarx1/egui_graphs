@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 egui_graphs = { path = "../../" }
-egui = "0.25"
-eframe = "0.25"
+egui = "0.26"
+eframe = "0.26"
 petgraph = "0.6"

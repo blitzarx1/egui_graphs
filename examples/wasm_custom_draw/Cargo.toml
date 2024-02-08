@@ -7,19 +7,19 @@ edition = "2021"
 
 [dependencies]
 egui_graphs = { path = "../../" }
-egui = "0.25.0"
-eframe = "0.25.0"
+egui = "0.26"
+eframe = "0.26"
 petgraph = "0.6"
 
 # Wasm related dependencies
-"getrandom" = { version = "0.2.10", features = ["js"] }
+getrandom = { version = "0.2", features = ["js"] }
 log = "0.4"
-instant = { version = "0.1.12", features = ["wasm-bindgen"] }
+instant = { version = "0.1", features = ["wasm-bindgen"] }
 
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger = "0.11.1"
+env_logger = "0.11"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
