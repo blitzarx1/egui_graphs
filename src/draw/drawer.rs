@@ -70,10 +70,9 @@ where
             .into_iter()
             .for_each(|idx| {
                 let n = self.g.node_mut(idx).unwrap();
-                let props = n.props().clone();
+                n.update_display_from_props();
 
                 let display = n.display_mut();
-                display.update(&props);
                 let shapes = display.shapes(self.ctx);
 
                 if n.selected() || n.dragged() {
@@ -102,10 +101,9 @@ where
                 let end = self.g.node(idx_end).cloned().unwrap();
 
                 let e = self.g.edge_mut(idx).unwrap();
-                let props = e.props().clone();
+                e.update_display_from_props();
 
                 let display = e.display_mut();
-                display.update(&props);
                 let shapes = display.shapes(&start, &end, self.ctx);
 
                 if e.selected() {
