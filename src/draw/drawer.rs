@@ -58,8 +58,21 @@ where
     }
 
     pub fn draw(mut self) {
+        // Update nodes first so that their position is correct when drawing edges.
+        self.update_nodes();
         self.draw_edges();
         self.fill_layers_nodes();
+    }
+
+    fn update_nodes(&mut self) {
+        self.g
+            .g
+            .node_indices()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|idx| {
+                self.g.node_mut(idx).unwrap().update_display_from_props();
+            });
     }
 
     fn fill_layers_nodes(&mut self) {
@@ -70,8 +83,7 @@ where
             .into_iter()
             .for_each(|idx| {
                 let n = self.g.node_mut(idx).unwrap();
-                n.update_display_from_props();
-
+                // nodes have already been updated so don't need to update them here.
                 let display = n.display_mut();
                 let shapes = display.shapes(self.ctx);
 
