@@ -47,7 +47,10 @@ where
             .painter
             .clone()
             .with_layer_id(LayerId::new(Order::Foreground, Id::new("top")));
-        let layer_bot = ctx.painter.clone().with_layer_id(LayerId::background());
+        let layer_bot = ctx
+            .painter
+            .clone()
+            .with_layer_id(LayerId::new(Order::Middle, Id::new("bot")));
         Drawer {
             layer_top,
             layer_bot,
