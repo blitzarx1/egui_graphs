@@ -108,6 +108,10 @@ where
         &mut self.display
     }
 
+    pub fn update_display_from_props(&mut self) {
+        self.display.update(&self.props);
+    }
+
     /// TODO: rethink this
     /// Binds node to the actual node and position in the graph.
     pub fn bind(&mut self, id: NodeIndex<Ix>, location: Pos2) {

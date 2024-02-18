@@ -61,8 +61,21 @@ where
     }
 
     pub fn draw(mut self) {
+        // Update nodes first so that their position is correct when drawing edges.
+        self.update_nodes();
         self.draw_edges();
         self.fill_layers_nodes();
+    }
+
+    fn update_nodes(&mut self) {
+        self.g
+            .g
+            .node_indices()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|idx| {
+                self.g.node_mut(idx).unwrap().update_display_from_props();
+            });
     }
 
     fn fill_layers_nodes(&mut self) {
@@ -73,10 +86,8 @@ where
             .into_iter()
             .for_each(|idx| {
                 let n = self.g.node_mut(idx).unwrap();
-                let props = n.props().clone();
-
+                // nodes have already been updated so don't need to update them here.
                 let display = n.display_mut();
-                display.update(&props);
                 let shapes = display.shapes(self.ctx);
 
                 if n.selected() || n.dragged() {
@@ -105,10 +116,9 @@ where
                 let end = self.g.node(idx_end).cloned().unwrap();
 
                 let e = self.g.edge_mut(idx).unwrap();
-                let props = e.props().clone();
+                e.update_display_from_props();
 
                 let display = e.display_mut();
-                display.update(&props);
                 let shapes = display.shapes(&start, &end, self.ctx);
 
                 if e.selected() {
