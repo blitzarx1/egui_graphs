@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use egui::{Context, Id, LayerId, Order, Painter};
+use egui::{Context, Painter, Shape};
 use petgraph::graph::IndexType;
 use petgraph::EdgeType;
 
@@ -26,10 +26,9 @@ where
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
 {
-    layer_top: Painter,
-    layer_bot: Painter,
     ctx: &'a DrawContext<'a>,
     g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
+    postponed: Vec<Shape>,
     _marker: PhantomData<(Nd, Ed)>,
 }
 
@@ -43,29 +42,27 @@ where
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
 {
     pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>, ctx: &'a DrawContext<'a>) -> Self {
-        let layer_top = ctx
-            .painter
-            .clone()
-            .with_layer_id(LayerId::new(Order::Foreground, Id::new("top")));
-        let layer_bot = ctx
-            .painter
-            .clone()
-            .with_layer_id(LayerId::new(Order::Middle, Id::new("bot")));
         Drawer {
-            layer_top,
-            layer_bot,
             ctx,
             g,
+            postponed: Vec::new(),
             _marker: PhantomData,
         }
     }
 
     pub fn draw(mut self) {
         self.draw_edges();
-        self.fill_layers_nodes();
+        self.draw_nodes();
+        self.draw_postponed();
     }
 
-    fn fill_layers_nodes(&mut self) {
+    fn draw_postponed(&mut self) {
+        self.postponed.iter().for_each(|s| {
+            self.ctx.painter.add(s.clone());
+        });
+    }
+
+    fn draw_nodes(&mut self) {
         self.g
             .g
             .node_indices()
@@ -81,11 +78,11 @@ where
 
                 if n.selected() || n.dragged() {
                     shapes.into_iter().for_each(|s| {
-                        self.layer_top.add(s);
+                        self.postponed.push(s);
                     });
                 } else {
                     shapes.into_iter().for_each(|s| {
-                        self.layer_bot.add(s);
+                        self.ctx.painter.add(s);
                     });
                 }
             });
@@ -113,11 +110,11 @@ where
 
                 if e.selected() {
                     shapes.into_iter().for_each(|s| {
-                        self.layer_top.add(s);
+                        self.postponed.push(s);
                     });
                 } else {
                     shapes.into_iter().for_each(|s| {
-                        self.layer_bot.add(s);
+                        self.ctx.painter.add(s);
                     });
                 }
             });
