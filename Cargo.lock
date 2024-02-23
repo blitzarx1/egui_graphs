@@ -572,7 +572,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.26.0",
- "egui_graphs 0.18.0",
+ "egui_graphs 0.19.0",
  "petgraph",
 ]
 
@@ -1717,7 +1717,7 @@ dependencies = [
  "crossbeam",
  "eframe",
  "egui 0.26.0",
- "egui_graphs 0.18.0",
+ "egui_graphs 0.19.0",
  "fdg-sim",
  "petgraph",
  "rand",
@@ -1966,7 +1966,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.26.0",
- "egui_graphs 0.18.0",
+ "egui_graphs 0.19.0",
  "petgraph",
 ]
 
@@ -2187,7 +2187,7 @@ dependencies = [
 
 [[package]]
 name = "egui_graphs"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "crossbeam",
  "egui 0.26.0",
@@ -3091,7 +3091,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.26.0",
- "egui_graphs 0.18.0",
+ "egui_graphs 0.19.0",
  "petgraph",
 ]
 
@@ -3239,7 +3239,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.26.0",
- "egui_graphs 0.18.0",
+ "egui_graphs 0.19.0",
  "petgraph",
 ]
 
@@ -3469,7 +3469,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.26.0",
- "egui_graphs 0.18.0",
+ "egui_graphs 0.19.0",
  "petgraph",
 ]
 
@@ -4920,7 +4920,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.26.0",
- "egui_graphs 0.18.0",
+ "egui_graphs 0.19.0",
  "petgraph",
 ]
 
@@ -5102,7 +5102,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.26.0",
- "egui_graphs 0.18.0",
+ "egui_graphs 0.19.0",
  "env_logger",
  "getrandom",
  "instant",
