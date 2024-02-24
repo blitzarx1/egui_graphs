@@ -407,7 +407,7 @@ impl ConfigurableApp {
                 ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
                     ui.vertical(|ui| {
                         ui.checkbox(&mut self.settings_navigation.zoom_and_pan_enabled, "zoom_and_pan");
-                        ui.label("Zoom with ctrl + mouse wheel, pan with mouse drag.");
+                        ui.label("Zoom with ctrl + mouse wheel, pan with middle mouse drag.");
                     }).response.on_disabled_hover_text("disable fit_to_screen to enable zoom_and_pan");
                 });
             });

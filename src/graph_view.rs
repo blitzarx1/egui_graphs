@@ -19,7 +19,7 @@ use crate::{
 };
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
-use egui::{Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use egui::{PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::{graph::IndexType, Directed};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
@@ -329,6 +329,13 @@ where
             return;
         }
 
+        if !resp.dragged_by(PointerButton::Primary)
+            && !resp.drag_started_by(PointerButton::Primary)
+            && !resp.drag_released_by(PointerButton::Primary)
+        {
+            return;
+        }
+
         if resp.drag_started() {
             if let Some(idx) = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap()) {
                 self.set_drag_start(idx);
@@ -417,7 +424,7 @@ where
             return;
         }
 
-        if resp.dragged()
+        if resp.dragged_by(PointerButton::Middle)
             && self.g.dragged_node().is_none()
             && (resp.drag_delta().x.abs() > 0. || resp.drag_delta().y.abs() > 0.)
         {
