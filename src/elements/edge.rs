@@ -82,6 +82,10 @@ impl<
         &mut self.display
     }
 
+    pub fn update_display_from_props(&mut self) {
+        self.display.update(&self.props);
+    }
+
     pub fn id(&self) -> EdgeIndex<Ix> {
         self.id.unwrap()
     }
