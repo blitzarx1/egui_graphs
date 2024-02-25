@@ -97,7 +97,162 @@ impl<
         &mut self.g
     }
 
-    ///Provides iterator over all nodes and their indices.
+    /// Adds node to graph setting default location and default label values
+    pub fn add_node(&mut self, payload: N) -> NodeIndex<Ix> {
+        let node = Node::new(payload);
+
+        let idx = self.g.add_node(node);
+        let graph_node = self.g.node_weight_mut(idx).unwrap();
+
+        graph_node.bind(idx, Pos2::default());
+        graph_node.set_label(idx.index().to_string());
+
+        idx
+    }
+
+    /// Adds node to graph setting custom location and default label value
+    pub fn add_node_with_location(&mut self, payload: N, location: Pos2) -> NodeIndex<Ix> {
+        let node = Node::new(payload);
+
+        let idx = self.g.add_node(node);
+        let graph_node = self.g.node_weight_mut(idx).unwrap();
+
+        graph_node.bind(idx, location);
+        graph_node.set_label(idx.index().to_string());
+
+        idx
+    }
+
+    /// Adds node to graph setting default location and custom label value
+    pub fn add_node_with_label(&mut self, payload: N, label: String) -> NodeIndex<Ix> {
+        self.add_node_with_label_and_location(payload, label, Pos2::default())
+    }
+
+    /// Adds node to graph setting custom location and custom label value
+    pub fn add_node_with_label_and_location(
+        &mut self,
+        payload: N,
+        label: String,
+        location: Pos2,
+    ) -> NodeIndex<Ix> {
+        let node = Node::new(payload);
+
+        let idx = self.g.add_node(node);
+        let graph_node = self.g.node_weight_mut(idx).unwrap();
+
+        graph_node.bind(idx, location);
+        graph_node.set_label(label);
+
+        idx
+    }
+
+    /// Removes node by index. Returns removed node and None if it does not exist.
+    pub fn remove_node(&mut self, idx: NodeIndex<Ix>) -> Option<Node<N, E, Ty, Ix, Dn>> {
+        // before removing nodes we need to remove all edges connected to it
+        let neighbors = self.g.neighbors_undirected(idx).collect::<Vec<_>>();
+        for n in &neighbors {
+            self.remove_edges_between(idx, *n);
+            self.remove_edges_between(*n, idx);
+        }
+
+        self.g.remove_node(idx)
+    }
+
+    /// Removes all edges between start and end node. Returns removed edges count.
+    pub fn remove_edges_between(&mut self, start: NodeIndex<Ix>, end: NodeIndex<Ix>) -> usize {
+        let idxs = self
+            .g
+            .edges_connecting(start, end)
+            .map(|e| e.id())
+            .collect::<Vec<_>>();
+        if idxs.is_empty() {
+            return 0;
+        }
+
+        let mut removed = 0;
+        idxs.iter().for_each(|e| {
+            self.g.remove_edge(*e).unwrap();
+            removed += 1;
+        });
+
+        removed
+    }
+
+    /// Adds edge between start and end node with default label setting correct order.
+    pub fn add_edge(
+        &mut self,
+        start: NodeIndex<Ix>,
+        end: NodeIndex<Ix>,
+        payload: E,
+    ) -> EdgeIndex<Ix> {
+        let order = self.g.edges_connecting(start, end).count();
+
+        let idx = self.g.add_edge(start, end, Edge::new(payload));
+        let e = self.g.edge_weight_mut(idx).unwrap();
+
+        e.bind(idx, order);
+        e.set_label(e.id().index().to_string());
+
+        idx
+    }
+
+    /// Adds edge between start and end node with custom label setting correct order.
+    pub fn add_edge_with_label(
+        &mut self,
+        start: NodeIndex<Ix>,
+        end: NodeIndex<Ix>,
+        payload: E,
+        label: String,
+    ) -> EdgeIndex<Ix> {
+        let order = self.g.edges_connecting(start, end).count();
+
+        let idx = self.g.add_edge(start, end, Edge::new(payload));
+        let e = self.g.edge_weight_mut(idx).unwrap();
+
+        e.bind(idx, order);
+        e.set_label(label);
+
+        idx
+    }
+
+    /// Removes edge by index and updates order of the siblings.
+    /// Returns removed edge and None if it does not exist.
+    pub fn remove_edge(&mut self, idx: EdgeIndex<Ix>) -> Option<Edge<N, E, Ty, Ix, Dn, De>> {
+        let (start, end) = self.g.edge_endpoints(idx)?;
+        let order = self.g.edge_weight(idx)?.order();
+
+        let payload = self.g.remove_edge(idx)?;
+
+        let siblings = self
+            .g
+            .edges_connecting(start, end)
+            .map(|edge_ref| edge_ref.id())
+            .collect::<Vec<_>>();
+
+        // update order of siblings
+        for s_idx in &siblings {
+            let sibling_order = self.g.edge_weight(*s_idx)?.order();
+            if sibling_order < order {
+                continue;
+            }
+            self.g.edge_weight_mut(*s_idx)?.set_order(sibling_order - 1);
+        }
+
+        Some(payload)
+    }
+
+    /// Returns iterator over all edges connecting start and end node.
+    pub fn edges_connecting(
+        &self,
+        start: NodeIndex<Ix>,
+        end: NodeIndex<Ix>,
+    ) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<N, E, Ty, Ix, Dn, De>)> {
+        self.g
+            .edges_connecting(start, end)
+            .map(|e| (e.id(), e.weight()))
+    }
+
+    /// Provides iterator over all nodes and their indices.
     pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeIndex<Ix>, &Node<N, E, Ty, Ix, Dn>)> {
         self.g.node_references()
     }
@@ -165,5 +320,13 @@ impl<
 
     pub fn set_dragged_node(&mut self, node: Option<NodeIndex<Ix>>) {
         self.dragged_node = node;
+    }
+
+    pub fn edge_count(&self) -> usize {
+        self.g.edge_count()
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.g.node_count()
     }
 }

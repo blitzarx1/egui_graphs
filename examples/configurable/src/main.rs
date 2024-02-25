@@ -4,11 +4,10 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
 use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Slider, Ui};
 use egui_graphs::events::Event;
-use egui_graphs::{to_graph, DefaultEdgeShape, DefaultNodeShape, Edge, Graph, GraphView, Node};
+use egui_graphs::{to_graph, DefaultEdgeShape, DefaultNodeShape, Graph, GraphView};
 use fdg_sim::glam::Vec3;
 use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
-use petgraph::visit::EdgeRef;
 use petgraph::Directed;
 use rand::Rng;
 use settings::{SettingsGraph, SettingsInteraction, SettingsNavigation, SettingsStyle};
@@ -200,7 +199,7 @@ impl ConfigurableApp {
     }
 
     fn random_node_idx(&self) -> Option<NodeIndex> {
-        let nodes_cnt = self.g.g.node_count();
+        let nodes_cnt = self.g.node_count();
         if nodes_cnt == 0 {
             return None;
         }
@@ -210,7 +209,7 @@ impl ConfigurableApp {
     }
 
     fn random_edge_idx(&self) -> Option<EdgeIndex> {
-        let edges_cnt = self.g.g.edge_count();
+        let edges_cnt = self.g.edge_count();
         if edges_cnt == 0 {
             return None;
         }
@@ -230,7 +229,7 @@ impl ConfigurableApp {
             return;
         }
 
-        let random_n = self.g.g.node_weight(random_n_idx.unwrap()).unwrap();
+        let random_n = self.g.node(random_n_idx.unwrap()).unwrap();
 
         // location of new node is in surrounging of random existing node
         let mut rng = rand::thread_rng();
@@ -239,12 +238,7 @@ impl ConfigurableApp {
             random_n.location().y + 10. + rng.gen_range(0. ..50.),
         );
 
-        let idx = self.g.g.add_node(Node::new(()));
-        self.g.g[idx].bind(idx, location);
-
-        let n = self.g.g.node_weight_mut(idx).unwrap();
-        let idx_string = idx.index().to_string();
-        n.set_label(idx_string);
+        let idx = self.g.add_node_with_location((), location);
 
         let mut sim_node = fdg_sim::Node::new(idx.index().to_string().as_str(), ());
         sim_node.location = Vec3::new(location.x, location.y, 0.);
@@ -252,18 +246,12 @@ impl ConfigurableApp {
     }
 
     fn remove_node(&mut self, idx: NodeIndex) {
-        // before removing nodes we need to remove all edges connected to it
-        let neighbors = self.g.g.neighbors_undirected(idx).collect::<Vec<_>>();
-        for n in &neighbors {
-            self.remove_edges(idx, *n);
-            self.remove_edges(*n, idx);
-        }
+        self.g.remove_node(idx);
 
-        self.g.g.remove_node(idx).unwrap();
         self.sim.get_graph_mut().remove_node(idx).unwrap();
 
         // update edges count
-        self.settings_graph.count_edge = self.g.g.edge_count();
+        self.settings_graph.count_edge = self.g.edge_count();
     }
 
     fn add_random_edge(&mut self) {
@@ -274,11 +262,8 @@ impl ConfigurableApp {
     }
 
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
-        let order = self.g.g.edges_connecting(start, end).count();
-        let idx = self.g.g.add_edge(start, end, Edge::new(()));
-        let e = self.g.g.edge_weight_mut(idx).unwrap();
-        e.bind(idx, order);
-        e.set_label(e.id().index().to_string());
+        self.g.add_edge(start, end, ());
+
         self.sim.get_graph_mut().add_edge(start, end, 1.);
     }
 
@@ -287,71 +272,17 @@ impl ConfigurableApp {
         if random_e_idx.is_none() {
             return;
         }
-        let endpoints = self.g.g.edge_endpoints(random_e_idx.unwrap()).unwrap();
+        let endpoints = self.g.edge_endpoints(random_e_idx.unwrap()).unwrap();
 
         self.remove_edge(endpoints.0, endpoints.1);
     }
 
     fn remove_edge(&mut self, start: NodeIndex, end: NodeIndex) {
-        let g_idx = self.g.g.find_edge(start, end);
-        if g_idx.is_none() {
-            return;
-        }
-
-        let order = self.g.g.edge_weight(g_idx.unwrap()).unwrap().order();
-
-        self.g.g.remove_edge(g_idx.unwrap()).unwrap();
+        let (g_idx, _) = self.g.edges_connecting(start, end).next().unwrap();
+        self.g.remove_edge(g_idx);
 
         let sim_idx = self.sim.get_graph_mut().find_edge(start, end).unwrap();
         self.sim.get_graph_mut().remove_edge(sim_idx).unwrap();
-
-        // update order of the edges
-        let siblings = self
-            .g
-            .g
-            .edges_connecting(start, end)
-            .map(|edge_ref| edge_ref.id())
-            .collect::<Vec<_>>();
-
-        for idx in &siblings {
-            let sibling_order = self.g.g.edge_weight(*idx).unwrap().order();
-            if sibling_order < order {
-                return;
-            }
-            self.g
-                .g
-                .edge_weight_mut(*idx)
-                .unwrap()
-                .set_order(sibling_order - 1);
-        }
-    }
-
-    /// Removes all edges between two nodes
-    fn remove_edges(&mut self, start: NodeIndex, end: NodeIndex) {
-        let g_idxs = self
-            .g
-            .g
-            .edges_connecting(start, end)
-            .map(|e| e.id())
-            .collect::<Vec<_>>();
-        if g_idxs.is_empty() {
-            return;
-        }
-
-        g_idxs.iter().for_each(|e| {
-            self.g.g.remove_edge(*e).unwrap();
-        });
-
-        let sim_idxs = self
-            .sim
-            .get_graph()
-            .edges_connecting(start, end)
-            .map(|e| e.id())
-            .collect::<Vec<_>>();
-
-        sim_idxs.iter().for_each(|e| {
-            self.sim.get_graph_mut().remove_edge(*e).unwrap();
-        });
     }
 
     fn draw_section_app(&mut self, ui: &mut Ui) {

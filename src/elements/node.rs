@@ -77,6 +77,7 @@ where
     Ix: IndexType,
     D: DisplayNode<N, E, Ty, Ix>,
 {
+    /// Creates a new node with default properties
     pub fn new(payload: N) -> Self {
         let props = NodeProps {
             payload,
@@ -86,6 +87,11 @@ where
             dragged: bool::default(),
         };
 
+        Node::new_with_props(props)
+    }
+
+    /// Creates a new node with custom properties
+    pub fn new_with_props(props: NodeProps<N>) -> Self {
         let display = D::from(props.clone());
         Self {
             props,
@@ -108,14 +114,12 @@ where
         &mut self.display
     }
 
-    /// TODO: rethink this
     /// Binds node to the actual node and position in the graph.
-    pub fn bind(&mut self, id: NodeIndex<Ix>, location: Pos2) {
+    pub(crate) fn bind(&mut self, id: NodeIndex<Ix>, location: Pos2) {
         self.id = Some(id);
         self.props.location = location;
     }
 
-    // TODO: handle unbinded node
     pub fn id(&self) -> NodeIndex<Ix> {
         self.id.unwrap()
     }

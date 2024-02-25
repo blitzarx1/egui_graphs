@@ -69,7 +69,7 @@ impl<
     }
 
     /// Binds edge to the actual node ends and fixes its index in the set of duplicate edges.
-    pub fn bind(&mut self, idx: EdgeIndex<Ix>, order: usize) {
+    pub(crate) fn bind(&mut self, idx: EdgeIndex<Ix>, order: usize) {
         self.id = Some(idx);
         self.props.order = order;
     }
