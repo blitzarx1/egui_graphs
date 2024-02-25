@@ -239,12 +239,7 @@ impl ConfigurableApp {
             random_n.location().y + 10. + rng.gen_range(0. ..50.),
         );
 
-        let idx = self.g.g.add_node(Node::new(()));
-        self.g.g[idx].bind(idx, location);
-
-        let n = self.g.g.node_weight_mut(idx).unwrap();
-        let idx_string = idx.index().to_string();
-        n.set_label(idx_string);
+        let idx = self.g.add_node(());
 
         let mut sim_node = fdg_sim::Node::new(idx.index().to_string().as_str(), ());
         sim_node.location = Vec3::new(location.x, location.y, 0.);
