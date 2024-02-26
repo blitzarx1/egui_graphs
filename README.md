@@ -86,7 +86,7 @@ impl App for BasicApp {
                 _,
                 DefaultNodeShape,
                 DefaultEdgeShape,
-            >new(&mut self.g));
+            >::new(&mut self.g));
         });
     }
 }
