@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 egui_graphs = { path = "../../" }
-egui = "0.26"
-eframe = "0.26"
+egui = "0.27"
+eframe = "0.27"
 petgraph = "0.6"
 
 # Wasm related dependencies
