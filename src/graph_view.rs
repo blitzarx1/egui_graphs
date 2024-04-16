@@ -331,7 +331,7 @@ where
 
         if !resp.dragged_by(PointerButton::Primary)
             && !resp.drag_started_by(PointerButton::Primary)
-            && !resp.drag_released_by(PointerButton::Primary)
+            && !resp.drag_stopped_by(PointerButton::Primary)
         {
             return;
         }
@@ -351,7 +351,7 @@ where
             self.move_node(n_idx_dragged, delta_in_graph_coords);
         }
 
-        if resp.drag_released() && self.g.dragged_node().is_some() {
+        if resp.drag_stopped() && self.g.dragged_node().is_some() {
             let n_idx = self.g.dragged_node().unwrap();
             self.set_drag_end(n_idx);
         }

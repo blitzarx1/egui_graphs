@@ -1,6 +1,6 @@
 [package]
 name = "egui_graphs"
-version = "0.19.0"
+version = "0.20.0"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 homepage = "https://github.com/blitzarx1/egui_graphs"
@@ -9,7 +9,7 @@ description = "Interactive graph visualization widget for rust powered by egui"
 edition = "2021"
 
 [dependencies]
-egui = { version = "0.26", default-features = false }
+egui = { version = "0.27", default-features = false }
 rand = "0.8"
 petgraph = { version = "0.6", default-features = false, features = ["stable_graph", "matrix_graph"] }
 crossbeam = { version = "0.8", optional = true }

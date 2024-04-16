@@ -6,7 +6,7 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-bevy = "0.12"
-bevy_egui = "0.24.0"
-egui_graphs = "0.17.1"
+bevy = "0.13"
+bevy_egui = "0.26.0"
+egui_graphs = "0.19.0"
 petgraph = "0.6"
