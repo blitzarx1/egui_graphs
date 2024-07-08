@@ -34,9 +34,8 @@ egui_graphs = { version = "0", features = ["egui_persistence"]}
 egui = {version="0.23", features = ["persistence"]}
 ```
 
-## Examples
-### Basic setup example
-#### Step 1: Setting up the BasicApp struct. 
+## Basic setup example
+### Step 1: Setting up the BasicApp struct. 
 First, let's define the `BasicApp` struct that will hold the graph.
 ```rust 
 pub struct BasicApp {
@@ -44,7 +43,7 @@ pub struct BasicApp {
 }
 ```
 
-#### Step 2: Implementing the new() function. 
+### Step 2: Implementing the new() function. 
 Next, implement the `new()` function for the `BasicApp` struct.
 ```rust
 impl BasicApp {
@@ -55,7 +54,7 @@ impl BasicApp {
 }
 ```
 
-#### Step 3: Generating the graph. 
+### Step 3: Generating the graph. 
 Create a helper function called `generate_graph()`. In this example, we create three nodes with and three edges connecting them in a triangular pattern.
 ```rust 
 fn generate_graph() -> StableGraph<(), (), Directed> {
@@ -73,7 +72,7 @@ fn generate_graph() -> StableGraph<(), (), Directed> {
 }
 ```
 
-#### Step 4: Implementing the update() function. 
+### Step 4: Implementing the update() function. 
 Now, lets implement the `update()` function for the `BasicApp`. This function creates a `GraphView` widget providing a mutable reference to the graph, and adds it to `egui::CentralPanel` using the `ui.add()` function for adding widgets.
 ```rust 
 impl App for BasicApp {
@@ -92,7 +91,7 @@ impl App for BasicApp {
 }
 ```
 
-#### Step 5: Running the application. 
+### Step 5: Running the application. 
 Finally, run the application using the `run_native()` function with the specified native options and the `BasicApp`.
 ```rust 
 fn main() {
@@ -108,3 +107,14 @@ fn main() {
 
 ![Screenshot 2023-10-14 at 23 49 49](https://github.com/blitzarx1/egui_graphs/assets/32969427/584b78de-bca3-421b-b003-9321fd3e1b13)
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
+
+## Running examples
+To run any example from [examples](https://github.com/blitzarx1/egui_graphs/blob/master/examples/) use:
+```bash
+cargo r --release --example <example_name>
+```
+
+To run comprehensive [configurable example](https://github.com/blitzarx1/egui_graphs/blob/master/examples/configurable.rs) you need to enable events feature:
+```bash
+cargo r --releaser --example configurable --features events
+```
