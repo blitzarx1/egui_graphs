@@ -2,7 +2,7 @@
 This directory contains examples of how to use the egui_graphs library.
 
 ## Prerequisites
-All examples requires rust to be installed. Just follow easy one step install from the official site https://www.rust-lang.org/tools/install.
+All examples require rust to be installed. Just follow easy one step install from the official site https://www.rust-lang.org/tools/install.
 
 ## Run
 To run an example, use the following command:

@@ -2,7 +2,7 @@
 Basic example which demonstrates the usage of `GraphView` widget in a wasm enviroment.
 
 ## prepare
-1. Copy this example out to is own folder to use.
+1. Copy this example out to its own folder to use.
 2. You will need to have Trunk installed to run this example:
     ```bash
     cargo install --locked trunk

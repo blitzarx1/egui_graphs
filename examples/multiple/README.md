@@ -3,5 +3,5 @@ Example which demonstrates the usage of `GraphView` widget in multiple egui tabs
 
 ## run
 ```bash
-cargo run --release -p miltiple
+cargo run --release -p multiple
 ```
