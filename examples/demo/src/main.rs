@@ -2,24 +2,24 @@ use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
-use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Slider, Ui};
+use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Slider, Ui, Vec2};
 use egui_graphs::events::Event;
-use egui_graphs::{to_graph, DefaultEdgeShape, DefaultNodeShape, Graph, GraphView};
-use fdg_sim::glam::Vec3;
-use fdg_sim::{ForceGraph, ForceGraphHelper, Simulation, SimulationParameters};
+use egui_graphs::{to_graph, DefaultEdgeShape, DefaultNodeShape, Edge, Graph, GraphView, Node};
+use fdg::fruchterman_reingold::{FruchtermanReingold, FruchtermanReingoldConfiguration};
+use fdg::nalgebra::{Const, OPoint};
+use fdg::{Force, ForceGraph};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
 use petgraph::Directed;
 use rand::Rng;
-use settings::{SettingsGraph, SettingsInteraction, SettingsNavigation, SettingsStyle};
 
-mod settings;
-
-const SIMULATION_DT: f32 = 0.035;
 const EVENTS_LIMIT: usize = 100;
 
-pub struct ConfigurableApp {
+pub struct DemoApp {
     g: Graph<(), (), Directed, DefaultIx>,
-    sim: Simulation<(), f32>,
+    sim: ForceGraph<f32, 2, Node<(), ()>, Edge<(), ()>>,
+    force: FruchtermanReingold<f32, 2>,
+
+    settings_simulation: SettingsSimulation,
 
     settings_graph: SettingsGraph,
     settings_interaction: SettingsInteraction,
@@ -41,19 +41,41 @@ pub struct ConfigurableApp {
     zoom: Option<f32>,
 }
 
-impl ConfigurableApp {
+impl DemoApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let settings_graph = SettingsGraph::default();
-        let (g, sim) = generate(&settings_graph);
+        let settings_simulation = SettingsSimulation::default();
+
+        let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
+
+        let mut force = FruchtermanReingold {
+            conf: FruchtermanReingoldConfiguration {
+                dt: settings_simulation.dt,
+                cooloff_factor: settings_simulation.cooloff_factor,
+                scale: settings_simulation.scale,
+            },
+            ..Default::default()
+        };
+        let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
+        force.apply(&mut sim);
+        g.g.node_weights_mut().for_each(|node| {
+            let point: fdg::nalgebra::OPoint<f32, fdg::nalgebra::Const<2>> =
+                sim.node_weight(node.id()).unwrap().1;
+            node.set_location(Pos2::new(point.coords.x, point.coords.y));
+        });
+
         let (event_publisher, event_consumer) = unbounded();
+
         Self {
             g,
             sim,
+            force,
 
             event_consumer,
             event_publisher,
 
             settings_graph,
+            settings_simulation,
 
             settings_interaction: SettingsInteraction::default(),
             settings_navigation: SettingsNavigation::default(),
@@ -72,68 +94,24 @@ impl ConfigurableApp {
         }
     }
 
+    /// applies forces if simulation is running
     fn update_simulation(&mut self) {
         if self.simulation_stopped {
             return;
         }
 
-        // the following manipulations is a hack to avoid having looped edges in the simulation
-        // because they cause the simulation to blow up;
-        // this is the issue of the fdg_sim engine we use for the simulation
-        // https://github.com/grantshandy/fdg/issues/10
-        // * remove loop edges
-        // * update simulation
-        // * restore loop edges
-
-        // remove looped edges
-        let looped_nodes = {
-            let graph = self.sim.get_graph_mut();
-            let mut looped_nodes = vec![];
-            let mut looped_edges = vec![];
-            graph.edge_indices().for_each(|idx| {
-                let edge = graph.edge_endpoints(idx).unwrap();
-                let looped = edge.0 == edge.1;
-                if looped {
-                    looped_nodes.push((edge.0, ()));
-                    looped_edges.push(idx);
-                }
-            });
-
-            for idx in looped_edges {
-                graph.remove_edge(idx);
-            }
-
-            self.sim.update(SIMULATION_DT);
-
-            looped_nodes
-        };
-
-        // restore looped edges
-        let graph = self.sim.get_graph_mut();
-        for (idx, _) in looped_nodes.iter() {
-            graph.add_edge(*idx, *idx, 1.);
-        }
+        self.force.apply(&mut self.sim);
     }
 
-    /// Syncs the graph with the simulation.
-    ///
-    /// Changes location of nodes in `g` according to the locations in `sim`. If node from `g` is dragged its location is prioritized
-    /// over the location of the corresponding node from `sim` and this location is set to the node from the `sim`.
-    ///
-    /// If node or edge is selected it is added to the corresponding selected field in `self`.
+    /// sync locations computed by the simulation with egui_graphs::Graph nodes.
     fn sync_graph_with_simulation(&mut self) {
-        let g_indices = self.g.g.node_indices().collect::<Vec<_>>();
-        for g_n_idx in &g_indices {
-            let g_n = self.g.g.node_weight_mut(*g_n_idx).unwrap();
-            let sim_n = self.sim.get_graph_mut().node_weight_mut(*g_n_idx).unwrap();
-
-            let loc = sim_n.location;
-            g_n.set_location(Pos2::new(loc.x, loc.y));
-        }
-
-        // reset the weights of the edges
-        self.sim.get_graph_mut().edge_weights_mut().for_each(|w| {
-            *w = 1.;
+        self.g.g.node_weights_mut().for_each(|node| {
+            let sim_computed_point: OPoint<f32, Const<2>> =
+                self.sim.node_weight(node.id()).unwrap().1;
+            node.set_location(Pos2::new(
+                sim_computed_point.coords.x,
+                sim_computed_point.coords.y,
+            ));
         });
     }
 
@@ -146,18 +124,6 @@ impl ConfigurableApp {
             self.fps = self.frames_last_time_span as f64 / elapsed.as_secs_f64();
             self.frames_last_time_span = 0;
         }
-    }
-
-    fn reset_graph(&mut self, ui: &mut Ui) {
-        let settings_graph = SettingsGraph::default();
-        let (g, sim) = generate(&settings_graph);
-
-        self.g = g;
-        self.sim = sim;
-        self.settings_graph = settings_graph;
-        self.last_events = Vec::default();
-
-        GraphView::<(), (), Directed, DefaultIx>::reset_metadata(ui);
     }
 
     fn handle_events(&mut self) {
@@ -188,10 +154,9 @@ impl ConfigurableApp {
                 }
                 Event::NodeMove(payload) => {
                     let node_id = NodeIndex::new(payload.id);
-                    let diff = Vec3::new(payload.diff[0], payload.diff[1], 0.);
 
-                    let node = self.sim.get_graph_mut().node_weight_mut(node_id).unwrap();
-                    node.location += diff;
+                    self.sim.node_weight_mut(node_id).unwrap().1.coords.x = payload.new_pos[0];
+                    self.sim.node_weight_mut(node_id).unwrap().1.coords.y = payload.new_pos[1];
                 }
                 _ => {}
             }
@@ -231,24 +196,27 @@ impl ConfigurableApp {
 
         let random_n = self.g.node(random_n_idx.unwrap()).unwrap();
 
-        // location of new node is in surrounging of random existing node
+        // location of new node is in in the closest surrounding of random existing node
         let mut rng = rand::thread_rng();
         let location = Pos2::new(
             random_n.location().x + 10. + rng.gen_range(0. ..50.),
             random_n.location().y + 10. + rng.gen_range(0. ..50.),
         );
 
-        let idx = self.g.add_node_with_location((), location);
+        let g_idx = self.g.add_node_with_location((), location);
 
-        let mut sim_node = fdg_sim::Node::new(idx.index().to_string().as_str(), ());
-        sim_node.location = Vec3::new(location.x, location.y, 0.);
-        self.sim.get_graph_mut().add_node(sim_node);
+        let sim_node = egui_graphs::Node::new(());
+        let sim_node_loc = fdg::nalgebra::Point2::new(location.x, location.y);
+
+        let sim_idx = self.sim.add_node((sim_node, sim_node_loc));
+
+        assert_eq!(g_idx, sim_idx);
     }
 
     fn remove_node(&mut self, idx: NodeIndex) {
         self.g.remove_node(idx);
 
-        self.sim.get_graph_mut().remove_node(idx).unwrap();
+        self.sim.remove_node(idx).unwrap();
 
         // update edges count
         self.settings_graph.count_edge = self.g.edge_count();
@@ -264,7 +232,7 @@ impl ConfigurableApp {
     fn add_edge(&mut self, start: NodeIndex, end: NodeIndex) {
         self.g.add_edge(start, end, ());
 
-        self.sim.get_graph_mut().add_edge(start, end, 1.);
+        self.sim.add_edge(start, end, egui_graphs::Edge::new(()));
     }
 
     fn remove_random_edge(&mut self) {
@@ -281,17 +249,24 @@ impl ConfigurableApp {
         let (g_idx, _) = self.g.edges_connecting(start, end).next().unwrap();
         self.g.remove_edge(g_idx);
 
-        let sim_idx = self.sim.get_graph_mut().find_edge(start, end).unwrap();
-        self.sim.get_graph_mut().remove_edge(sim_idx).unwrap();
+        let sim_idx = self.sim.find_edge(start, end).unwrap();
+        self.sim.remove_edge(sim_idx).unwrap();
     }
 
-    fn draw_section_app(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("App Config")
+    fn draw_section_simulation(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("Simulation")
             .default_open(true)
             .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.style_mut().spacing.item_spacing = Vec2::new(0., 0.);
+                    ui.label("Force-Directed Simulation is done with ");
+                    ui.hyperlink_to("fdg project", "https://github.com/grantshandy/fdg");
+                });
+
+                ui.separator();
                 ui.add_space(10.);
 
-                ui.label("Simulation");
+                ui.label("Config");
                 ui.separator();
 
                 ui.horizontal(|ui| {
@@ -305,12 +280,15 @@ impl ConfigurableApp {
                         self.simulation_stopped = !self.simulation_stopped;
                     };
                     if ui.button("reset").clicked() {
-                        self.reset_graph(ui);
+                        self.reset();
                     }
                 });
 
                 ui.add_space(10.);
 
+                self.draw_simulation_config_sliders(ui);
+                ui.add_space(10.);
+                ui.separator();
                 self.draw_counts_sliders(ui);
 
                 ui.add_space(10.);
@@ -419,7 +397,10 @@ impl ConfigurableApp {
             });
 
             CollapsingHeader::new("Last Events").default_open(true).show(ui, |ui| {
-                ScrollArea::vertical().auto_shrink([false, true]).max_height(200.).show(ui, |ui| {
+                if ui.button("clear").clicked() {
+                    self.last_events.clear();
+                }
+                ScrollArea::vertical().auto_shrink([false, true]).show(ui, |ui| {
                     self.last_events.iter().rev().for_each(|event| {
                         ui.label(event);
                     });
@@ -474,15 +455,82 @@ impl ConfigurableApp {
             });
         });
     }
+
+    fn draw_simulation_config_sliders(&mut self, ui: &mut Ui) {
+        let mut changed = false;
+
+        ui.horizontal(|ui| {
+            let resp = ui.add(Slider::new(&mut self.settings_simulation.dt, 0.00..=1.).text("dt"));
+            if resp.changed() {
+                changed = true
+            }
+        });
+        ui.horizontal(|ui| {
+            let resp = ui.add(
+                Slider::new(&mut self.settings_simulation.cooloff_factor, 0.0..=1.)
+                    .text("cooloff_factor"),
+            );
+            if resp.changed() {
+                changed = true
+            }
+        });
+        ui.horizontal(|ui| {
+            let resp =
+                ui.add(Slider::new(&mut self.settings_simulation.scale, 0.0..=300.).text("scale"));
+            if resp.changed() {
+                changed = true
+            }
+        });
+
+        if changed {
+            self.force = FruchtermanReingold {
+                conf: FruchtermanReingoldConfiguration {
+                    dt: self.settings_simulation.dt,
+                    cooloff_factor: self.settings_simulation.cooloff_factor,
+                    scale: self.settings_simulation.scale,
+                },
+                ..Default::default()
+            };
+        }
+    }
+
+    fn reset(&mut self) {
+        let settings_graph = SettingsGraph::default();
+        let settings_simulation = SettingsSimulation::default();
+
+        let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
+
+        let mut force = FruchtermanReingold {
+            conf: FruchtermanReingoldConfiguration {
+                dt: settings_simulation.dt,
+                cooloff_factor: settings_simulation.cooloff_factor,
+                scale: settings_simulation.scale,
+            },
+            ..Default::default()
+        };
+        let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
+        force.apply(&mut sim);
+        g.g.node_weights_mut().for_each(|node| {
+            let point: fdg::nalgebra::OPoint<f32, fdg::nalgebra::Const<2>> =
+                sim.node_weight(node.id()).unwrap().1;
+            node.set_location(Pos2::new(point.coords.x, point.coords.y));
+        });
+
+        self.settings_simulation = settings_simulation;
+        self.settings_graph = settings_graph;
+        self.sim = sim;
+        self.g = g;
+        self.force = force;
+    }
 }
 
-impl App for ConfigurableApp {
+impl App for DemoApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::SidePanel::right("right_panel")
             .min_width(250.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
-                    self.draw_section_app(ui);
+                    self.draw_section_simulation(ui);
                     ui.add_space(10.);
                     self.draw_section_debug(ui);
                     ui.add_space(10.);
@@ -520,37 +568,9 @@ impl App for ConfigurableApp {
 
         self.handle_events();
         self.sync_graph_with_simulation();
-
         self.update_simulation();
         self.update_fps();
     }
-}
-
-fn generate(settings: &SettingsGraph) -> (Graph<(), (), Directed, DefaultIx>, Simulation<(), f32>) {
-    let g = generate_random_graph(settings.count_node, settings.count_edge);
-    let sim = construct_simulation(&g);
-
-    (g, sim)
-}
-
-fn construct_simulation(g: &Graph<(), (), Directed, DefaultIx>) -> Simulation<(), f32> {
-    // create force graph
-    let mut force_graph = ForceGraph::with_capacity(g.g.node_count(), g.g.edge_count());
-    g.g.node_indices().for_each(|idx| {
-        let idx = idx.index();
-        force_graph.add_force_node(format!("{idx}").as_str(), ());
-    });
-    g.g.edge_indices().for_each(|idx| {
-        let (source, target) = g.g.edge_endpoints(idx).unwrap();
-        force_graph.add_edge(source, target, 1.);
-    });
-
-    // initialize simulation
-    let mut params = SimulationParameters::default();
-    let force = fdg_sim::force::fruchterman_reingold_weighted(100., 0.5);
-    params.set_force(force);
-
-    Simulation::from_graph(force_graph, params)
 }
 
 fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph<(), ()> {
@@ -576,9 +596,73 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph<(), ()> 
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui_graphs_configurable_demo",
+        "egui_graphs_demo",
         native_options,
-        Box::new(|cc| Box::new(ConfigurableApp::new(cc))),
+        Box::new(|cc| Box::new(DemoApp::new(cc))),
     )
     .unwrap();
+}
+
+struct SettingsSimulation {
+    dt: f32,
+    cooloff_factor: f32,
+    scale: f32,
+}
+
+impl Default for SettingsSimulation {
+    fn default() -> Self {
+        Self {
+            dt: 0.03,
+            cooloff_factor: 0.7,
+            scale: 100.,
+        }
+    }
+}
+
+struct SettingsGraph {
+    pub count_node: usize,
+    pub count_edge: usize,
+}
+
+impl Default for SettingsGraph {
+    fn default() -> Self {
+        Self {
+            count_node: 25,
+            count_edge: 50,
+        }
+    }
+}
+
+#[derive(Default)]
+struct SettingsInteraction {
+    pub dragging_enabled: bool,
+    pub node_clicking_enabled: bool,
+    pub node_selection_enabled: bool,
+    pub node_selection_multi_enabled: bool,
+    pub edge_clicking_enabled: bool,
+    pub edge_selection_enabled: bool,
+    pub edge_selection_multi_enabled: bool,
+}
+
+struct SettingsNavigation {
+    pub fit_to_screen_enabled: bool,
+    pub zoom_and_pan_enabled: bool,
+    pub screen_padding: f32,
+    pub zoom_speed: f32,
+}
+
+impl Default for SettingsNavigation {
+    fn default() -> Self {
+        Self {
+            screen_padding: 0.3,
+            zoom_speed: 0.1,
+            fit_to_screen_enabled: true,
+            zoom_and_pan_enabled: false,
+        }
+    }
+}
+
+#[derive(Default)]
+struct SettingsStyle {
+    pub labels_always: bool,
 }
