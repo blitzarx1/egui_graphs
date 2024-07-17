@@ -2,28 +2,24 @@ use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
-use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Slider, Ui};
+use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Slider, Ui, Vec2};
 use egui_graphs::events::Event;
 use egui_graphs::{to_graph, DefaultEdgeShape, DefaultNodeShape, Edge, Graph, GraphView, Node};
-use fdg::fruchterman_reingold::{
-    FruchtermanReingold, FruchtermanReingoldConfiguration, FruchtermanReingoldWeighted,
-};
+use fdg::fruchterman_reingold::{FruchtermanReingold, FruchtermanReingoldConfiguration};
 use fdg::nalgebra::{Const, OPoint};
-use fdg::simple::Center;
 use fdg::{Force, ForceGraph};
-use petgraph::graphmap::NodeTrait;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
-use petgraph::visit::{IntoNodeReferences, NodeCount, NodeRef};
 use petgraph::Directed;
 use rand::Rng;
 
-const SIMULATION_DT: f32 = 0.03;
 const EVENTS_LIMIT: usize = 100;
 
 pub struct DemoApp {
     g: Graph<(), (), Directed, DefaultIx>,
     sim: ForceGraph<f32, 2, Node<(), ()>, Edge<(), ()>>,
     force: FruchtermanReingold<f32, 2>,
+
+    settings_simulation: SettingsSimulation,
 
     settings_graph: SettingsGraph,
     settings_interaction: SettingsInteraction,
@@ -48,22 +44,23 @@ pub struct DemoApp {
 impl DemoApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let settings_graph = SettingsGraph::default();
-        // let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
+        let settings_simulation = SettingsSimulation::default();
 
-        let mut g = generate_random_graph(5, 5);
+        let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
+
         let mut force = FruchtermanReingold {
             conf: FruchtermanReingoldConfiguration {
-                dt: 0.03,
-                cooloff_factor: 0.5,
-                scale: 101.0,
+                dt: settings_simulation.dt,
+                cooloff_factor: settings_simulation.cooloff_factor,
+                scale: settings_simulation.scale,
             },
             ..Default::default()
         };
-        let mut force_g = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
-        force.apply(&mut force_g);
+        let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
+        force.apply(&mut sim);
         g.g.node_weights_mut().for_each(|node| {
             let point: fdg::nalgebra::OPoint<f32, fdg::nalgebra::Const<2>> =
-                force_g.node_weight(node.id()).unwrap().1;
+                sim.node_weight(node.id()).unwrap().1;
             node.set_location(Pos2::new(point.coords.x, point.coords.y));
         });
 
@@ -71,13 +68,14 @@ impl DemoApp {
 
         Self {
             g,
-            sim: force_g,
+            sim,
             force,
 
             event_consumer,
             event_publisher,
 
             settings_graph,
+            settings_simulation,
 
             settings_interaction: SettingsInteraction::default(),
             settings_navigation: SettingsNavigation::default(),
@@ -255,13 +253,20 @@ impl DemoApp {
         self.sim.remove_edge(sim_idx).unwrap();
     }
 
-    fn draw_section_app(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("App Config")
+    fn draw_section_simulation(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("Simulation")
             .default_open(true)
             .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.style_mut().spacing.item_spacing = Vec2::new(0., 0.);
+                    ui.label("Force-Directed Simulation is done with ");
+                    ui.hyperlink_to("fdg project", "https://github.com/grantshandy/fdg");
+                });
+
+                ui.separator();
                 ui.add_space(10.);
 
-                ui.label("Simulation");
+                ui.label("Config");
                 ui.separator();
 
                 ui.horizontal(|ui| {
@@ -274,10 +279,16 @@ impl DemoApp {
                     {
                         self.simulation_stopped = !self.simulation_stopped;
                     };
+                    if ui.button("reset").clicked() {
+                        self.reset();
+                    }
                 });
 
                 ui.add_space(10.);
 
+                self.draw_simulation_config_sliders(ui);
+                ui.add_space(10.);
+                ui.separator();
                 self.draw_counts_sliders(ui);
 
                 ui.add_space(10.);
@@ -444,6 +455,73 @@ impl DemoApp {
             });
         });
     }
+
+    fn draw_simulation_config_sliders(&mut self, ui: &mut Ui) {
+        let mut changed = false;
+
+        ui.horizontal(|ui| {
+            let resp = ui.add(Slider::new(&mut self.settings_simulation.dt, 0.00..=1.).text("dt"));
+            if resp.changed() {
+                changed = true
+            }
+        });
+        ui.horizontal(|ui| {
+            let resp = ui.add(
+                Slider::new(&mut self.settings_simulation.cooloff_factor, 0.0..=1.)
+                    .text("cooloff_factor"),
+            );
+            if resp.changed() {
+                changed = true
+            }
+        });
+        ui.horizontal(|ui| {
+            let resp =
+                ui.add(Slider::new(&mut self.settings_simulation.scale, 0.0..=300.).text("scale"));
+            if resp.changed() {
+                changed = true
+            }
+        });
+
+        if changed {
+            self.force = FruchtermanReingold {
+                conf: FruchtermanReingoldConfiguration {
+                    dt: self.settings_simulation.dt,
+                    cooloff_factor: self.settings_simulation.cooloff_factor,
+                    scale: self.settings_simulation.scale,
+                },
+                ..Default::default()
+            };
+        }
+    }
+
+    fn reset(&mut self) {
+        let settings_graph = SettingsGraph::default();
+        let settings_simulation = SettingsSimulation::default();
+
+        let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
+
+        let mut force = FruchtermanReingold {
+            conf: FruchtermanReingoldConfiguration {
+                dt: settings_simulation.dt,
+                cooloff_factor: settings_simulation.cooloff_factor,
+                scale: settings_simulation.scale,
+            },
+            ..Default::default()
+        };
+        let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
+        force.apply(&mut sim);
+        g.g.node_weights_mut().for_each(|node| {
+            let point: fdg::nalgebra::OPoint<f32, fdg::nalgebra::Const<2>> =
+                sim.node_weight(node.id()).unwrap().1;
+            node.set_location(Pos2::new(point.coords.x, point.coords.y));
+        });
+
+        self.settings_simulation = settings_simulation;
+        self.settings_graph = settings_graph;
+        self.sim = sim;
+        self.g = g;
+        self.force = force;
+    }
 }
 
 impl App for DemoApp {
@@ -452,7 +530,7 @@ impl App for DemoApp {
             .min_width(250.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
-                    self.draw_section_app(ui);
+                    self.draw_section_simulation(ui);
                     ui.add_space(10.);
                     self.draw_section_debug(ui);
                     ui.add_space(10.);
@@ -525,6 +603,22 @@ fn main() {
     .unwrap();
 }
 
+struct SettingsSimulation {
+    dt: f32,
+    cooloff_factor: f32,
+    scale: f32,
+}
+
+impl Default for SettingsSimulation {
+    fn default() -> Self {
+        Self {
+            dt: 0.03,
+            cooloff_factor: 0.7,
+            scale: 100.,
+        }
+    }
+}
+
 struct SettingsGraph {
     pub count_node: usize,
     pub count_edge: usize,
@@ -533,8 +627,8 @@ struct SettingsGraph {
 impl Default for SettingsGraph {
     fn default() -> Self {
         Self {
-            count_node: 300,
-            count_edge: 500,
+            count_node: 25,
+            count_edge: 50,
         }
     }
 }
