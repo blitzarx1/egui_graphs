@@ -12,6 +12,8 @@ use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
 use petgraph::Directed;
 use rand::Rng;
 
+mod settings;
+
 const EVENTS_LIMIT: usize = 100;
 
 pub struct DemoApp {
@@ -19,12 +21,12 @@ pub struct DemoApp {
     sim: ForceGraph<f32, 2, Node<(), ()>, Edge<(), ()>>,
     force: FruchtermanReingold<f32, 2>,
 
-    settings_simulation: SettingsSimulation,
+    settings_simulation: settings::SettingsSimulation,
 
-    settings_graph: SettingsGraph,
-    settings_interaction: SettingsInteraction,
-    settings_navigation: SettingsNavigation,
-    settings_style: SettingsStyle,
+    settings_graph: settings::SettingsGraph,
+    settings_interaction: settings::SettingsInteraction,
+    settings_navigation: settings::SettingsNavigation,
+    settings_style: settings::SettingsStyle,
 
     last_events: Vec<String>,
 
@@ -43,19 +45,12 @@ pub struct DemoApp {
 
 impl DemoApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let settings_graph = SettingsGraph::default();
-        let settings_simulation = SettingsSimulation::default();
+        let settings_graph = settings::SettingsGraph::default();
+        let settings_simulation = settings::SettingsSimulation::default();
 
         let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
 
-        let mut force = FruchtermanReingold {
-            conf: FruchtermanReingoldConfiguration {
-                dt: settings_simulation.dt,
-                cooloff_factor: settings_simulation.cooloff_factor,
-                scale: settings_simulation.scale,
-            },
-            ..Default::default()
-        };
+        let mut force = init_force(&settings_simulation);
         let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
         force.apply(&mut sim);
         g.g.node_weights_mut().for_each(|node| {
@@ -77,9 +72,9 @@ impl DemoApp {
             settings_graph,
             settings_simulation,
 
-            settings_interaction: SettingsInteraction::default(),
-            settings_navigation: SettingsNavigation::default(),
-            settings_style: SettingsStyle::default(),
+            settings_interaction: settings::SettingsInteraction::default(),
+            settings_navigation: settings::SettingsNavigation::default(),
+            settings_style: settings::SettingsStyle::default(),
 
             last_events: Vec::default(),
 
@@ -483,31 +478,17 @@ impl DemoApp {
         });
 
         if changed {
-            self.force = FruchtermanReingold {
-                conf: FruchtermanReingoldConfiguration {
-                    dt: self.settings_simulation.dt,
-                    cooloff_factor: self.settings_simulation.cooloff_factor,
-                    scale: self.settings_simulation.scale,
-                },
-                ..Default::default()
-            };
+            self.force = init_force(&self.settings_simulation);
         }
     }
 
     fn reset(&mut self) {
-        let settings_graph = SettingsGraph::default();
-        let settings_simulation = SettingsSimulation::default();
+        let settings_graph = settings::SettingsGraph::default();
+        let settings_simulation = settings::SettingsSimulation::default();
 
         let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
 
-        let mut force = FruchtermanReingold {
-            conf: FruchtermanReingoldConfiguration {
-                dt: settings_simulation.dt,
-                cooloff_factor: settings_simulation.cooloff_factor,
-                scale: settings_simulation.scale,
-            },
-            ..Default::default()
-        };
+        let mut force = init_force(&self.settings_simulation);
         let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
         force.apply(&mut sim);
         g.g.node_weights_mut().for_each(|node| {
@@ -593,6 +574,17 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph<(), ()> 
     to_graph(&graph)
 }
 
+fn init_force(settings: &settings::SettingsSimulation) -> FruchtermanReingold<f32, 2> {
+    FruchtermanReingold {
+        conf: FruchtermanReingoldConfiguration {
+            dt: settings.dt,
+            cooloff_factor: settings.cooloff_factor,
+            scale: settings.scale,
+        },
+        ..Default::default()
+    }
+}
+
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
@@ -601,68 +593,4 @@ fn main() {
         Box::new(|cc| Box::new(DemoApp::new(cc))),
     )
     .unwrap();
-}
-
-struct SettingsSimulation {
-    dt: f32,
-    cooloff_factor: f32,
-    scale: f32,
-}
-
-impl Default for SettingsSimulation {
-    fn default() -> Self {
-        Self {
-            dt: 0.03,
-            cooloff_factor: 0.7,
-            scale: 100.,
-        }
-    }
-}
-
-struct SettingsGraph {
-    pub count_node: usize,
-    pub count_edge: usize,
-}
-
-impl Default for SettingsGraph {
-    fn default() -> Self {
-        Self {
-            count_node: 25,
-            count_edge: 50,
-        }
-    }
-}
-
-#[derive(Default)]
-struct SettingsInteraction {
-    pub dragging_enabled: bool,
-    pub node_clicking_enabled: bool,
-    pub node_selection_enabled: bool,
-    pub node_selection_multi_enabled: bool,
-    pub edge_clicking_enabled: bool,
-    pub edge_selection_enabled: bool,
-    pub edge_selection_multi_enabled: bool,
-}
-
-struct SettingsNavigation {
-    pub fit_to_screen_enabled: bool,
-    pub zoom_and_pan_enabled: bool,
-    pub screen_padding: f32,
-    pub zoom_speed: f32,
-}
-
-impl Default for SettingsNavigation {
-    fn default() -> Self {
-        Self {
-            screen_padding: 0.3,
-            zoom_speed: 0.1,
-            fit_to_screen_enabled: true,
-            zoom_and_pan_enabled: false,
-        }
-    }
-}
-
-#[derive(Default)]
-struct SettingsStyle {
-    pub labels_always: bool,
 }

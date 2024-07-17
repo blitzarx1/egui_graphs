@@ -45,3 +45,19 @@ impl Default for SettingsNavigation {
 pub struct SettingsStyle {
     pub labels_always: bool,
 }
+
+pub struct SettingsSimulation {
+    pub dt: f32,
+    pub cooloff_factor: f32,
+    pub scale: f32,
+}
+
+impl Default for SettingsSimulation {
+    fn default() -> Self {
+        Self {
+            dt: 0.03,
+            cooloff_factor: 0.7,
+            scale: 100.,
+        }
+    }
+}
