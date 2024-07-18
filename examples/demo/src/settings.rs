@@ -6,8 +6,8 @@ pub struct SettingsGraph {
 impl Default for SettingsGraph {
     fn default() -> Self {
         Self {
-            count_node: 300,
-            count_edge: 500,
+            count_node: 25,
+            count_edge: 50,
         }
     }
 }
@@ -44,4 +44,20 @@ impl Default for SettingsNavigation {
 #[derive(Default)]
 pub struct SettingsStyle {
     pub labels_always: bool,
+}
+
+pub struct SettingsSimulation {
+    pub dt: f32,
+    pub cooloff_factor: f32,
+    pub scale: f32,
+}
+
+impl Default for SettingsSimulation {
+    fn default() -> Self {
+        Self {
+            dt: 0.03,
+            cooloff_factor: 0.85,
+            scale: 100.,
+        }
+    }
 }

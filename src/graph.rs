@@ -118,7 +118,7 @@ impl<
         let graph_node = self.g.node_weight_mut(idx).unwrap();
 
         graph_node.bind(idx, location);
-        graph_node.set_label(idx.index().to_string());
+        graph_node.set_label(format!("node {}", idx.index()));
 
         idx
     }
@@ -178,7 +178,7 @@ impl<
         removed
     }
 
-    /// Adds edge between start and end node with default label setting correct order.
+    /// Adds edge between start and end node with default label.
     pub fn add_edge(
         &mut self,
         start: NodeIndex<Ix>,
@@ -191,7 +191,7 @@ impl<
         let e = self.g.edge_weight_mut(idx).unwrap();
 
         e.bind(idx, order);
-        e.set_label(e.id().index().to_string());
+        e.set_label(format!("edge {}", e.id().index()));
 
         idx
     }
