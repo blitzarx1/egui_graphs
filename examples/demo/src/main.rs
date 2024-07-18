@@ -12,6 +12,7 @@ use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
 use petgraph::Directed;
 use rand::Rng;
 
+mod drawers;
 mod settings;
 
 const EVENTS_LIMIT: usize = 100;
@@ -281,14 +282,52 @@ impl DemoApp {
 
                 ui.add_space(10.);
 
-                self.draw_simulation_config_sliders(ui);
-                ui.add_space(10.);
-                ui.separator();
-                self.draw_counts_sliders(ui);
+                drawers::draw_simulation_config_sliders(
+                    ui,
+                    drawers::ValuesSimulationConfigSliders {
+                        dt: self.settings_simulation.dt,
+                        cooloff_factor: self.settings_simulation.cooloff_factor,
+                        scale: self.settings_simulation.scale,
+                    },
+                    |delta_dt: f32, delta_cooloff_factor: f32, delta_scale: f32| {
+                        self.settings_simulation.dt += delta_dt;
+                        self.settings_simulation.cooloff_factor += delta_cooloff_factor;
+                        self.settings_simulation.scale += delta_scale;
+
+                        self.force = init_force(&self.settings_simulation);
+                    },
+                );
 
                 ui.add_space(10.);
-
                 ui.separator();
+
+                drawers::draw_counts_sliders(
+                    ui,
+                    drawers::ValuesGraphConfigSliders {
+                        node_cnt: self.settings_graph.count_node,
+                        edge_cnt: self.settings_graph.count_edge,
+                    },
+                    |delta_nodes, delta_edges| {
+                        self.settings_graph.count_node += delta_nodes as usize;
+                        self.settings_graph.count_edge += delta_edges as usize;
+
+                        if delta_nodes != 0 {
+                            if delta_nodes > 0 {
+                                (0..delta_nodes).for_each(|_| self.add_random_node());
+                            } else {
+                                (0..delta_nodes.abs()).for_each(|_| self.remove_random_node());
+                            }
+                        }
+
+                        if delta_edges != 0 {
+                            if delta_edges > 0 {
+                                (0..delta_edges).for_each(|_| self.add_random_edge());
+                            } else {
+                                (0..delta_edges.abs()).for_each(|_| self.remove_random_edge());
+                            }
+                        }
+                    },
+                );
             });
     }
 
@@ -404,7 +443,7 @@ impl DemoApp {
         });
     }
 
-    fn draw_section_debug(&mut self, ui: &mut Ui) {
+    fn draw_section_debug(&self, ui: &mut Ui) {
         CollapsingHeader::new("Debug")
             .default_open(true)
             .show(ui, |ui| {
@@ -417,69 +456,6 @@ impl DemoApp {
 
                 ui.label(format!("FPS: {:.1}", self.fps));
             });
-    }
-
-    fn draw_counts_sliders(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            let before = self.settings_graph.count_node as i32;
-
-            ui.add(Slider::new(&mut self.settings_graph.count_node, 1..=2500).text("nodes"));
-
-            let delta = self.settings_graph.count_node as i32 - before;
-            (0..delta.abs()).for_each(|_| {
-                if delta > 0 {
-                    self.add_random_node();
-                    return;
-                };
-                self.remove_random_node();
-            });
-        });
-
-        ui.horizontal(|ui| {
-            let before = self.settings_graph.count_edge as i32;
-
-            ui.add(Slider::new(&mut self.settings_graph.count_edge, 0..=5000).text("edges"));
-
-            let delta = self.settings_graph.count_edge as i32 - before;
-            (0..delta.abs()).for_each(|_| {
-                if delta > 0 {
-                    self.add_random_edge();
-                    return;
-                };
-                self.remove_random_edge();
-            });
-        });
-    }
-
-    fn draw_simulation_config_sliders(&mut self, ui: &mut Ui) {
-        let mut changed = false;
-
-        ui.horizontal(|ui| {
-            let resp = ui.add(Slider::new(&mut self.settings_simulation.dt, 0.00..=1.).text("dt"));
-            if resp.changed() {
-                changed = true
-            }
-        });
-        ui.horizontal(|ui| {
-            let resp = ui.add(
-                Slider::new(&mut self.settings_simulation.cooloff_factor, 0.0..=1.)
-                    .text("cooloff_factor"),
-            );
-            if resp.changed() {
-                changed = true
-            }
-        });
-        ui.horizontal(|ui| {
-            let resp =
-                ui.add(Slider::new(&mut self.settings_simulation.scale, 0.0..=300.).text("scale"));
-            if resp.changed() {
-                changed = true
-            }
-        });
-
-        if changed {
-            self.force = init_force(&self.settings_simulation);
-        }
     }
 
     fn reset(&mut self) {
@@ -558,12 +534,10 @@ fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph<(), ()> 
     let mut rng = rand::thread_rng();
     let mut graph = StableGraph::new();
 
-    // add nodes
     for _ in 0..node_count {
         graph.add_node(());
     }
 
-    // add random edges
     for _ in 0..edge_count {
         let source = rng.gen_range(0..node_count);
         let target = rng.gen_range(0..node_count);
