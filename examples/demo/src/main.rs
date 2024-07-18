@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
+use drawers::ValuesSectionDebug;
 use eframe::{run_native, App, CreationContext};
 use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Ui, Vec2};
 use egui_graphs::events::Event;
@@ -33,15 +34,15 @@ pub struct DemoApp {
 
     simulation_stopped: bool,
 
-    fps: f64,
+    fps: f32,
     last_update_time: Instant,
     frames_last_time_span: usize,
 
     event_publisher: Sender<Event>,
     event_consumer: Receiver<Event>,
 
-    pan: Option<[f32; 2]>,
-    zoom: Option<f32>,
+    pan: [f32; 2],
+    zoom: f32,
 }
 
 impl DemoApp {
@@ -85,8 +86,8 @@ impl DemoApp {
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
 
-            pan: Option::default(),
-            zoom: Option::default(),
+            pan: [0., 0.],
+            zoom: 0.,
         }
     }
 
@@ -100,7 +101,7 @@ impl DemoApp {
     }
 
     /// sync locations computed by the simulation with egui_graphs::Graph nodes.
-    fn sync_graph_with_simulation(&mut self) {
+    fn sync(&mut self) {
         self.g.g.node_weights_mut().for_each(|node| {
             let sim_computed_point: OPoint<f32, Const<2>> =
                 self.sim.node_weight(node.id()).unwrap().1;
@@ -117,7 +118,7 @@ impl DemoApp {
         let elapsed = now.duration_since(self.last_update_time);
         if elapsed.as_secs() >= 1 {
             self.last_update_time = now;
-            self.fps = self.frames_last_time_span as f64 / elapsed.as_secs_f64();
+            self.fps = self.frames_last_time_span as f32 / elapsed.as_secs_f32();
             self.frames_last_time_span = 0;
         }
     }
@@ -130,24 +131,8 @@ impl DemoApp {
             self.last_events.push(serde_json::to_string(&e).unwrap());
 
             match e {
-                Event::Pan(payload) => match self.pan {
-                    Some(pan) => {
-                        self.pan = Some([pan[0] + payload.diff[0], pan[1] + payload.diff[1]]);
-                    }
-                    None => {
-                        self.pan = Some(payload.diff);
-                    }
-                },
-                Event::Zoom(z) => {
-                    match self.zoom {
-                        Some(zoom) => {
-                            self.zoom = Some(zoom + z.diff);
-                        }
-                        None => {
-                            self.zoom = Some(z.diff);
-                        }
-                    };
-                }
+                Event::Pan(payload) => self.pan = payload.new_pan,
+                Event::Zoom(payload) => self.zoom = payload.new_zoom,
                 Event::NodeMove(payload) => {
                     let node_id = NodeIndex::new(payload.id);
 
@@ -250,94 +235,85 @@ impl DemoApp {
     }
 
     fn draw_section_simulation(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("Simulation")
-            .default_open(true)
-            .show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    ui.style_mut().spacing.item_spacing = Vec2::new(0., 0.);
-                    ui.label("Force-Directed Simulation is done with ");
-                    ui.hyperlink_to("fdg project", "https://github.com/grantshandy/fdg");
-                });
+        ui.horizontal_wrapped(|ui| {
+            ui.style_mut().spacing.item_spacing = Vec2::new(0., 0.);
+            ui.label("Force-Directed Simulation is done with ");
+            ui.hyperlink_to("fdg project", "https://github.com/grantshandy/fdg");
+        });
 
-                ui.separator();
-                ui.add_space(10.);
+        ui.separator();
 
-                ui.label("Config");
-                ui.separator();
+        drawers::draw_start_reset_buttons(
+            ui,
+            drawers::ValuesConfigButtonsStartReset {
+                simulation_stopped: self.simulation_stopped,
+            },
+            |simulation_stopped: bool, reset_pressed: bool| {
+                self.simulation_stopped = simulation_stopped;
+                if reset_pressed {
+                    self.reset()
+                };
+            },
+        );
 
-                ui.horizontal(|ui| {
-                    if ui
-                        .button(match self.simulation_stopped {
-                            true => "start",
-                            false => "stop",
-                        })
-                        .clicked()
-                    {
-                        self.simulation_stopped = !self.simulation_stopped;
-                    };
-                    if ui.button("reset").clicked() {
-                        self.reset();
+        ui.add_space(10.);
+
+        drawers::draw_simulation_config_sliders(
+            ui,
+            drawers::ValuesConfigSlidersSimulation {
+                dt: self.settings_simulation.dt,
+                cooloff_factor: self.settings_simulation.cooloff_factor,
+                scale: self.settings_simulation.scale,
+            },
+            |delta_dt: f32, delta_cooloff_factor: f32, delta_scale: f32| {
+                self.settings_simulation.dt += delta_dt;
+                self.settings_simulation.cooloff_factor += delta_cooloff_factor;
+                self.settings_simulation.scale += delta_scale;
+
+                self.force = init_force(&self.settings_simulation);
+            },
+        );
+
+        ui.add_space(10.);
+
+        drawers::draw_counts_sliders(
+            ui,
+            drawers::ValuesConfigSlidersGraph {
+                node_cnt: self.settings_graph.count_node,
+                edge_cnt: self.settings_graph.count_edge,
+            },
+            |delta_nodes, delta_edges| {
+                self.settings_graph.count_node += delta_nodes as usize;
+                self.settings_graph.count_edge += delta_edges as usize;
+
+                if delta_nodes != 0 {
+                    if delta_nodes > 0 {
+                        (0..delta_nodes).for_each(|_| self.add_random_node());
+                    } else {
+                        (0..delta_nodes.abs()).for_each(|_| self.remove_random_node());
                     }
-                });
+                }
 
-                ui.add_space(10.);
-
-                drawers::draw_simulation_config_sliders(
-                    ui,
-                    drawers::ValuesSimulationConfigSliders {
-                        dt: self.settings_simulation.dt,
-                        cooloff_factor: self.settings_simulation.cooloff_factor,
-                        scale: self.settings_simulation.scale,
-                    },
-                    |delta_dt: f32, delta_cooloff_factor: f32, delta_scale: f32| {
-                        self.settings_simulation.dt += delta_dt;
-                        self.settings_simulation.cooloff_factor += delta_cooloff_factor;
-                        self.settings_simulation.scale += delta_scale;
-
-                        self.force = init_force(&self.settings_simulation);
-                    },
-                );
-
-                ui.add_space(10.);
-                ui.separator();
-
-                drawers::draw_counts_sliders(
-                    ui,
-                    drawers::ValuesGraphConfigSliders {
-                        node_cnt: self.settings_graph.count_node,
-                        edge_cnt: self.settings_graph.count_edge,
-                    },
-                    |delta_nodes, delta_edges| {
-                        self.settings_graph.count_node += delta_nodes as usize;
-                        self.settings_graph.count_edge += delta_edges as usize;
-
-                        if delta_nodes != 0 {
-                            if delta_nodes > 0 {
-                                (0..delta_nodes).for_each(|_| self.add_random_node());
-                            } else {
-                                (0..delta_nodes.abs()).for_each(|_| self.remove_random_node());
-                            }
-                        }
-
-                        if delta_edges != 0 {
-                            if delta_edges > 0 {
-                                (0..delta_edges).for_each(|_| self.add_random_edge());
-                            } else {
-                                (0..delta_edges.abs()).for_each(|_| self.remove_random_edge());
-                            }
-                        }
-                    },
-                );
-            });
+                if delta_edges != 0 {
+                    if delta_edges > 0 {
+                        (0..delta_edges).for_each(|_| self.add_random_edge());
+                    } else {
+                        (0..delta_edges.abs()).for_each(|_| self.remove_random_edge());
+                    }
+                }
+            },
+        );
     }
 
     fn draw_section_widget(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("Widget")
-        .default_open(true)
-        .show(ui, |ui| {
-            CollapsingHeader::new("Navigation").default_open(true).show(ui, |ui|{
+        CollapsingHeader::new("Navigation")
+            .default_open(true)
+            .show(ui, |ui| {
                 if ui
-                    .checkbox(&mut self.settings_navigation.fit_to_screen_enabled, "fit_to_screen")
+                    .checkbox(
+                        &mut self.settings_navigation.fit_to_screen_enabled,
+                        "fit_to_screen",
+                    )
                     .changed()
                     && self.settings_navigation.fit_to_screen_enabled
                 {
@@ -349,18 +325,23 @@ impl DemoApp {
 
                 ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
                     ui.vertical(|ui| {
-                        ui.checkbox(&mut self.settings_navigation.zoom_and_pan_enabled, "zoom_and_pan");
+                        ui.checkbox(
+                            &mut self.settings_navigation.zoom_and_pan_enabled,
+                            "zoom_and_pan",
+                        );
                         ui.label("Zoom with ctrl + mouse wheel, pan with middle mouse drag.");
-                    }).response.on_disabled_hover_text("disable fit_to_screen to enable zoom_and_pan");
+                    })
+                    .response
+                    .on_disabled_hover_text("disable fit_to_screen to enable zoom_and_pan");
                 });
             });
 
-            CollapsingHeader::new("Style").show(ui, |ui| {
-                ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
-                ui.label("Wheter to show labels always or when interacted only.");
-            });
+        CollapsingHeader::new("Style").show(ui, |ui| {
+            ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
+            ui.label("Wheter to show labels always or when interacted only.");
+        });
 
-            CollapsingHeader::new("Interaction").show(ui, |ui| {
+        CollapsingHeader::new("Interaction").show(ui, |ui| {
                 if ui.checkbox(&mut self.settings_interaction.dragging_enabled, "dragging_enabled").clicked() && self.settings_interaction.dragging_enabled {
                     self.settings_interaction.node_clicking_enabled = true;
                 };
@@ -419,43 +400,47 @@ impl DemoApp {
                 ui.label("Enable multiselect to select multiple edges.");
             });
 
-            CollapsingHeader::new("Selected").default_open(true).show(ui, |ui| {
-                ScrollArea::vertical().auto_shrink([false, true]).max_height(200.).show(ui, |ui| {
-                    self.g.selected_nodes().iter().for_each(|node| {
-                        ui.label(format!("{node:?}"));
+        CollapsingHeader::new("Selected")
+            .default_open(true)
+            .show(ui, |ui| {
+                ScrollArea::vertical()
+                    .auto_shrink([false, true])
+                    .max_height(200.)
+                    .show(ui, |ui| {
+                        self.g.selected_nodes().iter().for_each(|node| {
+                            ui.label(format!("{node:?}"));
+                        });
+                        self.g.selected_edges().iter().for_each(|edge| {
+                            ui.label(format!("{edge:?}"));
+                        });
                     });
-                    self.g.selected_edges().iter().for_each(|edge| {
-                        ui.label(format!("{edge:?}"));
-                    });
-                });
             });
 
-            CollapsingHeader::new("Last Events").default_open(true).show(ui, |ui| {
+        CollapsingHeader::new("Last Events")
+            .default_open(true)
+            .show(ui, |ui| {
                 if ui.button("clear").clicked() {
                     self.last_events.clear();
                 }
-                ScrollArea::vertical().auto_shrink([false, true]).show(ui, |ui| {
-                    self.last_events.iter().rev().for_each(|event| {
-                        ui.label(event);
+                ScrollArea::vertical()
+                    .auto_shrink([false, true])
+                    .show(ui, |ui| {
+                        self.last_events.iter().rev().for_each(|event| {
+                            ui.label(event);
+                        });
                     });
-                });
             });
-        });
     }
 
     fn draw_section_debug(&self, ui: &mut Ui) {
-        CollapsingHeader::new("Debug")
-            .default_open(true)
-            .show(ui, |ui| {
-                if let Some(zoom) = self.zoom {
-                    ui.label(format!("zoom: {:.5}", zoom));
-                };
-                if let Some(pan) = self.pan {
-                    ui.label(format!("pan: [{:.5}, {:.5}]", pan[0], pan[1]));
-                };
-
-                ui.label(format!("FPS: {:.1}", self.fps));
-            });
+        drawers::draw_section_debug(
+            ui,
+            ValuesSectionDebug {
+                zoom: self.zoom,
+                pan: self.pan,
+                fps: self.fps,
+            },
+        );
     }
 
     fn reset(&mut self) {
@@ -475,6 +460,7 @@ impl DemoApp {
 
         self.settings_simulation = settings_simulation;
         self.settings_graph = settings_graph;
+
         self.sim = sim;
         self.g = g;
         self.force = force;
@@ -487,11 +473,21 @@ impl App for DemoApp {
             .min_width(250.)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
-                    self.draw_section_simulation(ui);
+                    CollapsingHeader::new("Simulation")
+                        .default_open(true)
+                        .show(ui, |ui| self.draw_section_simulation(ui));
+
                     ui.add_space(10.);
-                    self.draw_section_debug(ui);
+
+                    egui::CollapsingHeader::new("Debug")
+                        .default_open(true)
+                        .show(ui, |ui| self.draw_section_debug(ui));
+
                     ui.add_space(10.);
-                    self.draw_section_widget(ui);
+
+                    CollapsingHeader::new("Widget")
+                        .default_open(true)
+                        .show(ui, |ui| self.draw_section_widget(ui));
                 });
             });
 
@@ -524,7 +520,7 @@ impl App for DemoApp {
         });
 
         self.handle_events();
-        self.sync_graph_with_simulation();
+        self.sync();
         self.update_simulation();
         self.update_fps();
     }

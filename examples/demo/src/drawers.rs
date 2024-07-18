@@ -1,13 +1,60 @@
 use egui::Ui;
 
-pub struct ValuesGraphConfigSliders {
+pub struct ValuesConfigButtonsStartReset {
+    pub simulation_stopped: bool,
+}
+
+pub fn draw_start_reset_buttons(
+    ui: &mut egui::Ui,
+    mut values: ValuesConfigButtonsStartReset,
+    mut on_change: impl FnMut(bool, bool),
+) {
+    ui.vertical(|ui| {
+        ui.label("Stop or start simulation again or reset to default settings.");
+        ui.horizontal(|ui| {
+            let start_simulation_stopped = values.simulation_stopped;
+            if ui
+                .button(match values.simulation_stopped {
+                    true => "start",
+                    false => "stop",
+                })
+                .clicked()
+            {
+                values.simulation_stopped = !values.simulation_stopped;
+            };
+
+            let mut reset_pressed = false;
+            if ui.button("reset").clicked() {
+                reset_pressed = true;
+            }
+
+            if start_simulation_stopped != values.simulation_stopped || reset_pressed {
+                on_change(values.simulation_stopped, reset_pressed);
+            }
+        });
+    });
+}
+
+pub struct ValuesSectionDebug {
+    pub zoom: f32,
+    pub pan: [f32; 2],
+    pub fps: f32,
+}
+
+pub fn draw_section_debug(ui: &mut egui::Ui, values: ValuesSectionDebug) {
+    ui.label(format!("zoom: {:.5}", values.zoom));
+    ui.label(format!("pan: [{:.5}, {:.5}]", values.pan[0], values.pan[1]));
+    ui.label(format!("FPS: {:.1}", values.fps));
+}
+
+pub struct ValuesConfigSlidersGraph {
     pub node_cnt: usize,
     pub edge_cnt: usize,
 }
 
 pub fn draw_counts_sliders(
     ui: &mut egui::Ui,
-    mut values: ValuesGraphConfigSliders,
+    mut values: ValuesConfigSlidersGraph,
     mut on_change: impl FnMut(i32, i32),
 ) {
     let start_node_cnt = values.node_cnt;
@@ -37,7 +84,7 @@ pub fn draw_counts_sliders(
     };
 }
 
-pub struct ValuesSimulationConfigSliders {
+pub struct ValuesConfigSlidersSimulation {
     pub dt: f32,
     pub cooloff_factor: f32,
     pub scale: f32,
@@ -45,7 +92,7 @@ pub struct ValuesSimulationConfigSliders {
 
 pub fn draw_simulation_config_sliders(
     ui: &mut Ui,
-    mut values: ValuesSimulationConfigSliders,
+    mut values: ValuesConfigSlidersSimulation,
     mut on_change: impl FnMut(f32, f32, f32),
 ) {
     let start_dt = values.dt;
