@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use eframe::{run_native, App, CreationContext};
-use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Slider, Ui, Vec2};
+use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Ui, Vec2};
 use egui_graphs::events::Event;
 use egui_graphs::{to_graph, DefaultEdgeShape, DefaultNodeShape, Edge, Graph, GraphView, Node};
 use fdg::fruchterman_reingold::{FruchtermanReingold, FruchtermanReingoldConfiguration};

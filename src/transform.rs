@@ -125,8 +125,8 @@ pub fn add_edge_custom<
 ///
 /// assert_eq!(*input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().payload(), "edge1");
 ///
-/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().label().clone(), input_node_1.index().to_string());
-/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().label().clone(), input_node_2.index().to_string());
+/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().label().clone(), format!("node {}", input_node_1.index()));
+/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().label().clone(), format!("node {}", input_node_2.index()));
 ///
 /// let loc_1 = input_graph.g.node_weight(input_node_1).unwrap().location();
 /// let loc_2 = input_graph.g.node_weight(input_node_2).unwrap().location();
@@ -175,7 +175,7 @@ pub fn default_node_transform<
     payload: &N,
 ) -> Node<N, E, Ty, Ix, D> {
     let mut n = Node::new(payload.clone());
-    n.set_label(idx.index().to_string());
+    n.set_label(format!("node {}", idx.index()));
 
     let loc = random_location(DEFAULT_SPAWN_SIZE);
     n.bind(idx, loc);
@@ -197,7 +197,7 @@ pub fn default_edge_transform<
 ) -> Edge<N, E, Ty, Ix, Dn, D> {
     let mut e = Edge::new(payload.clone());
     e.bind(idx, order);
-    e.set_label(e.id().index().to_string());
+    e.set_label(format!("edge {}", e.id().index()));
     e
 }
 
@@ -280,7 +280,7 @@ mod tests {
             assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
             assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
 
-            assert_eq!(*input_n.label(), user_idx.index().to_string());
+            assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
 
             assert!(!input_n.selected());
             assert!(!input_n.dragged());
@@ -309,7 +309,7 @@ mod tests {
             assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
             assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
 
-            assert_eq!(*input_n.label(), user_idx.index().to_string());
+            assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
 
             assert!(!input_n.selected());
             assert!(!input_n.dragged());
