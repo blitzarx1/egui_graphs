@@ -18,7 +18,11 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 - [x] Events reporting to extend the graph functionality by the user handling them;
 
 ## Status
-The project is on track for a stable release v1.0.0. For the moment, breaking releases are still possible.
+The project is on track for a stable release v1.0.0. For the moment, breaking releases are very possible.
+
+Please use master branch for the latest updates. 
+
+Check [demo example](https://github.com/blitzarx1/egui_graphs/tree/master/examples/demo) for the comprehensive overview of the widget possibilities.
 
 ## Features
 ### Events
