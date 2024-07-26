@@ -7,11 +7,16 @@ homepage = "https://github.com/blitzarx1/egui_graphs"
 repository = "https://github.com/blitzarx1/egui_graphs"
 description = "Interactive graph visualization widget for rust powered by egui"
 edition = "2021"
+keywords = ["egui", "graph", "ui", "graph", "node-graph"]
+categories = ["gui", "visualization", "graphs"]
 
 [dependencies]
 egui = { version = "0.27", default-features = false }
 rand = "0.8"
-petgraph = { version = "0.6", default-features = false, features = ["stable_graph", "matrix_graph"] }
+petgraph = { version = "0.6", default-features = false, features = [
+  "stable_graph",
+  "matrix_graph",
+] }
 crossbeam = { version = "0.8", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
