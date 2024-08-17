@@ -95,11 +95,11 @@ pub fn add_edge_custom<
 ///
 /// # Arguments
 /// * `g` - A reference to a [`petgraph::stable_graph::StableGraph`]. The graph can have any data type for nodes and edges, and
-/// can be either directed or undirected.
+///   can be either directed or undirected.
 ///
 /// # Returns
 /// * A new [`petgraph::stable_graph::StableGraph`] with the same topology as the input graph, but the nodes and edges encapsulated
-/// into Node and Edge structs compatible as an input to [`super::GraphView`] widget.
+///   into Node and Edge structs compatible as an input to [`super::GraphView`] widget.
 ///
 /// # Example
 /// ```

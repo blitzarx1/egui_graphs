@@ -170,7 +170,7 @@ where
         let mut selected_edges = Vec::new();
         let mut dragged = None;
 
-        meta.reset_bounds_iterator();
+        meta.reset_bounds();
         self.g.nodes_iter().for_each(|(idx, n)| {
             if n.dragged() {
                 dragged = Some(idx);

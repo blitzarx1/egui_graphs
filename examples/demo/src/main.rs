@@ -560,7 +560,7 @@ fn main() {
     run_native(
         "egui_graphs_demo",
         native_options,
-        Box::new(|cc| Box::new(DemoApp::new(cc))),
+        Box::new(|cc| Ok(Box::new(DemoApp::new(cc)))),
     )
     .unwrap();
 }

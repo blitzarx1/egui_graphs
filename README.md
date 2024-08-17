@@ -105,7 +105,7 @@ fn main() {
     run_native(
         "egui_graphs_basic_demo",
         native_options,
-        Box::new(|cc| Box::new(BasicApp::new(cc))),
+        Box::new(|cc| Ok(Box::new(BasicApp::new(cc)))),
     )
     .unwrap();
 }

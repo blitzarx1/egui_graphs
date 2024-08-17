@@ -52,7 +52,7 @@ fn main() {
     run_native(
         "egui_graphs_undirected_demo",
         native_options,
-        Box::new(|cc| Box::new(UndirectedApp::new(cc))),
+        Box::new(|cc| Ok(Box::new(UndirectedApp::new(cc)))),
     )
     .unwrap();
 }

@@ -181,11 +181,11 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             builder = builder.with_tip(&tip_props);
         };
         let curved_shapes = builder.build();
-        let line_curved = match curved_shapes.clone().first() {
-            Some(Shape::CubicBezier(curve)) => *curve,
+        let line_curved = match curved_shapes.first() {
+            Some(Shape::CubicBezier(curve)) => curve,
             _ => panic!("Invalid shape type"),
         };
-        res.extend(curved_shapes);
+        res.extend(curved_shapes.clone());
 
         // TODO: export to func
         if label_visible {
@@ -238,7 +238,7 @@ impl DefaultEdgeShape {
             .build();
 
         match shape.first() {
-            Some(Shape::CubicBezier(cubic)) => is_point_on_curve(pos, *cubic),
+            Some(Shape::CubicBezier(cubic)) => is_point_on_curve(pos, cubic.clone()),
             _ => panic!("Invalid shape type"),
         }
     }
@@ -268,7 +268,7 @@ impl DefaultEdgeShape {
             .curved((start, end), self.curve_size, self.order)
             .build();
         let curved_shape = match curved_shapes.first() {
-            Some(Shape::CubicBezier(curve)) => *curve,
+            Some(Shape::CubicBezier(curve)) => curve.clone(),
             _ => panic!("Invalid shape type"),
         };
 
