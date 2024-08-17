@@ -7,8 +7,8 @@ homepage = "https://github.com/blitzarx1/egui_graphs"
 repository = "https://github.com/blitzarx1/egui_graphs"
 description = "Interactive graph visualization widget for rust powered by egui"
 edition = "2021"
-keywords = ["egui", "graph", "ui", "graph", "node-graph"]
-categories = ["gui", "visualization", "graphs"]
+keywords = ["egui", "ui", "graph", "node-graph"]
+categories = ["gui", "visualization"]
 
 [dependencies]
 egui = { version = "0.28", default-features = false }
