@@ -11,7 +11,7 @@ keywords = ["egui", "graph", "ui", "graph", "node-graph"]
 categories = ["gui", "visualization", "graphs"]
 
 [dependencies]
-egui = { version = "0.27", default-features = false }
+egui = { version = "0.28", default-features = false }
 rand = "0.8"
 petgraph = { version = "0.6", default-features = false, features = [
   "stable_graph",

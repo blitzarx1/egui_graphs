@@ -8,12 +8,12 @@ use crate::{DisplayNode, Node};
     derive(serde::Serialize, serde::Deserialize)
 )]
 #[derive(Clone, Debug)]
-struct BoundsIterator {
+struct Bounds {
     min: Vec2,
     max: Vec2,
 }
 
-impl Default for BoundsIterator {
+impl Default for Bounds {
     fn default() -> Self {
         Self {
             min: Vec2::new(f32::MAX, f32::MAX),
@@ -22,8 +22,8 @@ impl Default for BoundsIterator {
     }
 }
 
-impl BoundsIterator {
-    pub fn comp_iter<
+impl Bounds {
+    pub fn compute_next<
         N: Clone,
         E: Clone,
         Ty: EdgeType,
@@ -65,7 +65,7 @@ pub struct Metadata {
     pub top_left: Pos2,
 
     /// State of bounds iteration
-    bounds_iterator: BoundsIterator,
+    bounds: Bounds,
 }
 
 impl Default for Metadata {
@@ -75,7 +75,7 @@ impl Default for Metadata {
             zoom: 1.,
             pan: Default::default(),
             top_left: Default::default(),
-            bounds_iterator: Default::default(),
+            bounds: Default::default(),
         }
     }
 }
@@ -113,19 +113,16 @@ impl Metadata {
         &mut self,
         n: &Node<N, E, Ty, Ix, D>,
     ) {
-        self.bounds_iterator.comp_iter(n);
+        self.bounds.compute_next(n);
     }
 
     /// Returns bounding rect of the graph.
     pub fn graph_bounds(&self) -> Rect {
-        Rect::from_min_max(
-            self.bounds_iterator.min.to_pos2(),
-            self.bounds_iterator.max.to_pos2(),
-        )
+        Rect::from_min_max(self.bounds.min.to_pos2(), self.bounds.max.to_pos2())
     }
 
     /// Resets the bounds iterator.
-    pub fn reset_bounds_iterator(&mut self) {
-        self.bounds_iterator = Default::default();
+    pub fn reset_bounds(&mut self) {
+        self.bounds = Default::default();
     }
 }

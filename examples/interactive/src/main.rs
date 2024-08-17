@@ -58,7 +58,7 @@ fn main() {
     run_native(
         "egui_graphs_interactive_demo",
         native_options,
-        Box::new(|cc| Box::new(InteractiveApp::new(cc))),
+        Box::new(|cc| Ok(Box::new(InteractiveApp::new(cc)))),
     )
     .unwrap();
 }

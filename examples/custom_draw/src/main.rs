@@ -60,7 +60,7 @@ fn main() {
     run_native(
         "egui_graphs_custom_draw_demo",
         native_options,
-        Box::new(|cc| Box::new(CustomDrawApp::new(cc))),
+        Box::new(|cc| Ok(Box::new(CustomDrawApp::new(cc)))),
     )
     .unwrap();
 }

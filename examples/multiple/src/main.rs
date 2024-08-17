@@ -23,7 +23,7 @@ impl App for BasicApp {
             .default_width(available_width / 3.)
             .resizable(true)
             .show(ctx, |ui| {
-                ui.child_ui(ui.max_rect(), Layout::default());
+                ui.child_ui(ui.max_rect(), Layout::default(), None);
                 ui.add(
                     &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(
                         &mut self.g,
@@ -106,7 +106,7 @@ fn main() {
     run_native(
         "egui_graphs_basic_demo",
         native_options,
-        Box::new(|cc| Box::new(BasicApp::new(cc))),
+        Box::new(|cc| Ok(Box::new(BasicApp::new(cc)))),
     )
     .unwrap();
 }
