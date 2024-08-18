@@ -424,7 +424,7 @@ where
             return;
         }
 
-        if resp.dragged_by(PointerButton::Middle)
+        if (resp.dragged_by(PointerButton::Middle) || resp.dragged_by(PointerButton::Primary))
             && self.g.dragged_node().is_none()
             && (resp.drag_delta().x.abs() > 0. || resp.drag_delta().y.abs() > 0.)
         {
