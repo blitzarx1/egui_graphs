@@ -21,7 +21,7 @@ impl IsClockwise for NodeData {
     }
 }
 
-/// Rotates node whent the node is being dragged.
+/// Rotates node when the node is being dragged.
 #[derive(Clone)]
 pub struct NodeShapeAnimated {
     label: String,
@@ -152,9 +152,8 @@ impl<N: Clone + IsClockwise, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<
 }
 
 fn find_intersection(center: Pos2, size: f32, direction: Vec2) -> Pos2 {
-    // Determine the intersection side based on the direction
     if direction.x.abs() > direction.y.abs() {
-        // Intersects left or right side
+        // intersects left or right side
         let x = if direction.x > 0.0 {
             center.x + size / 2.0
         } else {
@@ -163,7 +162,7 @@ fn find_intersection(center: Pos2, size: f32, direction: Vec2) -> Pos2 {
         let y = center.y + direction.y / direction.x * (x - center.x);
         Pos2::new(x, y)
     } else {
-        // Intersects top or bottom side
+        // intersects top or bottom side
         let y = if direction.y > 0.0 {
             center.y + size / 2.0
         } else {
@@ -179,14 +178,14 @@ fn rotate_point_around(center: Pos2, point: Pos2, angle: f32) -> Pos2 {
     let sin_angle = angle.sin();
     let cos_angle = angle.cos();
 
-    // Translate point back to origin
+    // translate point back to origin
     let translated_point = point - center;
 
-    // Rotate point
+    // rotate point
     let rotated_x = translated_point.x * cos_angle - translated_point.y * sin_angle;
     let rotated_y = translated_point.x * sin_angle + translated_point.y * cos_angle;
 
-    // Translate point back
+    // translate point back
     Pos2::new(rotated_x, rotated_y) + center.to_vec2()
 }
 
@@ -194,7 +193,7 @@ fn rect_to_points(rect: Rect) -> Vec<Pos2> {
     let top_left = rect.min;
     let bottom_right = rect.max;
 
-    // Calculate the other two corners
+    // calculate the other two corners
     let top_right = Pos2::new(bottom_right.x, top_left.y);
     let bottom_left = Pos2::new(top_left.x, bottom_right.y);
 
@@ -216,7 +215,7 @@ mod tests {
     fn test_intersection_right_side() {
         let center = Pos2::new(0.0, 0.0);
         let size = 10.;
-        let direction = Vec2::new(1.0, 0.0); // Directly to the right
+        let direction = Vec2::new(1.0, 0.0);
         let expected = Pos2::new(5.0, 0.0);
         assert_eq!(find_intersection(center, size, direction), expected);
     }
@@ -225,7 +224,7 @@ mod tests {
     fn test_intersection_top_side() {
         let center = Pos2::new(0.0, 0.0);
         let size = 10.;
-        let direction = Vec2::new(0.0, 1.0); // Directly upwards
+        let direction = Vec2::new(0.0, 1.0);
         let expected = Pos2::new(0.0, 5.0);
         assert_eq!(find_intersection(center, size, direction), expected);
     }

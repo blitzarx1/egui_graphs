@@ -1,18 +1,24 @@
 use eframe::{run_native, App, CreationContext};
 use egui::{CentralPanel, Context, SidePanel, TextEdit};
 use egui_graphs::{
-    DefaultEdgeShape, DefaultNodeShape, Graph, GraphView, SettingsInteraction, SettingsStyle,
+    DefaultEdgeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation, SettingsStyle,
 };
-use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
+use node::NodeShapeFlex;
+use petgraph::{
+    stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph},
+    Directed,
+};
 
-pub struct LabelChangeApp {
-    g: Graph<(), ()>,
+mod node;
+
+pub struct FlexNodesApp {
+    g: Graph<(), (), Directed, DefaultIx, NodeShapeFlex, DefaultEdgeShape>,
     label_input: String,
     selected_node: Option<NodeIndex>,
     selected_edge: Option<EdgeIndex>,
 }
 
-impl LabelChangeApp {
+impl FlexNodesApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
         Self {
@@ -55,13 +61,18 @@ impl LabelChangeApp {
         });
         CentralPanel::default().show(ctx, |ui| {
             let widget =
-                &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(&mut self.g)
+                &mut GraphView::<_, _, _, _, NodeShapeFlex, DefaultEdgeShape>::new(&mut self.g)
                     .with_interactions(
                         &SettingsInteraction::default()
+                            .with_dragging_enabled(true)
                             .with_node_selection_enabled(true)
                             .with_edge_selection_enabled(true),
                     )
-                    .with_styles(&SettingsStyle::default().with_labels_always(true));
+                    .with_navigations(
+                        &SettingsNavigation::default()
+                            .with_fit_to_screen_enabled(false)
+                            .with_zoom_and_pan_enabled(true),
+                    );
             ui.add(widget);
         });
     }
@@ -107,7 +118,7 @@ impl LabelChangeApp {
     }
 }
 
-impl App for LabelChangeApp {
+impl App for FlexNodesApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         self.read_data();
         self.render(ctx);
@@ -132,9 +143,9 @@ fn generate_graph() -> StableGraph<(), ()> {
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui_graphs_label_change_demo",
+        "egui_graphs_flex_nodes_demo",
         native_options,
-        Box::new(|cc| Ok(Box::new(LabelChangeApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(FlexNodesApp::new(cc)))),
     )
     .unwrap();
 }

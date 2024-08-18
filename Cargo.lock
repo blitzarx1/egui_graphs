@@ -565,7 +565,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.28.1",
- "egui_graphs 0.21.0",
+ "egui_graphs 0.21.1",
  "petgraph",
 ]
 
@@ -1960,7 +1960,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.28.1",
- "egui_graphs 0.21.0",
+ "egui_graphs 0.21.1",
  "petgraph",
 ]
 
@@ -1994,7 +1994,7 @@ dependencies = [
  "crossbeam",
  "eframe",
  "egui 0.28.1",
- "egui_graphs 0.21.0",
+ "egui_graphs 0.21.1",
  "fdg",
  "petgraph",
  "rand",
@@ -2211,7 +2211,7 @@ dependencies = [
 
 [[package]]
 name = "egui_graphs"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "crossbeam",
  "egui 0.28.1",
@@ -2495,6 +2495,16 @@ checksum = "7f211bbe8e69bbd0cfdea405084f128ae8b4aaa6b0b522fc8f2b009084797920"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
+]
+
+[[package]]
+name = "flex_nodes"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui 0.28.1",
+ "egui_graphs 0.21.1",
+ "petgraph",
 ]
 
 [[package]]
@@ -3089,7 +3099,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.28.1",
- "egui_graphs 0.21.0",
+ "egui_graphs 0.21.1",
  "petgraph",
 ]
 
@@ -3213,7 +3223,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.28.1",
- "egui_graphs 0.21.0",
+ "egui_graphs 0.21.1",
  "petgraph",
 ]
 
@@ -3449,7 +3459,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.28.1",
- "egui_graphs 0.21.0",
+ "egui_graphs 0.21.1",
  "petgraph",
 ]
 
@@ -4979,7 +4989,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.28.1",
- "egui_graphs 0.21.0",
+ "egui_graphs 0.21.1",
  "petgraph",
 ]
 
@@ -5162,7 +5172,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.28.1",
- "egui_graphs 0.21.0",
+ "egui_graphs 0.21.1",
  "env_logger",
  "getrandom",
  "instant",
@@ -5630,7 +5640,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.28.1",
- "egui_graphs 0.21.0",
+ "egui_graphs 0.21.1",
  "petgraph",
 ]
 
