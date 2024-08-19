@@ -35,7 +35,7 @@ Combining this feature with custom node draw function allows to implement custom
 ### Persistence
 To use egui `persistence` feature you need to enable `egui_persistence` feature of this crate. For example:
 ```toml
-egui_graphs = { version = "0", features = ["egui_persistence"]}
+egui_graphs = { version = "0.21", features = ["egui_persistence"]}
 egui = {version="0.23", features = ["persistence"]}
 ```
 
