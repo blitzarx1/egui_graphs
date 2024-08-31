@@ -6,7 +6,7 @@ mod metadata;
 mod settings;
 mod transform;
 
-pub use draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext};
+pub use draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext, EdgeShapeBuilder, TipProps};
 pub use elements::{Edge, EdgeProps, Node, NodeProps};
 pub use graph::Graph;
 pub use graph_view::GraphView;
