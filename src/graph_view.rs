@@ -1,28 +1,27 @@
 use std::marker::PhantomData;
 
+use crate::{
+    draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
+    layout::{DefaultLayout, Layout},
+    metadata::Metadata,
+    settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
+    DisplayEdge, DisplayNode, Graph,
+};
+
+use egui::{PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+
+use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
+use petgraph::{graph::IndexType, Directed};
+use petgraph::{stable_graph::NodeIndex, EdgeType};
+
 #[cfg(feature = "events")]
 use crate::events::{
     Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
     PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd, PayloadNodeDragStart,
     PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
 };
-use crate::{
-    draw::Drawer,
-    metadata::Metadata,
-    settings::SettingsNavigation,
-    settings::{SettingsInteraction, SettingsStyle},
-    Graph,
-};
-use crate::{
-    draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext},
-    DisplayEdge, DisplayNode,
-};
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
-use egui::{PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
-use petgraph::{graph::IndexType, Directed};
-use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -47,6 +46,7 @@ pub struct GraphView<
     Ix = DefaultIx,
     Nd = DefaultNodeShape,
     Ed = DefaultEdgeShape,
+    L = DefaultLayout,
 > where
     N: Clone,
     E: Clone,
@@ -54,6 +54,7 @@ pub struct GraphView<
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+    L: Layout,
 {
     g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
 
@@ -64,10 +65,10 @@ pub struct GraphView<
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
 
-    _marker: PhantomData<(Nd, Ed)>,
+    _marker: PhantomData<(Nd, Ed, L)>,
 }
 
-impl<'a, N, E, Ty, Ix, Nd, Ed> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed>
+impl<'a, N, E, Ty, Ix, Nd, Ed, L> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed, L>
 where
     N: Clone,
     E: Clone,
@@ -75,6 +76,7 @@ where
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+    L: Layout,
 {
     fn ui(self, ui: &mut Ui) -> Response {
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
@@ -109,7 +111,7 @@ where
     }
 }
 
-impl<'a, N, E, Ty, Ix, Dn, De> GraphView<'a, N, E, Ty, Ix, Dn, De>
+impl<'a, N, E, Ty, Ix, Dn, De, L> GraphView<'a, N, E, Ty, Ix, Dn, De, L>
 where
     N: Clone,
     E: Clone,
@@ -117,6 +119,7 @@ where
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    L: Layout,
 {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
