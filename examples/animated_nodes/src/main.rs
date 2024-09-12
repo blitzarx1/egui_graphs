@@ -1,6 +1,9 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{DefaultEdgeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation};
+use egui_graphs::{
+    default_edge_transform, default_node_transform, to_graph_custom, DefaultEdgeShape, Graph,
+    GraphView, SettingsInteraction, SettingsNavigation,
+};
 use node::NodeShapeAnimated;
 use petgraph::{
     stable_graph::{DefaultIx, StableGraph},
@@ -9,18 +12,33 @@ use petgraph::{
 
 mod node;
 
-pub struct CustomDrawApp {
+const GLYPH_CLOCKWISE: &str = "↻";
+const GLYPH_ANTICLOCKWISE: &str = "↺";
+
+pub struct AnimatedNodesApp {
     g: Graph<node::NodeData, (), Directed, DefaultIx, NodeShapeAnimated>,
 }
 
-impl CustomDrawApp {
+impl AnimatedNodesApp {
     fn new(_: &CreationContext<'_>) -> Self {
         let g = generate_graph();
-        Self { g: Graph::from(&g) }
+        Self {
+            g: to_graph_custom(
+                &g,
+                |idx, n| {
+                    if n.clockwise {
+                        default_node_transform(idx, n).with_label(GLYPH_CLOCKWISE.to_string())
+                    } else {
+                        default_node_transform(idx, n).with_label(GLYPH_ANTICLOCKWISE.to_string())
+                    }
+                },
+                default_edge_transform,
+            ),
+        }
     }
 }
 
-impl App for CustomDrawApp {
+impl App for AnimatedNodesApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add(
@@ -58,9 +76,9 @@ fn generate_graph() -> StableGraph<node::NodeData, ()> {
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui_graphs_custom_draw_demo",
+        "egui_graphs_animated_nodes_demo",
         native_options,
-        Box::new(|cc| Ok(Box::new(CustomDrawApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(AnimatedNodesApp::new(cc)))),
     )
     .unwrap();
 }
