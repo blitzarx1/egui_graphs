@@ -43,8 +43,8 @@ impl<
         De: DisplayEdge<N, E, Ty, Ix, Dn>,
     > From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
 {
-    fn from(value: &StableGraph<N, E, Ty, Ix>) -> Self {
-        transform::to_graph(value)
+    fn from(g: &StableGraph<N, E, Ty, Ix>) -> Self {
+        transform::to_graph(g)
     }
 }
 
