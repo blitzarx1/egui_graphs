@@ -1,0 +1,10 @@
+[package]
+name = "rainbow_edges"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+egui_graphs = { path = "../../" }
+egui = "0.28"
+eframe = "0.28"
+petgraph = "0.6"

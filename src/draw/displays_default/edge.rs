@@ -82,7 +82,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
         if start.id() == end.id() {
             // draw loop
-            let size = node_size(start);
+            let size = node_size(start, Vec2::new(-1., 0.));
             let mut line_looped_shapes = EdgeShapeBuilder::new(stroke)
                 .looped(start.location(), size, self.loop_size, self.order)
                 .with_scaler(ctx.meta)
@@ -92,7 +92,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
             let line_looped = match line_looped_shapes.pop().unwrap() {
                 Shape::CubicBezier(cubic) => cubic,
-                _ => panic!("Invalid shape type"),
+                _ => panic!("invalid shape type"),
             };
 
             // TODO: export to func
@@ -141,7 +141,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
             // TODO: export to func
             if label_visible {
-                let size = (node_size(start) + node_size(end)) / 2.;
+                let size = (node_size(start, dir) + node_size(end, dir)) / 2.;
                 let galley = ctx.ctx.fonts(|f| {
                     f.layout_no_wrap(
                         self.label_text.clone(),
@@ -183,13 +183,12 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         let curved_shapes = builder.build();
         let line_curved = match curved_shapes.first() {
             Some(Shape::CubicBezier(curve)) => curve,
-            _ => panic!("Invalid shape type"),
+            _ => panic!("invalid shape type"),
         };
         res.extend(curved_shapes.clone());
 
-        // TODO: export to func
         if label_visible {
-            let size = (node_size(start) + node_size(end)) / 2.;
+            let size = (node_size(start, dir) + node_size(end, dir)) / 2.;
             let galley = ctx.ctx.fonts(|f| {
                 f.layout_no_wrap(
                     self.label_text.clone(),
@@ -231,7 +230,7 @@ impl DefaultEdgeShape {
         node: &Node<N, E, Ty, Ix, D>,
         pos: Pos2,
     ) -> bool {
-        let node_size = node_size(node);
+        let node_size = node_size(node, Vec2::new(-1., 0.));
 
         let shape = EdgeShapeBuilder::new(Stroke::new(self.width, Color32::default()))
             .looped(node.location(), node_size, self.loop_size, self.order)
@@ -239,7 +238,7 @@ impl DefaultEdgeShape {
 
         match shape.first() {
             Some(Shape::CubicBezier(cubic)) => is_point_on_curve(pos, cubic.clone()),
-            _ => panic!("Invalid shape type"),
+            _ => panic!("invalid shape type"),
         }
     }
 
@@ -269,20 +268,20 @@ impl DefaultEdgeShape {
             .build();
         let curved_shape = match curved_shapes.first() {
             Some(Shape::CubicBezier(curve)) => curve.clone(),
-            _ => panic!("Invalid shape type"),
+            _ => panic!("invalid shape type"),
         };
 
         is_point_on_curve(pos, curved_shape)
     }
 }
 
-// TOOD: export this func as common drawing func
+// TODO: export this func as common drawing func
 fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
     node: &Node<N, E, Ty, Ix, D>,
+    dir: Vec2,
 ) -> f32 {
-    let left_dir = Vec2::new(-1., 0.);
-    let connector_left = node.display().closest_boundary_point(left_dir);
-    let connector_right = node.display().closest_boundary_point(-left_dir);
+    let connector_left = node.display().closest_boundary_point(dir);
+    let connector_right = node.display().closest_boundary_point(-dir);
 
     (connector_right.x - connector_left.x) / 2.
 }
