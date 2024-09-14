@@ -4161,6 +4161,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17fd96390ed3feda12e1dfe2645ed587e0bea749e319333f104a33ff62f77a0b"
 
 [[package]]
+name = "rainbow_edges"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui 0.28.1",
+ "egui_graphs 0.21.1",
+ "petgraph",
+]
+
+[[package]]
 name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

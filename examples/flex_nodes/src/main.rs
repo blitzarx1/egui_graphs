@@ -1,8 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::{CentralPanel, Context, SidePanel, TextEdit};
-use egui_graphs::{
-    DefaultEdgeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation, SettingsStyle,
-};
+use egui_graphs::{DefaultEdgeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation};
 use node::NodeShapeFlex;
 use petgraph::{
     stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph},
