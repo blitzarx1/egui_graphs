@@ -79,7 +79,7 @@ fn generate_graph() -> egui_graphs::Graph {
 ```
 
 #### Step 4: Implementing the `eframe::App` trait. 
-Now, lets implement the `efram::App` trait for the `BasicApp`. In the `update()` function, we create a `egui::CentralPanel` and add the `egui_graphs::GraphView` widget to it.
+Now, lets implement the `eframe::App` trait for the `BasicApp`. In the `update()` function, we create a `egui::CentralPanel` and add the `egui_graphs::GraphView` widget to it.
 ```rust 
 impl eframe::App for BasicApp {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
