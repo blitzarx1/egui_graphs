@@ -41,8 +41,8 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 /// properties of the nodes or edges.
 pub struct GraphView<
     'a,
-    N,
-    E,
+    N = (),
+    E = (),
     Ty = Directed,
     Ix = DefaultIx,
     Nd = DefaultNodeShape,

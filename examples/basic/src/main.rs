@@ -1,35 +1,29 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{DefaultEdgeShape, DefaultNodeShape, Graph, GraphView};
+use egui_graphs::{Graph, GraphView};
 use petgraph::stable_graph::StableGraph;
 
 pub struct BasicApp {
-    g: Graph<(), ()>,
+    g: Graph,
 }
 
 impl BasicApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let g = generate_graph();
-        Self { g: Graph::from(&g) }
+        Self {
+            g: generate_graph(),
+        }
     }
 }
 
 impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut GraphView::<
-                _,
-                _,
-                _,
-                _,
-                DefaultNodeShape,
-                DefaultEdgeShape,
-            >::new(&mut self.g));
+            ui.add(&mut GraphView::new(&mut self.g));
         });
     }
 }
 
-fn generate_graph() -> StableGraph<(), ()> {
+fn generate_graph() -> Graph {
     let mut g = StableGraph::new();
 
     let a = g.add_node(());
@@ -40,7 +34,7 @@ fn generate_graph() -> StableGraph<(), ()> {
     g.add_edge(b, c, ());
     g.add_edge(c, a, ());
 
-    g
+    Graph::from(&g)
 }
 
 fn main() {
