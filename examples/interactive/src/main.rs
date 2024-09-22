@@ -6,7 +6,7 @@ use egui_graphs::{
 use petgraph::stable_graph::StableGraph;
 
 pub struct InteractiveApp {
-    g: Graph<(), ()>,
+    g: Graph,
 }
 
 impl InteractiveApp {
@@ -37,7 +37,7 @@ impl App for InteractiveApp {
     }
 }
 
-fn generate_graph() -> Graph<(), ()> {
+fn generate_graph() -> Graph {
     let mut g = StableGraph::new();
 
     let a = g.add_node(());

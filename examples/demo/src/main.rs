@@ -526,7 +526,7 @@ impl App for DemoApp {
     }
 }
 
-fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph<(), ()> {
+fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph {
     let mut rng = rand::thread_rng();
     let mut graph = StableGraph::new();
 

@@ -21,8 +21,8 @@ type StableGraphType<N, E, Ty, Ix, Dn, De> =
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Graph<
-    N: Clone,
-    E: Clone,
+    N: Clone = (),
+    E: Clone = (),
     Ty: EdgeType = Directed,
     Ix: IndexType = DefaultIx,
     Dn: DisplayNode<N, E, Ty, Ix> = DefaultNodeShape,

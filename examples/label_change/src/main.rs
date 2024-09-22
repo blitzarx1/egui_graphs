@@ -6,7 +6,7 @@ use egui_graphs::{
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 
 pub struct LabelChangeApp {
-    g: Graph<(), ()>,
+    g: Graph,
     label_input: String,
     selected_node: Option<NodeIndex>,
     selected_edge: Option<EdgeIndex>,

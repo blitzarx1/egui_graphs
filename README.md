@@ -23,7 +23,7 @@ The project is on track for a stable release v1.0.0. For the moment, breaking re
 
 Please use master branch for the latest updates. 
 
-Check [demo example](https://github.com/blitzarx1/egui_graphs/tree/master/examples/demo) for the comprehensive overview of the widget possibilities.
+Check the [demo example](https://github.com/blitzarx1/egui_graphs/tree/master/examples/demo) for the comprehensive overview of the widget possibilities.
 
 ## Features
 ### Events
@@ -41,21 +41,21 @@ egui = {version="0.23", features = ["persistence"]}
 
 ## Examples
 ### Basic setup example
-#### Step 1: Setting up the BasicApp struct. 
+The source code of the following steps can be found in the [basic example](https://github.com/blitzarx1/egui_graphs/blob/master/examples/basic/src/main.rs).
+#### Step 1: Setting up the `BasicApp` struct. 
 First, let's define the `BasicApp` struct that will hold the graph.
 ```rust 
 pub struct BasicApp {
-    g: Graph<(), (), Directed>,
+    g: egui_graphs::Graph,
 }
 ```
 
-#### Step 2: Implementing the new() function. 
+#### Step 2: Implementing the `new()` function. 
 Next, implement the `new()` function for the `BasicApp` struct.
 ```rust
 impl BasicApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let g = generate_graph();
-        Self { g: Graph::from(&g) }
+        Self { g: generate_graph() }
     }
 }
 ```
@@ -63,8 +63,8 @@ impl BasicApp {
 #### Step 3: Generating the graph. 
 Create a helper function called `generate_graph()`. In this example, we create three nodes with and three edges connecting them in a triangular pattern.
 ```rust 
-fn generate_graph() -> StableGraph<(), (), Directed> {
-    let mut g: StableGraph<(), ()> = StableGraph::new();
+fn generate_graph() -> egui_graphs::Graph {
+    let mut g = petgraph::stable_graph::StableGraph::new();
 
     let a = g.add_node(());
     let b = g.add_node(());
@@ -74,35 +74,28 @@ fn generate_graph() -> StableGraph<(), (), Directed> {
     g.add_edge(b, c, ());
     g.add_edge(c, a, ());
 
-    g
+    Graph::from(&g)
 }
 ```
 
-#### Step 4: Implementing the update() function. 
-Now, lets implement the `update()` function for the `BasicApp`. This function creates a `GraphView` widget providing a mutable reference to the graph, and adds it to `egui::CentralPanel` using the `ui.add()` function for adding widgets.
+#### Step 4: Implementing the `eframe::App` trait. 
+Now, lets implement the `efram::App` trait for the `BasicApp`. In the `update()` function, we create a `egui::CentralPanel` and add the `egui_graphs::GraphView` widget to it.
 ```rust 
-impl App for BasicApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
+impl eframe::App for BasicApp {
+    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut GraphView::<
-                _,
-                _,
-                _,
-                _,
-                DefaultNodeShape,
-                DefaultEdgeShape,
-            >::new(&mut self.g));
+            ui.add(&mut egui_graphs::GraphView::new(&mut self.g));
         });
     }
 }
 ```
 
 #### Step 5: Running the application. 
-Finally, run the application using the `run_native()` function with the specified native options and the `BasicApp`.
+Finally, run the application using the `eframe::run_native()` function with the specified native options and the `BasicApp`.
 ```rust 
 fn main() {
     let native_options = eframe::NativeOptions::default();
-    run_native(
+    eframe::run_native(
         "egui_graphs_basic_demo",
         native_options,
         Box::new(|cc| Ok(Box::new(BasicApp::new(cc)))),

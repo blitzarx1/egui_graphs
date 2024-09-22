@@ -6,7 +6,7 @@ use egui_graphs::{
 use petgraph::stable_graph::StableGraph;
 
 pub struct BasicApp {
-    g: Graph<(), ()>,
+    g: Graph,
 }
 
 impl BasicApp {
