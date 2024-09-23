@@ -28,3 +28,24 @@ serde = ["dep:serde", "egui/serde", "petgraph/serde", "petgraph/serde-1"]
 
 [workspace]
 members = ["examples/*"]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "deny", priority = 0 }
+enum_glob_use = { level = "deny", priority = 1 }
+perf = { level = "deny", priority = 2 }
+style = { level = "deny", priority = 3 }
+# unwrap_used = { level = "deny", priority = 4 } These should enabled in the future
+# expect_used = { level = "deny", priority = 5 }
+module_name_repetitions = { level = "allow", priority = 6 }
+cast_precision_loss = { level = "allow", priority = 7 }
+float_cmp = { level = "allow", priority = 8 }
+cast_possible_truncation = { level = "allow", priority = 9 }
+cast_sign_loss = { level = "allow", priority = 10 }
+out_of_bounds_indexing = { level = "allow", priority = 11 }
+
+must_use_candidate = { level = "allow", priority = 12 }
+struct_excessive_bools = { level = "allow", priority = 13 }
+return_self_not_must_use = { level = "allow", priority = 14 }

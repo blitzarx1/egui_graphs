@@ -26,7 +26,7 @@ where
     /// Use `ctx.painter` to have low level access to egui painting process.
     fn shapes(&mut self, ctx: &DrawContext) -> Vec<Shape>;
 
-    /// Is called on every frame. Can be used for updating state of the implementation of [DisplayNode]
+    /// Is called on every frame. Can be used for updating state of the implementation of [`DisplayNode`]
     fn update(&mut self, state: &NodeProps<N>);
 
     /// Checks if the provided `pos` is inside the shape.
@@ -45,7 +45,7 @@ where
     Ix: IndexType,
     D: DisplayNode<N, E, Ty, Ix>,
 {
-    /// Draws shapes of the edge. Uses [DisplayNode] implementation from node endpoints to get start and end coordinates using [closest_boundary_point](DisplayNode::closest_boundary_point).
+    /// Draws shapes of the edge. Uses [`DisplayNode`] implementation from node endpoints to get start and end coordinates using [`closest_boundary_point`](DisplayNode::closest_boundary_point).
     /// If the node is interacted these shapes will be used for drawing on foreground layer, otherwise on background layer.
     /// Has mutable reference to itself for possibility to change internal state for the visualizations where this is important.
     ///
@@ -61,7 +61,7 @@ where
         ctx: &DrawContext,
     ) -> Vec<Shape>;
 
-    /// Is called on every frame. Can be used for updating state of the implementation of [DisplayNode]
+    /// Is called on every frame. Can be used for updating state of the implementation of [`DisplayNode`]
     fn update(&mut self, state: &EdgeProps<E>);
 
     /// Checks if the provided `pos` is inside the shape.

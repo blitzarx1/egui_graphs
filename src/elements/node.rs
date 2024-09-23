@@ -37,6 +37,7 @@ where
     _marker: PhantomData<(E, Ty)>,
 }
 
+#[allow(clippy::missing_fields_in_debug)] // TODO: add all fields or remove this and fix all warnings
 impl<N, E, Ty, Ix, D> Debug for Node<N, E, Ty, Ix, D>
 where
     N: Clone,
@@ -97,8 +98,8 @@ where
             props,
             display,
 
-            id: Default::default(),
-            _marker: Default::default(),
+            id: Option::default(),
+            _marker: PhantomData,
         }
     }
 
@@ -120,6 +121,7 @@ where
         self.props.location = location;
     }
 
+    #[allow(clippy::missing_panics_doc)] // TODO: Add panic message
     pub fn id(&self) -> NodeIndex<Ix> {
         self.id.unwrap()
     }
@@ -137,7 +139,7 @@ where
     }
 
     pub fn set_location(&mut self, loc: Pos2) {
-        self.props.location = loc
+        self.props.location = loc;
     }
 
     pub fn selected(&self) -> bool {
@@ -161,7 +163,7 @@ where
     }
 
     pub fn set_label(&mut self, label: String) {
-        self.props.label = label
+        self.props.label = label;
     }
 
     pub fn with_label(mut self, label: String) -> Self {

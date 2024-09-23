@@ -26,11 +26,11 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 /// Widget for visualizing and interacting with graphs.
 ///
-/// It implements [egui::Widget] and can be used like any other widget.
+/// It implements [`egui::Widget`] and can be used like any other widget.
 ///
-/// The widget uses a mutable reference to the [petgraph::stable_graph::StableGraph<super::Node<N>, super::Edge<E>>]
+/// The widget uses a mutable reference to the [`petgraph::stable_graph::StableGraph`<`super::Node`<N>, `super::Edge`<E>>]
 /// struct to visualize and interact with the graph. `N` and `E` is arbitrary client data associated with nodes and edges.
-/// You can customize the visualization and interaction behavior using [SettingsInteraction], [SettingsNavigation] and [SettingsStyle] structs.
+/// You can customize the visualization and interaction behavior using [`SettingsInteraction`], [`SettingsNavigation`] and [`SettingsStyle`] structs.
 ///
 /// When any interaction or node property change occurs, the widget sends [Event] struct to the provided
 /// [Sender<Event>] channel, which can be set via the `with_interactions` method. The [Event] struct contains information about
@@ -124,12 +124,12 @@ where
         Self {
             g,
 
-            settings_style: Default::default(),
-            settings_interaction: Default::default(),
-            settings_navigation: Default::default(),
+            settings_style: SettingsStyle::default(),
+            settings_interaction: SettingsInteraction::default(),
+            settings_navigation: SettingsNavigation::default(),
 
             #[cfg(feature = "events")]
-            events_publisher: Default::default(),
+            events_publisher: Option::default(),
 
             _marker: PhantomData,
         }
@@ -219,9 +219,8 @@ where
             return;
         }
 
-        let cursor_pos = match resp.hover_pos() {
-            Some(pos) => pos,
-            None => return,
+        let Some(cursor_pos) = resp.hover_pos() else {
+            return;
         };
         let found_edge = self.g.edge_by_screen_pos(meta, cursor_pos);
         let found_node = self.g.node_by_screen_pos(meta, cursor_pos);
@@ -463,22 +462,22 @@ where
         self.publish_event(Event::NodeDeselect(PayloadNodeDeselect { id: idx.index() }));
     }
 
-    #[allow(unused_variables)]
-    fn set_node_clicked(&mut self, idx: NodeIndex<Ix>) {
+    #[allow(unused_variables, clippy::unused_self)]
+    fn set_node_clicked(&self, idx: NodeIndex<Ix>) {
         #[cfg(feature = "events")]
         self.publish_event(Event::NodeClick(PayloadNodeClick { id: idx.index() }));
     }
 
-    #[allow(unused_variables)]
-    fn set_node_double_clicked(&mut self, idx: NodeIndex<Ix>) {
+    #[allow(unused_variables, clippy::unused_self)]
+    fn set_node_double_clicked(&self, idx: NodeIndex<Ix>) {
         #[cfg(feature = "events")]
         self.publish_event(Event::NodeDoubleClick(PayloadNodeDoubleClick {
             id: idx.index(),
         }));
     }
 
-    #[allow(unused_variables)]
-    fn set_edge_clicked(&mut self, idx: EdgeIndex<Ix>) {
+    #[allow(unused_variables, clippy::unused_self)]
+    fn set_edge_clicked(&self, idx: EdgeIndex<Ix>) {
         #[cfg(feature = "events")]
         self.publish_event(Event::EdgeClick(PayloadEdgeClick { id: idx.index() }));
     }
@@ -507,16 +506,16 @@ where
 
     fn deselect_all_nodes(&mut self) {
         let selected_nodes = self.g.selected_nodes().to_vec();
-        selected_nodes.into_iter().for_each(|idx| {
+        for idx in selected_nodes {
             self.deselect_node(idx);
-        });
+        }
     }
 
     fn deselect_all_edges(&mut self) {
         let selected_edges = self.g.selected_edges().to_vec();
-        selected_edges.into_iter().for_each(|idx| {
+        for idx in selected_edges {
             self.deselect_edge(idx);
-        });
+        }
     }
 
     fn move_node(&mut self, idx: NodeIndex<Ix>, delta: Vec2) {
@@ -550,7 +549,7 @@ where
         self.publish_event(Event::NodeDragEnd(PayloadNodeDragEnd { id: idx.index() }));
     }
 
-    #[allow(unused_variables)]
+    #[allow(unused_variables, clippy::unused_self)]
     fn set_pan(&self, new_pan: Vec2, meta: &mut Metadata) {
         let diff = new_pan - meta.pan;
         meta.pan = new_pan;
@@ -562,7 +561,7 @@ where
         }));
     }
 
-    #[allow(unused_variables)]
+    #[allow(unused_variables, clippy::unused_self)]
     fn set_zoom(&self, new_zoom: f32, meta: &mut Metadata) {
         let diff = new_zoom - meta.zoom;
         meta.zoom = new_zoom;

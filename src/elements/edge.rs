@@ -59,8 +59,8 @@ impl<
             props,
             display,
 
-            id: Default::default(),
-            _marker: Default::default(),
+            id: Option::default(),
+            _marker: PhantomData,
         }
     }
 
@@ -82,6 +82,7 @@ impl<
         &mut self.display
     }
 
+    #[allow(clippy::missing_panics_doc)] // TODO: Add panic message
     pub fn id(&self) -> EdgeIndex<Ix> {
         self.id.unwrap()
     }
@@ -111,7 +112,7 @@ impl<
     }
 
     pub fn set_label(&mut self, label: String) {
-        self.props.label = label
+        self.props.label = label;
     }
 
     pub fn with_label(mut self, label: String) -> Self {

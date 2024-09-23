@@ -89,7 +89,7 @@ pub fn add_edge_custom<
 
 /// Helper function which transforms users [`petgraph::stable_graph::StableGraph`] isntance into the version required by the [`super::GraphView`] widget.
 ///
-/// The function creates a new StableGraph where the nodes and edges are encapsulated into
+/// The function creates a new `StableGraph` where the nodes and edges are encapsulated into
 /// Node and Edge structs respectively. New nodes and edges are created with [`default_node_transform`] and [`default_edge_transform`]
 /// functions. If you want to define custom transformation procedures (e.g. to use custom label for nodes), use [`to_graph_custom`] instead.
 ///
