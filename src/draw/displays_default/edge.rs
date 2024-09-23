@@ -283,7 +283,7 @@ fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, 
     let connector_left = node.display().closest_boundary_point(dir);
     let connector_right = node.display().closest_boundary_point(-dir);
 
-    ((connector_right.x - connector_left.x) / 2.).abs()
+    ((connector_right.to_vec2() - connector_left.to_vec2()) / 2.).length()
 }
 
 /// Returns the distance from line segment `a``b` to point `c`.
