@@ -82,7 +82,10 @@ impl<
     pub fn edge_by_screen_pos(&self, meta: &Metadata, screen_pos: Pos2) -> Option<EdgeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, e) in self.edges_iter() {
-            let (idx_start, idx_end) = self.g.edge_endpoints(e.id()).unwrap();
+            let (idx_start, idx_end) = match self.g.edge_endpoints(e.id()) {
+                Some(se) => se,
+                None => continue,
+            };
             let start = self.g.node_weight(idx_start).unwrap();
             let end = self.g.node_weight(idx_end).unwrap();
             if e.display().is_inside(start, end, pos_in_graph) {
