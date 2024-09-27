@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
-use egui_graphs::{DefaultEdgeShape, DefaultNodeShape, Graph, GraphView};
+use egui_graphs::{Graph, GraphView};
 use petgraph::stable_graph::StableGraph;
 
 fn main() {
@@ -46,13 +46,6 @@ fn update_graph(mut contexts: EguiContexts, mut q_graph: Query<&mut BasicGraph>)
     let mut graph = q_graph.single_mut();
 
     egui::CentralPanel::default().show(ctx, |ui| {
-        ui.add(&mut GraphView::<
-            _,
-            _,
-            _,
-            _,
-            DefaultNodeShape,
-            DefaultEdgeShape,
-        >::new(&mut graph.0));
+        ui.add(&mut GraphView::new(&mut graph.0));
     });
 }

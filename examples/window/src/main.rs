@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::{Context, Window};
-use egui_graphs::{DefaultEdgeShape, DefaultNodeShape, Graph, GraphView};
+use egui_graphs::{Graph, GraphView};
 use petgraph::stable_graph::StableGraph;
 
 pub struct WindowApp {
@@ -17,14 +17,7 @@ impl WindowApp {
 impl App for WindowApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         Window::new("graph").show(ctx, |ui| {
-            ui.add(&mut GraphView::<
-                _,
-                _,
-                _,
-                _,
-                DefaultNodeShape,
-                DefaultEdgeShape,
-            >::new(&mut self.g));
+            ui.add(&mut GraphView::new(&mut self.g));
         });
     }
 }
