@@ -63,6 +63,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         self.is_inside_curve(start, end, pos)
     }
 
+    #[allow(clippy::too_many_lines)] // TODO: refactor
     fn shapes(
         &mut self,
         start: &Node<N, E, Ty, Ix, D>,
@@ -73,9 +74,10 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
         let label_visible = ctx.style.labels_always || self.selected;
 
-        let style = match self.selected {
-            true => ctx.ctx.style().visuals.widgets.active,
-            false => ctx.ctx.style().visuals.widgets.inactive,
+        let style = if self.selected {
+            ctx.ctx.style().visuals.widgets.active
+        } else {
+            ctx.ctx.style().visuals.widgets.inactive
         };
         let color = style.fg_stroke.color;
         let stroke = Stroke::new(self.width, color);
@@ -90,9 +92,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             let line_looped_shape = line_looped_shapes.clone().pop().unwrap();
             res.push(line_looped_shape);
 
-            let line_looped = match line_looped_shapes.pop().unwrap() {
-                Shape::CubicBezier(cubic) => cubic,
-                _ => panic!("invalid shape type"),
+            let Shape::CubicBezier(line_looped) = line_looped_shapes.pop().unwrap() else {
+                panic!("invalid shape type")
             };
 
             // TODO: export to func
@@ -181,9 +182,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             builder = builder.with_tip(&tip_props);
         };
         let curved_shapes = builder.build();
-        let line_curved = match curved_shapes.first() {
-            Some(Shape::CubicBezier(curve)) => curve,
-            _ => panic!("invalid shape type"),
+        let Some(Shape::CubicBezier(line_curved)) = curved_shapes.first() else {
+            panic!("invalid shape type")
         };
         res.extend(curved_shapes.clone());
 
@@ -237,7 +237,7 @@ impl DefaultEdgeShape {
             .build();
 
         match shape.first() {
-            Some(Shape::CubicBezier(cubic)) => is_point_on_curve(pos, cubic.clone()),
+            Some(Shape::CubicBezier(cubic)) => is_point_on_curve(pos, cubic),
             _ => panic!("invalid shape type"),
         }
     }
@@ -271,7 +271,7 @@ impl DefaultEdgeShape {
             _ => panic!("invalid shape type"),
         };
 
-        is_point_on_curve(pos, curved_shape)
+        is_point_on_curve(pos, &curved_shape)
     }
 }
 
@@ -287,7 +287,7 @@ fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, 
 }
 
 /// Returns the distance from line segment `a``b` to point `c`.
-/// Adapted from https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm
+/// Adapted from <https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm>
 fn distance_segment_to_point(a: Pos2, b: Pos2, point: Pos2) -> f32 {
     let ac = point - a;
     let ab = b - a;
@@ -322,7 +322,7 @@ fn proj(a: Vec2, b: Vec2) -> Vec2 {
     Vec2::new(k * b.x, k * b.y)
 }
 
-fn is_point_on_curve(point: Pos2, curve: CubicBezierShape) -> bool {
+fn is_point_on_curve(point: Pos2, curve: &CubicBezierShape) -> bool {
     for p in curve.flatten(None) {
         if p.distance(point) < curve.stroke.width {
             return true;

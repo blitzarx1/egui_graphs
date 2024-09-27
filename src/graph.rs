@@ -79,12 +79,12 @@ impl<
     }
 
     /// Finds edge by position.
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn edge_by_screen_pos(&self, meta: &Metadata, screen_pos: Pos2) -> Option<EdgeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, e) in self.edges_iter() {
-            let (idx_start, idx_end) = match self.g.edge_endpoints(e.id()) {
-                Some(se) => se,
-                None => continue,
+            let Some((idx_start, idx_end)) = self.g.edge_endpoints(e.id()) else {
+                continue;
             };
             let start = self.g.node_weight(idx_start).unwrap();
             let end = self.g.node_weight(idx_end).unwrap();
@@ -101,6 +101,7 @@ impl<
     }
 
     /// Adds node to graph setting default location and default label values
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_node(&mut self, payload: N) -> NodeIndex<Ix> {
         let node = Node::new(payload);
 
@@ -114,6 +115,7 @@ impl<
     }
 
     /// Adds node to graph setting custom location and default label value
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_node_with_location(&mut self, payload: N, location: Pos2) -> NodeIndex<Ix> {
         let node = Node::new(payload);
 
@@ -132,6 +134,7 @@ impl<
     }
 
     /// Adds node to graph setting custom location and custom label value
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_node_with_label_and_location(
         &mut self,
         payload: N,
@@ -162,6 +165,7 @@ impl<
     }
 
     /// Removes all edges between start and end node. Returns removed edges count.
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn remove_edges_between(&mut self, start: NodeIndex<Ix>, end: NodeIndex<Ix>) -> usize {
         let idxs = self
             .g
@@ -173,15 +177,16 @@ impl<
         }
 
         let mut removed = 0;
-        idxs.iter().for_each(|e| {
+        for e in &idxs {
             self.g.remove_edge(*e).unwrap();
             removed += 1;
-        });
+        }
 
         removed
     }
 
     /// Adds edge between start and end node with default label.
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_edge(
         &mut self,
         start: NodeIndex<Ix>,
@@ -200,6 +205,7 @@ impl<
     }
 
     /// Adds edge between start and end node with custom label setting correct order.
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_edge_with_label(
         &mut self,
         start: NodeIndex<Ix>,

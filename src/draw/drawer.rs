@@ -77,13 +77,13 @@ where
                 let shapes = display.shapes(self.ctx);
 
                 if n.selected() || n.dragged() {
-                    shapes.into_iter().for_each(|s| {
+                    for s in shapes {
                         self.postponed.push(s);
-                    });
+                    }
                 } else {
-                    shapes.into_iter().for_each(|s| {
+                    for s in shapes {
                         self.ctx.painter.add(s);
-                    });
+                    }
                 }
             });
     }
@@ -109,13 +109,13 @@ where
                 let shapes = display.shapes(&start, &end, self.ctx);
 
                 if e.selected() {
-                    shapes.into_iter().for_each(|s| {
+                    for s in shapes {
                         self.postponed.push(s);
-                    });
+                    }
                 } else {
-                    shapes.into_iter().for_each(|s| {
+                    for s in shapes {
                         self.ctx.painter.add(s);
-                    });
+                    }
                 }
             });
     }

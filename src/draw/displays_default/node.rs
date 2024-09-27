@@ -52,9 +52,10 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
 
         let is_interacted = self.selected || self.dragged;
 
-        let style = match is_interacted {
-            true => ctx.ctx.style().visuals.widgets.active,
-            false => ctx.ctx.style().visuals.widgets.inactive,
+        let style = if is_interacted {
+            ctx.ctx.style().visuals.widgets.active
+        } else {
+            ctx.ctx.style().visuals.widgets.inactive
         };
         let color = style.fg_stroke.color;
 

@@ -73,9 +73,9 @@ impl Default for Metadata {
         Self {
             first_frame: true,
             zoom: 1.,
-            pan: Default::default(),
-            top_left: Default::default(),
-            bounds: Default::default(),
+            pan: Vec2::default(),
+            top_left: Pos2::default(),
+            bounds: Bounds::default(),
         }
     }
 }
@@ -123,6 +123,6 @@ impl Metadata {
 
     /// Resets the bounds iterator.
     pub fn reset_bounds(&mut self) {
-        self.bounds = Default::default();
+        self.bounds = Bounds::default();
     }
 }
