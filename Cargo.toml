@@ -1,6 +1,6 @@
 [package]
 name = "egui_graphs"
-version = "0.21.1"
+version = "0.22.0"
 authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
 license = "MIT"
 homepage = "https://github.com/blitzarx1/egui_graphs"
@@ -11,7 +11,7 @@ keywords = ["egui", "ui", "graph", "node-graph"]
 categories = ["gui", "visualization"]
 
 [dependencies]
-egui = { version = "0.28", default-features = false }
+egui = { version = "0.29", default-features = false }
 rand = "0.8"
 petgraph = { version = "0.6", default-features = false, features = [
   "stable_graph",

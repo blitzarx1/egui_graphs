@@ -23,25 +23,26 @@ impl App for BasicApp {
             .default_width(available_width / 3.)
             .resizable(true)
             .show(ctx, |ui| {
-                ui.child_ui(ui.max_rect(), Layout::default(), None);
-                ui.add(
-                    &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(
-                        &mut self.g,
-                    )
-                    .with_navigations(
-                        &SettingsNavigation::default()
-                            .with_fit_to_screen_enabled(false)
-                            .with_zoom_and_pan_enabled(true),
-                    )
-                    .with_interactions(
-                        &SettingsInteraction::default()
-                            .with_node_selection_multi_enabled(true)
-                            .with_node_selection_enabled(true)
-                            .with_edge_selection_enabled(true)
-                            .with_edge_selection_multi_enabled(true)
-                            .with_dragging_enabled(true),
-                    ),
-                )
+                ui.allocate_ui_with_layout(ui.max_rect().size(), Layout::default(), |ui| {
+                    ui.add(
+                        &mut GraphView::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>::new(
+                            &mut self.g,
+                        )
+                        .with_navigations(
+                            &SettingsNavigation::default()
+                                .with_fit_to_screen_enabled(false)
+                                .with_zoom_and_pan_enabled(true),
+                        )
+                        .with_interactions(
+                            &SettingsInteraction::default()
+                                .with_node_selection_multi_enabled(true)
+                                .with_node_selection_enabled(true)
+                                .with_edge_selection_enabled(true)
+                                .with_edge_selection_multi_enabled(true)
+                                .with_dragging_enabled(true),
+                        ),
+                    );
+                });
             });
         SidePanel::right("right_panel")
             .default_width(available_width / 3.)
