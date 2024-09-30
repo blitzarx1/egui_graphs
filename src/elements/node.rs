@@ -115,15 +115,13 @@ where
         &mut self.display
     }
 
-    /// Binds node to the actual node and position in the graph.
-    pub(crate) fn bind(&mut self, id: NodeIndex<Ix>, location: Pos2) {
-        self.id = Some(id);
-        self.props.location = location;
-    }
-
     #[allow(clippy::missing_panics_doc)] // TODO: Add panic message
     pub fn id(&self) -> NodeIndex<Ix> {
         self.id.unwrap()
+    }
+
+    pub(crate) fn set_id(&mut self, id: NodeIndex<Ix>) {
+        self.id = Some(id);
     }
 
     pub fn payload(&self) -> &N {
