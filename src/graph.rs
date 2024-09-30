@@ -10,8 +10,8 @@ use petgraph::{
 };
 
 use crate::draw::{DisplayEdge, DisplayNode};
-use crate::{metadata::Metadata, transform, Edge, Node};
-use crate::{DefaultEdgeShape, DefaultNodeShape};
+use crate::{metadata::Metadata, Edge, Node};
+use crate::{to_graph, DefaultEdgeShape, DefaultNodeShape};
 
 type StableGraphType<N, E, Ty, Ix, Dn, De> =
     StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
@@ -44,7 +44,7 @@ impl<
     > From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
 {
     fn from(g: &StableGraph<N, E, Ty, Ix>) -> Self {
-        transform::to_graph(g)
+        to_graph(g)
     }
 }
 
