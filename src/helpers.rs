@@ -93,19 +93,11 @@ pub fn add_edge_custom<
     g.g.add_edge(start, end, edge)
 }
 
-/// Helper function which transforms users [`petgraph::stable_graph::StableGraph`] isntance into the version required by the [`super::GraphView`] widget.
+/// Helper function which transforms [`petgraph::stable_graph::StableGraph`] into the [`super::Graph`] required by the [`super::GraphView`] widget.
 ///
-/// The function creates a new `StableGraph` where the nodes and edges are encapsulated into
-/// Node and Edge structs respectively. New nodes and edges are created with [`default_node_transform`] and [`default_edge_transform`]
-/// functions. If you want to define custom transformation procedures (e.g. to use custom label for nodes), use [`to_graph_custom`] instead.
-///
-/// # Arguments
-/// * `g` - A reference to a [`petgraph::stable_graph::StableGraph`]. The graph can have any data type for nodes and edges, and
-///   can be either directed or undirected.
-///
-/// # Returns
-/// * A new [`petgraph::stable_graph::StableGraph`] with the same topology as the input graph, but the nodes and edges encapsulated
-///   into Node and Edge structs compatible as an input to [`super::GraphView`] widget.
+/// The function creates a new `StableGraph` where nodes and edges are represented by [`super::Node`] and [`super::Edge`] respectively.
+/// New nodes and edges are created with [`default_node_transform`] and [`default_edge_transform`] functions.
+/// If you want to define custom transformation procedures (e.g. to use custom label for nodes), use [`to_graph_custom`] instead.
 ///
 /// # Example
 /// ```
@@ -113,29 +105,29 @@ pub fn add_edge_custom<
 /// use egui_graphs::{to_graph, DefaultNodeShape, DefaultEdgeShape, Graph};
 /// use egui::Pos2;
 ///
-/// let mut user_graph: StableGraph<&str, &str> = StableGraph::new();
-/// let node1 = user_graph.add_node("A");
-/// let node2 = user_graph.add_node("B");
-/// user_graph.add_edge(node1, node2, "edge1");
+/// let mut g: StableGraph<&str, &str> = StableGraph::new();
+/// let node1 = g.add_node("A");
+/// let node2 = g.add_node("B");
+/// g.add_edge(node1, node2, "edge1");
 ///
-/// let input_graph: Graph<_, _, _, _, DefaultNodeShape, DefaultEdgeShape> = to_graph(&user_graph);
+/// let result: Graph<_, _, _, _, DefaultNodeShape, DefaultEdgeShape> = to_graph(&g);
 ///
-/// assert_eq!(input_graph.g.node_count(), 2);
-/// assert_eq!(input_graph.g.edge_count(), 1);
+/// assert_eq!(result.g.node_count(), 2);
+/// assert_eq!(result.g.edge_count(), 1);
 ///
-/// let mut input_indices = input_graph.g.node_indices();
-/// let input_node_1 = input_indices.next().unwrap();
-/// let input_node_2 = input_indices.next().unwrap();
-/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().payload(), "A");
-/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().payload(), "B");
+/// let mut indxs = result.g.node_indices();
+/// let result_node1 = indxs.next().unwrap();
+/// let result_node2 = indxs.next().unwrap();
+/// assert_eq!(*result.g.node_weight(result_node1).unwrap().payload(), "A");
+/// assert_eq!(*result.g.node_weight(result_node2).unwrap().payload(), "B");
 ///
-/// assert_eq!(*input_graph.g.edge_weight(input_graph.g.edge_indices().next().unwrap()).unwrap().payload(), "edge1");
+/// assert_eq!(*result.g.edge_weight(result.g.edge_indices().next().unwrap()).unwrap().payload(), "edge1");
 ///
-/// assert_eq!(*input_graph.g.node_weight(input_node_1).unwrap().label().clone(), format!("node {}", input_node_1.index()));
-/// assert_eq!(*input_graph.g.node_weight(input_node_2).unwrap().label().clone(), format!("node {}", input_node_2.index()));
+/// assert_eq!(*result.g.node_weight(result_node1).unwrap().label().clone(), format!("node {}", result_node1.index()));
+/// assert_eq!(*result.g.node_weight(result_node2).unwrap().label().clone(), format!("node {}", result_node2.index()));
 ///
-/// let loc_1 = input_graph.g.node_weight(input_node_1).unwrap().location();
-/// let loc_2 = input_graph.g.node_weight(input_node_2).unwrap().location();
+/// let loc_1 = result.g.node_weight(result_node1).unwrap().location();
+/// let loc_2 = result.g.node_weight(result_node2).unwrap().location();
 /// assert!(loc_1 != Pos2::ZERO);
 /// assert!(loc_2 != Pos2::ZERO);
 /// ```

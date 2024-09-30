@@ -19,7 +19,7 @@ pub struct DefaultNodeShape {
 
     pub label_text: String,
 
-    /// Shape defined property
+    /// Shape dependent property
     pub radius: f32,
 }
 

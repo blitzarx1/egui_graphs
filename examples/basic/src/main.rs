@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Graph, GraphView};
+use egui_graphs::{layouts, Graph, GraphView};
 use petgraph::stable_graph::StableGraph;
 
 pub struct BasicApp {
@@ -19,7 +19,9 @@ impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // TODO: make default layout implicit
-            ui.add(&mut GraphView::<_, _, _, _, _, _, egui_graphs::layouts::Default>::new(&mut self.g));
+            ui.add(&mut GraphView::<_, _, _, _, _, _, layouts::Default>::new(
+                &mut self.g,
+            ));
         });
     }
 }
