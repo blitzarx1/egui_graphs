@@ -68,12 +68,6 @@ impl<
         &self.props
     }
 
-    /// Binds edge to the actual node ends and fixes its index in the set of duplicate edges.
-    pub(crate) fn bind(&mut self, idx: EdgeIndex<Ix>, order: usize) {
-        self.id = Some(idx);
-        self.props.order = order;
-    }
-
     pub fn display(&self) -> &D {
         &self.display
     }
@@ -85,6 +79,10 @@ impl<
     #[allow(clippy::missing_panics_doc)] // TODO: Add panic message
     pub fn id(&self) -> EdgeIndex<Ix> {
         self.id.unwrap()
+    }
+
+    pub(crate) fn set_id(&mut self, id: EdgeIndex<Ix>) {
+        self.id = Some(id);
     }
 
     pub fn order(&self) -> usize {

@@ -33,12 +33,16 @@ pub fn add_node_custom<
 >(
     g: &mut Graph<N, E, Ty, Ix, D>,
     n: &N,
-    node_transform: impl FnOnce(NodeIndex<Ix>, &N) -> Node<N, E, Ty, Ix, D>,
+    node_transform: impl FnOnce(&mut Node<N, E, Ty, Ix, D>),
 ) -> NodeIndex<Ix> {
-    g.g.add_node(node_transform(
-        NodeIndex::<Ix>::new(g.g.node_count() + 1),
-        n,
-    ))
+    let idx = NodeIndex::new(g.g.node_count() + 1);
+    let mut n = Node::new(n.clone());
+
+    n.set_id(idx);
+
+    node_transform(&mut n);
+
+    g.g.add_node(n)
 }
 
 /// Helper function which adds user's edge to the [`super::Graph`] instance.
@@ -77,14 +81,16 @@ pub fn add_edge_custom<
     start: NodeIndex<Ix>,
     end: NodeIndex<Ix>,
     e: &E,
-    edge_transform: impl FnOnce(EdgeIndex<Ix>, &E, usize) -> Edge<N, E, Ty, Ix, Dn, De>,
+    edge_transform: impl FnOnce(&mut Edge<N, E, Ty, Ix, Dn, De>),
 ) -> EdgeIndex<Ix> {
-    let order = g.g.edges_connecting(start, end).count();
-    g.g.add_edge(
-        start,
-        end,
-        edge_transform(EdgeIndex::<Ix>::new(g.g.edge_count() + 1), e, order),
-    )
+    let mut edge = Edge::new(e.clone());
+
+    edge.set_id(EdgeIndex::<Ix>::new(g.g.edge_count() + 1));
+    edge.set_order(g.g.edges_connecting(start, end).count());
+
+    edge_transform(&mut edge);
+
+    g.g.add_edge(start, end, edge)
 }
 
 /// Helper function which transforms users [`petgraph::stable_graph::StableGraph`] isntance into the version required by the [`super::GraphView`] widget.
@@ -156,8 +162,8 @@ pub fn to_graph_custom<
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 >(
     g: &StableGraph<N, E, Ty, Ix>,
-    mut node_transform: impl FnMut(NodeIndex<Ix>, &N) -> Node<N, E, Ty, Ix, Dn>,
-    mut edge_transform: impl FnMut(EdgeIndex<Ix>, &E, usize) -> Edge<N, E, Ty, Ix, Dn, De>,
+    mut node_transform: impl FnMut(&mut Node<N, E, Ty, Ix, Dn>),
+    mut edge_transform: impl FnMut(&mut Edge<N, E, Ty, Ix, Dn, De>),
 ) -> Graph<N, E, Ty, Ix, Dn, De> {
     transform(g, &mut node_transform, &mut edge_transform)
 }
@@ -171,15 +177,10 @@ pub fn default_node_transform<
     Ix: IndexType,
     D: DisplayNode<N, E, Ty, Ix>,
 >(
-    idx: NodeIndex<Ix>,
-    payload: &N,
-) -> Node<N, E, Ty, Ix, D> {
-    let mut n = Node::new(payload.clone());
-    n.set_label(format!("node {}", idx.index()));
-
-    let loc = random_location(DEFAULT_SPAWN_SIZE);
-    n.bind(idx, loc);
-    n
+    node: &mut Node<N, E, Ty, Ix, D>,
+) {
+    node.set_label(format!("node {}", node.id().index()));
+    node.set_location(random_location(DEFAULT_SPAWN_SIZE));
 }
 
 /// Default edge transform function. Keeps original data and creates a new edge.
@@ -191,14 +192,9 @@ pub fn default_edge_transform<
     Dn: DisplayNode<N, E, Ty, Ix>,
     D: DisplayEdge<N, E, Ty, Ix, Dn>,
 >(
-    idx: EdgeIndex<Ix>,
-    payload: &E,
-    order: usize,
-) -> Edge<N, E, Ty, Ix, Dn, D> {
-    let mut e = Edge::new(payload.clone());
-    e.bind(idx, order);
-    e.set_label(format!("edge {}", e.id().index()));
-    e
+    edge: &mut Edge<N, E, Ty, Ix, Dn, D>,
+) {
+    edge.set_label(format!("edge {}", edge.id().index()));
 }
 
 fn random_location(size: f32) -> Pos2 {
@@ -214,39 +210,46 @@ fn transform<
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 >(
-    g: &StableGraph<N, E, Ty, Ix>,
-    node_transform: &mut impl FnMut(NodeIndex<Ix>, &N) -> Node<N, E, Ty, Ix, Dn>,
-    edge_transform: &mut impl FnMut(EdgeIndex<Ix>, &E, usize) -> Edge<N, E, Ty, Ix, Dn, De>,
+    input: &StableGraph<N, E, Ty, Ix>,
+    node_transform: &mut impl FnMut(&mut Node<N, E, Ty, Ix, Dn>),
+    edge_transform: &mut impl FnMut(&mut Edge<N, E, Ty, Ix, Dn, De>),
 ) -> Graph<N, E, Ty, Ix, Dn, De> {
-    let mut input_g =
+    let mut g =
         StableGraph::<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>::default();
 
-    let input_by_user = g
+    let nidx_by_input_nidx = input
         .node_references()
-        .map(|(user_n_idx, user_n)| {
-            let input_n_index = input_g.add_node(node_transform(user_n_idx, user_n));
-            (user_n_idx, input_n_index)
+        .map(|(input_n_idx, input_n)| {
+            let mut n = Node::new(input_n.clone());
+
+            n.set_id(input_n_idx);
+
+            node_transform(&mut n);
+
+            (input_n_idx, g.add_node(n))
         })
         .collect::<HashMap<NodeIndex<Ix>, NodeIndex<Ix>>>();
 
-    g.edge_indices().for_each(|user_e_idx| {
-        let (user_source_n_idx, user_target_n_idx) = g.edge_endpoints(user_e_idx).unwrap();
-        let user_e = g.edge_weight(user_e_idx).unwrap();
+    input.edge_indices().for_each(|input_e_idx| {
+        let (input_source_n_idx, input_target_n_idx) = input.edge_endpoints(input_e_idx).unwrap();
+        let user_e = input.edge_weight(input_e_idx).unwrap();
 
-        let input_source_n = *input_by_user.get(&user_source_n_idx).unwrap();
-        let input_target_n = *input_by_user.get(&user_target_n_idx).unwrap();
+        let input_source_n = *nidx_by_input_nidx.get(&input_source_n_idx).unwrap();
+        let input_target_n = *nidx_by_input_nidx.get(&input_target_n_idx).unwrap();
 
-        let order = input_g
-            .edges_connecting(input_source_n, input_target_n)
-            .count();
-        input_g.add_edge(
-            input_source_n,
-            input_target_n,
-            edge_transform(user_e_idx, user_e, order),
-        );
+        let order = g.edges_connecting(input_source_n, input_target_n).count();
+
+        let mut edge = Edge::new(user_e.clone());
+
+        edge.set_id(input_e_idx);
+        edge.set_order(order);
+
+        edge_transform(&mut edge);
+
+        g.add_edge(input_source_n, input_target_n, edge);
     });
 
-    Graph::new(input_g)
+    Graph::new(g)
 }
 
 #[cfg(test)]

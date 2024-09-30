@@ -25,11 +25,13 @@ impl AnimatedNodesApp {
         Self {
             g: to_graph_custom(
                 &g,
-                |idx, n| {
-                    if n.clockwise {
-                        default_node_transform(idx, n).with_label(GLYPH_CLOCKWISE.to_string())
+                |n| {
+                    if n.payload().clockwise {
+                        default_node_transform(n);
+                        n.set_label(GLYPH_CLOCKWISE.to_string());
                     } else {
-                        default_node_transform(idx, n).with_label(GLYPH_ANTICLOCKWISE.to_string())
+                        default_node_transform(n);
+                        n.set_label(GLYPH_ANTICLOCKWISE.to_string());
                     }
                 },
                 default_edge_transform,

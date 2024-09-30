@@ -108,7 +108,8 @@ impl<
         let idx = self.g.add_node(node);
         let graph_node = self.g.node_weight_mut(idx).unwrap();
 
-        graph_node.bind(idx, Pos2::default());
+        graph_node.set_id(idx);
+        graph_node.set_location(Pos2::default());
         graph_node.set_label(idx.index().to_string());
 
         idx
@@ -122,8 +123,9 @@ impl<
         let idx = self.g.add_node(node);
         let graph_node = self.g.node_weight_mut(idx).unwrap();
 
-        graph_node.bind(idx, location);
-        graph_node.set_label(format!("node {}", idx.index()));
+        graph_node.set_id(idx);
+        graph_node.set_location(location);
+        graph_node.set_label(idx.index().to_string());
 
         idx
     }
@@ -146,7 +148,8 @@ impl<
         let idx = self.g.add_node(node);
         let graph_node = self.g.node_weight_mut(idx).unwrap();
 
-        graph_node.bind(idx, location);
+        graph_node.set_id(idx);
+        graph_node.set_location(location);
         graph_node.set_label(label);
 
         idx
@@ -198,7 +201,8 @@ impl<
         let idx = self.g.add_edge(start, end, Edge::new(payload));
         let e = self.g.edge_weight_mut(idx).unwrap();
 
-        e.bind(idx, order);
+        e.set_id(idx);
+        e.set_order(order);
         e.set_label(format!("edge {}", e.id().index()));
 
         idx
@@ -218,7 +222,8 @@ impl<
         let idx = self.g.add_edge(start, end, Edge::new(payload));
         let e = self.g.edge_weight_mut(idx).unwrap();
 
-        e.bind(idx, order);
+        e.set_id(idx);
+        e.set_order(order);
         e.set_label(label);
 
         idx
