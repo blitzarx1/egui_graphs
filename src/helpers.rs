@@ -232,14 +232,14 @@ fn transform<
 
     input.edge_indices().for_each(|input_e_idx| {
         let (input_source_n_idx, input_target_n_idx) = input.edge_endpoints(input_e_idx).unwrap();
-        let user_e = input.edge_weight(input_e_idx).unwrap();
+        let input_e = input.edge_weight(input_e_idx).unwrap();
 
         let input_source_n = *nidx_by_input_nidx.get(&input_source_n_idx).unwrap();
         let input_target_n = *nidx_by_input_nidx.get(&input_target_n_idx).unwrap();
 
         let order = g.edges_connecting(input_source_n, input_target_n).count();
 
-        let mut edge = Edge::new(user_e.clone());
+        let mut edge = Edge::new(input_e.clone());
 
         edge.set_id(input_e_idx);
         edge.set_order(order);
