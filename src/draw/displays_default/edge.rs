@@ -53,8 +53,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             return self.is_inside_loop(start, pos);
         }
 
-        let pos_start = start.location();
-        let pos_end = end.location();
+        let pos_start = start.location().unwrap();
+        let pos_end = end.location().unwrap();
 
         if self.order == 0 {
             return self.is_inside_line(pos_start, pos_end, pos);
@@ -86,7 +86,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             // draw loop
             let size = node_size(start, Vec2::new(-1., 0.));
             let mut line_looped_shapes = EdgeShapeBuilder::new(stroke)
-                .looped(start.location(), size, self.loop_size, self.order)
+                .looped(start.location().unwrap(), size, self.loop_size, self.order)
                 .with_scaler(ctx.meta)
                 .build();
             let line_looped_shape = line_looped_shapes.clone().pop().unwrap();
@@ -119,7 +119,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             return res;
         }
 
-        let dir = (end.location() - start.location()).normalized();
+        let dir = (end.location().unwrap() - start.location().unwrap()).normalized();
         let start_connector_point = start.display().closest_boundary_point(dir);
         let end_connector_point = end.display().closest_boundary_point(-dir);
 
@@ -233,7 +233,12 @@ impl DefaultEdgeShape {
         let node_size = node_size(node, Vec2::new(-1., 0.));
 
         let shape = EdgeShapeBuilder::new(Stroke::new(self.width, Color32::default()))
-            .looped(node.location(), node_size, self.loop_size, self.order)
+            .looped(
+                node.location().unwrap(),
+                node_size,
+                self.loop_size,
+                self.order,
+            )
             .build();
 
         match shape.first() {
@@ -259,7 +264,7 @@ impl DefaultEdgeShape {
         node_end: &Node<N, E, Ty, Ix, D>,
         pos: Pos2,
     ) -> bool {
-        let dir = (node_end.location() - node_start.location()).normalized();
+        let dir = (node_end.location().unwrap() - node_start.location().unwrap()).normalized();
         let start = node_start.display().closest_boundary_point(dir);
         let end = node_end.display().closest_boundary_point(-dir);
 

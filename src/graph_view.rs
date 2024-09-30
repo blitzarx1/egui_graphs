@@ -31,8 +31,8 @@ use crossbeam::channel::Sender;
 /// struct to visualize and interact with the graph. `N` and `E` is arbitrary client data associated with nodes and edges.
 /// You can customize the visualization and interaction behavior using [`SettingsInteraction`], [`SettingsNavigation`] and [`SettingsStyle`] structs.
 ///
-/// When any interaction or node property change occurs, the widget sends [Event] struct to the provided
-/// [Sender<Event>] channel, which can be set via the `with_interactions` method. The [Event] struct contains information about
+/// When any interaction or node property change occurs, the widget sends [`Event`] struct to the provided
+/// [`Sender<Event>`] channel, which can be set via the `with_interactions` method. The [`Event`] struct contains information about
 /// a change that occurred in the graph. Client can use this information to modify external state of his application if needed.
 ///
 /// When the user performs navigation actions (zoom & pan or fit to screen), they do not
@@ -56,7 +56,7 @@ pub struct GraphView<
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
     L: Layout,
 {
-    g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
+    g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed, L>,
 
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
@@ -91,7 +91,7 @@ where
         self.handle_click(&resp, &mut meta);
 
         let is_directed = self.g.is_directed();
-        Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
+        Drawer::<N, E, Ty, Ix, Nd, Ed, L>::new(
             self.g,
             &DrawContext {
                 ctx: ui.ctx(),
@@ -123,7 +123,7 @@ where
 {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De>) -> Self {
+    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De, L>) -> Self {
         Self {
             g,
 
@@ -523,7 +523,7 @@ where
 
     fn move_node(&mut self, idx: NodeIndex<Ix>, delta: Vec2) {
         let n = self.g.node_mut(idx).unwrap();
-        let new_loc = n.location() + delta;
+        let new_loc = n.location().unwrap() + delta;
         n.set_location(new_loc);
 
         #[cfg(feature = "events")]

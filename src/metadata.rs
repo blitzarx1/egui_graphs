@@ -33,7 +33,7 @@ impl Bounds {
         &mut self,
         n: &Node<N, E, Ty, Ix, D>,
     ) {
-        let loc = n.location();
+        let loc = n.location().unwrap();
         if loc.x < self.min.x {
             self.min.x = loc.x;
         };

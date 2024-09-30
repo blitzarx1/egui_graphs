@@ -4,7 +4,7 @@ use egui::{Context, Painter, Shape};
 use petgraph::graph::IndexType;
 use petgraph::EdgeType;
 
-use crate::{settings::SettingsStyle, Graph, Metadata};
+use crate::{layouts::Layout, settings::SettingsStyle, Graph, Metadata};
 
 use super::{DisplayEdge, DisplayNode};
 
@@ -17,7 +17,7 @@ pub struct DrawContext<'a> {
     pub meta: &'a Metadata,
 }
 
-pub struct Drawer<'a, N, E, Ty, Ix, Nd, Ed>
+pub struct Drawer<'a, N, E, Ty, Ix, Nd, Ed, L>
 where
     N: Clone,
     E: Clone,
@@ -25,14 +25,15 @@ where
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+    L: Layout,
 {
     ctx: &'a DrawContext<'a>,
-    g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
+    g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed, L>,
     postponed: Vec<Shape>,
-    _marker: PhantomData<(Nd, Ed)>,
+    _marker: PhantomData<(Nd, Ed, L)>,
 }
 
-impl<'a, N, E, Ty, Ix, Nd, Ed> Drawer<'a, N, E, Ty, Ix, Nd, Ed>
+impl<'a, N, E, Ty, Ix, Nd, Ed, L> Drawer<'a, N, E, Ty, Ix, Nd, Ed, L>
 where
     N: Clone,
     E: Clone,
@@ -40,8 +41,9 @@ where
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+    L: Layout,
 {
-    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>, ctx: &'a DrawContext<'a>) -> Self {
+    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed, L>, ctx: &'a DrawContext<'a>) -> Self {
         Drawer {
             ctx,
             g,

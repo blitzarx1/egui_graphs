@@ -2,12 +2,12 @@ use eframe::{run_native, App, CreationContext};
 use egui::Context;
 use egui_graphs::{Graph, GraphView};
 use petgraph::{
-    stable_graph::{DefaultIx, StableGraph, StableUnGraph},
+    stable_graph::{StableGraph, StableUnGraph},
     Undirected,
 };
 
 pub struct UndirectedApp {
-    g: Graph<(), (), Undirected, DefaultIx>,
+    g: Graph<(), (), Undirected>,
 }
 
 impl UndirectedApp {

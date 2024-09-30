@@ -26,7 +26,7 @@ pub struct DefaultNodeShape {
 impl<N: Clone> From<NodeProps<N>> for DefaultNodeShape {
     fn from(node_props: NodeProps<N>) -> Self {
         DefaultNodeShape {
-            pos: node_props.location,
+            pos: node_props.location.unwrap_or_default(), // can be null if not set on creation explicitly
             selected: node_props.selected,
             dragged: node_props.dragged,
             label_text: node_props.label.to_string(),
@@ -95,8 +95,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
     }
 
     fn update(&mut self, state: &NodeProps<N>) {
-        self.pos = state.location;
-        self.pos = state.location;
+        self.pos = state.location.unwrap(); // should be set by the layout before rendering
         self.selected = state.selected;
         self.dragged = state.dragged;
         self.label_text = state.label.to_string();

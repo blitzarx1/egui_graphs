@@ -1,15 +1,11 @@
-use crate::{DisplayEdge, DisplayNode, Edge, Graph, Node};
-use egui::Pos2;
+use crate::{layouts::Layout, DisplayEdge, DisplayNode, Edge, Graph, Node};
 use petgraph::{
     graph::IndexType,
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
     visit::IntoNodeReferences,
     EdgeType,
 };
-use rand::Rng;
 use std::collections::HashMap;
-
-pub const DEFAULT_SPAWN_SIZE: f32 = 250.;
 
 /// Helper function which adds user's node to the [`super::Graph`] instance.
 ///
@@ -138,9 +134,10 @@ pub fn to_graph<
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    L: Layout,
 >(
     g: &StableGraph<N, E, Ty, Ix>,
-) -> Graph<N, E, Ty, Ix, Dn, De> {
+) -> Graph<N, E, Ty, Ix, Dn, De, L> {
     transform(g, &mut default_node_transform, &mut default_edge_transform)
 }
 
@@ -172,7 +169,6 @@ pub fn default_node_transform<
     node: &mut Node<N, E, Ty, Ix, D>,
 ) {
     node.set_label(format!("node {}", node.id().index()));
-    node.set_location(random_location(DEFAULT_SPAWN_SIZE));
 }
 
 /// Default edge transform function. Keeps original data and creates a new edge.
@@ -189,11 +185,6 @@ pub fn default_edge_transform<
     edge.set_label(format!("edge {}", edge.id().index()));
 }
 
-fn random_location(size: f32) -> Pos2 {
-    let mut rng = rand::thread_rng();
-    Pos2::new(rng.gen_range(0. ..size), rng.gen_range(0. ..size))
-}
-
 fn transform<
     N: Clone,
     E: Clone,
@@ -201,11 +192,12 @@ fn transform<
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    L: Layout,
 >(
     input: &StableGraph<N, E, Ty, Ix>,
     node_transform: &mut impl FnMut(&mut Node<N, E, Ty, Ix, Dn>),
     edge_transform: &mut impl FnMut(&mut Edge<N, E, Ty, Ix, Dn, De>),
-) -> Graph<N, E, Ty, Ix, Dn, De> {
+) -> Graph<N, E, Ty, Ix, Dn, De, L> {
     let mut g =
         StableGraph::<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>::default();
 
@@ -246,6 +238,7 @@ fn transform<
 
 #[cfg(test)]
 mod tests {
+    use crate::layouts;
     use crate::DefaultEdgeShape;
     use crate::DefaultNodeShape;
 
@@ -260,7 +253,8 @@ mod tests {
         let n2 = user_g.add_node("Node2");
         user_g.add_edge(n1, n2, "Edge1");
 
-        let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
+        let input_g =
+            to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape, layouts::Default>(&user_g);
 
         assert_eq!(user_g.node_count(), input_g.g.node_count());
         assert_eq!(user_g.edge_count(), input_g.g.edge_count());
@@ -272,8 +266,8 @@ mod tests {
 
             assert_eq!(*input_n.payload(), *user_n);
 
-            assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
-            assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
+            // assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
+            // assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
 
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
 
@@ -289,7 +283,8 @@ mod tests {
         let n2 = user_g.add_node("Node2");
         user_g.add_edge(n1, n2, "Edge1");
 
-        let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
+        let input_g =
+            to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape, layouts::Default>(&user_g);
 
         assert_eq!(user_g.node_count(), input_g.g.node_count());
         assert_eq!(user_g.edge_count(), input_g.g.edge_count());
@@ -301,8 +296,8 @@ mod tests {
 
             assert_eq!(*input_n.payload(), *user_n);
 
-            assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
-            assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
+            // assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
+            // assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
 
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
 

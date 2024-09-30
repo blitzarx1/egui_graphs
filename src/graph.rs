@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use egui::Pos2;
 use petgraph::stable_graph::DefaultIx;
 use petgraph::Directed;
@@ -10,6 +12,7 @@ use petgraph::{
 };
 
 use crate::draw::{DisplayEdge, DisplayNode};
+use crate::layouts::{self, Layout};
 use crate::{metadata::Metadata, Edge, Node};
 use crate::{to_graph, DefaultEdgeShape, DefaultNodeShape};
 
@@ -27,11 +30,14 @@ pub struct Graph<
     Ix: IndexType = DefaultIx,
     Dn: DisplayNode<N, E, Ty, Ix> = DefaultNodeShape,
     De: DisplayEdge<N, E, Ty, Ix, Dn> = DefaultEdgeShape,
+    L: Layout = layouts::Default,
 > {
     pub g: StableGraphType<N, E, Ty, Ix, Dn, De>,
     selected_nodes: Vec<NodeIndex<Ix>>,
     selected_edges: Vec<EdgeIndex<Ix>>,
     dragged_node: Option<NodeIndex<Ix>>,
+
+    _marker: PhantomData<L>,
 }
 
 impl<
@@ -41,7 +47,8 @@ impl<
         Ix: IndexType,
         Dn: DisplayNode<N, E, Ty, Ix>,
         De: DisplayEdge<N, E, Ty, Ix, Dn>,
-    > From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
+        L: Layout,
+    > From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De, L>
 {
     fn from(g: &StableGraph<N, E, Ty, Ix>) -> Self {
         to_graph(g)
@@ -55,15 +62,22 @@ impl<
         Ix: IndexType,
         Dn: DisplayNode<N, E, Ty, Ix>,
         De: DisplayEdge<N, E, Ty, Ix, Dn>,
-    > Graph<N, E, Ty, Ix, Dn, De>
+        L: Layout,
+    > Graph<N, E, Ty, Ix, Dn, De, L>
 {
     pub fn new(g: StableGraphType<N, E, Ty, Ix, Dn, De>) -> Self {
-        Self {
+        let mut graph = Self {
             g,
             selected_nodes: Vec::default(),
             selected_edges: Vec::default(),
             dragged_node: Option::default(),
-        }
+
+            _marker: PhantomData,
+        };
+
+        L::default().next(&mut graph);
+
+        graph
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
