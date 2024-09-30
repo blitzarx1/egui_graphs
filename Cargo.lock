@@ -651,6 +651,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "basic_custom"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui 0.29.0",
+ "egui_graphs 0.22.0",
+ "petgraph",
+]
+
+[[package]]
 name = "bevy"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -16,7 +16,7 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 - [x] Style configuration via egui context styles;
 - [x] Dark/Light theme support via egui context styles;
 - [x] Events reporting to extend the graph functionality by the user handling them;
-- [ ] Layots and custom layout mechanism;
+- [x] Layots and custom layout mechanism;
 
 ## Status
 The project is on track for a stable release v1.0.0. For the moment, breaking releases are very possible.
@@ -92,13 +92,12 @@ impl eframe::App for BasicApp {
 ```
 
 #### Step 5: Running the application. 
-Finally, run the application using the `eframe::run_native()` function with the specified native options and the `BasicApp`.
+Finally, run the application using the `eframe::run_native()` function.
 ```rust 
 fn main() {
-    let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "egui_graphs_basic_demo",
-        native_options,
+        eframe::NativeOptions::default(),
         Box::new(|cc| Ok(Box::new(BasicApp::new(cc)))),
     )
     .unwrap();

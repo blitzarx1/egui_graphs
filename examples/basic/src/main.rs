@@ -1,4 +1,4 @@
-use eframe::{run_native, App, CreationContext};
+use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui::Context;
 use egui_graphs::{Graph, GraphView};
 use petgraph::stable_graph::StableGraph;
@@ -37,10 +37,9 @@ fn generate_graph() -> StableGraph<(), ()> {
 }
 
 fn main() {
-    let native_options = eframe::NativeOptions::default();
     run_native(
         "egui_graphs_basic_demo",
-        native_options,
+        NativeOptions::default(),
         Box::new(|cc| Ok(Box::new(BasicApp::new(cc)))),
     )
     .unwrap();
