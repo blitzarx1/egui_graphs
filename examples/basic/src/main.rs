@@ -18,7 +18,8 @@ impl BasicApp {
 impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut GraphView::new(&mut self.g));
+            // TODO: make default layout implicit
+            ui.add(&mut GraphView::<_, _, _, _, _, _, egui_graphs::layouts::Default>::new(&mut self.g));
         });
     }
 }

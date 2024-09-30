@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{
     draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
-    layout::{DefaultLayout, Layout},
+    layouts::{self, Layout},
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
     DisplayEdge, DisplayNode, Graph,
@@ -46,7 +46,7 @@ pub struct GraphView<
     Ix = DefaultIx,
     Nd = DefaultNodeShape,
     Ed = DefaultEdgeShape,
-    L = DefaultLayout,
+    L = layouts::Default,
 > where
     N: Clone,
     E: Clone,
