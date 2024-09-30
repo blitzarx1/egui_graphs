@@ -1,15 +1,23 @@
 use crate::Graph;
 
-struct Hierarchical<'a, N: Clone, E: Clone> {
-    g: &'a mut Graph<N, E>,
-}
+use super::Layout;
 
-impl<'a, N: Clone, E: Clone> Hierarchical<'a, N, E> {
-    pub fn new(g: &'a mut Graph<N, E>) -> Hierarchical<'a, N, E> {
-        Self { g }
-    }
+#[derive(Default)]
+pub struct Hierarchical {}
 
-    pub fn apply(&mut self) {
+impl Layout for Hierarchical {
+    fn next<
+        N: Clone,
+        E: Clone,
+        Ty: petgraph::EdgeType,
+        Ix: petgraph::csr::IndexType,
+        Dn: crate::DisplayNode<N, E, Ty, Ix>,
+        De: crate::DisplayEdge<N, E, Ty, Ix, Dn>,
+        L: Layout,
+    >(
+        &mut self,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De, L>,
+    ) {
         todo!()
     }
 }

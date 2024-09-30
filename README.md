@@ -54,17 +54,18 @@ pub struct BasicApp {
 Next, implement the `new()` function for the `BasicApp` struct.
 ```rust
 impl BasicApp {
-    fn new(_: &CreationContext<'_>) -> Self {
-        Self { g: generate_graph() }
+    fn new(_: &eframe::CreationContext<'_>) -> Self {
+        let g = generate_graph();
+        Self { g: egui_graphs::Graph::from(&g) }
     }
 }
 ```
 
 #### Step 3: Generating the graph. 
-Create a helper function called `generate_graph()`. In this example, we create three nodes with and three edges connecting them in a triangular pattern.
+Create a helper function called `generate_graph()`. In this example, we create three nodes and three edges.
 ```rust 
-fn generate_graph() -> egui_graphs::Graph {
-    let mut g = petgraph::stable_graph::StableGraph::new();
+fn generate_graph() -> petgraph::StableGraph<(), ()> {
+    let mut g = petgraph::StableGraph::new();
 
     let a = g.add_node(());
     let b = g.add_node(());
@@ -74,7 +75,7 @@ fn generate_graph() -> egui_graphs::Graph {
     g.add_edge(b, c, ());
     g.add_edge(c, a, ());
 
-    Graph::from(&g)
+    g
 }
 ```
 

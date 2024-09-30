@@ -6,3 +6,4 @@ mod random;
 pub use default::Default;
 pub use layout::Layout;
 pub use random::Random;
+pub use hierarchical::Hierarchical;
