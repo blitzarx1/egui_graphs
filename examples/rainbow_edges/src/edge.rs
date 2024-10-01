@@ -37,7 +37,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         ctx: &DrawContext,
     ) -> Vec<egui::Shape> {
         let mut res = vec![];
-        let (start, end) = (start.location().unwrap(), end.location().unwrap());
+        let (start, end) = (start.location(), end.location());
         let (x_dist, y_dist) = (end.x - start.x, end.y - start.y);
         let (dx, dy) = (x_dist / COLORS.len() as f32, y_dist / COLORS.len() as f32);
         let d_vec = Vec2::new(dx, dy);

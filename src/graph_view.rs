@@ -79,25 +79,25 @@ where
     L: Layout,
 {
     fn ui(self, ui: &mut Ui) -> Response {
-        let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
-
         let mut meta = Metadata::get(ui);
         self.sync_state(&mut meta);
 
+        L::default().next(self.g);
+
+        let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+
         self.handle_fit_to_screen(&resp, &mut meta);
         self.handle_navigation(ui, &resp, &mut meta);
-
         self.handle_node_drag(&resp, &mut meta);
         self.handle_click(&resp, &mut meta);
 
-        let is_directed = self.g.is_directed();
         Drawer::<N, E, Ty, Ix, Nd, Ed, L>::new(
             self.g,
             &DrawContext {
                 ctx: ui.ctx(),
                 painter: &p,
                 meta: &meta,
-                is_directed,
+                is_directed: self.g.is_directed(),
                 style: &self.settings_style,
             },
         )
@@ -105,6 +105,7 @@ where
 
         meta.first_frame = false;
         meta.store_into_ui(ui);
+
         ui.ctx().request_repaint();
 
         resp
@@ -523,7 +524,7 @@ where
 
     fn move_node(&mut self, idx: NodeIndex<Ix>, delta: Vec2) {
         let n = self.g.node_mut(idx).unwrap();
-        let new_loc = n.location().unwrap() + delta;
+        let new_loc = n.location() + delta;
         n.set_location(new_loc);
 
         #[cfg(feature = "events")]

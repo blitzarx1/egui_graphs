@@ -1,9 +1,11 @@
+use egui::util::id_type_map::SerializableAny;
 use petgraph::{stable_graph::IndexType, EdgeType};
 
 use crate::{DisplayEdge, DisplayNode, Graph};
 
 pub trait Layout: Default {
-    /// This function is called on every frame. It should update the graph layout aka nodes locations.
+    /// Called on every frame. It should update the graph layout aka nodes locations.
+    // TODO: maybe should have signature next(prev: impl Serializable, g), where prev is prev state?:w
     fn next<
         N: Clone,
         E: Clone,

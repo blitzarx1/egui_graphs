@@ -14,7 +14,7 @@ use crate::{DefaultNodeShape, DisplayNode};
 #[derive(Clone, Debug)]
 pub struct NodeProps<N: Clone> {
     pub payload: N,
-    pub location: Option<Pos2>,
+    pub location: Pos2,
     pub label: String,
     pub selected: bool,
     pub dragged: bool,
@@ -82,7 +82,7 @@ where
     pub fn new(payload: N) -> Self {
         let props = NodeProps {
             payload,
-            location: Option::default(),
+            location: Pos2::default(),
             label: String::default(),
             selected: bool::default(),
             dragged: bool::default(),
@@ -132,12 +132,12 @@ where
         &mut self.props.payload
     }
 
-    pub fn location(&self) -> Option<Pos2> {
+    pub fn location(&self) -> Pos2 {
         self.props.location
     }
 
     pub fn set_location(&mut self, loc: Pos2) {
-        self.props.location = Some(loc);
+        self.props.location = loc;
     }
 
     pub fn selected(&self) -> bool {

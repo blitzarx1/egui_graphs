@@ -31,14 +31,6 @@ Can be enabled with `events` feature. Events describe a change made in graph whe
 
 Combining this feature with custom node draw function allows to implement custom node behavior and drawing according to the events happening.
 
-## Egui crates features support
-### Persistence
-To use egui `persistence` feature you need to enable `egui_persistence` feature of this crate. For example:
-```toml
-egui_graphs = { version = "0.22", features = ["egui_persistence"]}
-egui = {version="0.29", features = ["persistence"]}
-```
-
 ## Examples
 ### Basic setup example
 The source code of the following steps can be found in the [basic example](https://github.com/blitzarx1/egui_graphs/blob/master/examples/basic/src/main.rs).

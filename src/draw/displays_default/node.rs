@@ -9,7 +9,6 @@ use crate::{draw::drawer::DrawContext, DisplayNode, NodeProps};
 /// This is the default node shape which is used to display nodes in the graph.
 ///
 /// You can use this implementation as an example for implementing your own custom node shapes.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
 pub struct DefaultNodeShape {
     pub pos: Pos2,
@@ -26,7 +25,7 @@ pub struct DefaultNodeShape {
 impl<N: Clone> From<NodeProps<N>> for DefaultNodeShape {
     fn from(node_props: NodeProps<N>) -> Self {
         DefaultNodeShape {
-            pos: node_props.location.unwrap_or_default(), // can be null if not set on creation explicitly
+            pos: node_props.location, // can be null if not set on creation explicitly
             selected: node_props.selected,
             dragged: node_props.dragged,
             label_text: node_props.label.to_string(),
@@ -95,7 +94,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
     }
 
     fn update(&mut self, state: &NodeProps<N>) {
-        self.pos = state.location.unwrap(); // should be set by the layout before rendering
+        self.pos = state.location; // should be set by the layout before rendering
         self.selected = state.selected;
         self.dragged = state.dragged;
         self.label_text = state.label.to_string();

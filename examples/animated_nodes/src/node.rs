@@ -62,7 +62,7 @@ impl<N: Clone + IsClockwise> From<NodeProps<N>> for NodeShapeAnimated {
     fn from(node_props: NodeProps<N>) -> Self {
         Self {
             label: node_props.label,
-            loc: node_props.location.unwrap_or_default(),
+            loc: node_props.location,
             dragged: node_props.dragged,
             clockwise: node_props.payload.get_is_clockwise(),
 
@@ -145,7 +145,7 @@ impl<N: Clone + IsClockwise, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<
 
     fn update(&mut self, state: &NodeProps<N>) {
         self.label = state.label.clone();
-        self.loc = state.location.unwrap();
+        self.loc = state.location;
         self.dragged = state.dragged;
         self.clockwise = state.payload.get_is_clockwise();
     }

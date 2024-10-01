@@ -6,7 +6,7 @@ use crate::Graph;
 
 use super::Layout;
 
-const DEFAULT_SPAWN_SIZE: f32 = 250.;
+const SPAWN_SIZE: f32 = 250.;
 
 /// Randomly places nodes on the canvas. Does not override existing locations. Applies once.
 #[derive(Default)]
@@ -33,13 +33,9 @@ impl Layout for Random {
 
         let mut rng = rand::thread_rng();
         for node in g.g.node_weights_mut() {
-            if node.location().is_some() {
-                continue;
-            };
-            
             node.set_location(Pos2::new(
-                rng.gen_range(0. ..DEFAULT_SPAWN_SIZE),
-                rng.gen_range(0. ..DEFAULT_SPAWN_SIZE),
+                rng.gen_range(0. ..SPAWN_SIZE),
+                rng.gen_range(0. ..SPAWN_SIZE),
             ));
         }
 

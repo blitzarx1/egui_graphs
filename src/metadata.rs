@@ -1,13 +1,12 @@
 use egui::{Id, Pos2, Rect, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
+use serde::{Deserialize, Serialize};
 
 use crate::{DisplayNode, Node};
 
-#[cfg_attr(
-    feature = "egui_persistence",
-    derive(serde::Serialize, serde::Deserialize)
-)]
-#[derive(Clone, Debug)]
+const KEY: &str = "egui_graphs_metadata";
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Bounds {
     min: Vec2,
     max: Vec2,
@@ -33,7 +32,7 @@ impl Bounds {
         &mut self,
         n: &Node<N, E, Ty, Ix, D>,
     ) {
-        let loc = n.location().unwrap();
+        let loc = n.location();
         if loc.x < self.min.x {
             self.min.x = loc.x;
         };
@@ -49,11 +48,7 @@ impl Bounds {
     }
 }
 
-#[cfg_attr(
-    feature = "egui_persistence",
-    derive(serde::Serialize, serde::Deserialize)
-)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Metadata {
     /// Whether the frame is the first one
     pub first_frame: bool,
@@ -82,7 +77,10 @@ impl Default for Metadata {
 
 impl Metadata {
     pub fn get(ui: &egui::Ui) -> Self {
-        ui.data_mut(|data| data.get_persisted::<Metadata>(Id::NULL).unwrap_or_default())
+        ui.data_mut(|data| {
+            data.get_persisted::<Metadata>(Id::new(KEY))
+                .unwrap_or_default()
+        })
     }
 
     pub fn store_into_ui(self, ui: &mut egui::Ui) {
