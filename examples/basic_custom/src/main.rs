@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui::{Context, Pos2};
-use egui_graphs::{add_edge, add_node_custom, DefaultGraphView, Graph, SettingsStyle};
+use egui_graphs::{DefaultGraphView, Graph, SettingsStyle};
 use petgraph::stable_graph::StableGraph;
 
 pub struct BasicCustomApp {
@@ -14,15 +14,14 @@ impl BasicCustomApp {
         let positions = vec![Pos2::new(0., 0.), Pos2::new(50., 0.), Pos2::new(0., 50.)];
         let mut idxs = Vec::with_capacity(positions.len());
         for position in positions {
-            idxs.push(add_node_custom(&mut g, &(), |g_node| {
-                g_node.set_location(position);
-                g_node.set_label(position.to_string());
-            }));
+            let idx = g.add_node_with_label_and_location((), position.to_string(), position);
+
+            idxs.push(idx);
         }
 
-        add_edge(&mut g, idxs[0], idxs[1], &());
-        add_edge(&mut g, idxs[1], idxs[2], &());
-        add_edge(&mut g, idxs[2], idxs[0], &());
+        g.add_edge(idxs[0], idxs[1], ());
+        g.add_edge(idxs[1], idxs[2], ());
+        g.add_edge(idxs[2], idxs[0], ());
 
         Self { g }
     }
