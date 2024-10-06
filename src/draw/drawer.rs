@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use egui::{util::id_type_map::SerializableAny, Context, Painter, Shape};
+use egui::{Context, Painter, Shape};
 use petgraph::graph::IndexType;
 use petgraph::EdgeType;
 

@@ -1,7 +1,7 @@
 use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui::Context;
-use egui_graphs::{DefaultEdgeShape, DefaultGraphView, DefaultNodeShape, Graph, GraphView};
-use petgraph::{csr::DefaultIx, stable_graph::StableGraph, Directed};
+use egui_graphs::{DefaultGraphView, Graph};
+use petgraph::stable_graph::StableGraph;
 
 pub struct BasicApp {
     g: Graph,

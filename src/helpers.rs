@@ -241,7 +241,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::layouts;
     use crate::DefaultEdgeShape;
     use crate::DefaultNodeShape;
 
@@ -267,10 +266,6 @@ mod tests {
             let input_n = input_g.g.node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
-
-            // assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
-            // assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
-
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
 
             assert!(!input_n.selected());
@@ -296,10 +291,6 @@ mod tests {
             let input_n = input_g.g.node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
-
-            // assert!(input_n.location().x >= 0.0 && input_n.location().x <= DEFAULT_SPAWN_SIZE);
-            // assert!(input_n.location().y >= 0.0 && input_n.location().y <= DEFAULT_SPAWN_SIZE);
-
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
 
             assert!(!input_n.selected());
