@@ -1,4 +1,5 @@
 use crate::{DisplayEdge, DisplayNode, Edge, Graph, Node};
+use egui::Vec2;
 use petgraph::{
     graph::IndexType,
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
@@ -237,6 +238,16 @@ where
     });
 
     Graph::new(g)
+}
+
+pub fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
+    node: &Node<N, E, Ty, Ix, D>,
+    dir: Vec2,
+) -> f32 {
+    let connector_left = node.display().closest_boundary_point(dir);
+    let connector_right = node.display().closest_boundary_point(-dir);
+
+    ((connector_right.to_vec2() - connector_left.to_vec2()) / 2.).length()
 }
 
 #[cfg(test)]

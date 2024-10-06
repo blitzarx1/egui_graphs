@@ -2,7 +2,7 @@ use egui::{Id, Pos2, Rect, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
 use serde::{Deserialize, Serialize};
 
-use crate::{DisplayNode, Node};
+use crate::{node_size, DisplayNode, Node};
 
 const KEY: &str = "egui_graphs_metadata";
 
@@ -32,18 +32,19 @@ impl Bounds {
         &mut self,
         n: &Node<N, E, Ty, Ix, D>,
     ) {
+        let size = node_size(n, Vec2::new(0., 1.));
         let loc = n.location();
-        if loc.x < self.min.x {
-            self.min.x = loc.x;
+        if loc.x + size < self.min.x {
+            self.min.x = loc.x + size;
         };
-        if loc.x > self.max.x {
-            self.max.x = loc.x;
+        if loc.x + size > self.max.x {
+            self.max.x = loc.x + size;
         };
-        if loc.y < self.min.y {
-            self.min.y = loc.y;
+        if loc.y - size < self.min.y {
+            self.min.y = loc.y - size;
         };
-        if loc.y > self.max.y {
-            self.max.y = loc.y;
+        if loc.y + size > self.max.y {
+            self.max.y = loc.y + size;
         };
     }
 }

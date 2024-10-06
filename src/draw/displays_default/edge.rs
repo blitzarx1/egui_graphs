@@ -6,7 +6,7 @@ use egui::{
 };
 use petgraph::{stable_graph::IndexType, EdgeType};
 
-use crate::{draw::DrawContext, elements::EdgeProps, DisplayEdge, DisplayNode, Node};
+use crate::{draw::DrawContext, elements::EdgeProps, node_size, DisplayEdge, DisplayNode, Node};
 
 use super::edge_shape_builder::{EdgeShapeBuilder, TipProps};
 
@@ -272,17 +272,6 @@ impl DefaultEdgeShape {
 
         is_point_on_curve(pos, &curved_shape)
     }
-}
-
-// TODO: export this func as common drawing func
-fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
-    node: &Node<N, E, Ty, Ix, D>,
-    dir: Vec2,
-) -> f32 {
-    let connector_left = node.display().closest_boundary_point(dir);
-    let connector_right = node.display().closest_boundary_point(-dir);
-
-    ((connector_right.to_vec2() - connector_left.to_vec2()) / 2.).length()
 }
 
 /// Returns the distance from line segment `a``b` to point `c`.
