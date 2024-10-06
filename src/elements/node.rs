@@ -6,21 +6,35 @@ use petgraph::{
     stable_graph::{DefaultIx, IndexType, NodeIndex},
     Directed, EdgeType,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{DefaultNodeShape, DisplayNode};
 
 /// Stores properties of a [Node]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug)]
-pub struct NodeProps<N: Clone> {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NodeProps<N>
+where
+    N: Clone,
+{
     pub payload: N,
-    pub location: Pos2,
     pub label: String,
     pub selected: bool,
     pub dragged: bool,
+
+    location: Pos2,
+    location_user: Option<Pos2>,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+impl<N> NodeProps<N>
+where
+    N: Clone,
+{
+    pub fn location(&self) -> Pos2 {
+        self.location_user.unwrap_or(self.location)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Node<N, E, Ty = Directed, Ix = DefaultIx, D = DefaultNodeShape>
 where
     N: Clone,
@@ -83,6 +97,7 @@ where
         let props = NodeProps {
             payload,
             location: Pos2::default(),
+            location_user: Option::default(),
             label: String::default(),
             selected: bool::default(),
             dragged: bool::default(),
@@ -133,10 +148,14 @@ where
     }
 
     pub fn location(&self) -> Pos2 {
-        self.props.location
+        self.props.location()
     }
 
     pub fn set_location(&mut self, loc: Pos2) {
+        self.props.location_user = Some(loc);
+    }
+
+    pub(crate) fn set_layout_location(&mut self, loc: Pos2) {
         self.props.location = loc;
     }
 

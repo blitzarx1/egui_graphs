@@ -24,8 +24,8 @@ pub struct NodeShapeAnimated {
 impl<N: Clone> From<NodeProps<N>> for NodeShapeAnimated {
     fn from(node_props: NodeProps<N>) -> Self {
         Self {
-            label: node_props.label,
-            loc: node_props.location,
+            label: node_props.label.clone(),
+            loc: node_props.location(),
             dragged: node_props.dragged,
 
             angle_rad: Default::default(),
@@ -120,7 +120,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
 
     fn update(&mut self, state: &NodeProps<N>) {
         self.label = state.label.clone();
-        self.loc = state.location;
+        self.loc = state.location();
         self.dragged = state.dragged;
     }
 }

@@ -5,7 +5,7 @@ use drawers::ValuesSectionDebug;
 use eframe::{run_native, App, CreationContext};
 use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Ui, Vec2};
 use egui_graphs::events::Event;
-use egui_graphs::{to_graph, Edge, Graph, GraphView, Node};
+use egui_graphs::{to_graph, DefaultGraphView, Edge, Graph, Node};
 use fdg::fruchterman_reingold::{FruchtermanReingold, FruchtermanReingoldConfiguration};
 use fdg::nalgebra::{Const, OPoint};
 use fdg::{Force, ForceGraph};
@@ -511,7 +511,7 @@ impl App for DemoApp {
             let settings_style = &egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always);
             ui.add(
-                &mut GraphView::new(&mut self.g)
+                &mut DefaultGraphView::new(&mut self.g)
                     .with_interactions(settings_interaction)
                     .with_navigations(settings_navigation)
                     .with_styles(settings_style)
