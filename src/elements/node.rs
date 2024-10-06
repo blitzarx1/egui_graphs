@@ -6,12 +6,12 @@ use petgraph::{
     stable_graph::{DefaultIx, IndexType, NodeIndex},
     Directed, EdgeType,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{DefaultNodeShape, DisplayNode};
 
 /// Stores properties of a [Node]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NodeProps<N: Clone> {
     pub payload: N,
     pub location: Pos2,
@@ -20,7 +20,7 @@ pub struct NodeProps<N: Clone> {
     pub dragged: bool,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct Node<N, E, Ty = Directed, Ix = DefaultIx, D = DefaultNodeShape>
 where
     N: Clone,

@@ -4,12 +4,12 @@ use petgraph::{
     stable_graph::{DefaultIx, EdgeIndex, IndexType},
     Directed, EdgeType,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode};
 
 /// Stores properties of an [Edge]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EdgeProps<E: Clone> {
     pub payload: E,
     pub order: usize,
@@ -18,8 +18,7 @@ pub struct EdgeProps<E: Clone> {
 }
 
 /// Stores properties of an edge that can be changed. Used to apply changes to the graph.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Edge<
     N: Clone,
     E: Clone,

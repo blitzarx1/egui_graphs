@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui::{Context, Pos2};
-use egui_graphs::{add_edge, add_node_custom, Graph, GraphView};
+use egui_graphs::{add_edge, add_node_custom, DefaultGraphView, Graph, SettingsStyle};
 use petgraph::stable_graph::StableGraph;
 
 pub struct BasicCustomApp {
@@ -16,6 +16,7 @@ impl BasicCustomApp {
         for position in positions {
             idxs.push(add_node_custom(&mut g, &(), |g_node| {
                 g_node.set_location(position);
+                g_node.set_label(position.to_string());
             }));
         }
 
@@ -30,7 +31,10 @@ impl BasicCustomApp {
 impl App for BasicCustomApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut GraphView::new(&mut self.g));
+            ui.add(
+                &mut DefaultGraphView::new(&mut self.g)
+                    .with_styles(&SettingsStyle::default().with_labels_always(true)),
+            );
         });
     }
 }

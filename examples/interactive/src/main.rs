@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{layouts, Graph, GraphView, SettingsInteraction, SettingsStyle};
+use egui_graphs::{DefaultGraphView, Graph, SettingsInteraction, SettingsStyle};
 use petgraph::stable_graph::StableGraph;
 
 pub struct InteractiveApp {
@@ -27,7 +27,7 @@ impl App for InteractiveApp {
                 .with_edge_selection_multi_enabled(true);
             let style_settings = &SettingsStyle::new().with_labels_always(true);
             ui.add(
-                &mut GraphView::<_, _, _, _, _, _, layouts::Default>::new(&mut self.g)
+                &mut DefaultGraphView::new(&mut self.g)
                     .with_styles(style_settings)
                     .with_interactions(interaction_settings),
             );

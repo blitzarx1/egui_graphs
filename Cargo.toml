@@ -18,6 +18,7 @@ rand = "0.8"
 petgraph = { version = "0.6", default-features = false, features = [
   "stable_graph",
   "matrix_graph",
+  "serde-1",
 ] }
 serde = { version = "1.0", features = ["derive"] }
 

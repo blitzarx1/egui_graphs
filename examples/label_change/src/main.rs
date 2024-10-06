@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::{CentralPanel, Context, SidePanel, TextEdit};
-use egui_graphs::{layouts, Graph, GraphView, SettingsInteraction, SettingsStyle};
+use egui_graphs::{DefaultGraphView, Graph, SettingsInteraction, SettingsStyle};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 
 pub struct LabelChangeApp {
@@ -52,7 +52,7 @@ impl LabelChangeApp {
             }
         });
         CentralPanel::default().show(ctx, |ui| {
-            let widget = &mut GraphView::<_, _, _, _, _, _, layouts::Default>::new(&mut self.g)
+            let widget = &mut DefaultGraphView::new(&mut self.g)
                 .with_interactions(
                     &SettingsInteraction::default()
                         .with_node_selection_enabled(true)

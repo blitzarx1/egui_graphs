@@ -2,17 +2,31 @@ use std::marker::PhantomData;
 
 use crate::{
     draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
-    layouts::{self, Layout},
+    layouts::{self, Layout, LayoutState},
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
     DisplayEdge, DisplayNode, Graph,
 };
 
-use egui::{PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use egui::{Id, PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 
 use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::{graph::IndexType, Directed};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
+
+const KEY_LAYOUT: &str = "egui_grpahs_layout";
+
+pub type DefaultGraphView<'a> = GraphView<
+    'a,
+    (),
+    (),
+    Directed,
+    DefaultIx,
+    DefaultNodeShape,
+    DefaultEdgeShape,
+    layouts::random::State,
+    layouts::random::Random,
+>;
 
 #[cfg(feature = "events")]
 use crate::events::{
@@ -46,7 +60,8 @@ pub struct GraphView<
     Ix = DefaultIx,
     Nd = DefaultNodeShape,
     Ed = DefaultEdgeShape,
-    L = layouts::Default,
+    S = layouts::random::State,
+    L = layouts::random::Random,
 > where
     N: Clone,
     E: Clone,
@@ -54,9 +69,10 @@ pub struct GraphView<
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
-    L: Layout,
+    S: LayoutState,
+    L: Layout<S>,
 {
-    g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed, L>,
+    g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
 
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
@@ -65,10 +81,10 @@ pub struct GraphView<
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
 
-    _marker: PhantomData<(Nd, Ed, L)>,
+    _marker: PhantomData<(Nd, Ed, L, S)>,
 }
 
-impl<'a, N, E, Ty, Ix, Nd, Ed, L> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed, L>
+impl<'a, N, E, Ty, Ix, Nd, Ed, S, L> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
@@ -76,22 +92,22 @@ where
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
-    L: Layout,
+    S: LayoutState,
+    L: Layout<S>,
 {
     fn ui(self, ui: &mut Ui) -> Response {
-        let mut meta = Metadata::get(ui);
+        self.sync_layout(ui);
+
+        let mut meta = Metadata::load(ui);
         self.sync_state(&mut meta);
 
-        L::default().next(self.g);
-
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
-
         self.handle_fit_to_screen(&resp, &mut meta);
         self.handle_navigation(ui, &resp, &mut meta);
         self.handle_node_drag(&resp, &mut meta);
         self.handle_click(&resp, &mut meta);
 
-        Drawer::<N, E, Ty, Ix, Nd, Ed, L>::new(
+        Drawer::<N, E, Ty, Ix, Nd, Ed, S, L>::new(
             self.g,
             &DrawContext {
                 ctx: ui.ctx(),
@@ -104,7 +120,7 @@ where
         .draw();
 
         meta.first_frame = false;
-        meta.store_into_ui(ui);
+        meta.save(ui);
 
         ui.ctx().request_repaint();
 
@@ -112,7 +128,7 @@ where
     }
 }
 
-impl<'a, N, E, Ty, Ix, Dn, De, L> GraphView<'a, N, E, Ty, Ix, Dn, De, L>
+impl<'a, N, E, Ty, Ix, Dn, De, S, L> GraphView<'a, N, E, Ty, Ix, Dn, De, S, L>
 where
     N: Clone,
     E: Clone,
@@ -120,11 +136,12 @@ where
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
-    L: Layout,
+    S: LayoutState,
+    L: Layout<S>,
 {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De, L>) -> Self {
+    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De>) -> Self {
         Self {
             g,
 
@@ -159,7 +176,7 @@ where
 
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
-        Metadata::default().store_into_ui(ui);
+        Metadata::default().save(ui);
     }
 
     #[cfg(feature = "events")]
@@ -167,6 +184,18 @@ where
     pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
         self.events_publisher = Some(events_publisher);
         self
+    }
+
+    fn sync_layout(&mut self, ui: &mut Ui) {
+        ui.data_mut(|data| {
+            let state = data
+                .get_persisted::<S>(Id::new(KEY_LAYOUT))
+                .unwrap_or_default();
+            let mut layout = L::from_state(state);
+            layout.next(self.g);
+
+            data.insert_persisted(Id::new(KEY_LAYOUT), layout.state());
+        });
     }
 
     fn sync_state(&mut self, meta: &mut Metadata) {

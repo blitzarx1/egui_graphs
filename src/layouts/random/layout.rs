@@ -1,33 +1,38 @@
 use egui::Pos2;
 use petgraph::stable_graph::IndexType;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-use crate::Graph;
-
-use super::Layout;
-
+use crate::{
+    layouts::{Layout, LayoutState},
+    Graph,
+};
 const SPAWN_SIZE: f32 = 250.;
 
-/// Randomly places nodes on the canvas. Does not override existing locations. Applies once.
-#[derive(Default)]
-pub struct Random {
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct State {
     triggered: bool,
 }
 
-impl Layout for Random {
-    fn next<
+impl LayoutState for State {}
+
+/// Randomly places nodes on the canvas. Does not override existing locations. Applies once.
+#[derive(Debug, Default)]
+pub struct Random {
+    state: State,
+}
+
+impl Layout<State> for Random {
+    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
+    where
         N: Clone,
         E: Clone,
         Ty: petgraph::EdgeType,
         Ix: IndexType,
         Dn: crate::DisplayNode<N, E, Ty, Ix>,
         De: crate::DisplayEdge<N, E, Ty, Ix, Dn>,
-        L: Layout,
-    >(
-        &mut self,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De, L>,
-    ) {
-        if self.triggered {
+    {
+        if self.state.triggered {
             return;
         }
 
@@ -39,6 +44,14 @@ impl Layout for Random {
             ));
         }
 
-        self.triggered = true;
+        self.state.triggered = true;
+    }
+
+    fn state(&self) -> State {
+        self.state.clone()
+    }
+
+    fn from_state(state: State) -> impl Layout<State> {
+        Self { state }
     }
 }

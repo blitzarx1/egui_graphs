@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext, Frame};
 use egui::{CentralPanel, Context, Layout, SidePanel};
-use egui_graphs::{Graph, GraphView, SettingsInteraction, SettingsNavigation};
+use egui_graphs::{DefaultGraphView, Graph, SettingsInteraction, SettingsNavigation};
 use petgraph::stable_graph::StableGraph;
 
 pub struct BasicApp {
@@ -23,7 +23,7 @@ impl App for BasicApp {
             .show(ctx, |ui| {
                 ui.allocate_ui_with_layout(ui.max_rect().size(), Layout::default(), |ui| {
                     ui.add(
-                        &mut GraphView::new(&mut self.g)
+                        &mut DefaultGraphView::new(&mut self.g)
                             .with_navigations(
                                 &SettingsNavigation::default()
                                     .with_fit_to_screen_enabled(false)
@@ -45,7 +45,7 @@ impl App for BasicApp {
             .resizable(true)
             .show(ctx, |ui| {
                 ui.add(
-                    &mut GraphView::new(&mut self.g)
+                    &mut DefaultGraphView::new(&mut self.g)
                         .with_navigations(
                             &SettingsNavigation::default()
                                 .with_fit_to_screen_enabled(false)
@@ -63,7 +63,7 @@ impl App for BasicApp {
             });
         CentralPanel::default().show(ctx, |ui| {
             ui.add(
-                &mut GraphView::new(&mut self.g)
+                &mut DefaultGraphView::new(&mut self.g)
                     .with_navigations(
                         &SettingsNavigation::default()
                             .with_fit_to_screen_enabled(false)

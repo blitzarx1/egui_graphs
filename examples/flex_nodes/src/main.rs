@@ -58,7 +58,7 @@ impl FlexNodesApp {
             }
         });
         CentralPanel::default().show(ctx, |ui| {
-            let widget = &mut GraphView::new(&mut self.g)
+            let widget = &mut GraphView::<_, _, _, _, _, _>::new(&mut self.g)
                 .with_interactions(
                     &SettingsInteraction::default()
                         .with_dragging_enabled(true)

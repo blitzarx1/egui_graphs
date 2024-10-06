@@ -1,4 +1,4 @@
-use crate::{layouts::Layout, DisplayEdge, DisplayNode, Edge, Graph, Node};
+use crate::{DisplayEdge, DisplayNode, Edge, Graph, Node};
 use petgraph::{
     graph::IndexType,
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
@@ -10,27 +10,34 @@ use std::collections::HashMap;
 /// Helper function which adds user's node to the [`super::Graph`] instance.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-pub fn add_node<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
-    g: &mut Graph<N, E, Ty, Ix, D>,
-    n: &N,
-) -> NodeIndex<Ix> {
+pub fn add_node<N, E, Ty, Ix, Dn, De>(g: &mut Graph<N, E, Ty, Ix, Dn, De>, n: &N) -> NodeIndex<Ix>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+{
     add_node_custom(g, n, default_node_transform)
 }
 
 /// Helper function which adds user's node to the [`super::Graph`] instance with custom node transform function.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-pub fn add_node_custom<
+pub fn add_node_custom<N, E, Ty, Ix, Dn, De>(
+    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    n: &N,
+    node_transform: impl FnOnce(&mut Node<N, E, Ty, Ix, Dn>),
+) -> NodeIndex<Ix>
+where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
     Ix: IndexType,
-    D: DisplayNode<N, E, Ty, Ix>,
->(
-    g: &mut Graph<N, E, Ty, Ix, D>,
-    n: &N,
-    node_transform: impl FnOnce(&mut Node<N, E, Ty, Ix, D>),
-) -> NodeIndex<Ix> {
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+{
     let idx = NodeIndex::new(g.g.node_count() + 1);
     let mut n = Node::new(n.clone());
 
@@ -42,19 +49,20 @@ pub fn add_node_custom<
 }
 
 /// Helper function which adds user's edge to the [`super::Graph`] instance.
-pub fn add_edge<
+pub fn add_edge<N, E, Ty, Ix, Dn, De>(
+    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    start: NodeIndex<Ix>,
+    end: NodeIndex<Ix>,
+    e: &E,
+) -> EdgeIndex<Ix>
+where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
->(
-    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-    start: NodeIndex<Ix>,
-    end: NodeIndex<Ix>,
-    e: &E,
-) -> EdgeIndex<Ix> {
+{
     add_edge_custom(
         g,
         start,
@@ -65,20 +73,21 @@ pub fn add_edge<
 }
 
 /// Helper function which adds user's edge to the [`super::Graph`] instance with custom edge transform function.
-pub fn add_edge_custom<
+pub fn add_edge_custom<N, E, Ty, Ix, Dn, De>(
+    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    start: NodeIndex<Ix>,
+    end: NodeIndex<Ix>,
+    e: &E,
+    edge_transform: impl FnOnce(&mut Edge<N, E, Ty, Ix, Dn, De>),
+) -> EdgeIndex<Ix>
+where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
->(
-    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-    start: NodeIndex<Ix>,
-    end: NodeIndex<Ix>,
-    e: &E,
-    edge_transform: impl FnOnce(&mut Edge<N, E, Ty, Ix, Dn, De>),
-) -> EdgeIndex<Ix> {
+{
     let mut edge = Edge::new(e.clone());
 
     edge.set_id(EdgeIndex::<Ix>::new(g.g.edge_count() + 1));
@@ -121,39 +130,33 @@ pub fn add_edge_custom<
 ///
 /// assert_eq!(*result.g.node_weight(result_node1).unwrap().label().clone(), format!("node {}", result_node1.index()));
 /// assert_eq!(*result.g.node_weight(result_node2).unwrap().label().clone(), format!("node {}", result_node2.index()));
-///
-/// let loc_1 = result.g.node_weight(result_node1).unwrap().location();
-/// let loc_2 = result.g.node_weight(result_node2).unwrap().location();
-/// assert!(loc_1 != Pos2::ZERO);
-/// assert!(loc_2 != Pos2::ZERO);
 /// ```
-pub fn to_graph<
+pub fn to_graph<N, E, Ty, Ix, Dn, De>(g: &StableGraph<N, E, Ty, Ix>) -> Graph<N, E, Ty, Ix, Dn, De>
+where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
-    L: Layout,
->(
-    g: &StableGraph<N, E, Ty, Ix>,
-) -> Graph<N, E, Ty, Ix, Dn, De, L> {
+{
     transform(g, &mut default_node_transform, &mut default_edge_transform)
 }
 
 /// The same as [`to_graph`], but allows to define custom transformation procedures for nodes and edges.
-pub fn to_graph_custom<
+pub fn to_graph_custom<N, E, Ty, Ix, Dn, De>(
+    g: &StableGraph<N, E, Ty, Ix>,
+    mut node_transform: impl FnMut(&mut Node<N, E, Ty, Ix, Dn>),
+    mut edge_transform: impl FnMut(&mut Edge<N, E, Ty, Ix, Dn, De>),
+) -> Graph<N, E, Ty, Ix, Dn, De>
+where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
->(
-    g: &StableGraph<N, E, Ty, Ix>,
-    mut node_transform: impl FnMut(&mut Node<N, E, Ty, Ix, Dn>),
-    mut edge_transform: impl FnMut(&mut Edge<N, E, Ty, Ix, Dn, De>),
-) -> Graph<N, E, Ty, Ix, Dn, De> {
+{
     transform(g, &mut node_transform, &mut edge_transform)
 }
 
@@ -185,19 +188,19 @@ pub fn default_edge_transform<
     edge.set_label(format!("edge {}", edge.id().index()));
 }
 
-fn transform<
+fn transform<N, E, Ty, Ix, Dn, De>(
+    input: &StableGraph<N, E, Ty, Ix>,
+    node_transform: &mut impl FnMut(&mut Node<N, E, Ty, Ix, Dn>),
+    edge_transform: &mut impl FnMut(&mut Edge<N, E, Ty, Ix, Dn, De>),
+) -> Graph<N, E, Ty, Ix, Dn, De>
+where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
-    L: Layout,
->(
-    input: &StableGraph<N, E, Ty, Ix>,
-    node_transform: &mut impl FnMut(&mut Node<N, E, Ty, Ix, Dn>),
-    edge_transform: &mut impl FnMut(&mut Edge<N, E, Ty, Ix, Dn, De>),
-) -> Graph<N, E, Ty, Ix, Dn, De, L> {
+{
     let mut g =
         StableGraph::<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>::default();
 
@@ -253,8 +256,7 @@ mod tests {
         let n2 = user_g.add_node("Node2");
         user_g.add_edge(n1, n2, "Edge1");
 
-        let input_g =
-            to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape, layouts::Default>(&user_g);
+        let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
 
         assert_eq!(user_g.node_count(), input_g.g.node_count());
         assert_eq!(user_g.edge_count(), input_g.g.edge_count());
@@ -283,8 +285,7 @@ mod tests {
         let n2 = user_g.add_node("Node2");
         user_g.add_edge(n1, n2, "Edge1");
 
-        let input_g =
-            to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape, layouts::Default>(&user_g);
+        let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
 
         assert_eq!(user_g.node_count(), input_g.g.node_count());
         assert_eq!(user_g.edge_count(), input_g.g.edge_count());

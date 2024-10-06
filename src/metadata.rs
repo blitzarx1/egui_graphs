@@ -76,16 +76,16 @@ impl Default for Metadata {
 }
 
 impl Metadata {
-    pub fn get(ui: &egui::Ui) -> Self {
+    pub fn load(ui: &egui::Ui) -> Self {
         ui.data_mut(|data| {
             data.get_persisted::<Metadata>(Id::new(KEY))
                 .unwrap_or_default()
         })
     }
 
-    pub fn store_into_ui(self, ui: &mut egui::Ui) {
+    pub fn save(self, ui: &mut egui::Ui) {
         ui.data_mut(|data| {
-            data.insert_persisted(Id::NULL, self);
+            data.insert_persisted(Id::new(KEY), self);
         });
     }
 

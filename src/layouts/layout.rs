@@ -3,19 +3,23 @@ use petgraph::{stable_graph::IndexType, EdgeType};
 
 use crate::{DisplayEdge, DisplayNode, Graph};
 
-pub trait Layout: Default {
+pub trait LayoutState: SerializableAny + Default {}
+
+pub trait Layout<S>: Default
+where
+    S: LayoutState,
+{
+    fn from_state(state: S) -> impl Layout<S>;
+
     /// Called on every frame. It should update the graph layout aka nodes locations.
-    // TODO: maybe should have signature next(prev: impl Serializable, g), where prev is prev state?:w
-    fn next<
+    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
+    where
         N: Clone,
         E: Clone,
         Ty: EdgeType,
         Ix: IndexType,
         Dn: DisplayNode<N, E, Ty, Ix>,
-        De: DisplayEdge<N, E, Ty, Ix, Dn>,
-        L: Layout,
-    >(
-        &mut self,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De, L>,
-    );
+        De: DisplayEdge<N, E, Ty, Ix, Dn>;
+
+    fn state(&self) -> S;
 }
