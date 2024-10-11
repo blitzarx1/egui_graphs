@@ -1,13 +1,12 @@
 use egui::{Id, Pos2, Rect, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
+use serde::{Deserialize, Serialize};
 
-use crate::{DisplayNode, Node};
+use crate::{node_size, DisplayNode, Node};
 
-#[cfg_attr(
-    feature = "egui_persistence",
-    derive(serde::Serialize, serde::Deserialize)
-)]
-#[derive(Clone, Debug)]
+const KEY: &str = "egui_graphs_metadata";
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Bounds {
     min: Vec2,
     max: Vec2,
@@ -33,27 +32,24 @@ impl Bounds {
         &mut self,
         n: &Node<N, E, Ty, Ix, D>,
     ) {
+        let size = node_size(n, Vec2::new(0., 1.));
         let loc = n.location();
-        if loc.x < self.min.x {
-            self.min.x = loc.x;
+        if loc.x + size < self.min.x {
+            self.min.x = loc.x + size;
         };
-        if loc.x > self.max.x {
-            self.max.x = loc.x;
+        if loc.x + size > self.max.x {
+            self.max.x = loc.x + size;
         };
-        if loc.y < self.min.y {
-            self.min.y = loc.y;
+        if loc.y - size < self.min.y {
+            self.min.y = loc.y - size;
         };
-        if loc.y > self.max.y {
-            self.max.y = loc.y;
+        if loc.y + size > self.max.y {
+            self.max.y = loc.y + size;
         };
     }
 }
 
-#[cfg_attr(
-    feature = "egui_persistence",
-    derive(serde::Serialize, serde::Deserialize)
-)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Metadata {
     /// Whether the frame is the first one
     pub first_frame: bool,
@@ -81,13 +77,16 @@ impl Default for Metadata {
 }
 
 impl Metadata {
-    pub fn get(ui: &egui::Ui) -> Self {
-        ui.data_mut(|data| data.get_persisted::<Metadata>(Id::NULL).unwrap_or_default())
+    pub fn load(ui: &egui::Ui) -> Self {
+        ui.data_mut(|data| {
+            data.get_persisted::<Metadata>(Id::new(KEY))
+                .unwrap_or_default()
+        })
     }
 
-    pub fn store_into_ui(self, ui: &mut egui::Ui) {
+    pub fn save(self, ui: &mut egui::Ui) {
         ui.data_mut(|data| {
-            data.insert_persisted(Id::NULL, self);
+            data.insert_persisted(Id::new(KEY), self);
         });
     }
 

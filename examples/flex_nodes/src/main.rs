@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::{CentralPanel, Context, SidePanel, TextEdit};
-use egui_graphs::{DefaultEdgeShape, Graph, GraphView, SettingsInteraction, SettingsNavigation};
+use egui_graphs::{Graph, GraphView, SettingsInteraction, SettingsNavigation};
 use node::NodeShapeFlex;
 use petgraph::{
     stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph},
@@ -10,7 +10,7 @@ use petgraph::{
 mod node;
 
 pub struct FlexNodesApp {
-    g: Graph<(), (), Directed, DefaultIx, NodeShapeFlex, DefaultEdgeShape>,
+    g: Graph<(), (), Directed, DefaultIx, NodeShapeFlex>,
     label_input: String,
     selected_node: Option<NodeIndex>,
     selected_edge: Option<EdgeIndex>,
@@ -58,19 +58,18 @@ impl FlexNodesApp {
             }
         });
         CentralPanel::default().show(ctx, |ui| {
-            let widget =
-                &mut GraphView::<_, _, _, _, NodeShapeFlex, DefaultEdgeShape>::new(&mut self.g)
-                    .with_interactions(
-                        &SettingsInteraction::default()
-                            .with_dragging_enabled(true)
-                            .with_node_selection_enabled(true)
-                            .with_edge_selection_enabled(true),
-                    )
-                    .with_navigations(
-                        &SettingsNavigation::default()
-                            .with_fit_to_screen_enabled(false)
-                            .with_zoom_and_pan_enabled(true),
-                    );
+            let widget = &mut GraphView::<_, _, _, _, _, _>::new(&mut self.g)
+                .with_interactions(
+                    &SettingsInteraction::default()
+                        .with_dragging_enabled(true)
+                        .with_node_selection_enabled(true)
+                        .with_edge_selection_enabled(true),
+                )
+                .with_navigations(
+                    &SettingsNavigation::default()
+                        .with_fit_to_screen_enabled(false)
+                        .with_zoom_and_pan_enabled(true),
+                );
             ui.add(widget);
         });
     }

@@ -651,6 +651,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "basic_custom"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui 0.29.0",
+ "egui_graphs 0.22.0",
+ "petgraph",
+]
+
+[[package]]
 name = "bevy"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2226,6 +2236,7 @@ dependencies = [
  "epaint 0.29.0",
  "log",
  "nohash-hasher",
+ "ron",
  "serde",
 ]
 
@@ -2303,7 +2314,6 @@ dependencies = [
  "petgraph",
  "rand",
  "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -3330,6 +3340,16 @@ dependencies = [
 
 [[package]]
 name = "label_change"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui 0.29.0",
+ "egui_graphs 0.22.0",
+ "petgraph",
+]
+
+[[package]]
+name = "layouts"
 version = "0.1.0"
 dependencies = [
  "eframe",
