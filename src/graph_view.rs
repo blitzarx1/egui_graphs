@@ -174,9 +174,22 @@ where
         self
     }
 
+    /// Clears cached values of layout and metadata.
+    pub fn clear_cache(ui: &mut Ui) {
+        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_metadata(ui);
+        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_layout(ui);
+    }
+
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
         Metadata::default().save(ui);
+    }
+
+    /// Resets layout state
+    pub fn reset_layout(ui: &mut Ui) {
+        ui.data_mut(|data| {
+            data.insert_persisted(Id::new(KEY_LAYOUT), S::default());
+        });
     }
 
     #[cfg(feature = "events")]

@@ -3349,6 +3349,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "layouts"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui 0.29.0",
+ "egui_graphs 0.22.0",
+ "petgraph",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

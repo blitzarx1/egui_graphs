@@ -251,17 +251,17 @@ pub fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode
     ((connector_right.to_vec2() - connector_left.to_vec2()) / 2.).length()
 }
 
-pub fn random_graph(node_count: usize, edge_count: usize) -> Graph {
+pub fn random_graph(num_nodes: usize, num_edges: usize) -> Graph {
     let mut rng = rand::thread_rng();
     let mut graph = StableGraph::new();
 
-    for _ in 0..node_count {
+    for _ in 0..num_nodes {
         graph.add_node(());
     }
 
-    for _ in 0..edge_count {
-        let source = rng.gen_range(0..node_count);
-        let target = rng.gen_range(0..node_count);
+    for _ in 0..num_edges {
+        let source = rng.gen_range(0..num_nodes);
+        let target = rng.gen_range(0..num_nodes);
 
         graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
     }

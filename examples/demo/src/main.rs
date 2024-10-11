@@ -9,7 +9,7 @@ use egui_graphs::{random_graph, DefaultGraphView, Edge, Graph, Node};
 use fdg::fruchterman_reingold::{FruchtermanReingold, FruchtermanReingoldConfiguration};
 use fdg::nalgebra::{Const, OPoint};
 use fdg::{Force, ForceGraph};
-use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
+use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
 use rand::Rng;
 
