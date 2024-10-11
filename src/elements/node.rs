@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use egui::Pos2;
+use egui::{Color32, Pos2};
 use petgraph::{
     stable_graph::{DefaultIx, IndexType, NodeIndex},
     Directed, EdgeType,
@@ -21,6 +21,7 @@ where
     pub selected: bool,
     pub dragged: bool,
 
+    color: Option<Color32>,
     location: Pos2,
     location_user: Option<Pos2>,
 }
@@ -31,6 +32,10 @@ where
 {
     pub fn location(&self) -> Pos2 {
         self.location_user.unwrap_or(self.location)
+    }
+
+    pub fn color(&self) -> Option<Color32> {
+        self.color
     }
 }
 
@@ -97,6 +102,7 @@ where
         let props = NodeProps {
             payload,
             location: Pos2::default(),
+            color: Option::default(),
             location_user: Option::default(),
             label: String::default(),
             selected: bool::default(),
@@ -147,6 +153,14 @@ where
         &mut self.props.payload
     }
 
+    pub fn color(&self) -> Option<Color32> {
+        self.props.color()
+    }
+
+    pub fn set_color(&mut self, color: Color32) {
+        self.props.color = Some(color);
+    }
+
     pub fn location(&self) -> Pos2 {
         self.props.location()
     }
@@ -155,6 +169,7 @@ where
         self.props.location_user = Some(loc);
     }
 
+    // TODO: why crate? how to use by external layoyuts?? do we need this func???
     pub(crate) fn set_layout_location(&mut self, loc: Pos2) {
         self.props.location = loc;
     }

@@ -6,6 +6,7 @@ use petgraph::{
     visit::IntoNodeReferences,
     EdgeType,
 };
+use rand::Rng;
 use std::collections::HashMap;
 
 /// Helper function which adds user's node to the [`super::Graph`] instance.
@@ -248,6 +249,24 @@ pub fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode
     let connector_right = node.display().closest_boundary_point(-dir);
 
     ((connector_right.to_vec2() - connector_left.to_vec2()) / 2.).length()
+}
+
+pub fn random_graph(node_count: usize, edge_count: usize) -> Graph {
+    let mut rng = rand::thread_rng();
+    let mut graph = StableGraph::new();
+
+    for _ in 0..node_count {
+        graph.add_node(());
+    }
+
+    for _ in 0..edge_count {
+        let source = rng.gen_range(0..node_count);
+        let target = rng.gen_range(0..node_count);
+
+        graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
+    }
+
+    to_graph(&graph)
 }
 
 #[cfg(test)]
