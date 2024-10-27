@@ -9,6 +9,7 @@ pub trait Layout<S>: Default
 where
     S: LayoutState,
 {
+    /// Creates a new layout from the given state. State is loaded and saved on every frame.
     fn from_state(state: S) -> impl Layout<S>;
 
     /// Called on every frame. It should update the graph layout aka nodes locations.
@@ -21,5 +22,6 @@ where
         Dn: DisplayNode<N, E, Ty, Ix>,
         De: DisplayEdge<N, E, Ty, Ix, Dn>;
 
+    /// Returns the current state of the layout.
     fn state(&self) -> S;
 }
