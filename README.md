@@ -25,11 +25,13 @@ Please use master branch for the latest updates.
 
 Check the [demo example](https://github.com/blitzarx1/egui_graphs/tree/master/examples/demo) for the comprehensive overview of the widget possibilities.
 
-## Features
-### Events
-Can be enabled with `events` feature. Events describe a change made in graph whether it changed zoom level or node dragging. 
+## Layouts
+In addition to the basic graph display functionality, the project provides a layout mechanism to arrange the nodes in the graph. The `Layout` trait can be implemented by the library user allowing for custom layouts. The following layouts are coming from the box:
+- [x] Random layout;
+- [x] Hierarchical layout;
+- [ ] Force-directed layout; (coming soon)
 
-Combining this feature with custom node draw function allows to implement custom node behavior and drawing according to the events happening.
+Check the [layouts example](https://github.com/blitzarx1/egui_graphs/blob/master/examples/layouts/src/main.rs).
 
 ## Examples
 ### Basic setup example
@@ -98,3 +100,9 @@ fn main() {
 
 ![Screenshot 2023-10-14 at 23 49 49](https://github.com/blitzarx1/egui_graphs/assets/32969427/584b78de-bca3-421b-b003-9321fd3e1b13)
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
+
+## Features
+### Events
+Can be enabled with `events` feature. Events describe a change made in graph whether it changed zoom level or node dragging. 
+
+Combining this feature with custom node draw function allows to implement custom node behavior and drawing according to the events happening.
