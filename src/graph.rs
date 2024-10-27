@@ -8,6 +8,7 @@ use petgraph::{
     visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences},
     Direction, EdgeType,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::draw::{DisplayEdge, DisplayNode};
 use crate::{metadata::Metadata, Edge, Node};
@@ -18,44 +19,50 @@ type StableGraphType<N, E, Ty, Ix, Dn, De> =
 
 /// Wrapper around [`petgraph::stable_graph::StableGraph`] compatible with [`super::GraphView`].
 /// It is used to store graph data and provide access to it.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Graph<
-    N: Clone = (),
-    E: Clone = (),
-    Ty: EdgeType = Directed,
-    Ix: IndexType = DefaultIx,
-    Dn: DisplayNode<N, E, Ty, Ix> = DefaultNodeShape,
-    De: DisplayEdge<N, E, Ty, Ix, Dn> = DefaultEdgeShape,
-> {
+    N = (),
+    E = (),
+    Ty = Directed,
+    Ix = DefaultIx,
+    Dn = DefaultNodeShape,
+    De = DefaultEdgeShape,
+> where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+{
     pub g: StableGraphType<N, E, Ty, Ix, Dn, De>,
     selected_nodes: Vec<NodeIndex<Ix>>,
     selected_edges: Vec<EdgeIndex<Ix>>,
     dragged_node: Option<NodeIndex<Ix>>,
 }
 
-impl<
-        N: Clone,
-        E: Clone,
-        Ty: EdgeType,
-        Ix: IndexType,
-        Dn: DisplayNode<N, E, Ty, Ix>,
-        De: DisplayEdge<N, E, Ty, Ix, Dn>,
-    > From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
+impl<N, E, Ty, Ix, Dn, De> From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
     fn from(g: &StableGraph<N, E, Ty, Ix>) -> Self {
         to_graph(g)
     }
 }
 
-impl<
-        N: Clone,
-        E: Clone,
-        Ty: EdgeType,
-        Ix: IndexType,
-        Dn: DisplayNode<N, E, Ty, Ix>,
-        De: DisplayEdge<N, E, Ty, Ix, Dn>,
-    > Graph<N, E, Ty, Ix, Dn, De>
+impl<N, E, Ty, Ix, Dn, De> Graph<N, E, Ty, Ix, Dn, De>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
     pub fn new(g: StableGraphType<N, E, Ty, Ix, Dn, De>) -> Self {
         Self {

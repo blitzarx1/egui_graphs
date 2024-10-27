@@ -1,6 +1,6 @@
 use egui::{
     epaint::{CircleShape, TextShape},
-    FontFamily, FontId, Pos2, Shape, Stroke, Vec2,
+    Color32, FontFamily, FontId, Pos2, Shape, Stroke, Vec2,
 };
 use petgraph::{stable_graph::IndexType, EdgeType};
 
@@ -9,27 +9,28 @@ use crate::{draw::drawer::DrawContext, DisplayNode, NodeProps};
 /// This is the default node shape which is used to display nodes in the graph.
 ///
 /// You can use this implementation as an example for implementing your own custom node shapes.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
 pub struct DefaultNodeShape {
     pub pos: Pos2,
 
     pub selected: bool,
     pub dragged: bool,
+    pub color: Option<Color32>,
 
     pub label_text: String,
 
-    /// Shape defined property
+    /// Shape dependent property
     pub radius: f32,
 }
 
 impl<N: Clone> From<NodeProps<N>> for DefaultNodeShape {
     fn from(node_props: NodeProps<N>) -> Self {
         DefaultNodeShape {
-            pos: node_props.location,
+            pos: node_props.location(),
             selected: node_props.selected,
             dragged: node_props.dragged,
             label_text: node_props.label.to_string(),
+            color: node_props.color(),
 
             radius: 5.0,
         }
@@ -57,7 +58,12 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         } else {
             ctx.ctx.style().visuals.widgets.inactive
         };
-        let color = style.fg_stroke.color;
+
+        let color = if let Some(c) = self.color {
+            c
+        } else {
+            style.fg_stroke.color
+        };
 
         let circle_center = ctx.meta.canvas_to_screen_pos(self.pos);
         let circle_radius = ctx.meta.canvas_to_screen_size(self.radius);
@@ -95,11 +101,11 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
     }
 
     fn update(&mut self, state: &NodeProps<N>) {
-        self.pos = state.location;
-        self.pos = state.location;
+        self.pos = state.location();
         self.selected = state.selected;
         self.dragged = state.dragged;
         self.label_text = state.label.to_string();
+        self.color = state.color();
     }
 }
 

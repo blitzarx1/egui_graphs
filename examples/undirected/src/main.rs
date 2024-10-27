@@ -1,13 +1,13 @@
 use eframe::{run_native, App, CreationContext};
 use egui::Context;
-use egui_graphs::{Graph, GraphView};
+use egui_graphs::{Graph, GraphView, LayoutRandom, LayoutStateRandom};
 use petgraph::{
-    stable_graph::{DefaultIx, StableGraph, StableUnGraph},
+    stable_graph::{StableGraph, StableUnGraph},
     Undirected,
 };
 
 pub struct UndirectedApp {
-    g: Graph<(), (), Undirected, DefaultIx>,
+    g: Graph<(), (), Undirected>,
 }
 
 impl UndirectedApp {
@@ -20,7 +20,16 @@ impl UndirectedApp {
 impl App for UndirectedApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut GraphView::new(&mut self.g));
+            ui.add(&mut GraphView::<
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                LayoutStateRandom,
+                LayoutRandom,
+            >::new(&mut self.g));
         });
     }
 }

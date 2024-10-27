@@ -1,26 +1,45 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use egui::Pos2;
+use egui::{Color32, Pos2};
 use petgraph::{
     stable_graph::{DefaultIx, IndexType, NodeIndex},
     Directed, EdgeType,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{DefaultNodeShape, DisplayNode};
 
 /// Stores properties of a [Node]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug)]
-pub struct NodeProps<N: Clone> {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NodeProps<N>
+where
+    N: Clone,
+{
     pub payload: N,
-    pub location: Pos2,
     pub label: String,
     pub selected: bool,
     pub dragged: bool,
+
+    color: Option<Color32>,
+    location: Pos2,
+    location_user: Option<Pos2>,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+impl<N> NodeProps<N>
+where
+    N: Clone,
+{
+    pub fn location(&self) -> Pos2 {
+        self.location_user.unwrap_or(self.location)
+    }
+
+    pub fn color(&self) -> Option<Color32> {
+        self.color
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Node<N, E, Ty = Directed, Ix = DefaultIx, D = DefaultNodeShape>
 where
     N: Clone,
@@ -83,6 +102,8 @@ where
         let props = NodeProps {
             payload,
             location: Pos2::default(),
+            color: Option::default(),
+            location_user: Option::default(),
             label: String::default(),
             selected: bool::default(),
             dragged: bool::default(),
@@ -132,11 +153,24 @@ where
         &mut self.props.payload
     }
 
+    pub fn color(&self) -> Option<Color32> {
+        self.props.color()
+    }
+
+    pub fn set_color(&mut self, color: Color32) {
+        self.props.color = Some(color);
+    }
+
     pub fn location(&self) -> Pos2 {
-        self.props.location
+        self.props.location()
     }
 
     pub fn set_location(&mut self, loc: Pos2) {
+        self.props.location_user = Some(loc);
+    }
+
+    // TODO: why crate? how to use by external layoyuts?? do we need this func???
+    pub(crate) fn set_layout_location(&mut self, loc: Pos2) {
         self.props.location = loc;
     }
 

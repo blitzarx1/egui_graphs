@@ -5,11 +5,11 @@ use drawers::ValuesSectionDebug;
 use eframe::{run_native, App, CreationContext};
 use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Ui, Vec2};
 use egui_graphs::events::Event;
-use egui_graphs::{to_graph, Edge, Graph, GraphView, Node};
+use egui_graphs::{random_graph, DefaultGraphView, Edge, Graph, Node};
 use fdg::fruchterman_reingold::{FruchtermanReingold, FruchtermanReingoldConfiguration};
 use fdg::nalgebra::{Const, OPoint};
 use fdg::{Force, ForceGraph};
-use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph};
+use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
 use rand::Rng;
 
@@ -50,7 +50,7 @@ impl DemoApp {
         let settings_graph = settings::SettingsGraph::default();
         let settings_simulation = settings::SettingsSimulation::default();
 
-        let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
+        let mut g = random_graph(settings_graph.count_node, settings_graph.count_edge);
 
         let mut force = init_force(&settings_simulation);
         let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
@@ -447,7 +447,7 @@ impl DemoApp {
         let settings_graph = settings::SettingsGraph::default();
         let settings_simulation = settings::SettingsSimulation::default();
 
-        let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
+        let mut g = random_graph(settings_graph.count_node, settings_graph.count_edge);
 
         let mut force = init_force(&self.settings_simulation);
         let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
@@ -511,7 +511,7 @@ impl App for DemoApp {
             let settings_style = &egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always);
             ui.add(
-                &mut GraphView::new(&mut self.g)
+                &mut DefaultGraphView::new(&mut self.g)
                     .with_interactions(settings_interaction)
                     .with_navigations(settings_navigation)
                     .with_styles(settings_style)
@@ -524,24 +524,6 @@ impl App for DemoApp {
         self.update_simulation();
         self.update_fps();
     }
-}
-
-fn generate_random_graph(node_count: usize, edge_count: usize) -> Graph {
-    let mut rng = rand::thread_rng();
-    let mut graph = StableGraph::new();
-
-    for _ in 0..node_count {
-        graph.add_node(());
-    }
-
-    for _ in 0..edge_count {
-        let source = rng.gen_range(0..node_count);
-        let target = rng.gen_range(0..node_count);
-
-        graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
-    }
-
-    to_graph(&graph)
 }
 
 fn init_force(settings: &settings::SettingsSimulation) -> FruchtermanReingold<f32, 2> {

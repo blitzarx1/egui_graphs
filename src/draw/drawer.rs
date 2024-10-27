@@ -4,7 +4,11 @@ use egui::{Context, Painter, Shape};
 use petgraph::graph::IndexType;
 use petgraph::EdgeType;
 
-use crate::{settings::SettingsStyle, Graph, Metadata};
+use crate::{
+    layouts::{Layout, LayoutState},
+    settings::SettingsStyle,
+    Graph, Metadata,
+};
 
 use super::{DisplayEdge, DisplayNode};
 
@@ -17,7 +21,7 @@ pub struct DrawContext<'a> {
     pub meta: &'a Metadata,
 }
 
-pub struct Drawer<'a, N, E, Ty, Ix, Nd, Ed>
+pub struct Drawer<'a, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
@@ -25,14 +29,17 @@ where
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+    S: LayoutState,
+    L: Layout<S>,
 {
     ctx: &'a DrawContext<'a>,
     g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
-    postponed: Vec<Shape>,
-    _marker: PhantomData<(Nd, Ed)>,
+    delayed: Vec<Shape>,
+
+    _marker: PhantomData<(Nd, Ed, L, S)>,
 }
 
-impl<'a, N, E, Ty, Ix, Nd, Ed> Drawer<'a, N, E, Ty, Ix, Nd, Ed>
+impl<'a, N, E, Ty, Ix, Nd, Ed, S, L> Drawer<'a, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
@@ -40,12 +47,14 @@ where
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+    S: LayoutState,
+    L: Layout<S>,
 {
     pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>, ctx: &'a DrawContext<'a>) -> Self {
         Drawer {
             ctx,
             g,
-            postponed: Vec::new(),
+            delayed: Vec::new(),
             _marker: PhantomData,
         }
     }
@@ -57,7 +66,7 @@ where
     }
 
     fn draw_postponed(&mut self) {
-        self.postponed.iter().for_each(|s| {
+        self.delayed.iter().for_each(|s| {
             self.ctx.painter.add(s.clone());
         });
     }
@@ -78,7 +87,7 @@ where
 
                 if n.selected() || n.dragged() {
                     for s in shapes {
-                        self.postponed.push(s);
+                        self.delayed.push(s);
                     }
                 } else {
                     for s in shapes {
@@ -110,7 +119,7 @@ where
 
                 if e.selected() {
                     for s in shapes {
-                        self.postponed.push(s);
+                        self.delayed.push(s);
                     }
                 } else {
                     for s in shapes {

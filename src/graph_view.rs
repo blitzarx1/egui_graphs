@@ -1,28 +1,41 @@
 use std::marker::PhantomData;
 
+use crate::{
+    draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
+    layouts::{self, Layout, LayoutState},
+    metadata::Metadata,
+    settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
+    DisplayEdge, DisplayNode, Graph,
+};
+
+use egui::{Id, PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+
+use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
+use petgraph::{graph::IndexType, Directed};
+use petgraph::{stable_graph::NodeIndex, EdgeType};
+
+const KEY_LAYOUT: &str = "egui_grpahs_layout";
+
+pub type DefaultGraphView<'a> = GraphView<
+    'a,
+    (),
+    (),
+    Directed,
+    DefaultIx,
+    DefaultNodeShape,
+    DefaultEdgeShape,
+    layouts::random::State,
+    layouts::random::Random,
+>;
+
 #[cfg(feature = "events")]
 use crate::events::{
     Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
     PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd, PayloadNodeDragStart,
     PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
 };
-use crate::{
-    draw::Drawer,
-    metadata::Metadata,
-    settings::SettingsNavigation,
-    settings::{SettingsInteraction, SettingsStyle},
-    Graph,
-};
-use crate::{
-    draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext},
-    DisplayEdge, DisplayNode,
-};
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
-use egui::{PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
-use petgraph::{graph::IndexType, Directed};
-use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -32,8 +45,8 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 /// struct to visualize and interact with the graph. `N` and `E` is arbitrary client data associated with nodes and edges.
 /// You can customize the visualization and interaction behavior using [`SettingsInteraction`], [`SettingsNavigation`] and [`SettingsStyle`] structs.
 ///
-/// When any interaction or node property change occurs, the widget sends [Event] struct to the provided
-/// [Sender<Event>] channel, which can be set via the `with_interactions` method. The [Event] struct contains information about
+/// When any interaction or node property change occurs, the widget sends [`Event`] struct to the provided
+/// [`Sender<Event>`] channel, which can be set via the `with_interactions` method. The [`Event`] struct contains information about
 /// a change that occurred in the graph. Client can use this information to modify external state of his application if needed.
 ///
 /// When the user performs navigation actions (zoom & pan or fit to screen), they do not
@@ -47,6 +60,8 @@ pub struct GraphView<
     Ix = DefaultIx,
     Nd = DefaultNodeShape,
     Ed = DefaultEdgeShape,
+    S = layouts::random::State,
+    L = layouts::random::Random,
 > where
     N: Clone,
     E: Clone,
@@ -54,6 +69,8 @@ pub struct GraphView<
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+    S: LayoutState,
+    L: Layout<S>,
 {
     g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
 
@@ -64,10 +81,10 @@ pub struct GraphView<
     #[cfg(feature = "events")]
     events_publisher: Option<&'a Sender<Event>>,
 
-    _marker: PhantomData<(Nd, Ed)>,
+    _marker: PhantomData<(Nd, Ed, L, S)>,
 }
 
-impl<'a, N, E, Ty, Ix, Nd, Ed> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed>
+impl<'a, N, E, Ty, Ix, Nd, Ed, S, L> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
@@ -75,41 +92,43 @@ where
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+    S: LayoutState,
+    L: Layout<S>,
 {
     fn ui(self, ui: &mut Ui) -> Response {
-        let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+        self.sync_layout(ui);
 
-        let mut meta = Metadata::get(ui);
+        let mut meta = Metadata::load(ui);
         self.sync_state(&mut meta);
 
+        let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         self.handle_fit_to_screen(&resp, &mut meta);
         self.handle_navigation(ui, &resp, &mut meta);
-
         self.handle_node_drag(&resp, &mut meta);
         self.handle_click(&resp, &mut meta);
 
-        let is_directed = self.g.is_directed();
-        Drawer::<N, E, Ty, Ix, Nd, Ed>::new(
+        Drawer::<N, E, Ty, Ix, Nd, Ed, S, L>::new(
             self.g,
             &DrawContext {
                 ctx: ui.ctx(),
                 painter: &p,
                 meta: &meta,
-                is_directed,
+                is_directed: self.g.is_directed(),
                 style: &self.settings_style,
             },
         )
         .draw();
 
         meta.first_frame = false;
-        meta.store_into_ui(ui);
+        meta.save(ui);
+
         ui.ctx().request_repaint();
 
         resp
     }
 }
 
-impl<'a, N, E, Ty, Ix, Dn, De> GraphView<'a, N, E, Ty, Ix, Dn, De>
+impl<'a, N, E, Ty, Ix, Dn, De, S, L> GraphView<'a, N, E, Ty, Ix, Dn, De, S, L>
 where
     N: Clone,
     E: Clone,
@@ -117,6 +136,8 @@ where
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    S: LayoutState,
+    L: Layout<S>,
 {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
@@ -153,9 +174,22 @@ where
         self
     }
 
+    /// Clears cached values of layout and metadata.
+    pub fn clear_cache(ui: &mut Ui) {
+        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_metadata(ui);
+        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_layout(ui);
+    }
+
     /// Resets navigation metadata
     pub fn reset_metadata(ui: &mut Ui) {
-        Metadata::default().store_into_ui(ui);
+        Metadata::default().save(ui);
+    }
+
+    /// Resets layout state
+    pub fn reset_layout(ui: &mut Ui) {
+        ui.data_mut(|data| {
+            data.insert_persisted(Id::new(KEY_LAYOUT), S::default());
+        });
     }
 
     #[cfg(feature = "events")]
@@ -163,6 +197,18 @@ where
     pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
         self.events_publisher = Some(events_publisher);
         self
+    }
+
+    fn sync_layout(&mut self, ui: &mut Ui) {
+        ui.data_mut(|data| {
+            let state = data
+                .get_persisted::<S>(Id::new(KEY_LAYOUT))
+                .unwrap_or_default();
+            let mut layout = L::from_state(state);
+            layout.next(self.g);
+
+            data.insert_persisted(Id::new(KEY_LAYOUT), layout.state());
+        });
     }
 
     fn sync_state(&mut self, meta: &mut Metadata) {

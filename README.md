@@ -16,7 +16,7 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 - [x] Style configuration via egui context styles;
 - [x] Dark/Light theme support via egui context styles;
 - [x] Events reporting to extend the graph functionality by the user handling them;
-- [ ] Layots and custom layout mechanism;
+- [x] Layots and custom layout mechanism;
 
 ## Status
 The project is on track for a stable release v1.0.0. For the moment, breaking releases are very possible.
@@ -25,19 +25,13 @@ Please use master branch for the latest updates.
 
 Check the [demo example](https://github.com/blitzarx1/egui_graphs/tree/master/examples/demo) for the comprehensive overview of the widget possibilities.
 
-## Features
-### Events
-Can be enabled with `events` feature. Events describe a change made in graph whether it changed zoom level or node dragging. 
+## Layouts
+In addition to the basic graph display functionality, the project provides a layout mechanism to arrange the nodes in the graph. The `Layout` trait can be implemented by the library user allowing for custom layouts. The following layouts are coming from the box:
+- [x] Random layout;
+- [x] Hierarchical layout;
+- [ ] Force-directed layout; (coming soon)
 
-Combining this feature with custom node draw function allows to implement custom node behavior and drawing according to the events happening.
-
-## Egui crates features support
-### Persistence
-To use egui `persistence` feature you need to enable `egui_persistence` feature of this crate. For example:
-```toml
-egui_graphs = { version = "0.22", features = ["egui_persistence"]}
-egui = {version="0.29", features = ["persistence"]}
-```
+Check the [layouts example](https://github.com/blitzarx1/egui_graphs/blob/master/examples/layouts/src/main.rs).
 
 ## Examples
 ### Basic setup example
@@ -54,17 +48,18 @@ pub struct BasicApp {
 Next, implement the `new()` function for the `BasicApp` struct.
 ```rust
 impl BasicApp {
-    fn new(_: &CreationContext<'_>) -> Self {
-        Self { g: generate_graph() }
+    fn new(_: &eframe::CreationContext<'_>) -> Self {
+        let g = generate_graph();
+        Self { g: egui_graphs::Graph::from(&g) }
     }
 }
 ```
 
 #### Step 3: Generating the graph. 
-Create a helper function called `generate_graph()`. In this example, we create three nodes with and three edges connecting them in a triangular pattern.
+Create a helper function called `generate_graph()`. In this example, we create three nodes and three edges.
 ```rust 
-fn generate_graph() -> egui_graphs::Graph {
-    let mut g = petgraph::stable_graph::StableGraph::new();
+fn generate_graph() -> petgraph::StableGraph<(), ()> {
+    let mut g = petgraph::StableGraph::new();
 
     let a = g.add_node(());
     let b = g.add_node(());
@@ -74,7 +69,7 @@ fn generate_graph() -> egui_graphs::Graph {
     g.add_edge(b, c, ());
     g.add_edge(c, a, ());
 
-    Graph::from(&g)
+    g
 }
 ```
 
@@ -91,13 +86,12 @@ impl eframe::App for BasicApp {
 ```
 
 #### Step 5: Running the application. 
-Finally, run the application using the `eframe::run_native()` function with the specified native options and the `BasicApp`.
+Finally, run the application using the `eframe::run_native()` function.
 ```rust 
 fn main() {
-    let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "egui_graphs_basic_demo",
-        native_options,
+        eframe::NativeOptions::default(),
         Box::new(|cc| Ok(Box::new(BasicApp::new(cc)))),
     )
     .unwrap();
@@ -106,3 +100,9 @@ fn main() {
 
 ![Screenshot 2023-10-14 at 23 49 49](https://github.com/blitzarx1/egui_graphs/assets/32969427/584b78de-bca3-421b-b003-9321fd3e1b13)
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
+
+## Features
+### Events
+Can be enabled with `events` feature. Events describe a change made in graph whether it changed zoom level or node dragging. 
+
+Combining this feature with custom node draw function allows to implement custom node behavior and drawing according to the events happening.

@@ -1,6 +1,6 @@
-use eframe::{run_native, App, CreationContext};
+use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui::Context;
-use egui_graphs::{Graph, GraphView};
+use egui_graphs::{DefaultGraphView, Graph};
 use petgraph::stable_graph::StableGraph;
 
 pub struct BasicApp {
@@ -9,21 +9,20 @@ pub struct BasicApp {
 
 impl BasicApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        Self {
-            g: generate_graph(),
-        }
+        let g = generate_graph();
+        Self { g: Graph::from(&g) }
     }
 }
 
 impl App for BasicApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut GraphView::new(&mut self.g));
+            ui.add(&mut DefaultGraphView::new(&mut self.g));
         });
     }
 }
 
-fn generate_graph() -> Graph {
+fn generate_graph() -> StableGraph<(), ()> {
     let mut g = StableGraph::new();
 
     let a = g.add_node(());
@@ -34,14 +33,13 @@ fn generate_graph() -> Graph {
     g.add_edge(b, c, ());
     g.add_edge(c, a, ());
 
-    Graph::from(&g)
+    g
 }
 
 fn main() {
-    let native_options = eframe::NativeOptions::default();
     run_native(
         "egui_graphs_basic_demo",
-        native_options,
+        NativeOptions::default(),
         Box::new(|cc| Ok(Box::new(BasicApp::new(cc)))),
     )
     .unwrap();
