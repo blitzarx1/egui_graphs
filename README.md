@@ -31,6 +31,8 @@ In addition to the basic graph display functionality, the project provides a lay
 - [x] Hierarchical layout;
 - [ ] Force-directed layout; (coming soon)
 
+![Screenshot 2024-10-28 at 3 57 05 PM](https://github.com/user-attachments/assets/48614f43-4436-42eb-a238-af196d2044b4)
+
 Check the [layouts example](https://github.com/blitzarx1/egui_graphs/blob/master/examples/layouts/src/main.rs).
 
 ## Examples
