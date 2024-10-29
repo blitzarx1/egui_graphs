@@ -12,8 +12,8 @@ pub use elements::{Edge, EdgeProps, Node, NodeProps};
 pub use graph::Graph;
 pub use graph_view::{DefaultGraphView, GraphView};
 pub use helpers::{
-    add_edge, add_edge_custom, add_node, add_node_custom, default_edge_transform,
-    default_node_transform, node_size, random_graph, to_graph, to_graph_custom,
+    default_edge_transform, default_node_transform, node_size, random_graph, to_graph,
+    to_graph_custom,
 };
 pub use layouts::hierarchical::{
     Hierarchical as LayoutHierarchical, State as LayoutStateHierarchical,

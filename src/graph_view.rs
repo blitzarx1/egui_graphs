@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{collections::HashSet, marker::PhantomData};
 
 use crate::{
     draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
@@ -96,10 +96,14 @@ where
     L: Layout<S>,
 {
     fn ui(self, ui: &mut Ui) -> Response {
-        self.sync_layout(ui);
-
         let mut meta = Metadata::load(ui);
         self.sync_state(&mut meta);
+
+        GraphView::<N, E, Ty, Ix, Nd, Ed, S, L>::sync_layout(
+            ui,
+            self.g,
+            &self.g.new_nodes_no_location().iter().copied().collect(),
+        );
 
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         self.handle_fit_to_screen(&resp, &mut meta);
@@ -174,10 +178,10 @@ where
         self
     }
 
-    /// Clears cached values of layout and metadata.
-    pub fn clear_cache(ui: &mut Ui) {
+    /// Clears cached values of layout and metadata. Usefull when you want to switch between different layouts.
+    pub fn clear_cache(&mut self, ui: &mut Ui) {
         GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_metadata(ui);
-        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_layout(ui);
+        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_layout(ui, self.g);
     }
 
     /// Resets navigation metadata
@@ -186,10 +190,12 @@ where
     }
 
     /// Resets layout state
-    pub fn reset_layout(ui: &mut Ui) {
+    pub fn reset_layout(ui: &mut Ui, g: &mut Graph<N, E, Ty, Ix, Dn, De>) {
         ui.data_mut(|data| {
             data.insert_persisted(Id::new(KEY_LAYOUT), S::default());
         });
+
+        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::sync_layout(ui, g, &g.node_indices().collect());
     }
 
     #[cfg(feature = "events")]
@@ -199,13 +205,17 @@ where
         self
     }
 
-    fn sync_layout(&mut self, ui: &mut Ui) {
+    fn sync_layout(
+        ui: &mut Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        not_placed: &HashSet<NodeIndex<Ix>>,
+    ) {
         ui.data_mut(|data| {
             let state = data
                 .get_persisted::<S>(Id::new(KEY_LAYOUT))
                 .unwrap_or_default();
             let mut layout = L::from_state(state);
-            layout.next(self.g);
+            layout.next(g, not_placed);
 
             data.insert_persisted(Id::new(KEY_LAYOUT), layout.state());
         });

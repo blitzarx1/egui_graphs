@@ -10,3 +10,4 @@ egui_graphs = { path = "../.." }
 egui = "0.30"
 eframe = "0.30"
 petgraph = "0.6"
+rand = "0.8.5"

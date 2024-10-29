@@ -2,103 +2,12 @@ use crate::{DisplayEdge, DisplayNode, Edge, Graph, Node};
 use egui::Vec2;
 use petgraph::{
     graph::IndexType,
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
+    stable_graph::{NodeIndex, StableGraph},
     visit::IntoNodeReferences,
     EdgeType,
 };
 use rand::Rng;
 use std::collections::HashMap;
-
-/// Helper function which adds user's node to the [`super::Graph`] instance.
-///
-/// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-pub fn add_node<N, E, Ty, Ix, Dn, De>(g: &mut Graph<N, E, Ty, Ix, Dn, De>, n: &N) -> NodeIndex<Ix>
-where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
-{
-    add_node_custom(g, n, default_node_transform)
-}
-
-/// Helper function which adds user's node to the [`super::Graph`] instance with custom node transform function.
-///
-/// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-pub fn add_node_custom<N, E, Ty, Ix, Dn, De>(
-    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-    n: &N,
-    node_transform: impl FnOnce(&mut Node<N, E, Ty, Ix, Dn>),
-) -> NodeIndex<Ix>
-where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
-{
-    let idx = NodeIndex::new(g.g.node_count() + 1);
-    let mut n = Node::new(n.clone());
-
-    n.set_id(idx);
-
-    node_transform(&mut n);
-
-    g.g.add_node(n)
-}
-
-/// Helper function which adds user's edge to the [`super::Graph`] instance.
-pub fn add_edge<N, E, Ty, Ix, Dn, De>(
-    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-    start: NodeIndex<Ix>,
-    end: NodeIndex<Ix>,
-    e: &E,
-) -> EdgeIndex<Ix>
-where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
-{
-    add_edge_custom(
-        g,
-        start,
-        end,
-        e,
-        default_edge_transform::<N, E, Ty, Ix, Dn, De>,
-    )
-}
-
-/// Helper function which adds user's edge to the [`super::Graph`] instance with custom edge transform function.
-pub fn add_edge_custom<N, E, Ty, Ix, Dn, De>(
-    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-    start: NodeIndex<Ix>,
-    end: NodeIndex<Ix>,
-    e: &E,
-    edge_transform: impl FnOnce(&mut Edge<N, E, Ty, Ix, Dn, De>),
-) -> EdgeIndex<Ix>
-where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
-{
-    let mut edge = Edge::new(e.clone());
-
-    edge.set_id(EdgeIndex::<Ix>::new(g.g.edge_count() + 1));
-    edge.set_order(g.g.edges_connecting(start, end).count());
-
-    edge_transform(&mut edge);
-
-    g.g.add_edge(start, end, edge)
-}
 
 /// Helper function which transforms [`petgraph::stable_graph::StableGraph`] into the [`super::Graph`] required by the [`super::GraphView`] widget.
 ///
@@ -251,7 +160,7 @@ pub fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode
     ((connector_right.to_vec2() - connector_left.to_vec2()) / 2.).length()
 }
 
-pub fn random_graph(num_nodes: usize, num_edges: usize) -> Graph {
+pub fn random_graph(num_nodes: usize, num_edges: usize) -> StableGraph<(), ()> {
     let mut rng = rand::thread_rng();
     let mut graph = StableGraph::new();
 
@@ -266,7 +175,7 @@ pub fn random_graph(num_nodes: usize, num_edges: usize) -> Graph {
         graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
     }
 
-    to_graph(&graph)
+    graph
 }
 
 #[cfg(test)]
@@ -287,13 +196,13 @@ mod tests {
 
         let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
 
-        assert_eq!(user_g.node_count(), input_g.g.node_count());
-        assert_eq!(user_g.edge_count(), input_g.g.edge_count());
+        assert_eq!(user_g.node_count(), input_g.node_count());
+        assert_eq!(user_g.edge_count(), input_g.edge_count());
         assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (user_idx, input_idx) in input_g.g.node_indices().zip(user_g.node_indices()) {
+        for (user_idx, input_idx) in input_g.node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.g.node_weight(input_idx).unwrap();
+            let input_n = input_g.node(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
@@ -312,13 +221,13 @@ mod tests {
 
         let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
 
-        assert_eq!(user_g.node_count(), input_g.g.node_count());
-        assert_eq!(user_g.edge_count(), input_g.g.edge_count());
+        assert_eq!(user_g.node_count(), input_g.node_count());
+        assert_eq!(user_g.edge_count(), input_g.edge_count());
         assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (user_idx, input_idx) in input_g.g.node_indices().zip(user_g.node_indices()) {
+        for (user_idx, input_idx) in input_g.node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.g.node_weight(input_idx).unwrap();
+            let input_n = input_g.node(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));

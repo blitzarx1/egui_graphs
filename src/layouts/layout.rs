@@ -1,5 +1,10 @@
+use std::collections::HashSet;
+
 use egui::util::id_type_map::SerializableAny;
-use petgraph::{stable_graph::IndexType, EdgeType};
+use petgraph::{
+    stable_graph::{IndexType, NodeIndex},
+    EdgeType,
+};
 
 use crate::{DisplayEdge, DisplayNode, Graph};
 
@@ -13,8 +18,11 @@ where
     fn from_state(state: S) -> impl Layout<S>;
 
     /// Called on every frame. It should update the graph layout aka nodes locations.
-    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
-    where
+    fn next<N, E, Ty, Ix, Dn, De>(
+        &mut self,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        not_placed: &HashSet<NodeIndex<Ix>>,
+    ) where
         N: Clone,
         E: Clone,
         Ty: EdgeType,
