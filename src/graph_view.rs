@@ -387,6 +387,7 @@ where
             }
         }
 
+        // handle mouse drag
         if resp.dragged()
             && self.g.dragged_node().is_some()
             && (resp.drag_delta().x.abs() > 0. || resp.drag_delta().y.abs() > 0.)
@@ -394,6 +395,18 @@ where
             let n_idx_dragged = self.g.dragged_node().unwrap();
             let delta_in_graph_coords = resp.drag_delta() / meta.zoom;
             self.move_node(n_idx_dragged, delta_in_graph_coords);
+        }
+
+        // compensate movement of the node which is not caused by dragging
+        if let Some(n_idx_dragged) = self.g.dragged_node() {
+            if let Some(mouse_pos) = resp.hover_pos() {
+                if let Some(node) = self.g.node(n_idx_dragged) {
+                    let node_pos = node.location() * meta.zoom + meta.pan;
+                    let delta = mouse_pos - node_pos;
+
+                    self.move_node(n_idx_dragged, delta / meta.zoom);
+                }
+            }
         }
 
         if resp.drag_stopped() && self.g.dragged_node().is_some() {
