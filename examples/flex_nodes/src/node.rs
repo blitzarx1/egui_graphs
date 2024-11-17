@@ -15,7 +15,7 @@ impl<N: Clone> From<NodeProps<N>> for NodeShapeFlex {
     fn from(node_props: NodeProps<N>) -> Self {
         Self {
             label: node_props.label.clone(),
-            loc: node_props.location(),
+            loc: node_props.location,
 
             size_x: 0.,
             size_y: 0.,
@@ -67,7 +67,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix> 
 
     fn update(&mut self, state: &NodeProps<N>) {
         self.label = state.label.clone();
-        self.loc = state.location();
+        self.loc = state.location;
     }
 }
 
