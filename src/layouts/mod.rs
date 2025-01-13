@@ -2,4 +2,4 @@ pub mod hierarchical;
 pub mod random;
 
 mod layout;
-pub use layout::{Layout, LayoutState};
+pub use layout::{Layout, LayoutEvent, LayoutState};

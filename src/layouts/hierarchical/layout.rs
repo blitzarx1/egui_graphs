@@ -10,7 +10,7 @@ use petgraph::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    layouts::{Layout, LayoutState},
+    layouts::{Layout, LayoutEvent, LayoutState},
     DisplayEdge, DisplayNode, Graph,
 };
 
@@ -60,7 +60,7 @@ impl Layout<State> for Hierarchical {
         self.state.clone()
     }
 
-    fn from_state(state: State) -> impl Layout<State> {
+    fn from_state(state: State, _last_events: &[LayoutEvent]) -> impl Layout<State> {
         Hierarchical { state }
     }
 }

@@ -11,7 +11,7 @@ keywords = ["egui", "ui", "graph", "node-graph"]
 categories = ["gui", "visualization"]
 
 [dependencies]
-egui = { version = "0.30.0", default-features = false, features = [
+egui = { version = "0.30", default-features = false, features = [
   "persistence",
 ] }
 rand = "0.8"

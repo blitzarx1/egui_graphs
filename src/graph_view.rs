@@ -2,7 +2,7 @@ use std::{collections::HashSet, marker::PhantomData};
 
 use crate::{
     draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
-    layouts::{self, Layout, LayoutState},
+    layouts::{self, Layout, LayoutEvent, LayoutState},
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
     DisplayEdge, DisplayNode, Graph,
@@ -14,7 +14,7 @@ use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::{graph::IndexType, Directed};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
-const KEY_LAYOUT: &str = "egui_grpahs_layout";
+const KEY_LAYOUT: &str = "egui_graphs_layout";
 
 pub type DefaultGraphView<'a> = GraphView<
     'a,
@@ -97,13 +97,40 @@ where
 {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut meta = Metadata::load(ui);
+
         self.sync_state(&mut meta);
+
+        let mut last_layout_events = vec![];
+        if let Some(events) = &meta.last_layout_events {
+            last_layout_events = events.iter().cloned().collect()
+        };
+
+        let not_placed = &self.g.new_nodes_no_location().iter().copied().collect();
 
         GraphView::<N, E, Ty, Ix, Nd, Ed, S, L>::sync_layout(
             ui,
             self.g,
-            &self.g.new_nodes_no_location().iter().copied().collect(),
+            last_layout_events.as_slice(),
+            not_placed,
         );
+
+        meta.last_layout_events = if let Some(events) = meta.last_layout_events {
+            Some(
+                events
+                    .iter()
+                    .cloned()
+                    .filter_map(|el| {
+                        if el == LayoutEvent::NextCalledOnce {
+                            return None;
+                        }
+
+                        Some(el)
+                    })
+                    .collect(),
+            )
+        } else {
+            Some(vec![LayoutEvent::NextCalledOnce, LayoutEvent::NextCalled])
+        };
 
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         self.handle_fit_to_screen(&resp, &mut meta);
@@ -181,7 +208,7 @@ where
     /// Clears cached values of layout and metadata. Usefull when you want to switch between different layouts.
     pub fn clear_cache(&mut self, ui: &mut Ui) {
         GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_metadata(ui);
-        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_layout(ui, self.g);
+        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_layout(ui);
     }
 
     /// Resets navigation metadata
@@ -190,16 +217,14 @@ where
     }
 
     /// Resets layout state
-    pub fn reset_layout(ui: &mut Ui, g: &mut Graph<N, E, Ty, Ix, Dn, De>) {
+    pub fn reset_layout(ui: &mut Ui) {
         ui.data_mut(|data| {
             data.insert_persisted(Id::new(KEY_LAYOUT), S::default());
         });
-
-        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::sync_layout(ui, g, &g.node_indices().collect());
     }
 
     #[cfg(feature = "events")]
-    /// Allows to supply channel where events happening in the graph will be reported.
+    /// Accepts publisher for reporting events.
     pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
         self.events_publisher = Some(events_publisher);
         self
@@ -208,13 +233,15 @@ where
     fn sync_layout(
         ui: &mut Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        last_layout_events: &[LayoutEvent],
         not_placed: &HashSet<NodeIndex<Ix>>,
     ) {
         ui.data_mut(|data| {
             let state = data
                 .get_persisted::<S>(Id::new(KEY_LAYOUT))
                 .unwrap_or_default();
-            let mut layout = L::from_state(state);
+
+            let mut layout = L::from_state(state, last_layout_events);
             layout.next(g, not_placed);
 
             data.insert_persisted(Id::new(KEY_LAYOUT), layout.state());

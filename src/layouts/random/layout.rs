@@ -6,14 +6,16 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    layouts::{Layout, LayoutState},
+    layouts::{Layout, LayoutEvent, LayoutState},
     Graph,
 };
 
 const SPAWN_SIZE: f32 = 250.;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct State {}
+pub struct State {
+    triggered_once: bool,
+}
 
 impl LayoutState for State {}
 
@@ -36,6 +38,10 @@ impl Layout<State> for Random {
         Dn: crate::DisplayNode<N, E, Ty, Ix>,
         De: crate::DisplayEdge<N, E, Ty, Ix, Dn>,
     {
+        if self.state.triggered_once {
+            return;
+        }
+
         let mut rng = rand::thread_rng();
         for node in g.nodes_mut() {
             let idx = NodeIndex::new(node.id().index());
@@ -54,7 +60,13 @@ impl Layout<State> for Random {
         self.state.clone()
     }
 
-    fn from_state(state: State) -> impl Layout<State> {
+    fn from_state(mut state: State, last_events: &[LayoutEvent]) -> impl Layout<State> {
+        for event in last_events {
+            if *event == LayoutEvent::NextCalledOnce {
+                state.triggered_once = true;
+            }
+        }
+
         Self { state }
     }
 }

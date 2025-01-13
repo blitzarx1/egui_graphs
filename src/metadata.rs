@@ -2,7 +2,7 @@ use egui::{Id, Pos2, Rect, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
 use serde::{Deserialize, Serialize};
 
-use crate::{node_size, DisplayNode, Node};
+use crate::{layouts::LayoutEvent, node_size, DisplayNode, Node};
 
 const KEY: &str = "egui_graphs_metadata";
 
@@ -60,6 +60,8 @@ pub struct Metadata {
     /// Top left position of widget
     pub top_left: Pos2,
 
+    pub last_layout_events: Option<Vec<LayoutEvent>>,
+
     /// State of bounds iteration
     bounds: Bounds,
 }
@@ -72,6 +74,7 @@ impl Default for Metadata {
             pan: Vec2::default(),
             top_left: Pos2::default(),
             bounds: Bounds::default(),
+            last_layout_events: None,
         }
     }
 }
