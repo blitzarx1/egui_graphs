@@ -102,7 +102,7 @@ where
 
         let mut last_layout_events = vec![];
         if let Some(events) = &meta.last_layout_events {
-            last_layout_events = events.iter().cloned().collect()
+            last_layout_events = events.clone();
         };
 
         let not_placed = &self.g.new_nodes_no_location().iter().copied().collect();
