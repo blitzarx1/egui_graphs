@@ -100,37 +100,8 @@ where
 
         self.sync_state(&mut meta);
 
-        let mut last_layout_events = vec![];
-        if let Some(events) = &meta.last_layout_events {
-            last_layout_events = events.clone();
-        };
-
         let not_placed = &self.g.new_nodes_no_location().iter().copied().collect();
-
-        GraphView::<N, E, Ty, Ix, Nd, Ed, S, L>::sync_layout(
-            ui,
-            self.g,
-            last_layout_events.as_slice(),
-            not_placed,
-        );
-
-        meta.last_layout_events = if let Some(events) = meta.last_layout_events {
-            Some(
-                events
-                    .iter()
-                    .cloned()
-                    .filter_map(|el| {
-                        if el == LayoutEvent::NextCalledOnce {
-                            return None;
-                        }
-
-                        Some(el)
-                    })
-                    .collect(),
-            )
-        } else {
-            Some(vec![LayoutEvent::NextCalledOnce, LayoutEvent::NextCalled])
-        };
+        GraphView::<N, E, Ty, Ix, Nd, Ed, S, L>::sync_layout(ui, &mut meta, self.g, not_placed);
 
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         self.handle_fit_to_screen(&resp, &mut meta);
@@ -232,8 +203,8 @@ where
 
     fn sync_layout(
         ui: &mut Ui,
+        meta: &mut Metadata,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-        last_layout_events: &[LayoutEvent],
         not_placed: &HashSet<NodeIndex<Ix>>,
     ) {
         ui.data_mut(|data| {
@@ -241,8 +212,31 @@ where
                 .get_persisted::<S>(Id::new(KEY_LAYOUT))
                 .unwrap_or_default();
 
-            let mut layout = L::from_state(state, last_layout_events);
+            let mut last_layout_events = vec![];
+            if let Some(events) = &meta.last_layout_events {
+                last_layout_events.clone_from(events);
+            };
+
+            let mut layout = L::from_state(state, last_layout_events.as_slice());
             layout.next(g, not_placed);
+
+            meta.last_layout_events = if let Some(events) = &meta.last_layout_events {
+                Some(
+                    events
+                        .iter()
+                        .cloned()
+                        .filter_map(|el| {
+                            if el == LayoutEvent::NextCalledOnce {
+                                return None;
+                            }
+
+                            Some(el)
+                        })
+                        .collect(),
+                )
+            } else {
+                Some(vec![LayoutEvent::NextCalledOnce, LayoutEvent::NextCalled])
+            };
 
             data.insert_persisted(Id::new(KEY_LAYOUT), layout.state());
         });
