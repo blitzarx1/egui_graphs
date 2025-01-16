@@ -477,6 +477,7 @@ where
         });
     }
 
+    // FIXES PAN
     fn handle_pan(&self, resp: &Response, meta: &mut Metadata) {
         if !self.settings_navigation.zoom_and_pan_enabled {
             return;
@@ -485,6 +486,10 @@ where
         if (resp.dragged_by(PointerButton::Middle) || resp.dragged_by(PointerButton::Primary))
             && self.g.dragged_node().is_none()
             && (resp.drag_delta().x.abs() > 0. || resp.drag_delta().y.abs() > 0.)
+            && !(self.settings_interaction.dragging_enabled                                       // ADD
+                && resp.drag_started()                                                            // ADD
+                && self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap()).is_some())
+        // ADD
         {
             let new_pan = meta.pan + resp.drag_delta();
             self.set_pan(new_pan, meta);
