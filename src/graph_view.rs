@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, thread::sleep, time::Duration};
+use std::marker::PhantomData;
 
 use crate::{
     draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
@@ -491,8 +491,7 @@ where
         });
     }
 
-    // FIXES PAN
-    fn handle_pan(&mut self, resp: &Response, meta: &mut Metadata) {
+    fn handle_pan(&self, resp: &Response, meta: &mut Metadata) {
         if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
