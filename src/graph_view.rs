@@ -385,7 +385,6 @@ where
                 self.g.set_dragged_node(node_hover_index);
             }
         } else if !resp.is_pointer_button_down_on {
-            println!("clicked");
             match self.g.dragged_node() {
                 Some(dragged_node) => {
                     self.set_drag_end(dragged_node);
