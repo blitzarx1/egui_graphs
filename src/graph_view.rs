@@ -374,16 +374,17 @@ where
             return;
         }
 
-        if (resp.is_pointer_button_down_on
-            && self
-                .g
-                .node_by_screen_pos(meta, resp.hover_pos().unwrap())
-                .is_some())
-            || resp.drag_started()
-        {
-            if let Some(idx) = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap()) {
-                self.set_drag_start(idx);
-                self.g.set_dragged_node(Some(idx));
+        // println!("{}", resp);
+        let node_hover_index = match resp.hover_pos() {
+            Some(hover_pos) => self.g.node_by_screen_pos(meta, hover_pos),
+            None => None,
+            // || resp.drag_started()
+        };
+        if resp.is_pointer_button_down_on && node_hover_index.is_some() {
+            // self.g.node(node_hover_index);
+            if self.g.dragged_node().is_none() {
+                self.set_drag_start(node_hover_index.unwrap());
+                self.g.set_dragged_node(node_hover_index);
             }
         }
 
@@ -490,7 +491,6 @@ where
             return;
         }
 
-        println!("{:?}", self.g.dragged_node());
         if (resp.dragged_by(PointerButton::Middle) || resp.dragged_by(PointerButton::Primary))
             && self.g.dragged_node().is_none()
         {
