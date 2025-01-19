@@ -6,7 +6,7 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-egui_graphs = "0.22"
+egui_graphs = { path = "../..", features = ["events"] }
 egui = "0.30"
 eframe = "0.30"
 serde_json = "1.0"

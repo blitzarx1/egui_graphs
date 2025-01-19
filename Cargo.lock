@@ -2080,7 +2080,7 @@ dependencies = [
  "crossbeam",
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "egui_graphs 0.22.0",
  "fdg",
  "petgraph",
  "rand",
@@ -2156,15 +2156,6 @@ dependencies = [
 
 [[package]]
 name = "ecolor"
-version = "0.29.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "775cfde491852059e386c4e1deb4aef381c617dc364184c6f6afee99b87c402b"
-dependencies = [
- "emath 0.29.1",
-]
-
-[[package]]
-name = "ecolor"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d72e9c39f6e11a2e922d04a34ec5e7ef522ea3f5a1acfca7a19d16ad5fe50f5"
@@ -2219,18 +2210,6 @@ dependencies = [
  "ahash",
  "emath 0.28.1",
  "epaint 0.28.1",
- "nohash-hasher",
-]
-
-[[package]]
-name = "egui"
-version = "0.29.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53eafabcce0cb2325a59a98736efe0bf060585b437763f8c476957fb274bb974"
-dependencies = [
- "ahash",
- "emath 0.29.1",
- "epaint 0.29.1",
  "nohash-hasher",
 ]
 
@@ -2331,17 +2310,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui_graphs"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6079f2ff6c653337fa3105153dde43e4f139abdb9ca5f9906f529c928ccd932"
-dependencies = [
- "egui 0.29.1",
- "petgraph",
- "rand",
-]
-
-[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2355,12 +2323,6 @@ checksum = "0a6a21708405ea88f63d8309650b4d77431f4bc28fb9d8e6f77d3963b51249e6"
 dependencies = [
  "bytemuck",
 ]
-
-[[package]]
-name = "emath"
-version = "0.29.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1fe0049ce51d0fb414d029e668dd72eb30bc2b739bf34296ed97bd33df544f3"
 
 [[package]]
 name = "emath"
@@ -2476,20 +2438,6 @@ dependencies = [
  "bytemuck",
  "ecolor 0.28.1",
  "emath 0.28.1",
- "nohash-hasher",
- "parking_lot",
-]
-
-[[package]]
-name = "epaint"
-version = "0.29.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a32af8da821bd4f43f2c137e295459ee2e1661d87ca8779dfa0eaf45d870e20f"
-dependencies = [
- "ab_glyph",
- "ahash",
- "ecolor 0.29.1",
- "emath 0.29.1",
  "nohash-hasher",
  "parking_lot",
 ]
