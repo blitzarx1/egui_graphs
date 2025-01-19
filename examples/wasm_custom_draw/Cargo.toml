@@ -9,7 +9,7 @@ edition = "2021"
 egui_graphs = { path = "../.." }
 egui = "0.30"
 eframe = "0.30"
-petgraph = "0.7.1"
+petgraph = "0.6"
 
 # Wasm related dependencies
 getrandom = { version = "0.2", features = ["js"] }

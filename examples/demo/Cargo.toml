@@ -6,11 +6,11 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-egui_graphs = { path = "../..", features = ["events"] }
+egui_graphs = "0.22"
 egui = "0.30"
 eframe = "0.30"
 serde_json = "1.0"
-petgraph = "0.7.1"
+petgraph = "0.6"
 fdg = { git = "https://github.com/grantshandy/fdg" }
 rand = "0.8"
 crossbeam = "0.8"
