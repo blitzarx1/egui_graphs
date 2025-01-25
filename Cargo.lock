@@ -275,7 +275,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -626,7 +626,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -636,7 +636,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -2080,7 +2080,7 @@ dependencies = [
  "crossbeam",
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "fdg",
  "petgraph",
  "rand",
@@ -2300,7 +2300,7 @@ dependencies = [
 
 [[package]]
 name = "egui_graphs"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "crossbeam",
  "egui 0.30.0",
@@ -2591,7 +2591,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -3322,7 +3322,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -3436,7 +3436,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -3446,7 +3446,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -3667,7 +3667,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -4442,7 +4442,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -5226,7 +5226,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
@@ -5404,7 +5404,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "env_logger",
  "getrandom",
  "instant",
@@ -5828,7 +5828,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.30.0",
- "egui_graphs 0.22.0",
+ "egui_graphs 0.23.0",
  "petgraph",
 ]
 
