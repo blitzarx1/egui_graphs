@@ -263,6 +263,7 @@ where
     }
 
     /// Returns iterator over all edges connecting start and end node.
+    #[allow(clippy::type_complexity)]
     pub fn edges_connecting(
         &self,
         start: NodeIndex<Ix>,
@@ -279,6 +280,7 @@ where
     }
 
     /// Provides iterator over all edges and their indices.
+    #[allow(clippy::type_complexity)]
     pub fn edges_iter(&self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<N, E, Ty, Ix, Dn, De>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }

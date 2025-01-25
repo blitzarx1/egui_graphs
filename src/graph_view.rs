@@ -84,7 +84,7 @@ pub struct GraphView<
     _marker: PhantomData<(Nd, Ed, L, S)>,
 }
 
-impl<'a, N, E, Ty, Ix, Nd, Ed, S, L> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed, S, L>
+impl<N, E, Ty, Ix, Nd, Ed, S, L> Widget for &mut GraphView<'_, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
