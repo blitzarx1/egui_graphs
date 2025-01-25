@@ -6,9 +6,9 @@ license = "MIT"
 edition = "2021"
 
 [dependencies]
-egui_graphs = { path = "../../" }
-egui = "0.29"
-eframe = "0.29"
+egui_graphs = { path = "../.." }
+egui = "0.30"
+eframe = "0.30"
 petgraph = "0.6"
 
 # Wasm related dependencies
