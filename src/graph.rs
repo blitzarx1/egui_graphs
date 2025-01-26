@@ -35,10 +35,13 @@ pub struct Graph<
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    pub g: StableGraphType<N, E, Ty, Ix, Dn, De>,
+    g: StableGraphType<N, E, Ty, Ix, Dn, De>,
     selected_nodes: Vec<NodeIndex<Ix>>,
     selected_edges: Vec<EdgeIndex<Ix>>,
     dragged_node: Option<NodeIndex<Ix>>,
+    new_nodes: Vec<NodeIndex<Ix>>,
+    new_nodes_no_location: Vec<NodeIndex<Ix>>,
+    removed_nodes: Vec<NodeIndex<Ix>>,
 }
 
 impl<N, E, Ty, Ix, Dn, De> From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
@@ -65,12 +68,35 @@ where
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
     pub fn new(g: StableGraphType<N, E, Ty, Ix, Dn, De>) -> Self {
+        let new_nodes = g.node_indices().collect::<Vec<_>>();
+        let new_nodes_no_location = g.node_indices().collect::<Vec<_>>();
+
         Self {
             g,
+            new_nodes,
+            new_nodes_no_location,
+
             selected_nodes: Vec::default(),
             selected_edges: Vec::default(),
             dragged_node: Option::default(),
+            removed_nodes: Vec::default(),
         }
+    }
+
+    pub fn graph(&self) -> &StableGraphType<N, E, Ty, Ix, Dn, De> {
+        &self.g
+    }
+
+    pub fn new_nodes(&self) -> &Vec<NodeIndex<Ix>> {
+        &self.new_nodes
+    }
+
+    pub fn new_nodes_no_location(&self) -> &Vec<NodeIndex<Ix>> {
+        &self.new_nodes_no_location
+    }
+
+    pub fn removed_nodes(&self) -> &Vec<NodeIndex<Ix>> {
+        &self.removed_nodes
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
@@ -119,6 +145,9 @@ where
         graph_node.set_location(Pos2::default());
         graph_node.set_label(idx.index().to_string());
 
+        self.new_nodes.push(idx);
+        self.new_nodes_no_location.push(idx);
+
         idx
     }
 
@@ -133,6 +162,8 @@ where
         graph_node.set_id(idx);
         graph_node.set_location(location);
         graph_node.set_label(idx.index().to_string());
+
+        self.new_nodes.push(idx);
 
         idx
     }
@@ -159,6 +190,8 @@ where
         graph_node.set_location(location);
         graph_node.set_label(label);
 
+        self.new_nodes.push(idx);
+
         idx
     }
 
@@ -170,6 +203,8 @@ where
             self.remove_edges_between(idx, *n);
             self.remove_edges_between(*n, idx);
         }
+
+        self.removed_nodes.push(idx);
 
         self.g.remove_node(idx)
     }
@@ -301,6 +336,10 @@ where
         self.g.node_weight_mut(i)
     }
 
+    pub fn nodes_mut(&mut self) -> impl Iterator<Item = &mut Node<N, E, Ty, Ix, Dn>> {
+        self.g.node_weights_mut()
+    }
+
     pub fn edge_mut(&mut self, i: EdgeIndex<Ix>) -> Option<&mut Edge<N, E, Ty, Ix, Dn, De>> {
         self.g.edge_weight_mut(i)
     }
@@ -351,5 +390,25 @@ where
 
     pub fn node_count(&self) -> usize {
         self.g.node_count()
+    }
+
+    pub fn node_indices(&self) -> impl Iterator<Item = NodeIndex<Ix>> + '_ {
+        self.g.node_indices()
+    }
+
+    pub fn edge_indices(&self) -> impl Iterator<Item = EdgeIndex<Ix>> + '_ {
+        self.g.edge_indices()
+    }
+
+    pub fn externals(&self, dir: Direction) -> impl Iterator<Item = NodeIndex<Ix>> + '_ {
+        self.g.externals(dir)
+    }
+
+    pub fn neighbors_directed(
+        &self,
+        idx: NodeIndex<Ix>,
+        dir: Direction,
+    ) -> impl Iterator<Item = NodeIndex<Ix>> + '_ {
+        self.g.neighbors_directed(idx, dir)
     }
 }

@@ -5,7 +5,7 @@ use drawers::ValuesSectionDebug;
 use eframe::{run_native, App, CreationContext};
 use egui::{CollapsingHeader, Context, Pos2, ScrollArea, Ui, Vec2};
 use egui_graphs::events::Event;
-use egui_graphs::{random_graph, DefaultGraphView, Edge, Graph, Node};
+use egui_graphs::{random_graph, to_graph, DefaultGraphView, Edge, Graph, Node};
 use fdg::fruchterman_reingold::{FruchtermanReingold, FruchtermanReingoldConfiguration};
 use fdg::nalgebra::{Const, OPoint};
 use fdg::{Force, ForceGraph};
@@ -50,12 +50,15 @@ impl DemoApp {
         let settings_graph = settings::SettingsGraph::default();
         let settings_simulation = settings::SettingsSimulation::default();
 
-        let mut g = random_graph(settings_graph.count_node, settings_graph.count_edge);
+        let mut g = to_graph(&random_graph(
+            settings_graph.count_node,
+            settings_graph.count_edge,
+        ));
 
         let mut force = init_force(&settings_simulation);
-        let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
+        let mut sim = fdg::init_force_graph_uniform(g.graph().clone(), 1.0);
         force.apply(&mut sim);
-        g.g.node_weights_mut().for_each(|node| {
+        g.nodes_mut().for_each(|node| {
             let point: fdg::nalgebra::OPoint<f32, fdg::nalgebra::Const<2>> =
                 sim.node_weight(node.id()).unwrap().1;
             node.set_location(Pos2::new(point.coords.x, point.coords.y));
@@ -102,7 +105,7 @@ impl DemoApp {
 
     /// sync locations computed by the simulation with egui_graphs::Graph nodes.
     fn sync(&mut self) {
-        self.g.g.node_weights_mut().for_each(|node| {
+        self.g.nodes_mut().for_each(|node| {
             let sim_computed_point: OPoint<f32, Const<2>> =
                 self.sim.node_weight(node.id()).unwrap().1;
             node.set_location(Pos2::new(
@@ -151,7 +154,7 @@ impl DemoApp {
         }
 
         let random_n_idx = rand::thread_rng().gen_range(0..nodes_cnt);
-        self.g.g.node_indices().nth(random_n_idx)
+        self.g.node_indices().nth(random_n_idx)
     }
 
     fn random_edge_idx(&self) -> Option<EdgeIndex> {
@@ -161,7 +164,7 @@ impl DemoApp {
         }
 
         let random_e_idx = rand::thread_rng().gen_range(0..edges_cnt);
-        self.g.g.edge_indices().nth(random_e_idx)
+        self.g.edge_indices().nth(random_e_idx)
     }
 
     fn remove_random_node(&mut self) {
@@ -447,12 +450,15 @@ impl DemoApp {
         let settings_graph = settings::SettingsGraph::default();
         let settings_simulation = settings::SettingsSimulation::default();
 
-        let mut g = random_graph(settings_graph.count_node, settings_graph.count_edge);
+        let mut g = to_graph(&random_graph(
+            settings_graph.count_node,
+            settings_graph.count_edge,
+        ));
 
         let mut force = init_force(&self.settings_simulation);
-        let mut sim = fdg::init_force_graph_uniform(g.g.clone(), 1.0);
+        let mut sim = fdg::init_force_graph_uniform(g.graph().clone(), 1.0);
         force.apply(&mut sim);
-        g.g.node_weights_mut().for_each(|node| {
+        g.nodes_mut().for_each(|node| {
             let point: fdg::nalgebra::OPoint<f32, fdg::nalgebra::Const<2>> =
                 sim.node_weight(node.id()).unwrap().1;
             node.set_location(Pos2::new(point.coords.x, point.coords.y));

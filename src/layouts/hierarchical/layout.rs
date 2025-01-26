@@ -10,7 +10,7 @@ use petgraph::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    layouts::{Layout, LayoutState},
+    layouts::{Layout, LayoutEvent, LayoutState},
     DisplayEdge, DisplayNode, Graph,
 };
 
@@ -18,9 +18,7 @@ const ROW_DIST: usize = 50;
 const NODE_DIST: usize = 50;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct State {
-    triggered: bool,
-}
+pub struct State {}
 
 impl LayoutState for State {}
 
@@ -30,8 +28,11 @@ pub struct Hierarchical {
 }
 
 impl Layout<State> for Hierarchical {
-    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
-    where
+    fn next<N, E, Ty, Ix, Dn, De>(
+        &mut self,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        not_placed: &HashSet<NodeIndex<Ix>>,
+    ) where
         N: Clone,
         E: Clone,
         Ty: EdgeType,
@@ -39,33 +40,27 @@ impl Layout<State> for Hierarchical {
         Dn: DisplayNode<N, E, Ty, Ix>,
         De: DisplayEdge<N, E, Ty, Ix, Dn>,
     {
-        if self.state.triggered {
-            return;
-        }
-
         let mut visited = HashSet::new();
         let mut max_col = 0;
-        g.g.externals(Incoming)
+        g.externals(Incoming)
             .collect::<Vec<NodeIndex<Ix>>>()
             .iter()
             .enumerate()
             .for_each(|(i, root_idx)| {
                 visited.insert(*root_idx);
 
-                let curr_max_col = build_tree(g, &mut visited, root_idx, 0, i);
+                let curr_max_col = build_tree(g, &mut visited, not_placed, root_idx, 0, i);
                 if curr_max_col > max_col {
                     max_col = curr_max_col;
                 };
             });
-
-        self.state.triggered = true;
     }
 
     fn state(&self) -> State {
         self.state.clone()
     }
 
-    fn from_state(state: State) -> impl Layout<State> {
+    fn from_state(state: State, _last_events: &[LayoutEvent]) -> impl Layout<State> {
         Hierarchical { state }
     }
 }
@@ -73,6 +68,7 @@ impl Layout<State> for Hierarchical {
 fn build_tree<N, E, Ty, Ix, Dn, De>(
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     visited: &mut HashSet<NodeIndex<Ix>>,
+    not_placed: &HashSet<NodeIndex<Ix>>,
     root_idx: &NodeIndex<Ix>,
     start_row: usize,
     start_col: usize,
@@ -85,14 +81,19 @@ where
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
+    let placed_idx = NodeIndex::new(root_idx.index());
+    if !not_placed.contains(&placed_idx) {
+        return start_col;
+    };
+
     let y = start_row * ROW_DIST;
     let x = start_col * NODE_DIST;
 
-    let node = &mut g.g[*root_idx];
-    node.set_layout_location(Pos2::new(x as f32, y as f32));
+    let node = g.node_mut(*root_idx).unwrap();
+    node.set_location(Pos2::new(x as f32, y as f32));
 
     let mut max_col = start_col;
-    g.g.neighbors_directed(*root_idx, Outgoing)
+    g.neighbors_directed(*root_idx, Outgoing)
         .collect::<Vec<NodeIndex<Ix>>>()
         .iter()
         .enumerate()
@@ -103,7 +104,14 @@ where
 
             visited.insert(*neighbour_idx);
 
-            let curr_max_col = build_tree(g, visited, neighbour_idx, start_row + 1, start_col + i);
+            let curr_max_col = build_tree(
+                g,
+                visited,
+                not_placed,
+                neighbour_idx,
+                start_row + 1,
+                start_col + i,
+            );
             if curr_max_col > max_col {
                 max_col = curr_max_col;
             };

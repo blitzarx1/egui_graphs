@@ -1,10 +1,11 @@
 use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui::Context;
 use egui_graphs::{
-    random_graph, DefaultEdgeShape, DefaultNodeShape, Graph, GraphView, LayoutHierarchical,
-    LayoutRandom, LayoutStateHierarchical, LayoutStateRandom,
+    random_graph, to_graph, DefaultEdgeShape, DefaultNodeShape, Graph, GraphView,
+    LayoutHierarchical, LayoutRandom, LayoutStateHierarchical, LayoutStateRandom,
 };
 use petgraph::{stable_graph::DefaultIx, Directed};
+use rand::Rng;
 
 #[derive(Clone, PartialEq)]
 enum Layout {
@@ -21,6 +22,7 @@ struct Settings {
 pub struct LayoutsApp {
     settings: Settings,
     g: Graph,
+    reset_cache: bool,
 }
 
 impl LayoutsApp {
@@ -30,39 +32,12 @@ impl LayoutsApp {
             num_nodes: 25,
             num_edges: 25,
         };
+        let g = to_graph(&random_graph(settings.num_nodes, settings.num_edges));
         Self {
+            g,
             settings: settings.clone(),
-            g: random_graph(settings.num_nodes, settings.num_edges),
+            reset_cache: false,
         }
-    }
-
-    fn clear_cache(&mut self, ui: &mut egui::Ui) {
-        match self.settings.layout {
-            Layout::Hierarchical => {
-                GraphView::<
-                    (),
-                    (),
-                    Directed,
-                    DefaultIx,
-                    DefaultNodeShape,
-                    DefaultEdgeShape,
-                    LayoutStateHierarchical,
-                    LayoutHierarchical,
-                >::clear_cache(ui);
-            }
-            Layout::Random => {
-                GraphView::<
-                    (),
-                    (),
-                    Directed,
-                    DefaultIx,
-                    DefaultNodeShape,
-                    DefaultEdgeShape,
-                    LayoutStateRandom,
-                    LayoutRandom,
-                >::clear_cache(ui);
-            }
-        };
     }
 }
 
@@ -82,33 +57,68 @@ impl App for LayoutsApp {
                             )
                             .changed()
                         {
-                            self.clear_cache(ui);
+                            self.reset_cache = true;
                         };
                         if ui
                             .radio_value(&mut self.settings.layout, Layout::Random, "Random")
                             .changed()
                         {
-                            self.clear_cache(ui);
+                            self.reset_cache = true;
                         };
                     });
                     ui.horizontal(|ui| {
                         ui.label("Number of nodes");
-                        if ui
-                            .add(egui::Slider::new(&mut self.settings.num_nodes, 1..=250))
-                            .changed()
-                        {
-                            self.clear_cache(ui);
-                            self.g = random_graph(self.settings.num_nodes, self.settings.num_edges);
+                        let mut value = self.settings.num_nodes;
+                        if ui.add(egui::Slider::new(&mut value, 1..=250)).changed() {
+                            let delta = value as isize - self.settings.num_nodes as isize;
+                            if delta > 0 {
+                                for _ in 0..delta {
+                                    self.g.add_node(());
+                                }
+                            } else {
+                                for _ in 0..-delta {
+                                    let idx = self.g.node_indices().last().unwrap();
+                                    self.g.remove_node(idx);
+                                }
+                            }
+
+                            self.settings.num_nodes = value;
+                            self.settings.num_edges = self.g.edge_count();
                         };
                     });
                     ui.horizontal(|ui| {
                         ui.label("Number of edges");
-                        if ui
-                            .add(egui::Slider::new(&mut self.settings.num_edges, 1..=250))
-                            .changed()
-                        {
-                            self.clear_cache(ui);
-                            self.g = random_graph(self.settings.num_nodes, self.settings.num_edges);
+                        let mut value = self.settings.num_edges;
+                        if ui.add(egui::Slider::new(&mut value, 1..=250)).changed() {
+                            let delta = value as isize - self.settings.num_edges as isize;
+                            if delta > 0 {
+                                for _ in 0..delta {
+                                    let mut rng = rand::thread_rng();
+                                    let start = self
+                                        .g
+                                        .node_indices()
+                                        .nth(rng.gen_range(0..self.g.node_count()))
+                                        .unwrap();
+                                    let end = self
+                                        .g
+                                        .node_indices()
+                                        .nth(rng.gen_range(0..self.g.node_count()))
+                                        .unwrap();
+                                    self.g.add_edge(start, end, ());
+                                }
+                            } else {
+                                for _ in 0..-delta {
+                                    let idx = self.g.edge_indices().last().unwrap();
+                                    self.g.remove_edge(idx);
+                                }
+                            }
+
+                            self.settings.num_edges = value;
+                        };
+                    });
+                    ui.horizontal(|ui| {
+                        if ui.button("redraw").changed() {
+                            self.reset_cache = true;
                         };
                     });
                 });
@@ -116,7 +126,7 @@ impl App for LayoutsApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             match self.settings.layout {
                 Layout::Hierarchical => {
-                    ui.add(&mut GraphView::<
+                    let w = &mut GraphView::<
                         _,
                         _,
                         _,
@@ -125,19 +135,23 @@ impl App for LayoutsApp {
                         _,
                         LayoutStateHierarchical,
                         LayoutHierarchical,
-                    >::new(&mut self.g));
+                    >::new(&mut self.g);
+                    if self.reset_cache {
+                        w.clear_cache(ui);
+                        self.reset_cache = false;
+                    }
+                    ui.add(w);
                 }
                 Layout::Random => {
-                    ui.add(&mut GraphView::<
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        LayoutStateRandom,
-                        LayoutRandom,
-                    >::new(&mut self.g));
+                    let w =
+                        &mut GraphView::<_, _, _, _, _, _, LayoutStateRandom, LayoutRandom>::new(
+                            &mut self.g,
+                        );
+                    if self.reset_cache {
+                        w.clear_cache(ui);
+                        self.reset_cache = false;
+                    }
+                    ui.add(w);
                 }
             };
         });
