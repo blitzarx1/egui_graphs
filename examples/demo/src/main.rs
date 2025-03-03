@@ -150,7 +150,7 @@ impl DemoApp {
             return None;
         }
 
-        let random_n_idx = rand::thread_rng().gen_range(0..nodes_cnt);
+        let random_n_idx = rand::rng().random_range(0..nodes_cnt);
         self.g.g.node_indices().nth(random_n_idx)
     }
 
@@ -160,7 +160,7 @@ impl DemoApp {
             return None;
         }
 
-        let random_e_idx = rand::thread_rng().gen_range(0..edges_cnt);
+        let random_e_idx = rand::rng().random_range(0..edges_cnt);
         self.g.g.edge_indices().nth(random_e_idx)
     }
 
@@ -178,10 +178,10 @@ impl DemoApp {
         let random_n = self.g.node(random_n_idx.unwrap()).unwrap();
 
         // location of new node is in in the closest surrounding of random existing node
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let location = Pos2::new(
-            random_n.location().x + 10. + rng.gen_range(0. ..50.),
-            random_n.location().y + 10. + rng.gen_range(0. ..50.),
+            random_n.location().x + 10. + rng.random_range(0. ..50.),
+            random_n.location().y + 10. + rng.random_range(0. ..50.),
         );
 
         let g_idx = self.g.add_node_with_location((), location);
