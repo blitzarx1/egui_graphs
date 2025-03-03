@@ -276,7 +276,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -627,7 +627,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -637,7 +637,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -683,7 +683,7 @@ dependencies = [
  "bevy_utils",
  "blake3",
  "fixedbitset 0.5.7",
- "petgraph",
+ "petgraph 0.6.5",
  "ron",
  "serde",
  "thiserror",
@@ -779,7 +779,7 @@ dependencies = [
  "bevy",
  "bevy_egui",
  "egui_graphs 0.21.1",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -879,7 +879,7 @@ dependencies = [
  "concurrent-queue",
  "fixedbitset 0.5.7",
  "nonmax",
- "petgraph",
+ "petgraph 0.6.5",
  "serde",
  "thiserror",
 ]
@@ -1175,7 +1175,7 @@ dependencies = [
  "downcast-rs",
  "erased-serde",
  "glam",
- "petgraph",
+ "petgraph 0.6.5",
  "serde",
  "smallvec",
  "smol_str",
@@ -2082,7 +2082,7 @@ dependencies = [
  "egui 0.30.0",
  "egui_graphs 0.23.0",
  "fdg",
- "petgraph",
+ "petgraph 0.7.1",
  "rand",
  "serde_json",
 ]
@@ -2294,7 +2294,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1908479c6946869bd37be4948545fef74b1a5a86c60e9e693c19e0987839f8d5"
 dependencies = [
  "egui 0.28.1",
- "petgraph",
+ "petgraph 0.6.5",
  "rand",
 ]
 
@@ -2304,7 +2304,7 @@ version = "0.23.0"
 dependencies = [
  "crossbeam",
  "egui 0.30.0",
- "petgraph",
+ "petgraph 0.7.1",
  "rand",
  "serde",
 ]
@@ -2553,11 +2553,11 @@ dependencies = [
 [[package]]
 name = "fdg"
 version = "1.0.0"
-source = "git+https://github.com/grantshandy/fdg#50755f1dea20249d753600e7e7e51ca33e87b5a1"
+source = "git+https://github.com/grantshandy/fdg?rev=44f6c1bce649a67b5b19eb695b92e97a6e49cf2a#44f6c1bce649a67b5b19eb695b92e97a6e49cf2a"
 dependencies = [
  "nalgebra",
  "num-traits",
- "petgraph",
+ "petgraph 0.7.1",
  "rand",
  "rayon",
  "rustc-hash",
@@ -2592,7 +2592,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -3323,7 +3323,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -3437,7 +3437,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -3447,7 +3447,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -3668,7 +3668,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -4278,6 +4278,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "petgraph"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3672b37090dbd86368a4145bc067582552b29c27377cad4e0a306c97f9bd7772"
+dependencies = [
+ "fixedbitset 0.5.7",
+ "indexmap",
+ "serde",
+ "serde_derive",
+]
+
+[[package]]
 name = "pin-project"
 version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4443,7 +4455,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -5227,7 +5239,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]
@@ -5409,7 +5421,7 @@ dependencies = [
  "getrandom",
  "instant",
  "log",
- "petgraph",
+ "petgraph 0.7.1",
  "wasm-bindgen-futures",
 ]
 
@@ -5829,7 +5841,7 @@ dependencies = [
  "eframe",
  "egui 0.30.0",
  "egui_graphs 0.23.0",
- "petgraph",
+ "petgraph 0.7.1",
 ]
 
 [[package]]

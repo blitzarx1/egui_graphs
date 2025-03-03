@@ -9,4 +9,4 @@ edition = "2021"
 egui_graphs = { path = "../.." }
 egui = "0.30"
 eframe = "0.30"
-petgraph = "0.6"
+petgraph = "0.7"
