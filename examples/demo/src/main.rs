@@ -11,7 +11,6 @@ use fdg::nalgebra::{Const, OPoint};
 use fdg::{Force, ForceGraph};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
-use rand::Rng;
 
 mod drawers;
 mod settings;
@@ -150,7 +149,7 @@ impl DemoApp {
             return None;
         }
 
-        let random_n_idx = rand::rng().random_range(0..nodes_cnt);
+        let random_n_idx = fastrand::Rng::new().usize(0..nodes_cnt);
         self.g.g.node_indices().nth(random_n_idx)
     }
 
@@ -160,7 +159,7 @@ impl DemoApp {
             return None;
         }
 
-        let random_e_idx = rand::rng().random_range(0..edges_cnt);
+        let random_e_idx = fastrand::Rng::new().usize(0..edges_cnt);
         self.g.g.edge_indices().nth(random_e_idx)
     }
 
@@ -178,10 +177,10 @@ impl DemoApp {
         let random_n = self.g.node(random_n_idx.unwrap()).unwrap();
 
         // location of new node is in in the closest surrounding of random existing node
-        let mut rng = rand::rng();
+        let mut rng = fastrand::Rng::new();
         let location = Pos2::new(
-            random_n.location().x + 10. + rng.random_range(0. ..50.),
-            random_n.location().y + 10. + rng.random_range(0. ..50.),
+            random_n.location().x + 10. + 50.*rng.f32(),
+            random_n.location().y + 10. + 50.*rng.f32(),
         );
 
         let g_idx = self.g.add_node_with_location((), location);
