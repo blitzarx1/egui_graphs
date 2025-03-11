@@ -36,11 +36,11 @@ impl Layout<State> for Random {
             return;
         }
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for node in g.g.node_weights_mut() {
             node.set_layout_location(Pos2::new(
-                rng.gen_range(0. ..SPAWN_SIZE),
-                rng.gen_range(0. ..SPAWN_SIZE),
+                rng.random_range(0. ..SPAWN_SIZE),
+                rng.random_range(0. ..SPAWN_SIZE),
             ));
         }
 
