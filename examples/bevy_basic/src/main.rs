@@ -46,5 +46,15 @@ fn update_graph(mut contexts: EguiContexts, mut q_graph: Query<&mut BasicGraph>)
     let mut graph = q_graph.single_mut();
 
     egui::CentralPanel::default().show(ctx, |ui| {
-        ui.add(&mut GraphView::<_, _, _, _, _, _, LayoutStateHierarchical, LayoutHierarchical>::new(&mut graph.0));    });
+        ui.add(&mut GraphView::<
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            LayoutStateHierarchical,
+            LayoutHierarchical,
+        >::new(&mut graph.0));
+    });
 }
