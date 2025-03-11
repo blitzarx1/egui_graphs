@@ -16,6 +16,7 @@ egui = { version = "0.31.0", default-features = false, features = [
 ] }
 rand = "0.9"
 petgraph = { version = "0.7", default-features = false, features = [
+  "graphmap",
   "stable_graph",
   "matrix_graph",
   "serde-1",
