@@ -11,11 +11,11 @@ keywords = ["egui", "ui", "graph", "node-graph"]
 categories = ["gui", "visualization"]
 
 [dependencies]
-egui = { version = "0.30.0", default-features = false, features = [
+egui = { version = "0.31.0", default-features = false, features = [
   "persistence",
 ] }
-rand = "0.8"
-petgraph = { version = "0.6", default-features = false, features = [
+rand = "0.9"
+petgraph = { version = "0.7", default-features = false, features = [
   "stable_graph",
   "matrix_graph",
   "serde-1",
