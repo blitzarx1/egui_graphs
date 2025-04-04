@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use egui::Pos2;
 use petgraph::stable_graph::DefaultIx;
 use petgraph::Directed;
@@ -237,6 +239,42 @@ where
         e.set_order(order);
 
         edge_transform(e);
+
+        // check if we have 2 edges between start and end node with 0 order
+        // in this case we need to set increase order by 1 for every edge
+
+        let siblings_ids: Vec<_> = {
+            let mut visited = HashSet::new();
+            self.g
+                .edges_connecting(start, end)
+                .chain(self.g.edges_connecting(end, start))
+                .filter(|e| visited.insert(e.id()))
+                .map(|e| e.id())
+                .collect()
+        };
+
+        let mut had_zero = false;
+        let mut increase_order = false;
+        for id in &siblings_ids {
+            if let Some(edge) = self.g.edge_weight_mut(*id) {
+                if edge.order() == 0 {
+                    if had_zero {
+                        increase_order = true;
+                        break;
+                    }
+
+                    had_zero = true;
+                }
+            }
+        }
+
+        if increase_order {
+            for id in siblings_ids {
+                if let Some(edge) = self.g.edge_weight_mut(id) {
+                    edge.set_order(edge.order() + 1);
+                }
+            }
+        }
 
         idx
     }

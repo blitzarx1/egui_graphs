@@ -52,6 +52,7 @@ fn generate_graph() -> Graph {
     g.add_edge(a, a, ());
     g.add_edge(a, b, ());
     g.add_edge(a, b, ());
+    g.add_edge(c, b, ());
     g.add_edge(b, c, ());
     g.add_edge(c, a, ());
 
