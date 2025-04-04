@@ -52,11 +52,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             return self.is_inside_loop(start, pos);
         }
 
-        let pos_start = start.location();
-        let pos_end = end.location();
-
         if self.order == 0 {
-            return self.is_inside_line(pos_start, pos_end, pos);
+            return self.is_inside_line(start, end, pos);
         }
 
         self.is_inside_curve(start, end, pos)
@@ -236,14 +233,24 @@ impl DefaultEdgeShape {
             .build();
 
         match shape.first() {
-            Some(Shape::CubicBezier(cubic)) => is_point_on_curve(pos, cubic),
+            Some(Shape::CubicBezier(cubic)) => is_point_on_curve(pos, cubic, self.width),
             _ => panic!("invalid shape type"),
         }
     }
 
-    fn is_inside_line(&self, pos_start: Pos2, pos_end: Pos2, pos: Pos2) -> bool {
-        let distance = distance_segment_to_point(pos_start, pos_end, pos);
-        distance <= self.width
+    fn is_inside_line<
+        E: Clone,
+        N: Clone,
+        Ix: IndexType,
+        Ty: EdgeType,
+        D: DisplayNode<N, E, Ty, Ix>,
+    >(
+        &self,
+        start: &Node<N, E, Ty, Ix, D>,
+        end: &Node<N, E, Ty, Ix, D>,
+        pos: Pos2,
+    ) -> bool {
+        distance_segment_to_point(start.location(), end.location(), pos) <= self.width
     }
 
     fn is_inside_curve<
@@ -262,15 +269,16 @@ impl DefaultEdgeShape {
         let start = node_start.display().closest_boundary_point(dir);
         let end = node_end.display().closest_boundary_point(-dir);
 
-        let curved_shapes = EdgeShapeBuilder::new(Stroke::new(self.width, Color32::default()))
+        let stroke = Stroke::new(self.width, Color32::default());
+        let curved_shapes = EdgeShapeBuilder::new(stroke)
             .curved((start, end), self.curve_size, self.order)
             .build();
+
         let curved_shape = match curved_shapes.first() {
             Some(Shape::CubicBezier(curve)) => curve.clone(),
             _ => panic!("invalid shape type"),
         };
-
-        is_point_on_curve(pos, &curved_shape)
+        is_point_on_curve(pos, &curved_shape, self.width)
     }
 }
 
@@ -310,9 +318,9 @@ fn proj(a: Vec2, b: Vec2) -> Vec2 {
     Vec2::new(k * b.x, k * b.y)
 }
 
-fn is_point_on_curve(point: Pos2, curve: &CubicBezierShape) -> bool {
+fn is_point_on_curve(point: Pos2, curve: &CubicBezierShape, tolerance: f32) -> bool {
     for p in curve.flatten(None) {
-        if p.distance(point) < curve.stroke.width {
+        if p.distance(point) < tolerance {
             return true;
         }
     }

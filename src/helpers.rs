@@ -12,6 +12,7 @@ use std::collections::HashMap;
 /// Helper function which adds user's node to the [`super::Graph`] instance.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
+#[deprecated(since = "0.25.0", note = "please use `super::Graph::add_node` instead")]
 pub fn add_node<N, E, Ty, Ix, Dn, De>(g: &mut Graph<N, E, Ty, Ix, Dn, De>, n: &N) -> NodeIndex<Ix>
 where
     N: Clone,
@@ -21,12 +22,17 @@ where
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
+    #[allow(deprecated)]
     add_node_custom(g, n, default_node_transform)
 }
 
 /// Helper function which adds user's node to the [`super::Graph`] instance with custom node transform function.
 ///
 /// If graph is not empty it picks any node position and adds new node in the vicinity of it.
+#[deprecated(
+    since = "0.25.0",
+    note = "please use `super::Graph::add_node_custom` instead"
+)]
 pub fn add_node_custom<N, E, Ty, Ix, Dn, De>(
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     n: &N,
@@ -40,17 +46,11 @@ where
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    let idx = NodeIndex::new(g.g.node_count() + 1);
-    let mut n = Node::new(n.clone());
-
-    n.set_id(idx);
-
-    node_transform(&mut n);
-
-    g.g.add_node(n)
+    g.add_node_custom(n.clone(), node_transform)
 }
 
 /// Helper function which adds user's edge to the [`super::Graph`] instance.
+#[deprecated(since = "0.25.0", note = "please use `super::Graph::add_edge` instead")]
 pub fn add_edge<N, E, Ty, Ix, Dn, De>(
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     start: NodeIndex<Ix>,
@@ -65,6 +65,7 @@ where
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
+    #[allow(deprecated)]
     add_edge_custom(
         g,
         start,
@@ -75,6 +76,10 @@ where
 }
 
 /// Helper function which adds user's edge to the [`super::Graph`] instance with custom edge transform function.
+#[deprecated(
+    since = "0.25.0",
+    note = "please use `super::Graph::add_edge_custom` instead"
+)]
 pub fn add_edge_custom<N, E, Ty, Ix, Dn, De>(
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     start: NodeIndex<Ix>,
@@ -90,14 +95,7 @@ where
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    let mut edge = Edge::new(e.clone());
-
-    edge.set_id(EdgeIndex::<Ix>::new(g.g.edge_count() + 1));
-    edge.set_order(g.g.edges_connecting(start, end).count());
-
-    edge_transform(&mut edge);
-
-    g.g.add_edge(start, end, edge)
+    g.add_edge_custom(start, end, e.clone(), edge_transform)
 }
 
 /// Helper function which transforms [`petgraph::stable_graph::StableGraph`] into the [`super::Graph`] required by the [`super::GraphView`] widget.
@@ -162,34 +160,6 @@ where
     transform(g, &mut node_transform, &mut edge_transform)
 }
 
-/// Default node transform function. Keeps original data and creates a new node with a random location and
-/// label equal to the index of the node in the graph.
-pub fn default_node_transform<
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    D: DisplayNode<N, E, Ty, Ix>,
->(
-    node: &mut Node<N, E, Ty, Ix, D>,
-) {
-    node.set_label(format!("node {}", node.id().index()));
-}
-
-/// Default edge transform function. Keeps original data and creates a new edge.
-pub fn default_edge_transform<
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    D: DisplayEdge<N, E, Ty, Ix, Dn>,
->(
-    edge: &mut Edge<N, E, Ty, Ix, Dn, D>,
-) {
-    edge.set_label(format!("edge {}", edge.id().index()));
-}
-
 fn transform<N, E, Ty, Ix, Dn, De>(
     input: &StableGraph<N, E, Ty, Ix>,
     node_transform: &mut impl FnMut(&mut Node<N, E, Ty, Ix, Dn>),
@@ -203,19 +173,18 @@ where
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    let mut g =
+    let g_stable =
         StableGraph::<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>::default();
+
+    let mut g = Graph::new(g_stable);
 
     let nidx_by_input_nidx = input
         .node_references()
         .map(|(input_n_idx, input_n)| {
-            let mut n = Node::new(input_n.clone());
-
-            n.set_id(input_n_idx);
-
-            node_transform(&mut n);
-
-            (input_n_idx, g.add_node(n))
+            (
+                input_n_idx,
+                g.add_node_custom(input_n.clone(), &mut *node_transform),
+            )
         })
         .collect::<HashMap<NodeIndex<Ix>, NodeIndex<Ix>>>();
 
@@ -226,19 +195,15 @@ where
         let input_source_n = *nidx_by_input_nidx.get(&input_source_n_idx).unwrap();
         let input_target_n = *nidx_by_input_nidx.get(&input_target_n_idx).unwrap();
 
-        let order = g.edges_connecting(input_source_n, input_target_n).count();
-
-        let mut edge = Edge::new(input_e.clone());
-
-        edge.set_id(input_e_idx);
-        edge.set_order(order);
-
-        edge_transform(&mut edge);
-
-        g.add_edge(input_source_n, input_target_n, edge);
+        g.add_edge_custom(
+            input_source_n,
+            input_target_n,
+            input_e.clone(),
+            &mut *edge_transform,
+        );
     });
 
-    Graph::new(g)
+    g
 }
 
 pub fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
@@ -267,6 +232,34 @@ pub fn random_graph(num_nodes: usize, num_edges: usize) -> Graph {
     }
 
     to_graph(&graph)
+}
+
+/// Default edge transform function. Keeps original data and creates a new edge.
+pub fn default_edge_transform<
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    D: DisplayEdge<N, E, Ty, Ix, Dn>,
+>(
+    edge: &mut Edge<N, E, Ty, Ix, Dn, D>,
+) {
+    edge.set_label(format!("edge {}", edge.id().index()));
+}
+
+/// Default node transform function. Keeps original data and creates a new node with a random location and
+/// label equal to the index of the node in the graph.
+pub fn default_node_transform<
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    D: DisplayNode<N, E, Ty, Ix>,
+>(
+    node: &mut Node<N, E, Ty, Ix, D>,
+) {
+    node.set_label(format!("node {}", node.id().index()));
 }
 
 #[cfg(test)]

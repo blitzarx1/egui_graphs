@@ -106,7 +106,7 @@ where
             .for_each(|idx| {
                 let (idx_start, idx_end) = self.g.edge_endpoints(idx).unwrap();
 
-                // FIXME: not a good decision to clone nodes for every edge
+                // FIXME: too costly to clone nodes for every edge
                 let start = self.g.node(idx_start).cloned().unwrap();
                 let end = self.g.node(idx_end).cloned().unwrap();
 
