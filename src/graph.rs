@@ -11,8 +11,10 @@ use petgraph::{
 use serde::{Deserialize, Serialize};
 
 use crate::draw::{DisplayEdge, DisplayNode};
+use crate::{
+    default_edge_transform, default_node_transform, to_graph, DefaultEdgeShape, DefaultNodeShape,
+};
 use crate::{metadata::Metadata, Edge, Node};
-use crate::{to_graph, DefaultEdgeShape, DefaultNodeShape};
 
 type StableGraphType<N, E, Ty, Ix, Dn, De> =
     StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
@@ -110,14 +112,23 @@ where
     /// Adds node to graph setting default location and default label values
     #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_node(&mut self, payload: N) -> NodeIndex<Ix> {
+        self.add_node_custom(payload, default_node_transform)
+    }
+
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
+    pub fn add_node_custom(
+        &mut self,
+        payload: N,
+        node_transform: impl FnOnce(&mut Node<N, E, Ty, Ix, Dn>),
+    ) -> NodeIndex<Ix> {
         let node = Node::new(payload);
 
         let idx = self.g.add_node(node);
         let graph_node = self.g.node_weight_mut(idx).unwrap();
 
         graph_node.set_id(idx);
-        graph_node.set_location(Pos2::default());
-        graph_node.set_label(idx.index().to_string());
+
+        node_transform(graph_node);
 
         idx
     }
@@ -125,21 +136,16 @@ where
     /// Adds node to graph setting custom location and default label value
     #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_node_with_location(&mut self, payload: N, location: Pos2) -> NodeIndex<Ix> {
-        let node = Node::new(payload);
-
-        let idx = self.g.add_node(node);
-        let graph_node = self.g.node_weight_mut(idx).unwrap();
-
-        graph_node.set_id(idx);
-        graph_node.set_location(location);
-        graph_node.set_label(idx.index().to_string());
-
-        idx
+        self.add_node_custom(payload, |n: &mut Node<N, E, Ty, Ix, Dn>| {
+            n.set_location(location);
+        })
     }
 
     /// Adds node to graph setting default location and custom label value
     pub fn add_node_with_label(&mut self, payload: N, label: String) -> NodeIndex<Ix> {
-        self.add_node_with_label_and_location(payload, label, Pos2::default())
+        self.add_node_custom(payload, |n: &mut Node<N, E, Ty, Ix, Dn>| {
+            n.set_label(label);
+        })
     }
 
     /// Adds node to graph setting custom location and custom label value
@@ -150,16 +156,10 @@ where
         label: String,
         location: Pos2,
     ) -> NodeIndex<Ix> {
-        let node = Node::new(payload);
-
-        let idx = self.g.add_node(node);
-        let graph_node = self.g.node_weight_mut(idx).unwrap();
-
-        graph_node.set_id(idx);
-        graph_node.set_location(location);
-        graph_node.set_label(label);
-
-        idx
+        self.add_node_custom(payload, |n: &mut Node<N, E, Ty, Ix, Dn>| {
+            n.set_location(location);
+            n.set_label(label);
+        })
     }
 
     /// Removes node by index. Returns removed node and None if it does not exist.
@@ -203,16 +203,7 @@ where
         end: NodeIndex<Ix>,
         payload: E,
     ) -> EdgeIndex<Ix> {
-        let order = self.g.edges_connecting(start, end).count();
-
-        let idx = self.g.add_edge(start, end, Edge::new(payload));
-        let e = self.g.edge_weight_mut(idx).unwrap();
-
-        e.set_id(idx);
-        e.set_order(order);
-        e.set_label(format!("edge {}", e.id().index()));
-
-        idx
+        self.add_edge_custom(start, end, payload, default_edge_transform)
     }
 
     /// Adds edge between start and end node with custom label setting correct order.
@@ -224,6 +215,19 @@ where
         payload: E,
         label: String,
     ) -> EdgeIndex<Ix> {
+        self.add_edge_custom(start, end, payload, |e: &mut Edge<N, E, Ty, Ix, Dn, De>| {
+            e.set_label(label);
+        })
+    }
+
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
+    pub fn add_edge_custom(
+        &mut self,
+        start: NodeIndex<Ix>,
+        end: NodeIndex<Ix>,
+        payload: E,
+        edge_transform: impl FnOnce(&mut Edge<N, E, Ty, Ix, Dn, De>),
+    ) -> EdgeIndex<Ix> {
         let order = self.g.edges_connecting(start, end).count();
 
         let idx = self.g.add_edge(start, end, Edge::new(payload));
@@ -231,7 +235,8 @@ where
 
         e.set_id(idx);
         e.set_order(order);
-        e.set_label(label);
+
+        edge_transform(e);
 
         idx
     }
