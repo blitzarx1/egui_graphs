@@ -10,7 +10,7 @@ egui_graphs = { path = "../..", features = ["events"] }
 egui = "0.31"
 eframe = "0.31"
 serde_json = "1.0"
-petgraph = "0.7"
+petgraph = "0.8"
 fdg = { git = "https://github.com/grantshandy/fdg" }
 rand = "0.9"
 crossbeam = "0.8"
