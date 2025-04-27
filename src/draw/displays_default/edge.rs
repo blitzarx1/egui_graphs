@@ -132,7 +132,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             };
             if ctx.is_directed {
                 builder = builder.with_tip(&tip_props);
-            };
+            }
             let straight_shapes = builder.build();
             res.extend(straight_shapes);
 
@@ -176,7 +176,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         };
         if ctx.is_directed {
             builder = builder.with_tip(&tip_props);
-        };
+        }
         let curved_shapes = builder.build();
         let Some(Shape::CubicBezier(line_curved)) = curved_shapes.first() else {
             panic!("invalid shape type")

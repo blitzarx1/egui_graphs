@@ -36,16 +36,16 @@ impl Bounds {
         let loc = n.location();
         if loc.x + size < self.min.x {
             self.min.x = loc.x + size;
-        };
+        }
         if loc.x + size > self.max.x {
             self.max.x = loc.x + size;
-        };
+        }
         if loc.y - size < self.min.y {
             self.min.y = loc.y - size;
-        };
+        }
         if loc.y + size > self.max.y {
             self.max.y = loc.y + size;
-        };
+        }
     }
 }
 

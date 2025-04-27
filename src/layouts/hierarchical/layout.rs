@@ -55,7 +55,7 @@ impl Layout<State> for Hierarchical {
                 let curr_max_col = build_tree(g, &mut visited, root_idx, 0, i);
                 if curr_max_col > max_col {
                     max_col = curr_max_col;
-                };
+                }
             });
 
         self.state.triggered = true;
@@ -99,14 +99,14 @@ where
         .for_each(|(i, neighbour_idx)| {
             if visited.contains(neighbour_idx) {
                 return;
-            };
+            }
 
             visited.insert(*neighbour_idx);
 
             let curr_max_col = build_tree(g, visited, neighbour_idx, start_row + 1, start_col + i);
             if curr_max_col > max_col {
                 max_col = curr_max_col;
-            };
+            }
         });
 
     max_col
