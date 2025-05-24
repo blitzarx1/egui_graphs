@@ -374,17 +374,31 @@ where
             return;
         }
 
+        let node_hover_index = match resp.hover_pos() {
+            Some(hover_pos) => self.g.node_by_screen_pos(meta, hover_pos),
+            None => None,
+        };
+        if resp.is_pointer_button_down_on && node_hover_index.is_some() {
+            // self.g.node(node_hover_index);
+            if self.g.dragged_node().is_none() {
+                self.set_drag_start(node_hover_index.unwrap());
+                self.g.set_dragged_node(node_hover_index);
+            }
+        } else if !resp.is_pointer_button_down_on {
+            match self.g.dragged_node() {
+                Some(dragged_node) => {
+                    self.set_drag_end(dragged_node);
+                    self.g.set_dragged_node(None);
+                }
+                None => (),
+            };
+        }
+
         if !resp.dragged_by(PointerButton::Primary)
             && !resp.drag_started_by(PointerButton::Primary)
             && !resp.drag_stopped_by(PointerButton::Primary)
         {
             return;
-        }
-
-        if resp.drag_started() {
-            if let Some(idx) = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap()) {
-                self.set_drag_start(idx);
-            }
         }
 
         // handle mouse drag
@@ -451,7 +465,7 @@ where
         self.set_pan(new_pan, meta);
     }
 
-    fn handle_navigation(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
+    fn handle_navigation(&mut self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
         if !meta.first_frame {
             meta.pan += resp.rect.left_top() - meta.top_left;
         }
@@ -484,7 +498,6 @@ where
 
         if (resp.dragged_by(PointerButton::Middle) || resp.dragged_by(PointerButton::Primary))
             && self.g.dragged_node().is_none()
-            && (resp.drag_delta().x.abs() > 0. || resp.drag_delta().y.abs() > 0.)
         {
             let new_pan = meta.pan + resp.drag_delta();
             self.set_pan(new_pan, meta);
