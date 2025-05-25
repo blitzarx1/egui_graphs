@@ -248,10 +248,10 @@ impl DemoApp {
             drawers::ValuesConfigButtonsStartReset {
                 simulation_stopped: self.simulation_stopped,
             },
-            |simulation_stopped: bool, reset_pressed: bool| {
+            |ui: &mut egui::Ui, simulation_stopped: bool, reset_pressed: bool| {
                 self.simulation_stopped = simulation_stopped;
                 if reset_pressed {
-                    self.reset()
+                    self.reset(ui)
                 };
             },
         );
@@ -443,7 +443,7 @@ impl DemoApp {
         );
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self, ui: &mut egui::Ui) {
         let settings_graph = settings::SettingsGraph::default();
         let settings_simulation = settings::SettingsSimulation::default();
 
@@ -464,6 +464,8 @@ impl DemoApp {
         self.sim = sim;
         self.g = g;
         self.force = force;
+
+        DefaultGraphView::clear_cache(ui);
     }
 }
 

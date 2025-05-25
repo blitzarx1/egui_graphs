@@ -7,7 +7,7 @@ pub struct ValuesConfigButtonsStartReset {
 pub fn draw_start_reset_buttons(
     ui: &mut egui::Ui,
     mut values: ValuesConfigButtonsStartReset,
-    mut on_change: impl FnMut(bool, bool),
+    mut on_change: impl FnMut(&mut egui::Ui, bool, bool),
 ) {
     ui.vertical(|ui| {
         ui.label("Stop or start simulation again or reset to default settings.");
@@ -29,7 +29,7 @@ pub fn draw_start_reset_buttons(
             }
 
             if start_simulation_stopped != values.simulation_stopped || reset_pressed {
-                on_change(values.simulation_stopped, reset_pressed);
+                on_change(ui, values.simulation_stopped, reset_pressed);
             }
         });
     });

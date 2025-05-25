@@ -36,7 +36,7 @@ impl LayoutsApp {
         }
     }
 
-    fn clear_cache(&mut self, ui: &mut egui::Ui) {
+    fn reset(&mut self, ui: &mut egui::Ui) {
         match self.settings.layout {
             Layout::Hierarchical => {
                 GraphView::<
@@ -48,7 +48,7 @@ impl LayoutsApp {
                     DefaultEdgeShape,
                     LayoutStateHierarchical,
                     LayoutHierarchical,
-                >::clear_cache(ui);
+                >::reset(ui);
             }
             Layout::Random => {
                 GraphView::<
@@ -60,7 +60,7 @@ impl LayoutsApp {
                     DefaultEdgeShape,
                     LayoutStateRandom,
                     LayoutRandom,
-                >::clear_cache(ui);
+                >::reset(ui);
             }
         };
     }
@@ -82,13 +82,13 @@ impl App for LayoutsApp {
                             )
                             .changed()
                         {
-                            self.clear_cache(ui);
+                            self.reset(ui);
                         };
                         if ui
                             .radio_value(&mut self.settings.layout, Layout::Random, "Random")
                             .changed()
                         {
-                            self.clear_cache(ui);
+                            self.reset(ui);
                         };
                     });
                     ui.horizontal(|ui| {
@@ -97,7 +97,7 @@ impl App for LayoutsApp {
                             .add(egui::Slider::new(&mut self.settings.num_nodes, 1..=250))
                             .changed()
                         {
-                            self.clear_cache(ui);
+                            self.reset(ui);
                             self.g = random_graph(self.settings.num_nodes, self.settings.num_edges);
                         };
                     });
@@ -107,7 +107,7 @@ impl App for LayoutsApp {
                             .add(egui::Slider::new(&mut self.settings.num_edges, 1..=250))
                             .changed()
                         {
-                            self.clear_cache(ui);
+                            self.reset(ui);
                             self.g = random_graph(self.settings.num_nodes, self.settings.num_edges);
                         };
                     });

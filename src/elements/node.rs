@@ -23,7 +23,6 @@ where
 
     color: Option<Color32>,
     location: Pos2,
-    location_user: Option<Pos2>,
 }
 
 impl<N> NodeProps<N>
@@ -31,7 +30,7 @@ where
     N: Clone,
 {
     pub fn location(&self) -> Pos2 {
-        self.location_user.unwrap_or(self.location)
+        self.location
     }
 
     pub fn color(&self) -> Option<Color32> {
@@ -103,7 +102,6 @@ where
             payload,
             location: Pos2::default(),
             color: Option::default(),
-            location_user: Option::default(),
             label: String::default(),
             selected: bool::default(),
             dragged: bool::default(),
@@ -166,11 +164,6 @@ where
     }
 
     pub fn set_location(&mut self, loc: Pos2) {
-        self.props.location_user = Some(loc);
-    }
-
-    // TODO: why crate? how to use by external layoyuts?? do we need this func???
-    pub(crate) fn set_layout_location(&mut self, loc: Pos2) {
         self.props.location = loc;
     }
 
