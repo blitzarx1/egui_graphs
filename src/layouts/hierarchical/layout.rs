@@ -89,7 +89,7 @@ where
     let x = start_col * NODE_DIST;
 
     let node = &mut g.g[*root_idx];
-    node.set_layout_location(Pos2::new(x as f32, y as f32));
+    node.set_location(Pos2::new(x as f32, y as f32));
 
     let mut max_col = start_col;
     g.g.neighbors_directed(*root_idx, Outgoing)
