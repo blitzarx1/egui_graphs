@@ -4,7 +4,7 @@ use petgraph::{
     graph::IndexType,
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
     visit::IntoNodeReferences,
-    EdgeType,
+    Directed, EdgeType, Undirected,
 };
 use rand::Rng;
 use std::collections::HashMap;
@@ -217,24 +217,6 @@ pub fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode
     ((connector_right.to_vec2() - connector_left.to_vec2()) / 2.).length()
 }
 
-pub fn random_graph(num_nodes: usize, num_edges: usize) -> Graph {
-    let mut rng = rand::rng();
-    let mut graph = StableGraph::new();
-
-    for _ in 0..num_nodes {
-        graph.add_node(());
-    }
-
-    for _ in 0..num_edges {
-        let source = rng.random_range(0..num_nodes);
-        let target = rng.random_range(0..num_nodes);
-
-        graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
-    }
-
-    to_graph(&graph)
-}
-
 /// Default edge transform function. Keeps original data and creates a new edge.
 pub fn default_edge_transform<
     N: Clone,
@@ -261,6 +243,55 @@ pub fn default_node_transform<
     node: &mut Node<N, E, Ty, Ix, D>,
 ) {
     node.set_label(format!("node {}", node.id().index()));
+}
+
+/// Generates a random graph with the specified number of nodes and edges.
+pub fn generate_random_graph(num_nodes: usize, num_edges: usize) -> Graph {
+    let mut rng = rand::rng();
+    let mut graph = StableGraph::new();
+
+    for _ in 0..num_nodes {
+        graph.add_node(());
+    }
+
+    for _ in 0..num_edges {
+        let source = rng.random_range(0..num_nodes);
+        let target = rng.random_range(0..num_nodes);
+
+        graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
+    }
+
+    to_graph(&graph)
+}
+
+/// Simple digraph for usage in examples and tests.
+pub fn generate_simple_digraph() -> StableGraph<(), (), Directed> {
+    let mut g = StableGraph::new();
+
+    let a = g.add_node(());
+    let b = g.add_node(());
+    let c = g.add_node(());
+
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(c, a, ());
+
+    g
+}
+
+/// Simple ungraph for usage in examples and tests.
+pub fn generate_simple_ungraph() -> StableGraph<(), (), Undirected> {
+    let mut g = StableGraph::<_, _, Undirected>::default();
+
+    let a = g.add_node(());
+    let b = g.add_node(());
+    let c = g.add_node(());
+
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(c, a, ());
+
+    g
 }
 
 #[cfg(test)]

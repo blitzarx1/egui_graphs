@@ -1,5 +1,5 @@
 /// Represents graph interaction settings.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct SettingsInteraction {
     pub(crate) dragging_enabled: bool,
     pub(crate) node_clicking_enabled: bool,
@@ -8,6 +8,20 @@ pub struct SettingsInteraction {
     pub(crate) edge_clicking_enabled: bool,
     pub(crate) edge_selection_enabled: bool,
     pub(crate) edge_selection_multi_enabled: bool,
+}
+
+impl Default for SettingsInteraction {
+    fn default() -> Self {
+        Self {
+            dragging_enabled: true,
+            node_clicking_enabled: false,
+            node_selection_enabled: false,
+            node_selection_multi_enabled: false,
+            edge_clicking_enabled: false,
+            edge_selection_enabled: false,
+            edge_selection_multi_enabled: false,
+        }
+    }
 }
 
 impl SettingsInteraction {
@@ -95,8 +109,8 @@ impl Default for SettingsNavigation {
         Self {
             screen_padding: 0.3,
             zoom_speed: 0.1,
-            fit_to_screen_enabled: true,
-            zoom_and_pan_enabled: false,
+            fit_to_screen_enabled: false,
+            zoom_and_pan_enabled: true,
         }
     }
 }

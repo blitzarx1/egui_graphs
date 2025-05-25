@@ -41,7 +41,7 @@ impl App for BasicCustomApp {
 fn main() {
     let native_options = NativeOptions::default();
     run_native(
-        "egui_graphs_basic_custom_demo",
+        "basic_custom",
         native_options,
         Box::new(|cc| Ok(Box::new(BasicCustomApp::new(cc)))),
     )

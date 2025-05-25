@@ -28,6 +28,7 @@ crossbeam = { version = "0.8", optional = true }
 [features]
 events = ["dep:crossbeam"]
 
+# TODO: remove this block when we have demo in examples as single file
 [workspace]
 members = ["examples/*"]
 
@@ -51,3 +52,8 @@ out_of_bounds_indexing = { level = "allow", priority = 11 }
 must_use_candidate = { level = "allow", priority = 12 }
 struct_excessive_bools = { level = "allow", priority = 13 }
 return_self_not_must_use = { level = "allow", priority = 14 }
+
+[dev-dependencies]
+eframe = "0.31"
+bevy = "0.16"
+bevy_egui = "0.34"

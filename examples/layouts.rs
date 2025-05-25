@@ -1,8 +1,8 @@
 use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui::Context;
 use egui_graphs::{
-    random_graph, DefaultEdgeShape, DefaultNodeShape, Graph, GraphView, LayoutHierarchical,
-    LayoutRandom, LayoutStateHierarchical, LayoutStateRandom,
+    generate_random_graph, DefaultEdgeShape, DefaultGraphView, DefaultNodeShape, Graph, GraphView,
+    LayoutHierarchical, LayoutStateHierarchical,
 };
 use petgraph::{stable_graph::DefaultIx, Directed};
 
@@ -32,7 +32,7 @@ impl LayoutsApp {
         };
         Self {
             settings: settings.clone(),
-            g: random_graph(settings.num_nodes, settings.num_edges),
+            g: generate_random_graph(settings.num_nodes, settings.num_edges),
         }
     }
 
@@ -51,16 +51,7 @@ impl LayoutsApp {
                 >::reset(ui);
             }
             Layout::Random => {
-                GraphView::<
-                    (),
-                    (),
-                    Directed,
-                    DefaultIx,
-                    DefaultNodeShape,
-                    DefaultEdgeShape,
-                    LayoutStateRandom,
-                    LayoutRandom,
-                >::reset(ui);
+                DefaultGraphView::reset(ui);
             }
         };
     }
@@ -98,7 +89,10 @@ impl App for LayoutsApp {
                             .changed()
                         {
                             self.reset(ui);
-                            self.g = random_graph(self.settings.num_nodes, self.settings.num_edges);
+                            self.g = generate_random_graph(
+                                self.settings.num_nodes,
+                                self.settings.num_edges,
+                            );
                         };
                     });
                     ui.horizontal(|ui| {
@@ -108,7 +102,10 @@ impl App for LayoutsApp {
                             .changed()
                         {
                             self.reset(ui);
-                            self.g = random_graph(self.settings.num_nodes, self.settings.num_edges);
+                            self.g = generate_random_graph(
+                                self.settings.num_nodes,
+                                self.settings.num_edges,
+                            );
                         };
                     });
                 });
@@ -128,16 +125,7 @@ impl App for LayoutsApp {
                     >::new(&mut self.g));
                 }
                 Layout::Random => {
-                    ui.add(&mut GraphView::<
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        LayoutStateRandom,
-                        LayoutRandom,
-                    >::new(&mut self.g));
+                    ui.add(&mut DefaultGraphView::new(&mut self.g));
                 }
             };
         });
@@ -146,7 +134,7 @@ impl App for LayoutsApp {
 
 fn main() {
     run_native(
-        "egui_graphs_layouts_demo",
+        "layouts",
         NativeOptions::default(),
         Box::new(|cc| Ok(Box::new(LayoutsApp::new(cc)))),
     )

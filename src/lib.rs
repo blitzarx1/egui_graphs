@@ -14,7 +14,8 @@ pub use graph_view::{DefaultGraphView, GraphView};
 #[allow(deprecated)]
 pub use helpers::{
     add_edge, add_edge_custom, add_node, add_node_custom, default_edge_transform,
-    default_node_transform, node_size, random_graph, to_graph, to_graph_custom,
+    default_node_transform, generate_random_graph, generate_simple_digraph,
+    generate_simple_ungraph, node_size, to_graph, to_graph_custom,
 };
 pub use layouts::hierarchical::{
     Hierarchical as LayoutHierarchical, State as LayoutStateHierarchical,

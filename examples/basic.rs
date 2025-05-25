@@ -38,7 +38,7 @@ fn generate_graph() -> StableGraph<(), ()> {
 
 fn main() {
     run_native(
-        "egui_graphs_basic_demo",
+        "basic",
         NativeOptions::default(),
         Box::new(|cc| Ok(Box::new(BasicApp::new(cc)))),
     )

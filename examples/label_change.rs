@@ -1,24 +1,20 @@
 use eframe::{run_native, App, CreationContext};
 use egui::{CentralPanel, Context, SidePanel, TextEdit};
-use egui_graphs::{Graph, GraphView, SettingsInteraction, SettingsNavigation};
-use node::NodeShapeFlex;
-use petgraph::{
-    stable_graph::{DefaultIx, EdgeIndex, NodeIndex, StableGraph},
-    Directed,
+use egui_graphs::{
+    generate_simple_digraph, DefaultGraphView, Graph, SettingsInteraction, SettingsStyle,
 };
+use petgraph::stable_graph::{EdgeIndex, NodeIndex};
 
-mod node;
-
-pub struct FlexNodesApp {
-    g: Graph<(), (), Directed, DefaultIx, NodeShapeFlex>,
+pub struct LabelChangeApp {
+    g: Graph,
     label_input: String,
     selected_node: Option<NodeIndex>,
     selected_edge: Option<EdgeIndex>,
 }
 
-impl FlexNodesApp {
+impl LabelChangeApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let g = generate_graph();
+        let g = generate_simple_digraph();
         Self {
             g: Graph::from(&g),
             label_input: String::default(),
@@ -54,22 +50,17 @@ impl FlexNodesApp {
                 },
             );
             if ui.button("reset").clicked() {
-                self.reset()
+                self.reset(ui)
             }
         });
         CentralPanel::default().show(ctx, |ui| {
-            let widget = &mut GraphView::<_, _, _, _, _, _>::new(&mut self.g)
+            let widget = &mut DefaultGraphView::new(&mut self.g)
                 .with_interactions(
                     &SettingsInteraction::default()
-                        .with_dragging_enabled(true)
                         .with_node_selection_enabled(true)
                         .with_edge_selection_enabled(true),
                 )
-                .with_navigations(
-                    &SettingsNavigation::default()
-                        .with_fit_to_screen_enabled(false)
-                        .with_zoom_and_pan_enabled(true),
-                );
+                .with_styles(&SettingsStyle::default().with_labels_always(true));
             ui.add(widget);
         });
     }
@@ -104,18 +95,20 @@ impl FlexNodesApp {
         }
     }
 
-    fn reset(&mut self) {
-        let g = generate_graph();
+    fn reset(&mut self, ui: &mut egui::Ui) {
+        let g = generate_simple_digraph();
         *self = Self {
             g: Graph::from(&g),
             label_input: String::default(),
             selected_node: Option::default(),
             selected_edge: Option::default(),
         };
+
+        DefaultGraphView::reset(ui);
     }
 }
 
-impl App for FlexNodesApp {
+impl App for LabelChangeApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         self.read_data();
         self.render(ctx);
@@ -123,26 +116,12 @@ impl App for FlexNodesApp {
     }
 }
 
-fn generate_graph() -> StableGraph<(), ()> {
-    let mut g = StableGraph::new();
-
-    let a = g.add_node(());
-    let b = g.add_node(());
-    let c = g.add_node(());
-
-    g.add_edge(a, b, ());
-    g.add_edge(b, c, ());
-    g.add_edge(c, a, ());
-
-    g
-}
-
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui_graphs_flex_nodes_demo",
+        "label_change",
         native_options,
-        Box::new(|cc| Ok(Box::new(FlexNodesApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(LabelChangeApp::new(cc)))),
     )
     .unwrap();
 }
