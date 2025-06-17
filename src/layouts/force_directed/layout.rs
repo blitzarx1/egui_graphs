@@ -1,12 +1,15 @@
-use egui::Vec2;
+use egui::{Pos2, Vec2};
 use serde::{Deserialize, Serialize};
 
 use crate::layouts::{Layout, LayoutState};
 
+const FORCE_CENTER_REPEL: f32 = 25.0;
+const FORCE_NEIGHBOR_ATTR: f32 = 0.01;
+const DT: f32 = 0.5;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
     is_running: bool,
-    dt: f32,
 }
 
 impl LayoutState for State {}
@@ -15,7 +18,6 @@ impl Default for State {
     fn default() -> Self {
         State {
             is_running: true,
-            dt: 0.016, // Default to 60 FPS
         }
     }
 }
@@ -43,17 +45,70 @@ impl Layout<State> for ForceDirected {
             return;
         }
 
-        let speed = Vec2::new(1.0, 1.0);
+        let center = find_center(g);
+        let indices: Vec<_> = g.g.node_indices().collect();
+        for idx in indices {
+            let loc = g.g.node_weight(idx).unwrap().location();
+            let vc = center - loc;
+            let vc_len_sq = vc.length().powi(2);
+            let dx_center = if vc_len_sq > 0.0 {
+                -vc * (FORCE_CENTER_REPEL / vc_len_sq) * DT
+            } else {
+                Vec2::ZERO
+            };
 
-        g.g.node_weights_mut().for_each(|n| {
-            let dx = speed * self.state.dt;
+            let dx_neighbor =
+                g.g.neighbors_undirected(idx)
+                    .map(|nbr_idx| {
+                        let vn = g.g.node_weight(nbr_idx).unwrap().location() - loc;
+                        if vn.length() > 0.0 {
+                            vn * FORCE_NEIGHBOR_ATTR * DT
+                        } else {
+                            Vec2::ZERO
+                        }
+                    })
+                    .fold(Vec2::ZERO, |acc, v| acc + v);
 
-            let new_loc = n.location() + dx;
-            n.set_location(new_loc);
-        });
+            let new_loc = loc + dx_center + dx_neighbor;
+
+            g.g.node_weight_mut(idx).unwrap().set_location(new_loc);
+        }
     }
 
     fn state(&self) -> State {
         self.state.clone()
     }
+}
+
+fn find_center<N, E, Ty, Ix, Dn, De>(g: &crate::Graph<N, E, Ty, Ix, Dn, De>) -> Pos2
+where
+    N: Clone,
+    E: Clone,
+    Ty: petgraph::EdgeType,
+    Ix: petgraph::csr::IndexType,
+    Dn: crate::DisplayNode<N, E, Ty, Ix>,
+    De: crate::DisplayEdge<N, E, Ty, Ix, Dn>,
+{
+    let mut min_x = f32::MAX;
+    let mut max_x = f32::MIN;
+    let mut min_y = f32::MAX;
+    let mut max_y = f32::MIN;
+
+    for node in g.g.node_weights() {
+        let loc = node.location();
+        if loc.x < min_x {
+            min_x = loc.x;
+        }
+        if loc.x > max_x {
+            max_x = loc.x;
+        }
+        if loc.y < min_y {
+            min_y = loc.y;
+        }
+        if loc.y > max_y {
+            max_y = loc.y;
+        }
+    }
+
+    Pos2::new((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
 }
