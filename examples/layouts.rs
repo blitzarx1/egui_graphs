@@ -2,7 +2,7 @@ use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui::Context;
 use egui_graphs::{
     generate_random_graph, DefaultEdgeShape, DefaultGraphView, DefaultNodeShape, Graph, GraphView,
-    LayoutHierarchical, LayoutStateHierarchical,
+    LayoutForceDirected, LayoutHierarchical, LayoutStateForceDirected, LayoutStateHierarchical,
 };
 use petgraph::{stable_graph::DefaultIx, Directed};
 
@@ -10,6 +10,7 @@ use petgraph::{stable_graph::DefaultIx, Directed};
 enum Layout {
     Hierarchical,
     Random,
+    ForceDirected,
 }
 
 #[derive(Clone)]
@@ -50,6 +51,18 @@ impl LayoutsApp {
                     LayoutHierarchical,
                 >::reset(ui);
             }
+            Layout::ForceDirected => {
+                GraphView::<
+                    (),
+                    (),
+                    Directed,
+                    DefaultIx,
+                    DefaultNodeShape,
+                    DefaultEdgeShape,
+                    LayoutStateForceDirected,
+                    LayoutForceDirected,
+                >::reset(ui);
+            }
             Layout::Random => {
                 DefaultGraphView::reset(ui);
             }
@@ -70,6 +83,16 @@ impl App for LayoutsApp {
                                 &mut self.settings.layout,
                                 Layout::Hierarchical,
                                 "Hierarchical",
+                            )
+                            .changed()
+                        {
+                            self.reset(ui);
+                        };
+                        if ui
+                            .radio_value(
+                                &mut self.settings.layout,
+                                Layout::ForceDirected,
+                                "ForceDirected",
                             )
                             .changed()
                         {
@@ -122,6 +145,18 @@ impl App for LayoutsApp {
                         _,
                         LayoutStateHierarchical,
                         LayoutHierarchical,
+                    >::new(&mut self.g));
+                }
+                Layout::ForceDirected => {
+                    ui.add(&mut GraphView::<
+                        _,
+                        _,
+                        _,
+                        _,
+                        _,
+                        _,
+                        LayoutStateForceDirected,
+                        LayoutForceDirected,
                     >::new(&mut self.g));
                 }
                 Layout::Random => {

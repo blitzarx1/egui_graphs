@@ -206,6 +206,7 @@ where
                 .get_persisted::<S>(Id::new(KEY_LAYOUT))
                 .unwrap_or_default();
             let mut layout = L::from_state(state);
+
             layout.next(self.g);
 
             data.insert_persisted(Id::new(KEY_LAYOUT), layout.state());
@@ -226,7 +227,7 @@ where
                 selected_nodes.push(idx);
             }
 
-            meta.comp_iter_bounds(n);
+            meta.process_bounds(n);
         });
 
         self.g.edges_iter().for_each(|(idx, e)| {

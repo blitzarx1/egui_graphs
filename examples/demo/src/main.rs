@@ -542,7 +542,7 @@ fn init_force(settings: &settings::SettingsSimulation) -> FruchtermanReingold<f3
 fn main() {
     let native_options = eframe::NativeOptions::default();
     run_native(
-        "egui_graphs_demo",
+        "demo",
         native_options,
         Box::new(|cc| Ok(Box::new(DemoApp::new(cc)))),
     )

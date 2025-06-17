@@ -102,7 +102,7 @@ impl Metadata {
         ((pos.to_vec2() - self.pan) / self.zoom).to_pos2()
     }
 
-    pub fn comp_iter_bounds<
+    pub fn process_bounds<
         N: Clone,
         E: Clone,
         Ty: EdgeType,

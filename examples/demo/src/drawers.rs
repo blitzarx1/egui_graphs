@@ -61,7 +61,7 @@ pub fn draw_counts_sliders(
     let mut delta_node_cnt = 0;
     ui.horizontal(|ui| {
         if ui
-            .add(egui::Slider::new(&mut values.node_cnt, 1..=2500).text("nodes"))
+            .add(egui::Slider::new(&mut values.node_cnt, 1..=10000).text("nodes"))
             .changed()
         {
             delta_node_cnt = values.node_cnt as i32 - start_node_cnt as i32;
@@ -72,7 +72,7 @@ pub fn draw_counts_sliders(
     let mut delta_edge_cnt = 0;
     ui.horizontal(|ui| {
         if ui
-            .add(egui::Slider::new(&mut values.edge_cnt, 1..=2500).text("edges"))
+            .add(egui::Slider::new(&mut values.edge_cnt, 1..=10000).text("edges"))
             .changed()
         {
             delta_edge_cnt = values.edge_cnt as i32 - start as i32;
