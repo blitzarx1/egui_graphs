@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use egui::Pos2;
+use egui::{Pos2, Rect};
 use petgraph::stable_graph::DefaultIx;
 use petgraph::Directed;
 
@@ -44,6 +44,8 @@ pub struct Graph<
     selected_nodes: Vec<NodeIndex<Ix>>,
     selected_edges: Vec<EdgeIndex<Ix>>,
     dragged_node: Option<NodeIndex<Ix>>,
+
+    bounds: Rect,
 }
 
 impl<N, E, Ty, Ix, Dn, De> From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
@@ -75,6 +77,7 @@ where
             selected_nodes: Vec::default(),
             selected_edges: Vec::default(),
             dragged_node: Option::default(),
+            bounds: Rect::from_min_max(Pos2::ZERO, Pos2::ZERO),
         }
     }
 
@@ -399,5 +402,13 @@ where
 
     pub fn node_count(&self) -> usize {
         self.g.node_count()
+    }
+
+    pub fn set_bounds(&mut self, bounds: Rect) {
+        self.bounds = bounds;
+    }
+
+    pub fn bounds(&self) -> Rect {
+        self.bounds
     }
 }

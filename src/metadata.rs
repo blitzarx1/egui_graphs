@@ -8,15 +8,15 @@ const KEY: &str = "egui_graphs_metadata";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Bounds {
-    min: Vec2,
-    max: Vec2,
+    min: Pos2,
+    max: Pos2,
 }
 
 impl Default for Bounds {
     fn default() -> Self {
         Self {
-            min: Vec2::new(f32::MAX, f32::MAX),
-            max: Vec2::new(f32::MIN, f32::MIN),
+            min: Pos2::new(f32::MAX, f32::MAX),
+            max: Pos2::new(f32::MIN, f32::MIN),
         }
     }
 }
@@ -117,7 +117,7 @@ impl Metadata {
 
     /// Returns bounding rect of the graph.
     pub fn graph_bounds(&self) -> Rect {
-        Rect::from_min_max(self.bounds.min.to_pos2(), self.bounds.max.to_pos2())
+        Rect::from_min_max(self.bounds.min, self.bounds.max)
     }
 
     /// Resets the bounds iterator.

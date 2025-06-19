@@ -239,6 +239,7 @@ where
         self.g.set_selected_nodes(selected_nodes);
         self.g.set_selected_edges(selected_edges);
         self.g.set_dragged_node(dragged);
+        self.g.set_bounds(meta.graph_bounds());
     }
 
     /// Fits the graph to the screen if it is the first frame or
