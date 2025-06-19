@@ -39,7 +39,8 @@ pub struct Graph<
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    pub g: StableGraphType<N, E, Ty, Ix, Dn, De>,
+    g: StableGraphType<N, E, Ty, Ix, Dn, De>,
+
     selected_nodes: Vec<NodeIndex<Ix>>,
     selected_edges: Vec<EdgeIndex<Ix>>,
     dragged_node: Option<NodeIndex<Ix>>,
@@ -107,8 +108,12 @@ where
         None
     }
 
-    pub fn g(&mut self) -> &mut StableGraphType<N, E, Ty, Ix, Dn, De> {
+    pub fn g_mut(&mut self) -> &mut StableGraphType<N, E, Ty, Ix, Dn, De> {
         &mut self.g
+    }
+
+    pub fn g(&self) -> &StableGraphType<N, E, Ty, Ix, Dn, De> {
+        &self.g
     }
 
     /// Adds node to graph setting default location and default label values

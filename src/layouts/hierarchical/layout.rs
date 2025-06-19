@@ -45,7 +45,8 @@ impl Layout<State> for Hierarchical {
 
         let mut visited = HashSet::new();
         let mut max_col = 0;
-        g.g.externals(Incoming)
+        g.g()
+            .externals(Incoming)
             .collect::<Vec<NodeIndex<Ix>>>()
             .iter()
             .enumerate()
@@ -88,11 +89,12 @@ where
     let y = start_row * ROW_DIST;
     let x = start_col * NODE_DIST;
 
-    let node = &mut g.g[*root_idx];
+    let node = &mut g.g_mut()[*root_idx];
     node.set_location(Pos2::new(x as f32, y as f32));
 
     let mut max_col = start_col;
-    g.g.neighbors_directed(*root_idx, Outgoing)
+    g.g()
+        .neighbors_directed(*root_idx, Outgoing)
         .collect::<Vec<NodeIndex<Ix>>>()
         .iter()
         .enumerate()

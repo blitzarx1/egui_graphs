@@ -16,9 +16,7 @@ impl LayoutState for State {}
 
 impl Default for State {
     fn default() -> Self {
-        State {
-            is_running: true,
-        }
+        State { is_running: true }
     }
 }
 
@@ -46,9 +44,9 @@ impl Layout<State> for ForceDirected {
         }
 
         let center = find_center(g);
-        let indices: Vec<_> = g.g.node_indices().collect();
+        let indices: Vec<_> = g.g_mut().node_indices().collect();
         for idx in indices {
-            let loc = g.g.node_weight(idx).unwrap().location();
+            let loc = g.g_mut().node_weight(idx).unwrap().location();
             let vc = center - loc;
             let vc_len_sq = vc.length().powi(2);
             let dx_center = if vc_len_sq > 0.0 {
@@ -57,21 +55,25 @@ impl Layout<State> for ForceDirected {
                 Vec2::ZERO
             };
 
-            let dx_neighbor =
-                g.g.neighbors_undirected(idx)
-                    .map(|nbr_idx| {
-                        let vn = g.g.node_weight(nbr_idx).unwrap().location() - loc;
-                        if vn.length() > 0.0 {
-                            vn * FORCE_NEIGHBOR_ATTR * DT
-                        } else {
-                            Vec2::ZERO
-                        }
-                    })
-                    .fold(Vec2::ZERO, |acc, v| acc + v);
+            let dx_neighbor = g
+                .g()
+                .neighbors_undirected(idx)
+                .map(|nbr_idx| {
+                    let vn = g.g().node_weight(nbr_idx).unwrap().location() - loc;
+                    if vn.length() > 0.0 {
+                        vn * FORCE_NEIGHBOR_ATTR * DT
+                    } else {
+                        Vec2::ZERO
+                    }
+                })
+                .fold(Vec2::ZERO, |acc, v| acc + v);
 
             let new_loc = loc + dx_center + dx_neighbor;
 
-            g.g.node_weight_mut(idx).unwrap().set_location(new_loc);
+            g.g_mut()
+                .node_weight_mut(idx)
+                .unwrap()
+                .set_location(new_loc);
         }
     }
 
@@ -94,7 +96,7 @@ where
     let mut min_y = f32::MAX;
     let mut max_y = f32::MIN;
 
-    for node in g.g.node_weights() {
+    for node in g.g().node_weights() {
         let loc = node.location();
         if loc.x < min_x {
             min_x = loc.x;

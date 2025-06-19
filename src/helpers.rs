@@ -312,13 +312,13 @@ mod tests {
 
         let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
 
-        assert_eq!(user_g.node_count(), input_g.g.node_count());
-        assert_eq!(user_g.edge_count(), input_g.g.edge_count());
+        assert_eq!(user_g.node_count(), input_g.g().node_count());
+        assert_eq!(user_g.edge_count(), input_g.g().edge_count());
         assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (user_idx, input_idx) in input_g.g.node_indices().zip(user_g.node_indices()) {
+        for (user_idx, input_idx) in input_g.g().node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.g.node_weight(input_idx).unwrap();
+            let input_n = input_g.g().node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
@@ -337,13 +337,13 @@ mod tests {
 
         let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
 
-        assert_eq!(user_g.node_count(), input_g.g.node_count());
-        assert_eq!(user_g.edge_count(), input_g.g.edge_count());
+        assert_eq!(user_g.node_count(), input_g.g().node_count());
+        assert_eq!(user_g.edge_count(), input_g.g().edge_count());
         assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (user_idx, input_idx) in input_g.g.node_indices().zip(user_g.node_indices()) {
+        for (user_idx, input_idx) in input_g.g().node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.g.node_weight(input_idx).unwrap();
+            let input_n = input_g.g().node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
