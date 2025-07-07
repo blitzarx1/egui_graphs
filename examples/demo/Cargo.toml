@@ -13,5 +13,5 @@ serde_json = "1.0"
 petgraph = "0.7"
 # TODO: need to implement fdg to upgrade to newer petgraph and egui_graphs
 fdg = { git = "https://github.com/grantshandy/fdg" }
-rand = "0.9"
+fastrand = "2.3"
 crossbeam = "0.8"

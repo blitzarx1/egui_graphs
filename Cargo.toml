@@ -14,7 +14,7 @@ categories = ["gui", "visualization"]
 egui = { version = "0.31.0", default-features = false, features = [
   "persistence",
 ] }
-rand = "0.9"
+fastrand = "2.3"
 petgraph = { version = "0.8", default-features = false, features = [
   "graphmap",
   "stable_graph",

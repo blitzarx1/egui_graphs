@@ -1,6 +1,5 @@
 use egui::Pos2;
 use petgraph::stable_graph::IndexType;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -36,12 +35,9 @@ impl Layout<State> for Random {
             return;
         }
 
-        let mut rng = rand::rng();
+        let mut rng = fastrand::Rng::new();
         for node in g.g.node_weights_mut() {
-            node.set_location(Pos2::new(
-                rng.random_range(0. ..SPAWN_SIZE),
-                rng.random_range(0. ..SPAWN_SIZE),
-            ));
+            node.set_location(Pos2::new(SPAWN_SIZE * rng.f32(), SPAWN_SIZE * rng.f32()));
         }
 
         self.state.triggered = true;
