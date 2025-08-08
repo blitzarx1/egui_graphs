@@ -23,7 +23,7 @@ pub struct Random {
 }
 
 impl Layout<State> for Random {
-    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
+    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>, _: &egui::Ui)
     where
         N: Clone,
         E: Clone,

@@ -201,15 +201,17 @@ where
     }
 
     fn sync_layout(&mut self, ui: &mut Ui) {
+        let state = ui.data_mut(|data| {
+            data.get_persisted::<S>(Id::new(KEY_LAYOUT))
+                .unwrap_or_default()
+        });
+
+        let mut layout = L::from_state(state);
+        layout.next(self.g, ui);
+        let new_state = layout.state();
+
         ui.data_mut(|data| {
-            let state = data
-                .get_persisted::<S>(Id::new(KEY_LAYOUT))
-                .unwrap_or_default();
-            let mut layout = L::from_state(state);
-
-            layout.next(self.g);
-
-            data.insert_persisted(Id::new(KEY_LAYOUT), layout.state());
+            data.insert_persisted(Id::new(KEY_LAYOUT), new_state);
         });
     }
 
