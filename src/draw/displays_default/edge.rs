@@ -138,7 +138,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
             // TODO: export to func
             if label_visible {
-                let size = (node_size(start, dir) + node_size(end, dir)) / 2.;
+                let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
                 let galley = ctx.ctx.fonts(|f| {
                     f.layout_no_wrap(
                         self.label_text.clone(),
@@ -184,7 +184,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         res.extend(curved_shapes.clone());
 
         if label_visible {
-            let size = (node_size(start, dir) + node_size(end, dir)) / 2.;
+            let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
             let galley = ctx.ctx.fonts(|f| {
                 f.layout_no_wrap(
                     self.label_text.clone(),
@@ -282,7 +282,7 @@ impl DefaultEdgeShape {
     }
 }
 
-/// Returns the distance from line segment `a``b` to point `c`.
+/// Returns the distance from line segment [`a`, `b`] to point `c`.
 /// Adapted from <https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm>
 fn distance_segment_to_point(a: Pos2, b: Pos2, point: Pos2) -> f32 {
     let ac = point - a;
