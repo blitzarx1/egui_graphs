@@ -20,6 +20,7 @@ pub use layouts::hierarchical::{
     Hierarchical as LayoutHierarchical, State as LayoutStateHierarchical,
 };
 pub use layouts::random::{Random as LayoutRandom, State as LayoutStateRandom};
+pub use layouts::{Layout, LayoutState};
 pub use metadata::Metadata;
 pub use settings::{SettingsInteraction, SettingsNavigation, SettingsStyle};
 

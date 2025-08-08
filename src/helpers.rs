@@ -206,6 +206,7 @@ where
     g
 }
 
+/// Calculates the size of the node in the direction of the given vector
 pub fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, Ix>>(
     node: &Node<N, E, Ty, Ix, D>,
     dir: Vec2,
