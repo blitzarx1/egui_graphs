@@ -556,7 +556,7 @@ impl DemoApp {
                         RichText::new(text)
                             .monospace()
                             .color(Color32::WHITE)
-                            .small(),
+                            .size(14.0),
                     );
                 });
             });
