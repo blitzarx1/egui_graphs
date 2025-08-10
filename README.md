@@ -24,7 +24,7 @@ The project is on track for a stable release v1.0.0. For the moment, breaking re
 
 Please use master branch for the latest updates.
 
-Check the [demo example](https://github.com/blitzarx1/egui_graphs/tree/master/examples/demo) for the comprehensive overview of the widget possibilities.
+Check the [demo example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/demo.rs) for the comprehensive overview of the widget possibilities.
 
 ## Layouts
 
@@ -41,7 +41,7 @@ Check the [layouts example](https://github.com/blitzarx1/egui_graphs/blob/master
 
 ### Force-directed layout
 
-A naive O(n²) force-directed layout (Fruchterman–Reingold style) is now included. It exposes adjustable simulation parameters (step size, damping, gravity, etc.). For a live demonstration and tuning panel, see the [demo example](https://github.com/blitzarx1/egui_graphs/tree/master/examples/demo). This implementation is a baseline and may be optimized in future releases.
+A naive O(n²) force-directed layout (Fruchterman–Reingold style) is now included. It exposes adjustable simulation parameters (step size, damping, gravity, etc.). For a live demonstration and tuning panel, see the [demo example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/demo.rs). This implementation is a baseline and may be optimized in future releases.
 
 ## Examples
 
