@@ -135,9 +135,7 @@ impl Layout<State> for ForceDirected {
     }
 }
 
-// --- Extracted helpers (pub(crate) for testing) ---------------------------------
-
-pub(crate) fn prepare_constants(
+fn prepare_constants(
     canvas: Rect,
     node_count: usize,
     gravity_base: f32,
@@ -157,7 +155,7 @@ pub(crate) fn prepare_constants(
     Some((k, centre, g_strength))
 }
 
-pub(crate) fn compute_repulsion<N, E, Ty, Ix, Dn, De>(
+fn compute_repulsion<N, E, Ty, Ix, Dn, De>(
     g: &Graph<N, E, Ty, Ix, Dn, De>,
     indices: &[NodeIndex<Ix>],
     disp: &mut [Vec2],
@@ -176,16 +174,16 @@ pub(crate) fn compute_repulsion<N, E, Ty, Ix, Dn, De>(
             let (idx_i, idx_j) = (indices[i], indices[j]);
             let delta = g.g().node_weight(idx_i).unwrap().location()
                 - g.g().node_weight(idx_j).unwrap().location();
-            let dist = delta.length().max(epsilon);
-            let force = (k * k) / dist;
-            let dir = delta / dist; // unit vector
+            let distance = delta.length().max(epsilon);
+            let force = (k * k) / distance;
+            let dir = delta / distance;
             disp[i] += dir * force;
             disp[j] -= dir * force; // equal & opposite
         }
     }
 }
 
-pub(crate) fn compute_attraction_and_gravity<N, E, Ty, Ix, Dn, De>(
+fn compute_attraction_and_gravity<N, E, Ty, Ix, Dn, De>(
     g: &Graph<N, E, Ty, Ix, Dn, De>,
     indices: &[NodeIndex<Ix>],
     disp: &mut [Vec2],
@@ -206,16 +204,16 @@ pub(crate) fn compute_attraction_and_gravity<N, E, Ty, Ix, Dn, De>(
         // pull on each neighbour
         for nbr in g.g().neighbors_undirected(idx) {
             let delta = g.g().node_weight(nbr).unwrap().location() - loc;
-            let dist = delta.length().max(epsilon);
-            let force = (dist * dist) / k;
-            disp[vec_pos] += (delta / dist) * force;
+            let distance = delta.length().max(epsilon);
+            let force = (distance * distance) / k;
+            disp[vec_pos] += (delta / distance) * force;
         }
         // mild gravity (inverse zoom-scaled)
         disp[vec_pos] += (centre - loc) * g_strength;
     }
 }
 
-pub(crate) fn apply_displacements<N, E, Ty, Ix, Dn, De>(
+fn apply_displacements<N, E, Ty, Ix, Dn, De>(
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     indices: &[NodeIndex<Ix>],
     disp: &[Vec2],
