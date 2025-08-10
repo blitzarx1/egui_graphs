@@ -78,7 +78,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         let color = style.fg_stroke.color;
         let base_stroke = Stroke::new(self.width, color);
         let stroke = if let Some(hook) = &ctx.style.edge_stroke_hook {
-            let style_ref: &egui::Style = &*ctx.ctx.style();
+            let style_ref: &egui::Style = &ctx.ctx.style();
             (hook)(self.selected, self.order, base_stroke, style_ref)
         } else {
             base_stroke

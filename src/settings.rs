@@ -159,21 +159,11 @@ impl SettingsNavigation {
 pub struct SettingsStyle {
     pub(crate) labels_always: bool,
     // Optional user-provided hook to override node stroke (outline) styling.
-    // Signature: (selected, dragged, node_color, current_stroke, egui_style) -> new Stroke
-    pub(crate) node_stroke_hook: Option<
-        std::sync::Arc<
-            dyn Fn(bool, bool, Option<egui::Color32>, egui::Stroke, &egui::Style) -> egui::Stroke
-                + Send
-                + Sync,
-        >,
-    >,
+    // Signature: `(selected, dragged, node_color, current_stroke, egui_style) -> new Stroke`.
+    pub(crate) node_stroke_hook: Option<NodeStrokeHook>,
     // Optional user-provided hook to override edge stroke styling.
-    // Signature: (selected, order, current_stroke, egui_style) -> new Stroke
-    pub(crate) edge_stroke_hook: Option<
-        std::sync::Arc<
-            dyn Fn(bool, usize, egui::Stroke, &egui::Style) -> egui::Stroke + Send + Sync,
-        >,
-    >,
+    // Signature: `(selected, order, current_stroke, egui_style) -> new Stroke`.
+    pub(crate) edge_stroke_hook: Option<EdgeStrokeHook>,
 }
 
 impl core::fmt::Debug for SettingsStyle {
@@ -211,14 +201,14 @@ impl SettingsStyle {
     }
 
     /// Provide a hook to customize node stroke (outline) styling.
-    /// The hook receives: (selected, dragged, node_color, current_stroke, egui_style) and should return a new Stroke.
+    /// The hook receives: `(selected, dragged, node_color, current_stroke, egui_style)` and should return a new `Stroke`.
     /// Example:
     /// ```
     /// use egui_graphs::SettingsStyle;
     /// use egui::{Stroke, Color32};
     /// let style = SettingsStyle::new().with_node_stroke_hook(|selected, _dragged, color, stroke, egui_style| {
     ///     let mut s = stroke;
-    ///     // Base color from node or egui visuals
+    ///     // Base color from node or `egui` visuals
     ///     s.color = color.unwrap_or(egui_style.visuals.widgets.inactive.fg_stroke.color);
     ///     if selected { s.width = 3.0; }
     ///     s
@@ -236,7 +226,7 @@ impl SettingsStyle {
     }
 
     /// Provide a hook to customize edge stroke styling.
-    /// The hook receives: (selected, order, current_stroke, egui_style) and should return a new Stroke.
+    /// The hook receives: `(selected, order, current_stroke, egui_style)` and should return a new `Stroke`.
     pub fn with_edge_stroke_hook<F>(mut self, f: F) -> Self
     where
         F: Fn(bool, usize, egui::Stroke, &egui::Style) -> egui::Stroke + Send + Sync + 'static,
@@ -245,3 +235,15 @@ impl SettingsStyle {
         self
     }
 }
+
+/// Type alias for the node stroke hook closure to keep type signatures concise.
+pub type NodeStrokeHook = std::sync::Arc<
+    dyn Fn(bool, bool, Option<egui::Color32>, egui::Stroke, &egui::Style) -> egui::Stroke
+        + Send
+        + Sync,
+>;
+
+/// Type alias for the edge stroke hook closure to keep type signatures concise.
+pub type EdgeStrokeHook = std::sync::Arc<
+    dyn Fn(bool, usize, egui::Stroke, &egui::Style) -> egui::Stroke + Send + Sync,
+>;

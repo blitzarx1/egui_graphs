@@ -50,7 +50,7 @@ impl LabelChangeApp {
                 },
             );
             if ui.button("reset").clicked() {
-                self.reset(ui)
+                self.reset(ui);
             }
         });
         CentralPanel::default().show(ctx, |ui| {

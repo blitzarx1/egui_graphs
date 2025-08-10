@@ -1,4 +1,4 @@
-//! Demo example for egui_graphs.
+//! Demo example for `egui_graphs`.
 //!
 //! Run without events feature:
 //!   cargo run --example demo
@@ -7,6 +7,7 @@
 
 use eframe::{run_native, App, CreationContext};
 use egui::{self, Align2, CollapsingHeader, Pos2, ScrollArea, Ui};
+use core::cmp::Ordering;
 use egui_graphs::{generate_random_graph, Graph, LayoutForceDirected, LayoutStateForceDirected};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
@@ -77,8 +78,8 @@ mod drawers {
         mut v: GraphCountSliders,
         mut on_change: impl FnMut(i32, i32),
     ) {
-        let mut delta_nodes = 0;
-        let mut delta_edges = 0;
+        let mut delta_nodes: i32 = 0;
+        let mut delta_edges: i32 = 0;
 
         ui.horizontal(|ui| {
             let start = v.nodes;
@@ -96,7 +97,11 @@ mod drawers {
             if ui.small_button("+10").clicked() {
                 v.nodes = (v.nodes + 10).min(500);
             }
-            delta_nodes = v.nodes as i32 - start as i32;
+            delta_nodes = if v.nodes >= start {
+                i32::try_from(v.nodes - start).unwrap()
+            } else {
+                -i32::try_from(start - v.nodes).unwrap()
+            };
         });
 
         ui.horizontal(|ui| {
@@ -115,7 +120,11 @@ mod drawers {
             if ui.small_button("+10").clicked() {
                 v.edges = (v.edges + 10).min(500);
             }
-            delta_edges = v.edges as i32 - start as i32;
+            delta_edges = if v.edges >= start {
+                i32::try_from(v.edges - start).unwrap()
+            } else {
+                -i32::try_from(start - v.edges).unwrap()
+            };
         });
 
         if delta_nodes != 0 || delta_edges != 0 {
@@ -148,7 +157,6 @@ pub struct DemoApp {
     event_publisher: Sender<Event>,
     #[cfg(feature = "events")]
     event_consumer: Receiver<Event>,
-    // Theme state: true = dark mode, false = light mode
     dark_mode: bool,
 }
 
@@ -156,7 +164,6 @@ impl DemoApp {
     fn new(cc: &CreationContext<'_>) -> Self {
         let settings_graph = settings::SettingsGraph::default();
         let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
-        // Place nodes on a circle to avoid overlapping at start.
         let n = g.node_count().max(1);
         let radius = (n as f32).sqrt() * 50.0 + 50.0;
         let indices: Vec<_> = g.g().node_indices().collect();
@@ -249,7 +256,6 @@ impl DemoApp {
         }
     }
     fn remove_edge(&mut self, a: NodeIndex, b: NodeIndex) {
-        // collect first edge id then remove to satisfy the borrow checker
         let edge_id_opt = { self.g.edges_connecting(a, b).map(|(eid, _)| eid).next() };
         if let Some(edge_id) = edge_id_opt {
             self.g.remove_edge(edge_id);
@@ -283,7 +289,6 @@ impl DemoApp {
     }
 
     fn ui_graph_section(&mut self, ui: &mut Ui) {
-        // Sliders with inline quick increment buttons
         drawers::graph_count_sliders(
             ui,
             drawers::GraphCountSliders {
@@ -291,28 +296,26 @@ impl DemoApp {
                 edges: self.settings_graph.count_edge,
             },
             |dn, de| {
-                self.settings_graph.count_node =
-                    (self.settings_graph.count_node as i32 + dn).max(1) as usize;
-                self.settings_graph.count_edge =
-                    (self.settings_graph.count_edge as i32 + de).max(0) as usize;
-                if dn > 0 {
-                    for _ in 0..dn {
-                        self.add_random_node();
+                match dn.cmp(&0) {
+                    Ordering::Greater => {
+                        for _ in 0..dn { self.add_random_node(); }
                     }
-                } else if dn < 0 {
-                    for _ in 0..(-dn) {
-                        self.remove_random_node();
+                    Ordering::Less => {
+                        for _ in 0..(-dn) { self.remove_random_node(); }
                     }
+                    Ordering::Equal => {}
                 }
-                if de > 0 {
-                    for _ in 0..de {
-                        self.add_random_edge();
+                match de.cmp(&0) {
+                    Ordering::Greater => {
+                        for _ in 0..de { self.add_random_edge(); }
                     }
-                } else if de < 0 {
-                    for _ in 0..(-de) {
-                        self.remove_random_edge();
+                    Ordering::Less => {
+                        for _ in 0..(-de) { self.remove_random_edge(); }
                     }
+                    Ordering::Equal => {}
                 }
+                self.settings_graph.count_node = self.g.node_count();
+                self.settings_graph.count_edge = self.g.edge_count();
             },
         );
     }
@@ -344,8 +347,8 @@ impl DemoApp {
             });
     }
 
+    #[allow(clippy::unused_self)]
     fn ui_layout_force_directed(&mut self, ui: &mut Ui) {
-        // Load current layout state
         let mut state = egui_graphs::GraphView::<
             (),
             (),
@@ -363,7 +366,6 @@ impl DemoApp {
                 fn info_icon(ui: &mut egui::Ui, tip: &str) {
                     ui.add_space(4.0);
                     if ui.small_button("ℹ").on_hover_text(tip).clicked() {
-                        // no-op; purely informational
                     }
                 }
 
@@ -394,7 +396,6 @@ impl DemoApp {
                 if ui.button("reset defaults").on_hover_text("Restore factory parameter values").clicked() { state = LayoutStateForceDirected::default(); }
             });
 
-        // Persist possibly modified state
         egui_graphs::GraphView::<
             (),
             (),
@@ -535,6 +536,7 @@ impl DemoApp {
             });
     }
 
+    #[allow(clippy::unused_self)]
     fn ui_events(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Last Events")
             .default_open(true)
@@ -569,14 +571,7 @@ impl DemoApp {
             let zoom_line = "Zoom: enable events feature".to_string();
             #[cfg(not(feature = "events"))]
             let pan_line = "Pan: enable events feature".to_string();
-            format!(
-                "{fps}\n{n}\n{e}\n{z}\n{p}",
-                fps = fps_line,
-                n = n_line,
-                e = e_line,
-                z = zoom_line,
-                p = pan_line
-            )
+            format!("{fps_line}\n{n_line}\n{e_line}\n{zoom_line}\n{pan_line}")
         };
 
         let visuals = &ctx.style().visuals;
@@ -673,12 +668,12 @@ impl App for DemoApp {
                 .with_zoom_speed(self.settings_navigation.zoom_speed);
             let settings_style = &egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always)
-                .with_edge_stroke_hook(|selected, _order, stroke, _style| {
+        .with_edge_stroke_hook(|selected, _order, stroke, _style| {
                     // Reduce alpha by half for non-selected edges to de-emphasize them.
                     let mut s = stroke;
                     if !selected {
                         let c = s.color;
-                        let new_a = (c.a() as f32 * 0.5) as u8;
+            let new_a = (f32::from(c.a()) * 0.5) as u8;
                         s.color = egui::Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), new_a);
                     }
                     s

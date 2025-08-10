@@ -196,7 +196,7 @@ mod node {
         }
 
         fn update(&mut self, state: &NodeProps<N>) {
-            self.label = state.label.clone();
+            self.label.clone_from(&state.label);
             self.loc = state.location();
         }
     }

@@ -127,20 +127,14 @@ mod node {
     impl NodeShapeAnimated {
         pub fn get_rotation_increment(&mut self) -> f32 {
             let now = Instant::now();
-            let mult = match self.clockwise {
-                true => 1.,
-                false => -1.,
-            };
-            match self.last_time_update {
-                Some(last_time) => {
-                    self.last_time_update = Some(now);
-                    let seconds_passed = now.duration_since(last_time);
-                    seconds_passed.as_secs_f32() * self.speed_per_second * mult
-                }
-                None => {
-                    self.last_time_update = Some(now);
-                    0.
-                }
+            let mult = if self.clockwise { 1. } else { -1. };
+            if let Some(last_time) = self.last_time_update {
+                self.last_time_update = Some(now);
+                let seconds_passed = now.duration_since(last_time);
+                seconds_passed.as_secs_f32() * self.speed_per_second * mult
+            } else {
+                self.last_time_update = Some(now);
+                0.
             }
         }
     }
@@ -154,7 +148,7 @@ mod node {
                 clockwise: node_props.payload.get_is_clockwise(),
 
                 angle_rad: Default::default(),
-                last_time_update: Default::default(),
+                last_time_update: Option::default(),
                 speed_per_second: 1.,
 
                 size: 30.,
@@ -188,14 +182,13 @@ mod node {
             let rect_default = Rect::from_center_size(center, Vec2::new(size, size));
             let color = ctx.ctx.style().visuals.weak_text_color();
 
-            let diff = match self.dragged {
-                true => self.get_rotation_increment(),
-                false => {
-                    if self.last_time_update.is_some() {
-                        self.last_time_update = None;
-                    }
-                    0.
+            let diff = if self.dragged {
+                self.get_rotation_increment()
+            } else {
+                if self.last_time_update.is_some() {
+                    self.last_time_update = None;
                 }
+                0.
             };
 
             if diff.abs() > 0. {
@@ -232,7 +225,7 @@ mod node {
         }
 
         fn update(&mut self, state: &NodeProps<N>) {
-            self.label = state.label.clone();
+            self.label.clone_from(&state.label);
             self.loc = state.location();
             self.dragged = state.dragged;
             self.clockwise = state.payload.get_is_clockwise();
