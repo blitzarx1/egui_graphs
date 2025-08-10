@@ -22,7 +22,7 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 
 The project is on track for a stable release v1.0.0. For the moment, breaking releases are very possible.
 
-Please use master branch for the latest updates.
+Please use `main` branch for the latest updates.
 
 Check the [demo example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/demo.rs) for the comprehensive overview of the widget possibilities.
 
@@ -37,7 +37,7 @@ In addition to the basic graph display functionality, the project provides a lay
 <img width="441" height="425" alt="Screenshot 2025-08-10 at 1 38 45 PM" src="https://github.com/user-attachments/assets/aebcb954-4ce8-4492-81be-2a787dfcdba8" />
 <img width="441" height="425" alt="Screenshot 2025-08-10 at 1 38 45 PM" src="https://github.com/user-attachments/assets/48614f43-4436-42eb-a238-af196d2044b4" />
 
-Check the [layouts example](https://github.com/blitzarx1/egui_graphs/blob/master/examples/layouts/src/main.rs).
+Check the [layouts example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/layouts.rs).
 
 ### Force-directed layout
 
@@ -47,7 +47,7 @@ A naive O(n²) force-directed layout (Fruchterman–Reingold style) is now inclu
 
 ### Basic setup example
 
-The source code of the following steps can be found in the [basic example](https://github.com/blitzarx1/egui_graphs/blob/master/examples/basic/src/main.rs).
+The source code of the following steps can be found in the [basic example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/basic.rs).
 
 #### Step 1: Setting up the `BasicApp` struct
 
