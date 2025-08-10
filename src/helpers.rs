@@ -117,19 +117,19 @@ where
 ///
 /// let result: Graph<_, _, _, _, DefaultNodeShape, DefaultEdgeShape> = to_graph(&g);
 ///
-/// assert_eq!(result.g.node_count(), 2);
-/// assert_eq!(result.g.edge_count(), 1);
+/// assert_eq!(result.g().node_count(), 2);
+/// assert_eq!(result.g().edge_count(), 1);
 ///
-/// let mut indxs = result.g.node_indices();
+/// let mut indxs = result.g().node_indices();
 /// let result_node1 = indxs.next().unwrap();
 /// let result_node2 = indxs.next().unwrap();
-/// assert_eq!(*result.g.node_weight(result_node1).unwrap().payload(), "A");
-/// assert_eq!(*result.g.node_weight(result_node2).unwrap().payload(), "B");
+/// assert_eq!(*result.g().node_weight(result_node1).unwrap().payload(), "A");
+/// assert_eq!(*result.g().node_weight(result_node2).unwrap().payload(), "B");
 ///
-/// assert_eq!(*result.g.edge_weight(result.g.edge_indices().next().unwrap()).unwrap().payload(), "edge1");
+/// assert_eq!(*result.g().edge_weight(result.g().edge_indices().next().unwrap()).unwrap().payload(), "edge1");
 ///
-/// assert_eq!(*result.g.node_weight(result_node1).unwrap().label().clone(), format!("node {}", result_node1.index()));
-/// assert_eq!(*result.g.node_weight(result_node2).unwrap().label().clone(), format!("node {}", result_node2.index()));
+/// assert_eq!(*result.g().node_weight(result_node1).unwrap().label().clone(), format!("node {}", result_node1.index()));
+/// assert_eq!(*result.g().node_weight(result_node2).unwrap().label().clone(), format!("node {}", result_node2.index()));
 /// ```
 pub fn to_graph<N, E, Ty, Ix, Dn, De>(g: &StableGraph<N, E, Ty, Ix>) -> Graph<N, E, Ty, Ix, Dn, De>
 where
