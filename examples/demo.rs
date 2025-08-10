@@ -394,7 +394,7 @@ impl DemoApp {
                     info_icon(ui, "Maximum pixel displacement applied per frame to prevent explosions.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.gravity_base, 0.0..=2000.0).text("gravity_base"));
+                    ui.add(egui::Slider::new(&mut state.gravity_base, 100.0..=5000.0).text("gravity_base"));
                     info_icon(ui, "Base strength of gentle pull toward canvas center (scaled inversely by view size).");
                 });
                 ui.horizontal(|ui| {

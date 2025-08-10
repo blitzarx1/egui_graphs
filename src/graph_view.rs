@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
+    draw::{drawer::Drawer, DefaultEdgeShape, DefaultNodeShape, DrawContext},
     layouts::{self, Layout, LayoutState},
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
