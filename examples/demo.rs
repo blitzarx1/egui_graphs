@@ -77,7 +77,7 @@ mod drawers {
         ui.horizontal(|ui| {
             let start = v.nodes;
             ui.label("N");
-            ui.add(egui::Slider::new(&mut v.nodes, 1..=500));
+            ui.add(egui::Slider::new(&mut v.nodes, 1..=2500));
             if ui.small_button("-10").clicked() {
                 v.nodes = (v.nodes.saturating_sub(10)).max(1);
             }
@@ -85,10 +85,10 @@ mod drawers {
                 v.nodes = (v.nodes.saturating_sub(1)).max(1);
             }
             if ui.small_button("+1").clicked() {
-                v.nodes = (v.nodes + 1).min(500);
+                v.nodes = (v.nodes + 1).min(2500);
             }
             if ui.small_button("+10").clicked() {
-                v.nodes = (v.nodes + 10).min(500);
+                v.nodes = (v.nodes + 10).min(2500);
             }
             delta_nodes = if v.nodes >= start {
                 i32::try_from(v.nodes - start).unwrap()
@@ -100,7 +100,7 @@ mod drawers {
         ui.horizontal(|ui| {
             let start = v.edges;
             ui.label("E");
-            ui.add(egui::Slider::new(&mut v.edges, 0..=500));
+            ui.add(egui::Slider::new(&mut v.edges, 0..=2500));
             if ui.small_button("-10").clicked() {
                 v.edges = v.edges.saturating_sub(10);
             }
@@ -108,10 +108,10 @@ mod drawers {
                 v.edges = v.edges.saturating_sub(1);
             }
             if ui.small_button("+1").clicked() {
-                v.edges = (v.edges + 1).min(500);
+                v.edges = (v.edges + 1).min(2500);
             }
             if ui.small_button("+10").clicked() {
-                v.edges = (v.edges + 10).min(500);
+                v.edges = (v.edges + 10).min(2500);
             }
             delta_edges = if v.edges >= start {
                 i32::try_from(v.edges - start).unwrap()
@@ -387,7 +387,7 @@ impl DemoApp {
                     info_icon(ui, "Maximum pixel displacement applied per frame to prevent explosions.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.gravity_base, 100.0..=5000.0).text("gravity_base"));
+                    ui.add(egui::Slider::new(&mut state.gravity_base, 100.0..=2500.0).text("gravity_base"));
                     info_icon(ui, "Base strength of gentle pull toward canvas center (scaled inversely by view size).");
                 });
                 ui.horizontal(|ui| {
