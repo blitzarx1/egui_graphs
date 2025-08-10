@@ -193,6 +193,21 @@ where
         });
     }
 
+    /// Loads current persisted layout state (or default if none). Useful for external UI panels.
+    pub fn get_layout_state(ui: &egui::Ui) -> S {
+        ui.data_mut(|data| {
+            data.get_persisted::<S>(Id::new(KEY_LAYOUT))
+                .unwrap_or_default()
+        })
+    }
+
+    /// Persists a new layout state so that on the next frame it will be applied.
+    pub fn set_layout_state(ui: &egui::Ui, state: S) {
+        ui.data_mut(|data| {
+            data.insert_persisted(Id::new(KEY_LAYOUT), state);
+        });
+    }
+
     #[cfg(feature = "events")]
     /// Allows to supply channel where events happening in the graph will be reported.
     pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
