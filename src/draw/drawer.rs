@@ -67,7 +67,7 @@ where
     /// 2. `draw_edges` builds edge shapes using the updated node display state.
     /// 3. `draw_nodes` paints nodes (non‑selected first) while deferring highlighted ones.
     /// 4. `draw_postponed` paints deferred (selected / dragged) shapes on top.
-    pub(crate) fn draw(mut self) {
+    pub(crate)fn draw(mut self) {
         self.update_nodes();
         self.draw_edges();
         self.draw_nodes();
