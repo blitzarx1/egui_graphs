@@ -1,10 +1,3 @@
-//! Demo example for `egui_graphs`.
-//!
-//! Run without events feature:
-//!   cargo run --example demo
-//! Run with interaction events panel:
-//!   cargo run --example demo --features events
-
 use core::cmp::Ordering;
 use eframe::{run_native, App, CreationContext};
 use egui::{self, Align2, CollapsingHeader, Pos2, ScrollArea, Ui};
