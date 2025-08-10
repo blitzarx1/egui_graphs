@@ -77,4 +77,15 @@ where
         end: &Node<N, E, Ty, Ix, D>,
         pos: Pos2,
     ) -> bool;
+
+    /// Provides optional extra bounds (in canvas coordinates) contributed by the edge beyond node bounds.
+    /// Default implementation returns None (no extra bounds). Implementors can override to improve fit-to-screen.
+    #[allow(unused_variables)]
+    fn extra_bounds(
+        &self,
+        start: &Node<N, E, Ty, Ix, D>,
+        end: &Node<N, E, Ty, Ix, D>,
+    ) -> Option<(Pos2, Pos2)> {
+        None
+    }
 }

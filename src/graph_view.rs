@@ -251,6 +251,13 @@ where
             if e.selected() {
                 selected_edges.push(idx);
             }
+            if let Some((start_idx, end_idx)) = self.g.edge_endpoints(e.id()) {
+                if let (Some(start), Some(end)) = (self.g.node(start_idx), self.g.node(end_idx)) {
+                    if let Some((min, max)) = e.display().extra_bounds(start, end) {
+                        meta.expand_bounds(min, max);
+                    }
+                }
+            }
         });
 
         self.g.set_selected_nodes(selected_nodes);
