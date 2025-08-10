@@ -6,7 +6,7 @@
 
 Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) and [egui](https://github.com/emilk/egui) in its DNA.
 
-![Screenshot 2023-04-28 at 23 14 38](https://user-images.githubusercontent.com/32969427/235233765-23b0673b-70e5-4138-9384-180804392dba.png)
+<img width="1118" height="897" alt="Screenshot 2025-08-10 at 1 37 23 PM" src="https://github.com/user-attachments/assets/cf2b69e4-06df-49f4-b27b-c778d38a38cf" />
 
 The project implements a Widget for the egui framework, enabling easy visualization of interactive graphs in rust. The goal is to implement the very basic engine for graph visualization within egui, which can be easily extended and customized for your needs.
 
@@ -34,7 +34,8 @@ In addition to the basic graph display functionality, the project provides a lay
 - [x] Hierarchical layout;
 - [x] Force-directed layout (naive baseline);
 
-![Screenshot 2024-10-28 at 3 57 05 PM](https://github.com/user-attachments/assets/48614f43-4436-42eb-a238-af196d2044b4)
+<img width="441" height="425" alt="Screenshot 2025-08-10 at 1 38 45 PM" src="https://github.com/user-attachments/assets/aebcb954-4ce8-4492-81be-2a787dfcdba8" />
+<img width="441" height="425" alt="Screenshot 2025-08-10 at 1 38 45 PM" src="https://github.com/user-attachments/assets/48614f43-4436-42eb-a238-af196d2044b4" />
 
 Check the [layouts example](https://github.com/blitzarx1/egui_graphs/blob/master/examples/layouts/src/main.rs).
 
