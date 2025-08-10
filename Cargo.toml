@@ -28,10 +28,6 @@ crossbeam = { version = "0.8", optional = true }
 [features]
 events = ["dep:crossbeam"]
 
-# TODO: remove this block when we have demo in examples as single file
-[workspace]
-members = ["examples/*"]
-
 [lints.rust]
 unsafe_code = "forbid"
 
