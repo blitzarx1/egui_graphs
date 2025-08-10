@@ -6,7 +6,7 @@
 
 Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) and [egui](https://github.com/emilk/egui) in its DNA.
 
-<img width="1118" height="897" alt="Screenshot 2025-08-10 at 1 37 23 PM" src="https://github.com/user-attachments/assets/cf2b69e4-06df-49f4-b27b-c778d38a38cf" />
+<img width="1011" height="642" alt="Screenshot 2025-08-10 at 10 41 35 PM" src="https://github.com/user-attachments/assets/4b55f220-8b25-4809-8bf2-44452a77f374" />
 
 The project implements a Widget for the egui framework, enabling easy visualization of interactive graphs in rust. The goal is to implement the very basic engine for graph visualization within egui, which can be easily extended and customized for your needs.
 
@@ -159,7 +159,7 @@ let mut view = egui_graphs::GraphView::new(&mut graph)
 
 Hooks receive the current `Stroke` derived from the active egui theme, so your custom logic stays consistent with light/dark modes.
 
-#### Hooks vs. Custom Node / Edge Drawers (Summary)
+#### Hooks vs. Implement `Display<Node|Edge> Trait`
 
 Use a stroke hook when you only need quick visual tweaks (color / width / alpha) based on interaction state or simple heuristics.
 Implement a custom `DisplayNode` / `DisplayEdge` when you need to change geometry (different shapes, icons, multiple layered outlines), custom hit‑testing, animations, or rich graph‑context dependent visuals.
