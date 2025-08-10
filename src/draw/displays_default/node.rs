@@ -70,7 +70,12 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         }
 
         let galley = self.label_galley(ctx, circle_radius, color);
-        res.push(self.label_shape(galley, circle_center, circle_radius, color));
+        res.push(Self::label_shape(
+            galley,
+            circle_center,
+            circle_radius,
+            color,
+        ));
         res
     }
 
@@ -135,7 +140,6 @@ impl DefaultNodeShape {
     }
 
     fn label_shape(
-        &self,
         galley: std::sync::Arc<egui::Galley>,
         center: Pos2,
         radius: f32,

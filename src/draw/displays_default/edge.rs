@@ -66,8 +66,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         ctx: &DrawContext,
     ) -> Vec<egui::Shape> {
         let label_visible = ctx.style.labels_always || self.selected;
-        let color = self.current_color::<N, E, Ty, Ix, D>(ctx);
-        let stroke = self.current_stroke::<N, E, Ty, Ix, D>(ctx, color);
+        let color = self.current_color(ctx);
+        let stroke = self.current_stroke(ctx, color);
 
         if start.id() == end.id() {
             return self.loop_shapes(start, ctx, stroke, color, label_visible);
@@ -75,10 +75,9 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
         let dir = (end.location() - start.location()).normalized();
         if self.order == 0 {
-            return self.straight_shapes(start, end, ctx, stroke, color, label_visible, dir);
+            return self.straight_shapes(start, end, ctx, dir);
         }
-
-        self.curved_shapes(start, end, ctx, stroke, color, label_visible, dir)
+        self.curved_shapes(start, end, ctx, dir)
     }
 
     fn update(&mut self, state: &EdgeProps<E>) {
@@ -151,16 +150,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 }
 
 impl DefaultEdgeShape {
-    fn current_color<
-        N: Clone,
-        E: Clone,
-        Ty: EdgeType,
-        Ix: IndexType,
-        D: DisplayNode<N, E, Ty, Ix>,
-    >(
-        &self,
-        ctx: &DrawContext,
-    ) -> Color32 {
+    fn current_color(&self, ctx: &DrawContext) -> Color32 {
         let style = if self.selected {
             ctx.ctx.style().visuals.widgets.active
         } else {
@@ -169,17 +159,7 @@ impl DefaultEdgeShape {
         style.fg_stroke.color
     }
 
-    fn current_stroke<
-        N: Clone,
-        E: Clone,
-        Ty: EdgeType,
-        Ix: IndexType,
-        D: DisplayNode<N, E, Ty, Ix>,
-    >(
-        &self,
-        ctx: &DrawContext,
-        color: Color32,
-    ) -> Stroke {
+    fn current_stroke(&self, ctx: &DrawContext, color: Color32) -> Stroke {
         let base = Stroke::new(self.width, color);
         if let Some(hook) = &ctx.style.edge_stroke_hook {
             let style_ref: &egui::Style = &ctx.ctx.style();
@@ -239,12 +219,12 @@ impl DefaultEdgeShape {
         start: &Node<N, E, Ty, Ix, D>,
         end: &Node<N, E, Ty, Ix, D>,
         ctx: &DrawContext,
-        stroke: Stroke,
-        color: Color32,
-        label_visible: bool,
         dir: Vec2,
     ) -> Vec<Shape> {
         let mut res = vec![];
+        let color = self.current_color(ctx);
+        let stroke = self.current_stroke(ctx, color);
+        let label_visible = ctx.style.labels_always || self.selected;
         let start_connector_point = start.display().closest_boundary_point(dir);
         let end_connector_point = end.display().closest_boundary_point(-dir);
         let mut builder = EdgeShapeBuilder::new(stroke)
@@ -291,12 +271,12 @@ impl DefaultEdgeShape {
         start: &Node<N, E, Ty, Ix, D>,
         end: &Node<N, E, Ty, Ix, D>,
         ctx: &DrawContext,
-        stroke: Stroke,
-        color: Color32,
-        label_visible: bool,
         dir: Vec2,
     ) -> Vec<Shape> {
         let mut res = vec![];
+        let color = self.current_color(ctx);
+        let stroke = self.current_stroke(ctx, color);
+        let label_visible = ctx.style.labels_always || self.selected;
         let start_connector_point = start.display().closest_boundary_point(dir);
         let end_connector_point = end.display().closest_boundary_point(-dir);
         let mut builder = EdgeShapeBuilder::new(stroke)
@@ -320,7 +300,7 @@ impl DefaultEdgeShape {
         let Some(Shape::CubicBezier(line_curved)) = curved_shapes.first() else {
             panic!("invalid shape type")
         };
-        res.extend(curved_shapes.clone().into_iter());
+        res.extend(curved_shapes.clone());
         if label_visible {
             let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
             let galley = ctx.ctx.fonts(|f| {
