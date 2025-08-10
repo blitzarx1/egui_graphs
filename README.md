@@ -171,7 +171,7 @@ Implement a custom `DisplayNode` / `DisplayEdge` when you need to change geometr
 | Different node shape (rect, hex, image, pie) | ❌ | ✅ |
 | Custom label placement / multiple labels | ❌ | ✅ |
 | Custom hit area / hit test logic | ❌ | ✅ |
-| Graph‑topology aware geometry (hub size, cluster halos) | Limited (planned metrics) | ✅ |
+| Graph‑topology aware geometry (hub size, cluster halos) | ❌ | ✅ |
 | Minimal boilerplate | ✅ | ❌ |
 
 Rule of thumb: start with hooks; switch to a custom drawer if you find yourself wanting to modify anything beyond the single stroke per node/edge.
