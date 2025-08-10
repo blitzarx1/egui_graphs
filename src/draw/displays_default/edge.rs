@@ -76,7 +76,13 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             ctx.ctx.style().visuals.widgets.inactive
         };
         let color = style.fg_stroke.color;
-        let stroke = Stroke::new(self.width, color);
+        let base_stroke = Stroke::new(self.width, color);
+        let stroke = if let Some(hook) = &ctx.style.edge_stroke_hook {
+            let style_ref: &egui::Style = &ctx.ctx.style();
+            (hook)(self.selected, self.order, base_stroke, style_ref)
+        } else {
+            base_stroke
+        };
 
         if start.id() == end.id() {
             // draw loop
@@ -228,7 +234,8 @@ impl DefaultEdgeShape {
     ) -> bool {
         let node_size = node_size(node, Vec2::new(-1., 0.));
 
-        let shape = EdgeShapeBuilder::new(Stroke::new(self.width, Color32::default()))
+        let loop_stroke = Stroke::new(self.width, Color32::default());
+        let shape = EdgeShapeBuilder::new(loop_stroke)
             .looped(node.location(), node_size, self.loop_size, self.order)
             .build();
 

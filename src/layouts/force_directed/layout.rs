@@ -365,9 +365,7 @@ mod tests {
         let new_dist = (b - a).length();
         assert!(
             new_dist < start_dist,
-            "Distance should shrink due to attraction ({} < {})",
-            new_dist,
-            start_dist
+            "Distance should shrink due to attraction ({new_dist} < {start_dist})"
         );
     }
 
@@ -406,9 +404,7 @@ mod tests {
         let new_dist = (centre - loc).length();
         assert!(
             new_dist < start_dist,
-            "Node should move closer to centre ({} < {})",
-            new_dist,
-            start_dist
+            "Node should move closer to centre ({new_dist} < {start_dist})"
         );
     }
 }

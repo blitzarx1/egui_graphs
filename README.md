@@ -16,7 +16,7 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 - [x] Node and edges interactions and events reporting: click, double click, select, drag;
 - [x] Node and Edge labels;
 - [x] Dark/Light theme support via egui context styles;
-- [x] Style configuration via egui context styles;
+- [x] User stroke styling hooks (node & edge) for dynamic customization;
 
 ## Status
 
@@ -125,6 +125,56 @@ fn main() {
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
 
 ## Features
+
+### Styling Hooks (Node & Edge Strokes)
+
+You can now override the stroke style (width / color / alpha) used to draw nodes and edges without re-implementing the default display shapes. Provide closures via `SettingsStyle`:
+
+```rust
+let style = egui_graphs::SettingsStyle::new()
+    .with_edge_stroke_hook(|selected, order, stroke, egui_style| {
+        // Fade unselected edges, keep selected crisp; vary slightly by parallel edge order.
+        let mut s = stroke;
+        if !selected {
+            let c = s.color;
+            s.color = egui::Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), (c.a() as f32 * 0.5) as u8);
+        }
+        // Subtle darkening for higher-order parallel edges
+        let factor = 1.0 - (order as f32 * 0.08).min(0.4);
+        s.color = s.color.linear_multiply(factor);
+        s
+    })
+    .with_node_stroke_hook(|selected, dragged, node_color, stroke, egui_style| {
+        let mut s = stroke;
+        // Base color: explicit node color or egui visuals
+        s.color = node_color.unwrap_or_else(|| egui_style.visuals.widgets.inactive.fg_stroke.color);
+        if selected { s.width = 3.0; }
+        if dragged { s.color = egui::Color32::LIGHT_BLUE; }
+        s
+    });
+
+let mut view = egui_graphs::GraphView::new(&mut graph)
+    .with_styles(&style);
+```
+
+Hooks receive the current `Stroke` derived from the active egui theme, so your custom logic stays consistent with light/dark modes.
+
+#### Hooks vs. Custom Node / Edge Drawers (Summary)
+
+Use a stroke hook when you only need quick visual tweaks (color / width / alpha) based on interaction state or simple heuristics.
+Implement a custom `DisplayNode` / `DisplayEdge` when you need to change geometry (different shapes, icons, multiple layered outlines), custom hit‑testing, animations, or rich graph‑context dependent visuals.
+
+| Need | Hook | Custom Drawer |
+|------|------|---------------|
+| Adjust stroke color/width on select/hover | ✅ | ✅ |
+| Fade or highlight edges | ✅ | ✅ |
+| Different node shape (rect, hex, image, pie) | ❌ | ✅ |
+| Custom label placement / multiple labels | ❌ | ✅ |
+| Custom hit area / hit test logic | ❌ | ✅ |
+| Graph‑topology aware geometry (hub size, cluster halos) | Limited (planned metrics) | ✅ |
+| Minimal boilerplate | ✅ | ❌ |
+
+Rule of thumb: start with hooks; switch to a custom drawer if you find yourself wanting to modify anything beyond the single stroke per node/edge.
 
 ### Events
 
