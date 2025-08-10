@@ -84,6 +84,12 @@ mod drawers {
             let start = v.nodes;
             ui.label("N");
             ui.add(egui::Slider::new(&mut v.nodes, 1..=500));
+            if ui.small_button("-10").clicked() {
+                v.nodes = (v.nodes.saturating_sub(10)).max(1);
+            }
+            if ui.small_button("-1").clicked() {
+                v.nodes = (v.nodes.saturating_sub(1)).max(1);
+            }
             if ui.small_button("+1").clicked() {
                 v.nodes = (v.nodes + 1).min(500);
             }
@@ -97,6 +103,12 @@ mod drawers {
             let start = v.edges;
             ui.label("E");
             ui.add(egui::Slider::new(&mut v.edges, 0..=500));
+            if ui.small_button("-10").clicked() {
+                v.edges = v.edges.saturating_sub(10);
+            }
+            if ui.small_button("-1").clicked() {
+                v.edges = v.edges.saturating_sub(1);
+            }
             if ui.small_button("+1").clicked() {
                 v.edges = (v.edges + 1).min(500);
             }
@@ -136,10 +148,12 @@ pub struct DemoApp {
     event_publisher: Sender<Event>,
     #[cfg(feature = "events")]
     event_consumer: Receiver<Event>,
+    // Theme state: true = dark mode, false = light mode
+    dark_mode: bool,
 }
 
 impl DemoApp {
-    fn new(_: &CreationContext<'_>) -> Self {
+    fn new(cc: &CreationContext<'_>) -> Self {
         let settings_graph = settings::SettingsGraph::default();
         let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
         // Place nodes on a circle to avoid overlapping at start.
@@ -177,6 +191,7 @@ impl DemoApp {
             event_publisher,
             #[cfg(feature = "events")]
             event_consumer,
+            dark_mode: cc.egui_ctx.style().visuals.dark_mode,
         }
     }
 
@@ -481,7 +496,27 @@ impl DemoApp {
 
     fn ui_style(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Style").show(ui, |ui| {
-            ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
+            ui.horizontal(|ui| {
+                let currently_dark = ui.ctx().style().visuals.dark_mode;
+                let icon = if currently_dark { "☀" } else { "🌙" };
+                let tip = if currently_dark {
+                    "Switch to light theme"
+                } else {
+                    "Switch to dark theme"
+                };
+                if ui.small_button(icon).on_hover_text(tip).clicked() {
+                    if currently_dark {
+                        ui.ctx().set_visuals(egui::Visuals::light());
+                    } else {
+                        ui.ctx().set_visuals(egui::Visuals::dark());
+                    }
+                    self.dark_mode = ui.ctx().style().visuals.dark_mode;
+                } else {
+                    self.dark_mode = currently_dark;
+                }
+                ui.separator();
+                ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
+            });
         });
     }
 
@@ -521,7 +556,7 @@ impl DemoApp {
     }
 
     fn overlay_debug(&self, ctx: &egui::Context) {
-        use egui::{Area, Color32, Frame, RichText};
+        use egui::{Area, RichText};
         let text = {
             let fps_line = format!("FPS: {:.1}", self.fps);
             let n_line = format!("N: {}", self.g.node_count());
@@ -544,21 +579,18 @@ impl DemoApp {
             )
         };
 
+        let visuals = &ctx.style().visuals;
         Area::new(egui::Id::new("debug_overlay"))
             .movable(false)
             .interactable(false)
             .anchor(Align2::LEFT_TOP, [10.0, 10.0])
             .show(ctx, |ui| {
-                Frame::new().corner_radius(4.0).show(ui, |ui| {
-                    ui.set_min_width(170.0);
-                    ui.add_space(2.0);
-                    ui.label(
-                        RichText::new(text)
-                            .monospace()
-                            .color(Color32::WHITE)
-                            .size(14.0),
-                    );
-                });
+                ui.label(
+                    RichText::new(text)
+                        .monospace()
+                        .color(visuals.strong_text_color())
+                        .size(14.0),
+                );
             });
     }
 
@@ -640,7 +672,17 @@ impl App for DemoApp {
                 .with_fit_to_screen_enabled(self.settings_navigation.fit_to_screen_enabled)
                 .with_zoom_speed(self.settings_navigation.zoom_speed);
             let settings_style = &egui_graphs::SettingsStyle::new()
-                .with_labels_always(self.settings_style.labels_always);
+                .with_labels_always(self.settings_style.labels_always)
+                .with_edge_stroke_hook(|selected, _order, stroke, _style| {
+                    // Reduce alpha by half for non-selected edges to de-emphasize them.
+                    let mut s = stroke;
+                    if !selected {
+                        let c = s.color;
+                        let new_a = (c.a() as f32 * 0.5) as u8;
+                        s.color = egui::Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), new_a);
+                    }
+                    s
+                });
 
             let mut view = egui_graphs::GraphView::<
                 _,
