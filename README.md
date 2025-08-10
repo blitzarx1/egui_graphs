@@ -159,6 +159,23 @@ let mut view = egui_graphs::GraphView::new(&mut graph)
 
 Hooks receive the current `Stroke` derived from the active egui theme, so your custom logic stays consistent with light/dark modes.
 
+#### Hooks vs. Custom Node / Edge Drawers (Summary)
+
+Use a stroke hook when you only need quick visual tweaks (color / width / alpha) based on interaction state or simple heuristics.
+Implement a custom `DisplayNode` / `DisplayEdge` when you need to change geometry (different shapes, icons, multiple layered outlines), custom hit‑testing, animations, or rich graph‑context dependent visuals.
+
+| Need | Hook | Custom Drawer |
+|------|------|---------------|
+| Adjust stroke color/width on select/hover | ✅ | ✅ |
+| Fade or highlight edges | ✅ | ✅ |
+| Different node shape (rect, hex, image, pie) | ❌ | ✅ |
+| Custom label placement / multiple labels | ❌ | ✅ |
+| Custom hit area / hit test logic | ❌ | ✅ |
+| Graph‑topology aware geometry (hub size, cluster halos) | Limited (planned metrics) | ✅ |
+| Minimal boilerplate | ✅ | ❌ |
+
+Rule of thumb: start with hooks; switch to a custom drawer if you find yourself wanting to modify anything beyond the single stroke per node/edge.
+
 ### Events
 
 Can be enabled with `events` feature. Events describe a change made in graph whether it changed zoom level or node dragging.
