@@ -69,8 +69,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         let circle_radius = ctx.meta.canvas_to_screen_size(self.radius);
         // Base stroke (currently unused in default impl, but exposed for hook customization)
         let base_stroke = Stroke::default();
-            let stroke = if let Some(hook) = &ctx.style.node_stroke_hook {
-                let style_ref: &egui::Style = &ctx.ctx.style();
+        let stroke = if let Some(hook) = &ctx.style.node_stroke_hook {
+            let style_ref: &egui::Style = &ctx.ctx.style();
             (hook)(
                 self.selected,
                 self.dragged,

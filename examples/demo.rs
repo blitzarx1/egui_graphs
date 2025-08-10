@@ -5,9 +5,9 @@
 //! Run with interaction events panel:
 //!   cargo run --example demo --features events
 
+use core::cmp::Ordering;
 use eframe::{run_native, App, CreationContext};
 use egui::{self, Align2, CollapsingHeader, Pos2, ScrollArea, Ui};
-use core::cmp::Ordering;
 use egui_graphs::{generate_random_graph, Graph, LayoutForceDirected, LayoutStateForceDirected};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
@@ -298,19 +298,27 @@ impl DemoApp {
             |dn, de| {
                 match dn.cmp(&0) {
                     Ordering::Greater => {
-                        for _ in 0..dn { self.add_random_node(); }
+                        for _ in 0..dn {
+                            self.add_random_node();
+                        }
                     }
                     Ordering::Less => {
-                        for _ in 0..(-dn) { self.remove_random_node(); }
+                        for _ in 0..(-dn) {
+                            self.remove_random_node();
+                        }
                     }
                     Ordering::Equal => {}
                 }
                 match de.cmp(&0) {
                     Ordering::Greater => {
-                        for _ in 0..de { self.add_random_edge(); }
+                        for _ in 0..de {
+                            self.add_random_edge();
+                        }
                     }
                     Ordering::Less => {
-                        for _ in 0..(-de) { self.remove_random_edge(); }
+                        for _ in 0..(-de) {
+                            self.remove_random_edge();
+                        }
                     }
                     Ordering::Equal => {}
                 }
@@ -668,12 +676,12 @@ impl App for DemoApp {
                 .with_zoom_speed(self.settings_navigation.zoom_speed);
             let settings_style = &egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always)
-        .with_edge_stroke_hook(|selected, _order, stroke, _style| {
+                .with_edge_stroke_hook(|selected, _order, stroke, _style| {
                     // Reduce alpha by half for non-selected edges to de-emphasize them.
                     let mut s = stroke;
                     if !selected {
                         let c = s.color;
-            let new_a = (f32::from(c.a()) * 0.5) as u8;
+                        let new_a = (f32::from(c.a()) * 0.5) as u8;
                         s.color = egui::Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), new_a);
                     }
                     s

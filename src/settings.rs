@@ -244,6 +244,5 @@ pub type NodeStrokeHook = std::sync::Arc<
 >;
 
 /// Type alias for the edge stroke hook closure to keep type signatures concise.
-pub type EdgeStrokeHook = std::sync::Arc<
-    dyn Fn(bool, usize, egui::Stroke, &egui::Style) -> egui::Stroke + Send + Sync,
->;
+pub type EdgeStrokeHook =
+    std::sync::Arc<dyn Fn(bool, usize, egui::Stroke, &egui::Style) -> egui::Stroke + Send + Sync>;
