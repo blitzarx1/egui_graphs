@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_egui::EguiPrimaryContextPass;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use egui_graphs::{generate_simple_digraph, DefaultGraphView, Graph};
 
@@ -12,27 +13,30 @@ impl BevyGraph {
     }
 }
 
-fn setup(mut commands: Commands) {
-    // add an entity with an egui_graphs::Graph component
+fn setup_graph(mut commands: Commands) {
     commands.spawn(BevyGraph::new());
 }
 
-fn update_graph(mut contexts: EguiContexts, mut q_graph: Query<&mut BevyGraph>) {
-    let ctx = contexts.ctx_mut();
-    let graph = q_graph.single_mut();
+fn setup_camera(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
 
-    egui::CentralPanel::default().show(ctx, |ui| {
-        ui.add(&mut DefaultGraphView::new(&mut graph.unwrap().0));
-    });
+fn update_graph(mut contexts: EguiContexts, mut q_graph: Query<&mut BevyGraph>) {
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
+    if let Ok(mut bevy_graph) = q_graph.single_mut() {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.add(&mut DefaultGraphView::new(&mut bevy_graph.0));
+        });
+    }
 }
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(EguiPlugin {
-            enable_multipass_for_primary_context: false,
-        })
-        .add_systems(Startup, setup)
-        .add_systems(Update, update_graph)
+        .add_plugins(EguiPlugin::default())
+        .add_systems(Startup, (setup_graph, setup_camera))
+        .add_systems(EguiPrimaryContextPass, update_graph)
         .run();
 }
