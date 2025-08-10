@@ -34,8 +34,9 @@ impl Bounds {
     ) {
         let size = node_size(n, Vec2::new(0., 1.));
         let loc = n.location();
-        if loc.x + size < self.min.x {
-            self.min.x = loc.x + size;
+
+        if loc.x - size < self.min.x {
+            self.min.x = loc.x - size;
         }
         if loc.x + size > self.max.x {
             self.max.x = loc.x + size;
@@ -113,6 +114,22 @@ impl Metadata {
         n: &Node<N, E, Ty, Ix, D>,
     ) {
         self.bounds.compute_next(n);
+    }
+
+    /// Expands current bounds with provided rectangle (in canvas coordinates)
+    pub fn expand_bounds(&mut self, min: Pos2, max: Pos2) {
+        if min.x < self.bounds.min.x {
+            self.bounds.min.x = min.x;
+        }
+        if min.y < self.bounds.min.y {
+            self.bounds.min.y = min.y;
+        }
+        if max.x > self.bounds.max.x {
+            self.bounds.max.x = max.x;
+        }
+        if max.y > self.bounds.max.y {
+            self.bounds.max.y = max.y;
+        }
     }
 
     /// Returns bounding rect of the graph.

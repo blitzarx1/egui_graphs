@@ -218,6 +218,62 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         self.selected = state.selected;
         self.label_text = state.label.to_string();
     }
+
+    fn extra_bounds(
+        &self,
+        start: &Node<N, E, Ty, Ix, D>,
+        end: &Node<N, E, Ty, Ix, D>,
+    ) -> Option<(Pos2, Pos2)> {
+        use crate::helpers::node_size;
+    // self-loop: approximate loop rectangle
+        if start.id() == end.id() {
+            let node_radius = node_size(start, Vec2::new(-1., 0.));
+            let order = self.order as f32;
+            let loop_radius = node_radius * (self.loop_size + order);
+            let c = start.location();
+            let min = Pos2::new(c.x - loop_radius, c.y - loop_radius);
+            // bottom extent does not go below node center + radius, existing node bounds already include that
+            let max = Pos2::new(c.x + loop_radius, c.y + node_radius);
+            return Some((min, max));
+        }
+
+    // curved edges (order > 0): approximate cubic bezier hull from control points
+        if self.order > 0 {
+            let dir_vec = end.location() - start.location();
+            if dir_vec == Vec2::ZERO {
+                return None;
+            }
+            // connector points
+            let dir = dir_vec.normalized();
+            let start_p = start.display().closest_boundary_point(dir);
+            let end_p = end.display().closest_boundary_point(-dir);
+            let dist = end_p - start_p;
+            if dist == Vec2::ZERO { return None; }
+            let dir_n = dist.normalized();
+            let dir_perp = Vec2::new(-dir_n.y, dir_n.x);
+            let center_point = start_p + dist / 2.0;
+            let param = self.order as f32;
+            let height = dir_perp * self.curve_size * param;
+            let cp_center = center_point + height;
+            // replicate control points logic approximately
+            // avoid division by zero in pathological cases
+            let denom = param * dist * 0.5;
+            let mut adjust = Vec2::ZERO;
+            if denom.x != 0.0 && denom.y != 0.0 {
+                adjust = dir_n * self.curve_size / denom;
+            }
+            let cp_start = cp_center - adjust;
+            let cp_end = cp_center + adjust;
+
+            let xs = [start_p.x, end_p.x, cp_start.x, cp_end.x, cp_center.x];
+            let ys = [start_p.y, end_p.y, cp_start.y, cp_end.y, cp_center.y];
+            let (min_x, max_x) = xs.iter().fold((f32::MAX, f32::MIN), |(mi, ma), v| (mi.min(*v), ma.max(*v)));
+            let (min_y, max_y) = ys.iter().fold((f32::MAX, f32::MIN), |(mi, ma), v| (mi.min(*v), ma.max(*v)));
+            return Some((Pos2::new(min_x, min_y), Pos2::new(max_x, max_y)));
+        }
+
+        None
+    }
 }
 
 impl DefaultEdgeShape {
