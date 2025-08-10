@@ -32,7 +32,7 @@ impl Default for State {
             is_running: true,
             dt: 0.05,
             epsilon: 1e-3,
-            gravity_base: 500.0,
+            gravity_base: 1400.0,
             damping: 0.3,
             max_step: 10.0,
         }
