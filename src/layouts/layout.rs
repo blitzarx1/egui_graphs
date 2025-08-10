@@ -1,9 +1,10 @@
 use egui::util::id_type_map::SerializableAny;
 use petgraph::{stable_graph::IndexType, EdgeType};
+use std::fmt::Debug;
 
 use crate::{DisplayEdge, DisplayNode, Graph};
 
-pub trait LayoutState: SerializableAny + Default {}
+pub trait LayoutState: SerializableAny + Default + Debug {}
 
 pub trait Layout<S>: Default
 where
@@ -13,7 +14,7 @@ where
     fn from_state(state: S) -> impl Layout<S>;
 
     /// Called on every frame. It should update the graph layout aka nodes locations.
-    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
+    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>, ui: &egui::Ui)
     where
         N: Clone,
         E: Clone,

@@ -11,7 +11,7 @@ keywords = ["egui", "ui", "graph", "node-graph"]
 categories = ["gui", "visualization"]
 
 [dependencies]
-egui = { version = "0.31.0", default-features = false, features = [
+egui = { version = "0.32", default-features = false, features = [
   "persistence",
 ] }
 rand = "0.9"
@@ -27,9 +27,6 @@ crossbeam = { version = "0.8", optional = true }
 
 [features]
 events = ["dep:crossbeam"]
-
-[workspace]
-members = ["examples/*"]
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -51,3 +48,8 @@ out_of_bounds_indexing = { level = "allow", priority = 11 }
 must_use_candidate = { level = "allow", priority = 12 }
 struct_excessive_bools = { level = "allow", priority = 13 }
 return_self_not_must_use = { level = "allow", priority = 14 }
+
+[dev-dependencies]
+eframe = "0.32"
+bevy = "0.16"
+bevy_egui = "0.36"

@@ -4,7 +4,7 @@ use petgraph::{
     graph::IndexType,
     stable_graph::{EdgeIndex, NodeIndex, StableGraph},
     visit::IntoNodeReferences,
-    EdgeType,
+    Directed, EdgeType, Undirected,
 };
 use rand::Rng;
 use std::collections::HashMap;
@@ -117,19 +117,19 @@ where
 ///
 /// let result: Graph<_, _, _, _, DefaultNodeShape, DefaultEdgeShape> = to_graph(&g);
 ///
-/// assert_eq!(result.g.node_count(), 2);
-/// assert_eq!(result.g.edge_count(), 1);
+/// assert_eq!(result.g().node_count(), 2);
+/// assert_eq!(result.g().edge_count(), 1);
 ///
-/// let mut indxs = result.g.node_indices();
+/// let mut indxs = result.g().node_indices();
 /// let result_node1 = indxs.next().unwrap();
 /// let result_node2 = indxs.next().unwrap();
-/// assert_eq!(*result.g.node_weight(result_node1).unwrap().payload(), "A");
-/// assert_eq!(*result.g.node_weight(result_node2).unwrap().payload(), "B");
+/// assert_eq!(*result.g().node_weight(result_node1).unwrap().payload(), "A");
+/// assert_eq!(*result.g().node_weight(result_node2).unwrap().payload(), "B");
 ///
-/// assert_eq!(*result.g.edge_weight(result.g.edge_indices().next().unwrap()).unwrap().payload(), "edge1");
+/// assert_eq!(*result.g().edge_weight(result.g().edge_indices().next().unwrap()).unwrap().payload(), "edge1");
 ///
-/// assert_eq!(*result.g.node_weight(result_node1).unwrap().label().clone(), format!("node {}", result_node1.index()));
-/// assert_eq!(*result.g.node_weight(result_node2).unwrap().label().clone(), format!("node {}", result_node2.index()));
+/// assert_eq!(*result.g().node_weight(result_node1).unwrap().label().clone(), format!("node {}", result_node1.index()));
+/// assert_eq!(*result.g().node_weight(result_node2).unwrap().label().clone(), format!("node {}", result_node2.index()));
 /// ```
 pub fn to_graph<N, E, Ty, Ix, Dn, De>(g: &StableGraph<N, E, Ty, Ix>) -> Graph<N, E, Ty, Ix, Dn, De>
 where
@@ -217,24 +217,6 @@ pub fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode
     ((connector_right.to_vec2() - connector_left.to_vec2()) / 2.).length()
 }
 
-pub fn random_graph(num_nodes: usize, num_edges: usize) -> Graph {
-    let mut rng = rand::rng();
-    let mut graph = StableGraph::new();
-
-    for _ in 0..num_nodes {
-        graph.add_node(());
-    }
-
-    for _ in 0..num_edges {
-        let source = rng.random_range(0..num_nodes);
-        let target = rng.random_range(0..num_nodes);
-
-        graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
-    }
-
-    to_graph(&graph)
-}
-
 /// Default edge transform function. Keeps original data and creates a new edge.
 pub fn default_edge_transform<
     N: Clone,
@@ -263,6 +245,55 @@ pub fn default_node_transform<
     node.set_label(format!("node {}", node.id().index()));
 }
 
+/// Generates a random graph with the specified number of nodes and edges.
+pub fn generate_random_graph(num_nodes: usize, num_edges: usize) -> Graph {
+    let mut rng = rand::rng();
+    let mut graph = StableGraph::new();
+
+    for _ in 0..num_nodes {
+        graph.add_node(());
+    }
+
+    for _ in 0..num_edges {
+        let source = rng.random_range(0..num_nodes);
+        let target = rng.random_range(0..num_nodes);
+
+        graph.add_edge(NodeIndex::new(source), NodeIndex::new(target), ());
+    }
+
+    to_graph(&graph)
+}
+
+/// Simple digraph for usage in examples and tests.
+pub fn generate_simple_digraph() -> StableGraph<(), (), Directed> {
+    let mut g = StableGraph::new();
+
+    let a = g.add_node(());
+    let b = g.add_node(());
+    let c = g.add_node(());
+
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(c, a, ());
+
+    g
+}
+
+/// Simple ungraph for usage in examples and tests.
+pub fn generate_simple_ungraph() -> StableGraph<(), (), Undirected> {
+    let mut g = StableGraph::<_, _, Undirected>::default();
+
+    let a = g.add_node(());
+    let b = g.add_node(());
+    let c = g.add_node(());
+
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(c, a, ());
+
+    g
+}
+
 #[cfg(test)]
 mod tests {
     use crate::DefaultEdgeShape;
@@ -281,13 +312,13 @@ mod tests {
 
         let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
 
-        assert_eq!(user_g.node_count(), input_g.g.node_count());
-        assert_eq!(user_g.edge_count(), input_g.g.edge_count());
+        assert_eq!(user_g.node_count(), input_g.g().node_count());
+        assert_eq!(user_g.edge_count(), input_g.g().edge_count());
         assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (user_idx, input_idx) in input_g.g.node_indices().zip(user_g.node_indices()) {
+        for (user_idx, input_idx) in input_g.g().node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.g.node_weight(input_idx).unwrap();
+            let input_n = input_g.g().node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
@@ -306,13 +337,13 @@ mod tests {
 
         let input_g = to_graph::<_, _, _, _, DefaultNodeShape, DefaultEdgeShape>(&user_g);
 
-        assert_eq!(user_g.node_count(), input_g.g.node_count());
-        assert_eq!(user_g.edge_count(), input_g.g.edge_count());
+        assert_eq!(user_g.node_count(), input_g.g().node_count());
+        assert_eq!(user_g.edge_count(), input_g.g().edge_count());
         assert_eq!(user_g.is_directed(), input_g.is_directed());
 
-        for (user_idx, input_idx) in input_g.g.node_indices().zip(user_g.node_indices()) {
+        for (user_idx, input_idx) in input_g.g().node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.g.node_weight(input_idx).unwrap();
+            let input_n = input_g.g().node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));

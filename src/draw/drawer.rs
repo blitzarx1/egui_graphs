@@ -73,7 +73,7 @@ where
 
     fn draw_nodes(&mut self) {
         self.g
-            .g
+            .g_mut()
             .node_indices()
             .collect::<Vec<_>>()
             .into_iter()
@@ -99,7 +99,7 @@ where
 
     fn draw_edges(&mut self) {
         self.g
-            .g
+            .g_mut()
             .edge_indices()
             .collect::<Vec<_>>()
             .into_iter()
