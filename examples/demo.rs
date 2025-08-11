@@ -161,6 +161,7 @@ pub struct DemoApp {
     #[cfg(feature = "events")]
     event_filters: EventFilters,
     dark_mode: bool,
+    show_debug_overlay: bool,
 }
 
 impl DemoApp {
@@ -199,6 +200,7 @@ impl DemoApp {
             #[cfg(feature = "events")]
             event_filters: EventFilters::default(),
             dark_mode: cc.egui_ctx.style().visuals.dark_mode,
+            show_debug_overlay: true,
         }
     }
 
@@ -727,6 +729,14 @@ impl DemoApp {
             });
     }
 
+    fn ui_debug(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("Debug")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.checkbox(&mut self.show_debug_overlay, "show debug overlay");
+            });
+    }
+
     fn overlay_debug(&self, ctx: &egui::Context) {
         use egui::{Area, RichText};
         let text = {
@@ -817,13 +827,13 @@ impl App for DemoApp {
                     CollapsingHeader::new("Graph / Layout")
                         .default_open(true)
                         .show(ui, |ui| self.ui_graph_section(ui));
+                    self.ui_debug(ui);
                     self.ui_navigation(ui);
                     self.ui_layout_force_directed(ui);
                     self.ui_interaction(ui);
                     self.ui_style(ui);
                     self.ui_selected(ui);
                     self.ui_events(ui);
-                    // debug section moved to overlay
                 });
             });
 
@@ -885,7 +895,9 @@ impl App for DemoApp {
         #[cfg(feature = "events")]
         self.handle_events();
         self.update_fps();
-        self.overlay_debug(ctx);
+        if self.show_debug_overlay {
+            self.overlay_debug(ctx);
+        }
     }
 }
 
