@@ -853,6 +853,8 @@ impl DemoApp {
             if self.show_debug_overlay {
                 ui.add_space(self.last_debug_overlay_height);
             }
+            // TODO: add ctrl keybindings to info
+            // TODO: rethink keybindings help visualization
             let entries: [(&str, &str); 12] = [
                 ("n", "add 1 node"),
                 ("e", "add 1 edge"),
@@ -967,21 +969,37 @@ impl App for DemoApp {
                     }
                     match key {
                         egui::Key::N => {
-                            if modifiers.shift {
+                            if modifiers.ctrl && !modifiers.shift {
+                                // Ctrl+N: swap 1 node (remove 1, then add 1)
+                                self.remove_random_node();
+                                self.add_random_node();
+                            } else if modifiers.shift {
                                 self.remove_random_node();
                             } else {
                                 self.add_random_node();
                             }
                         }
                         egui::Key::E => {
-                            if modifiers.shift {
+                            if modifiers.ctrl && !modifiers.shift {
+                                // Ctrl+E: swap 1 edge (remove 1, then add 1)
+                                self.remove_random_edge();
+                                self.add_random_edge();
+                            } else if modifiers.shift {
                                 self.remove_random_edge();
                             } else {
                                 self.add_random_edge();
                             }
                         }
                         egui::Key::M => {
-                            if modifiers.shift {
+                            if modifiers.ctrl && !modifiers.shift {
+                                // Ctrl+M: swap 10 nodes (remove 10, then add 10)
+                                for _ in 0..10 {
+                                    self.remove_random_node();
+                                }
+                                for _ in 0..10 {
+                                    self.add_random_node();
+                                }
+                            } else if modifiers.shift {
                                 for _ in 0..10 {
                                     self.remove_random_node();
                                 }
@@ -994,7 +1012,15 @@ impl App for DemoApp {
                             }
                         }
                         egui::Key::R => {
-                            if modifiers.shift {
+                            if modifiers.ctrl && !modifiers.shift {
+                                // Ctrl+R: swap 10 edges (remove 10, then add 10)
+                                for _ in 0..10 {
+                                    self.remove_random_edge();
+                                }
+                                for _ in 0..10 {
+                                    self.add_random_edge();
+                                }
+                            } else if modifiers.shift {
                                 for _ in 0..10 {
                                     self.remove_random_edge();
                                 }
