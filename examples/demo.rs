@@ -195,6 +195,9 @@ pub struct DemoApp {
     event_filters: EventFilters,
     dark_mode: bool,
     show_debug_overlay: bool,
+    show_keybindings_overlay: bool,
+    // Runtime-measured height of the last rendered debug overlay label (for spacing keybindings)
+    last_debug_overlay_height: f32,
 }
 
 impl DemoApp {
@@ -235,6 +238,8 @@ impl DemoApp {
             event_filters: EventFilters::default(),
             dark_mode: cc.egui_ctx.style().visuals.dark_mode,
             show_debug_overlay: true,
+            show_keybindings_overlay: false,
+            last_debug_overlay_height: 0.0,
         }
     }
 
@@ -375,6 +380,7 @@ impl DemoApp {
             edge_deemphasis: true,
         };
         self.show_debug_overlay = true;
+        self.show_keybindings_overlay = false;
         self.g = generate_random_graph(
             self.settings_graph.count_node,
             self.settings_graph.count_edge,
@@ -768,11 +774,23 @@ impl DemoApp {
         CollapsingHeader::new("Debug")
             .default_open(false)
             .show(ui, |ui| {
-                ui.checkbox(&mut self.show_debug_overlay, "show debug overlay");
+                if ui
+                    .checkbox(&mut self.show_debug_overlay, "show debug overlay")
+                    .on_hover_text("Toggle debug overlay (d)")
+                    .clicked()
+                {}
+                if ui
+                    .checkbox(
+                        &mut self.show_keybindings_overlay,
+                        "show keybindings overlay",
+                    )
+                    .on_hover_text("Toggle keybindings overlay (h)")
+                    .clicked()
+                {}
             });
     }
 
-    fn overlay_debug_panel(&self, ui: &mut egui::Ui) {
+    fn overlay_debug_panel(&mut self, ui: &mut egui::Ui) {
         if !self.show_debug_overlay {
             return;
         }
@@ -791,16 +809,73 @@ impl DemoApp {
             let pan_line = "Pan: enable events feature".to_string();
             format!("{fps_line}\n{n_line}\n{e_line}\n{zoom_line}\n{pan_line}")
         };
-
         let full_rect = ui.max_rect();
-        let style = ui.style().clone();
-        // Safer: create a new UI rooted at the full rect without deprecated APIs.
         let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(full_rect));
         child_ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
+            let resp = ui.label(
+                RichText::new(text)
+                    .monospace()
+                    .color(ui.style().visuals.strong_text_color())
+                    .size(14.0),
+            );
+            // Store exact height (+ small breathing margin) for subsequent keybindings overlay.
+            self.last_debug_overlay_height = resp.rect.height() + ui.spacing().item_spacing.y * 0.5;
+        });
+    }
+
+    fn overlay_keybindings_panel(&self, ui: &mut egui::Ui) {
+        if !self.show_keybindings_overlay {
+            return;
+        }
+        use egui::RichText;
+        let full_rect = ui.max_rect();
+        let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(full_rect));
+        child_ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
+            if self.show_debug_overlay {
+                ui.add_space(self.last_debug_overlay_height);
+            }
+            let entries: [(&str, &str); 12] = [
+                ("n", "add 1 node"),
+                ("m", "add 10 nodes"),
+                ("e", "add 1 edge"),
+                ("r", "add 10 edges"),
+                ("Shift+m", "remove 10 nodes"),
+                ("Shift+n", "remove 1 node"),
+                ("Shift+e", "remove 1 edge"),
+                ("Shift+r", "remove 10 edges"),
+                ("Tab", "toggle side panel"),
+                ("d", "toggle debug overlay"),
+                ("h", "toggle keybindings overlay"),
+                ("Space", "reset all"),
+            ];
+            let max_key_len = entries.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
+            let max_desc_len = entries.iter().map(|(_, d)| d.len()).max().unwrap_or(0);
+            let mut lines = Vec::with_capacity(entries.len() + 2);
+            for (idx, (key, desc)) in entries.iter().enumerate() {
+                let left_extra = max_key_len.saturating_sub(key.len());
+                let spaces_before_arrow = left_extra + 1;
+                let right_extra = max_desc_len.saturating_sub(desc.len());
+                let spaces_after_arrow = 1 + right_extra;
+                let mut line = String::with_capacity(
+                    key.len() + spaces_before_arrow + 2 + spaces_after_arrow + desc.len(),
+                );
+                line.push_str(key);
+                line.extend(std::iter::repeat(' ').take(left_extra));
+                line.extend(std::iter::repeat(' ').take(1));
+                line.push_str("->");
+                line.extend(std::iter::repeat(' ').take(spaces_after_arrow));
+                line.push_str(desc);
+                lines.push(line);
+                // group separators: after first 8 entries (idx 7) and after next 3 (idx 10)
+                if idx == 7 || idx == 10 {
+                    lines.push(String::new());
+                }
+            }
+            let text = lines.join("\n");
             ui.label(
                 RichText::new(text)
                     .monospace()
-                    .color(style.visuals.strong_text_color())
+                    .color(ui.style().visuals.strong_text_color())
                     .size(14.0),
             );
         });
@@ -901,6 +976,16 @@ impl App for DemoApp {
                                 }
                             }
                         }
+                        egui::Key::D => {
+                            if !modifiers.any() {
+                                self.show_debug_overlay = !self.show_debug_overlay;
+                            }
+                        }
+                        egui::Key::H => {
+                            if !modifiers.any() {
+                                self.show_keybindings_overlay = !self.show_keybindings_overlay;
+                            }
+                        }
                         egui::Key::Space => {
                             if !modifiers.any() {
                                 reset_requested = true;
@@ -998,6 +1083,7 @@ impl App for DemoApp {
             }
             ui.add(&mut view);
             self.overlay_debug_panel(ui);
+            self.overlay_keybindings_panel(ui);
 
             let g_rect = ui.max_rect();
             let btn_size = egui::vec2(28.0, 28.0);
