@@ -153,7 +153,7 @@ impl<'a> EdgeShapeBuilder<'a> {
         node_center: Pos2,
         node_size: f32,
         loop_size: f32,
-        order: usize,
+        param: f32,
     ) -> Vec<Shape> {
         let mut res = vec![];
 
@@ -170,7 +170,7 @@ impl<'a> EdgeShapeBuilder<'a> {
             y_intersect,
         );
 
-        let loop_size = node_size * (loop_size + order as f32);
+        let loop_size = node_size * (loop_size + param);
 
         let mut control_point1 = Pos2::new(node_center.x + loop_size, node_center.y - loop_size);
         let mut control_point2 = Pos2::new(node_center.x - loop_size, node_center.y - loop_size);
@@ -195,7 +195,7 @@ impl<'a> EdgeShapeBuilder<'a> {
         res
     }
 
-    fn shape_curved(&self, bounds: (Pos2, Pos2), curve_size: f32, order: usize) -> Vec<Shape> {
+    fn shape_curved(&self, bounds: (Pos2, Pos2), curve_size: f32, param: f32) -> Vec<Shape> {
         let mut res = vec![];
         let (start, end) = bounds;
         let mut stroke = self.stroke;
@@ -204,11 +204,11 @@ impl<'a> EdgeShapeBuilder<'a> {
         let dir = dist.normalized();
         let dir_p = Vec2::new(-dir.y, dir.x);
         let center_point = (start + end.to_vec2()) / 2.0;
-        let height = dir_p * curve_size * order as f32;
+        let height = dir_p * curve_size * param;
         let cp = center_point + height;
 
-        let cp_start = cp - dir * curve_size / (order as f32 * dist * 0.5);
-        let cp_end = cp + dir * curve_size / (order as f32 * dist * 0.5);
+        let cp_start = cp - dir * curve_size / (param * dist * 0.5);
+        let cp_end = cp + dir * curve_size / (param * dist * 0.5);
 
         let mut points_curve = vec![start, cp_start, cp_end, end];
 
@@ -275,12 +275,18 @@ impl<'a> EdgeShapeBuilder<'a> {
                 node_size,
                 loop_size,
                 order,
-            } => self.shape_looped(node_center, node_size, loop_size, order),
+            } => {
+                let param: f32 = order as f32;
+                self.shape_looped(node_center, node_size, loop_size, param)
+            }
             EdgeShapeProps::Curved {
                 bounds,
                 curve_size,
                 order,
-            } => self.shape_curved(bounds, curve_size, order),
+            } => {
+                let param: f32 = order as f32;
+                self.shape_curved(bounds, curve_size, param)
+            }
         }
     }
 }

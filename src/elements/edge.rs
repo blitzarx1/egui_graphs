@@ -88,7 +88,7 @@ impl<
         self.props.order
     }
 
-    pub fn set_order(&mut self, order: usize) {
+    pub(crate) fn set_order(&mut self, order: usize) {
         self.props.order = order;
     }
 
@@ -110,11 +110,6 @@ impl<
 
     pub fn set_label(&mut self, label: String) {
         self.props.label = label;
-    }
-
-    pub fn with_label(mut self, label: String) -> Self {
-        self.props.label = label;
-        self
     }
 
     pub fn label(&self) -> String {

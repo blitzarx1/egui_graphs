@@ -30,7 +30,7 @@ pub struct Hierarchical {
 }
 
 impl Layout<State> for Hierarchical {
-    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
+    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>, _: &egui::Ui)
     where
         N: Clone,
         E: Clone,
@@ -45,7 +45,8 @@ impl Layout<State> for Hierarchical {
 
         let mut visited = HashSet::new();
         let mut max_col = 0;
-        g.g.externals(Incoming)
+        g.g()
+            .externals(Incoming)
             .collect::<Vec<NodeIndex<Ix>>>()
             .iter()
             .enumerate()
@@ -55,7 +56,7 @@ impl Layout<State> for Hierarchical {
                 let curr_max_col = build_tree(g, &mut visited, root_idx, 0, i);
                 if curr_max_col > max_col {
                     max_col = curr_max_col;
-                };
+                }
             });
 
         self.state.triggered = true;
@@ -88,25 +89,26 @@ where
     let y = start_row * ROW_DIST;
     let x = start_col * NODE_DIST;
 
-    let node = &mut g.g[*root_idx];
-    node.set_layout_location(Pos2::new(x as f32, y as f32));
+    let node = &mut g.g_mut()[*root_idx];
+    node.set_location(Pos2::new(x as f32, y as f32));
 
     let mut max_col = start_col;
-    g.g.neighbors_directed(*root_idx, Outgoing)
+    g.g()
+        .neighbors_directed(*root_idx, Outgoing)
         .collect::<Vec<NodeIndex<Ix>>>()
         .iter()
         .enumerate()
         .for_each(|(i, neighbour_idx)| {
             if visited.contains(neighbour_idx) {
                 return;
-            };
+            }
 
             visited.insert(*neighbour_idx);
 
             let curr_max_col = build_tree(g, visited, neighbour_idx, start_row + 1, start_col + i);
             if curr_max_col > max_col {
                 max_col = curr_max_col;
-            };
+            }
         });
 
     max_col

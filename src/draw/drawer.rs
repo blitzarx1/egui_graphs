@@ -21,7 +21,7 @@ pub struct DrawContext<'a> {
     pub meta: &'a Metadata,
 }
 
-pub struct Drawer<'a, N, E, Ty, Ix, Nd, Ed, S, L>
+pub(crate) struct Drawer<'a, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
@@ -59,13 +59,40 @@ where
         }
     }
 
-    pub fn draw(mut self) {
+    /// Renders the graph for the current frame.
+    ///
+    /// Order matters:
+    /// 1. `update_nodes` syncs each node's display object from its props so edge geometry
+    ///    (which reads node display boundary points) uses fresh positions / sizes.
+    /// 2. `draw_edges` builds edge shapes using the updated node display state.
+    /// 3. `draw_nodes` paints nodes (non‑selected first) while deferring highlighted ones.
+    /// 4. `draw_delayed` paints deferred (selected / dragged) shapes on top.
+    pub(crate) fn draw(mut self) {
+        self.update_nodes();
         self.draw_edges();
         self.draw_nodes();
-        self.draw_postponed();
+        self.draw_delayed();
     }
 
-    fn draw_postponed(&mut self) {
+    /// Synchronizes node display state with their current props without emitting shapes.
+    ///
+    /// This is a separate pass so edges can rely on `DisplayNode` geometry (e.g. boundary
+    /// points) already being in sync when computing connector positions.
+    fn update_nodes(&mut self) {
+        self.g
+            .g_mut()
+            .node_indices()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|idx| {
+                if let Some(n) = self.g.node_mut(idx) {
+                    let props = n.props().clone();
+                    n.display_mut().update(&props);
+                }
+            });
+    }
+
+    fn draw_delayed(&mut self) {
         self.delayed.iter().for_each(|s| {
             self.ctx.painter.add(s.clone());
         });
@@ -73,17 +100,13 @@ where
 
     fn draw_nodes(&mut self) {
         self.g
-            .g
+            .g_mut()
             .node_indices()
             .collect::<Vec<_>>()
             .into_iter()
             .for_each(|idx| {
                 let n = self.g.node_mut(idx).unwrap();
-                let props = n.props().clone();
-
-                let display = n.display_mut();
-                display.update(&props);
-                let shapes = display.shapes(self.ctx);
+                let shapes = n.display_mut().shapes(self.ctx);
 
                 if n.selected() || n.dragged() {
                     for s in shapes {
@@ -99,14 +122,14 @@ where
 
     fn draw_edges(&mut self) {
         self.g
-            .g
+            .g_mut()
             .edge_indices()
             .collect::<Vec<_>>()
             .into_iter()
             .for_each(|idx| {
                 let (idx_start, idx_end) = self.g.edge_endpoints(idx).unwrap();
 
-                // FIXME: not a good decision to clone nodes for every edge
+                // FIXME: too costly to clone nodes for every edge
                 let start = self.g.node(idx_start).cloned().unwrap();
                 let end = self.g.node(idx_end).cloned().unwrap();
 

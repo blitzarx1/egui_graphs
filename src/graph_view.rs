@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
+    draw::{drawer::Drawer, DefaultEdgeShape, DefaultNodeShape, DrawContext},
     layouts::{self, Layout, LayoutState},
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
@@ -84,7 +84,7 @@ pub struct GraphView<
     _marker: PhantomData<(Nd, Ed, L, S)>,
 }
 
-impl<'a, N, E, Ty, Ix, Nd, Ed, S, L> Widget for &mut GraphView<'a, N, E, Ty, Ix, Nd, Ed, S, L>
+impl<N, E, Ty, Ix, Nd, Ed, S, L> Widget for &mut GraphView<'_, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
@@ -174,21 +174,37 @@ where
         self
     }
 
-    /// Clears cached values of layout and metadata.
-    pub fn clear_cache(ui: &mut Ui) {
+    /// Helper to reset both [`Metadata`] and [`Layout`] cache. Can be useful when you want to change layout
+    /// in runtime
+    pub fn reset(ui: &mut Ui) {
         GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_metadata(ui);
         GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_layout(ui);
     }
 
-    /// Resets navigation metadata
+    /// Resets [`Metadata`] state
     pub fn reset_metadata(ui: &mut Ui) {
         Metadata::default().save(ui);
     }
 
-    /// Resets layout state
+    /// Resets [`Layout`] state
     pub fn reset_layout(ui: &mut Ui) {
         ui.data_mut(|data| {
             data.insert_persisted(Id::new(KEY_LAYOUT), S::default());
+        });
+    }
+
+    /// Loads current persisted layout state (or default if none). Useful for external UI panels.
+    pub fn get_layout_state(ui: &egui::Ui) -> S {
+        ui.data_mut(|data| {
+            data.get_persisted::<S>(Id::new(KEY_LAYOUT))
+                .unwrap_or_default()
+        })
+    }
+
+    /// Persists a new layout state so that on the next frame it will be applied.
+    pub fn set_layout_state(ui: &egui::Ui, state: S) {
+        ui.data_mut(|data| {
+            data.insert_persisted(Id::new(KEY_LAYOUT), state);
         });
     }
 
@@ -200,14 +216,17 @@ where
     }
 
     fn sync_layout(&mut self, ui: &mut Ui) {
-        ui.data_mut(|data| {
-            let state = data
-                .get_persisted::<S>(Id::new(KEY_LAYOUT))
-                .unwrap_or_default();
-            let mut layout = L::from_state(state);
-            layout.next(self.g);
+        let state = ui.data_mut(|data| {
+            data.get_persisted::<S>(Id::new(KEY_LAYOUT))
+                .unwrap_or_default()
+        });
 
-            data.insert_persisted(Id::new(KEY_LAYOUT), layout.state());
+        let mut layout = L::from_state(state);
+        layout.next(self.g, ui);
+        let new_state = layout.state();
+
+        ui.data_mut(|data| {
+            data.insert_persisted(Id::new(KEY_LAYOUT), new_state);
         });
     }
 
@@ -225,18 +244,26 @@ where
                 selected_nodes.push(idx);
             }
 
-            meta.comp_iter_bounds(n);
+            meta.process_bounds(n);
         });
 
         self.g.edges_iter().for_each(|(idx, e)| {
             if e.selected() {
                 selected_edges.push(idx);
             }
+            if let Some((start_idx, end_idx)) = self.g.edge_endpoints(e.id()) {
+                if let (Some(start), Some(end)) = (self.g.node(start_idx), self.g.node(end_idx)) {
+                    if let Some((min, max)) = e.display().extra_bounds(start, end) {
+                        meta.expand_bounds(min, max);
+                    }
+                }
+            }
         });
 
         self.g.set_selected_nodes(selected_nodes);
         self.g.set_selected_edges(selected_edges);
         self.g.set_dragged_node(dragged);
+        self.g.set_bounds(meta.graph_bounds());
     }
 
     /// Fits the graph to the screen if it is the first frame or
@@ -430,37 +457,35 @@ where
     }
 
     fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata) {
-        // calculate graph dimensions with decorative padding
-        let bounds = meta.graph_bounds();
-        let mut diag = bounds.max - bounds.min;
-
-        // if the graph is empty or consists from one node, use a default size
-        if diag == Vec2::ZERO {
-            diag = Vec2::new(1., 100.);
+        let raw_bounds = meta.graph_bounds();
+        let (mut min, mut max) = (raw_bounds.min, raw_bounds.max);
+        let invalid_bounds = !min.x.is_finite()
+            || !min.y.is_finite()
+            || !max.x.is_finite()
+            || !max.y.is_finite()
+            || min.x > max.x
+            || min.y > max.y;
+        if invalid_bounds {
+            min = Pos2::new(-0.5, -0.5);
+            max = Pos2::new(0.5, 0.5);
         }
-
+        let mut diag: Vec2 = max - min;
+        if !diag.x.is_finite() || !diag.y.is_finite() || diag.x <= 0.0 || diag.y <= 0.0 {
+            diag = Vec2::new(1., 1.);
+        }
         let graph_size = diag * (1. + self.settings_navigation.screen_padding);
-        let (width, height) = (graph_size.x, graph_size.y);
-
-        // calculate canvas dimensions
+        let (width, height) = (graph_size.x.max(1e-3), graph_size.y.max(1e-3));
         let canvas_size = rect.size();
         let (canvas_width, canvas_height) = (canvas_size.x, canvas_size.y);
-
-        // calculate zoom factors for x and y to fit the graph inside the canvas
-        let zoom_x = canvas_width / width;
-        let zoom_y = canvas_height / height;
-
-        // choose the minimum of the two zoom factors to avoid distortion
-        let new_zoom = zoom_x.min(zoom_y);
-
-        // calculate the zoom delta and call handle_zoom to adjust the zoom factor
+        let zoom_x = (canvas_width / width).abs();
+        let zoom_y = (canvas_height / height).abs();
+        let mut new_zoom = zoom_x.min(zoom_y);
+        if !new_zoom.is_finite() || new_zoom <= 0.0 {
+            new_zoom = 1.0;
+        }
         let zoom_delta = new_zoom / meta.zoom - 1.0;
         self.zoom(rect, zoom_delta, None, meta);
-
-        // calculate the center of the graph and the canvas
-        let graph_center = (bounds.min.to_vec2() + bounds.max.to_vec2()) / 2.0;
-
-        // adjust the pan value to align the centers of the graph and the canvas
+        let graph_center = (min.to_vec2() + max.to_vec2()) / 2.0;
         let new_pan = rect.center().to_vec2() - graph_center * new_zoom;
         self.set_pan(new_pan, meta);
     }

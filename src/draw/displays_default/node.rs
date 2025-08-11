@@ -50,53 +50,32 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
 
     fn shapes(&mut self, ctx: &DrawContext) -> Vec<Shape> {
         let mut res = Vec::with_capacity(2);
-
-        let is_interacted = self.selected || self.dragged;
-
-        let style = if is_interacted {
-            ctx.ctx.style().visuals.widgets.active
-        } else {
-            ctx.ctx.style().visuals.widgets.inactive
-        };
-
-        let color = if let Some(c) = self.color {
-            c
-        } else {
-            style.fg_stroke.color
-        };
-
         let circle_center = ctx.meta.canvas_to_screen_pos(self.pos);
         let circle_radius = ctx.meta.canvas_to_screen_size(self.radius);
-        let circle_shape = CircleShape {
-            center: circle_center,
-            radius: circle_radius,
-            fill: color,
-            stroke: Stroke::default(),
-        };
-        res.push(circle_shape.into());
+        let color = self.effective_color(ctx);
+        let stroke = self.effective_stroke(ctx);
 
-        let label_visible = ctx.style.labels_always || self.selected || self.dragged;
-        if !label_visible {
+        res.push(
+            CircleShape {
+                center: circle_center,
+                radius: circle_radius,
+                fill: color,
+                stroke,
+            }
+            .into(),
+        );
+
+        if !(ctx.style.labels_always || self.selected || self.dragged) {
             return res;
         }
 
-        let galley = ctx.ctx.fonts(|f| {
-            f.layout_no_wrap(
-                self.label_text.clone(),
-                FontId::new(circle_radius, FontFamily::Monospace),
-                color,
-            )
-        });
-
-        // display label centered over the circle
-        let label_pos = Pos2::new(
-            circle_center.x - galley.size().x / 2.,
-            circle_center.y - circle_radius * 2.,
-        );
-
-        let label_shape = TextShape::new(label_pos, galley, color);
-        res.push(label_shape.into());
-
+        let galley = self.label_galley(ctx, circle_radius, color);
+        res.push(Self::label_shape(
+            galley,
+            circle_center,
+            circle_radius,
+            color,
+        ));
         res
     }
 
@@ -116,6 +95,59 @@ fn closest_point_on_circle(center: Pos2, radius: f32, dir: Vec2) -> Pos2 {
 fn is_inside_circle(center: Pos2, radius: f32, pos: Pos2) -> bool {
     let dir = pos - center;
     dir.length() <= radius
+}
+
+impl DefaultNodeShape {
+    fn is_interacted(&self) -> bool {
+        self.selected || self.dragged
+    }
+
+    fn effective_color(&self, ctx: &DrawContext) -> Color32 {
+        if let Some(c) = self.color {
+            return c;
+        }
+        let style = if self.is_interacted() {
+            ctx.ctx.style().visuals.widgets.active
+        } else {
+            ctx.ctx.style().visuals.widgets.inactive
+        };
+        style.fg_stroke.color
+    }
+
+    fn effective_stroke(&self, ctx: &DrawContext) -> Stroke {
+        let base = Stroke::default();
+        if let Some(hook) = &ctx.style.node_stroke_hook {
+            let style_ref: &egui::Style = &ctx.ctx.style();
+            (hook)(self.selected, self.dragged, self.color, base, style_ref)
+        } else {
+            base
+        }
+    }
+
+    fn label_galley(
+        &self,
+        ctx: &DrawContext,
+        radius: f32,
+        color: Color32,
+    ) -> std::sync::Arc<egui::Galley> {
+        ctx.ctx.fonts(|f| {
+            f.layout_no_wrap(
+                self.label_text.clone(),
+                FontId::new(radius, FontFamily::Monospace),
+                color,
+            )
+        })
+    }
+
+    fn label_shape(
+        galley: std::sync::Arc<egui::Galley>,
+        center: Pos2,
+        radius: f32,
+        color: Color32,
+    ) -> Shape {
+        let label_pos = Pos2::new(center.x - galley.size().x / 2., center.y - radius * 2.);
+        TextShape::new(label_pos, galley, color).into()
+    }
 }
 
 #[cfg(test)]

@@ -8,15 +8,15 @@ const KEY: &str = "egui_graphs_metadata";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Bounds {
-    min: Vec2,
-    max: Vec2,
+    min: Pos2,
+    max: Pos2,
 }
 
 impl Default for Bounds {
     fn default() -> Self {
         Self {
-            min: Vec2::new(f32::MAX, f32::MAX),
-            max: Vec2::new(f32::MIN, f32::MIN),
+            min: Pos2::new(f32::MAX, f32::MAX),
+            max: Pos2::new(f32::MIN, f32::MIN),
         }
     }
 }
@@ -34,18 +34,19 @@ impl Bounds {
     ) {
         let size = node_size(n, Vec2::new(0., 1.));
         let loc = n.location();
-        if loc.x + size < self.min.x {
-            self.min.x = loc.x + size;
-        };
+
+        if loc.x - size < self.min.x {
+            self.min.x = loc.x - size;
+        }
         if loc.x + size > self.max.x {
             self.max.x = loc.x + size;
-        };
+        }
         if loc.y - size < self.min.y {
             self.min.y = loc.y - size;
-        };
+        }
         if loc.y + size > self.max.y {
             self.max.y = loc.y + size;
-        };
+        }
     }
 }
 
@@ -102,7 +103,7 @@ impl Metadata {
         ((pos.to_vec2() - self.pan) / self.zoom).to_pos2()
     }
 
-    pub fn comp_iter_bounds<
+    pub fn process_bounds<
         N: Clone,
         E: Clone,
         Ty: EdgeType,
@@ -115,9 +116,25 @@ impl Metadata {
         self.bounds.compute_next(n);
     }
 
+    /// Expands current bounds with provided rectangle (in canvas coordinates)
+    pub fn expand_bounds(&mut self, min: Pos2, max: Pos2) {
+        if min.x < self.bounds.min.x {
+            self.bounds.min.x = min.x;
+        }
+        if min.y < self.bounds.min.y {
+            self.bounds.min.y = min.y;
+        }
+        if max.x > self.bounds.max.x {
+            self.bounds.max.x = max.x;
+        }
+        if max.y > self.bounds.max.y {
+            self.bounds.max.y = max.y;
+        }
+    }
+
     /// Returns bounding rect of the graph.
     pub fn graph_bounds(&self) -> Rect {
-        Rect::from_min_max(self.bounds.min.to_pos2(), self.bounds.max.to_pos2())
+        Rect::from_min_max(self.bounds.min, self.bounds.max)
     }
 
     /// Resets the bounds iterator.

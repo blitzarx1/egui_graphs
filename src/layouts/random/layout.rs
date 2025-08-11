@@ -23,7 +23,7 @@ pub struct Random {
 }
 
 impl Layout<State> for Random {
-    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
+    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>, _: &egui::Ui)
     where
         N: Clone,
         E: Clone,
@@ -36,11 +36,11 @@ impl Layout<State> for Random {
             return;
         }
 
-        let mut rng = rand::thread_rng();
-        for node in g.g.node_weights_mut() {
-            node.set_layout_location(Pos2::new(
-                rng.gen_range(0. ..SPAWN_SIZE),
-                rng.gen_range(0. ..SPAWN_SIZE),
+        let mut rng = rand::rng();
+        for node in g.g_mut().node_weights_mut() {
+            node.set_location(Pos2::new(
+                rng.random_range(0. ..SPAWN_SIZE),
+                rng.random_range(0. ..SPAWN_SIZE),
             ));
         }
 

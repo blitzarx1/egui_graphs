@@ -1,4 +1,6 @@
-use egui::Pos2;
+use std::collections::HashSet;
+
+use egui::{Pos2, Rect};
 use petgraph::stable_graph::DefaultIx;
 use petgraph::Directed;
 
@@ -11,8 +13,10 @@ use petgraph::{
 use serde::{Deserialize, Serialize};
 
 use crate::draw::{DisplayEdge, DisplayNode};
+use crate::{
+    default_edge_transform, default_node_transform, to_graph, DefaultEdgeShape, DefaultNodeShape,
+};
 use crate::{metadata::Metadata, Edge, Node};
-use crate::{to_graph, DefaultEdgeShape, DefaultNodeShape};
 
 type StableGraphType<N, E, Ty, Ix, Dn, De> =
     StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
@@ -35,10 +39,13 @@ pub struct Graph<
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    pub g: StableGraphType<N, E, Ty, Ix, Dn, De>,
+    g: StableGraphType<N, E, Ty, Ix, Dn, De>,
+
     selected_nodes: Vec<NodeIndex<Ix>>,
     selected_edges: Vec<EdgeIndex<Ix>>,
     dragged_node: Option<NodeIndex<Ix>>,
+
+    bounds: Rect,
 }
 
 impl<N, E, Ty, Ix, Dn, De> From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
@@ -70,6 +77,7 @@ where
             selected_nodes: Vec::default(),
             selected_edges: Vec::default(),
             dragged_node: Option::default(),
+            bounds: Rect::from_min_max(Pos2::ZERO, Pos2::ZERO),
         }
     }
 
@@ -103,21 +111,34 @@ where
         None
     }
 
-    pub fn g(&mut self) -> &mut StableGraphType<N, E, Ty, Ix, Dn, De> {
+    pub fn g_mut(&mut self) -> &mut StableGraphType<N, E, Ty, Ix, Dn, De> {
         &mut self.g
+    }
+
+    pub fn g(&self) -> &StableGraphType<N, E, Ty, Ix, Dn, De> {
+        &self.g
     }
 
     /// Adds node to graph setting default location and default label values
     #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_node(&mut self, payload: N) -> NodeIndex<Ix> {
+        self.add_node_custom(payload, default_node_transform)
+    }
+
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
+    pub fn add_node_custom(
+        &mut self,
+        payload: N,
+        node_transform: impl FnOnce(&mut Node<N, E, Ty, Ix, Dn>),
+    ) -> NodeIndex<Ix> {
         let node = Node::new(payload);
 
         let idx = self.g.add_node(node);
         let graph_node = self.g.node_weight_mut(idx).unwrap();
 
         graph_node.set_id(idx);
-        graph_node.set_location(Pos2::default());
-        graph_node.set_label(idx.index().to_string());
+
+        node_transform(graph_node);
 
         idx
     }
@@ -125,21 +146,16 @@ where
     /// Adds node to graph setting custom location and default label value
     #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_node_with_location(&mut self, payload: N, location: Pos2) -> NodeIndex<Ix> {
-        let node = Node::new(payload);
-
-        let idx = self.g.add_node(node);
-        let graph_node = self.g.node_weight_mut(idx).unwrap();
-
-        graph_node.set_id(idx);
-        graph_node.set_location(location);
-        graph_node.set_label(idx.index().to_string());
-
-        idx
+        self.add_node_custom(payload, |n: &mut Node<N, E, Ty, Ix, Dn>| {
+            n.set_location(location);
+        })
     }
 
     /// Adds node to graph setting default location and custom label value
     pub fn add_node_with_label(&mut self, payload: N, label: String) -> NodeIndex<Ix> {
-        self.add_node_with_label_and_location(payload, label, Pos2::default())
+        self.add_node_custom(payload, |n: &mut Node<N, E, Ty, Ix, Dn>| {
+            n.set_label(label);
+        })
     }
 
     /// Adds node to graph setting custom location and custom label value
@@ -150,16 +166,10 @@ where
         label: String,
         location: Pos2,
     ) -> NodeIndex<Ix> {
-        let node = Node::new(payload);
-
-        let idx = self.g.add_node(node);
-        let graph_node = self.g.node_weight_mut(idx).unwrap();
-
-        graph_node.set_id(idx);
-        graph_node.set_location(location);
-        graph_node.set_label(label);
-
-        idx
+        self.add_node_custom(payload, |n: &mut Node<N, E, Ty, Ix, Dn>| {
+            n.set_location(location);
+            n.set_label(label);
+        })
     }
 
     /// Removes node by index. Returns removed node and None if it does not exist.
@@ -203,16 +213,7 @@ where
         end: NodeIndex<Ix>,
         payload: E,
     ) -> EdgeIndex<Ix> {
-        let order = self.g.edges_connecting(start, end).count();
-
-        let idx = self.g.add_edge(start, end, Edge::new(payload));
-        let e = self.g.edge_weight_mut(idx).unwrap();
-
-        e.set_id(idx);
-        e.set_order(order);
-        e.set_label(format!("edge {}", e.id().index()));
-
-        idx
+        self.add_edge_custom(start, end, payload, default_edge_transform)
     }
 
     /// Adds edge between start and end node with custom label setting correct order.
@@ -224,6 +225,19 @@ where
         payload: E,
         label: String,
     ) -> EdgeIndex<Ix> {
+        self.add_edge_custom(start, end, payload, |e: &mut Edge<N, E, Ty, Ix, Dn, De>| {
+            e.set_label(label);
+        })
+    }
+
+    #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
+    pub fn add_edge_custom(
+        &mut self,
+        start: NodeIndex<Ix>,
+        end: NodeIndex<Ix>,
+        payload: E,
+        edge_transform: impl FnOnce(&mut Edge<N, E, Ty, Ix, Dn, De>),
+    ) -> EdgeIndex<Ix> {
         let order = self.g.edges_connecting(start, end).count();
 
         let idx = self.g.add_edge(start, end, Edge::new(payload));
@@ -231,7 +245,44 @@ where
 
         e.set_id(idx);
         e.set_order(order);
-        e.set_label(label);
+
+        edge_transform(e);
+
+        // check if we have 2 edges between start and end node with 0 order
+        // in this case we need to set increase order by 1 for every edge
+
+        let siblings_ids: Vec<_> = {
+            let mut visited = HashSet::new();
+            self.g
+                .edges_connecting(start, end)
+                .chain(self.g.edges_connecting(end, start))
+                .filter(|e| visited.insert(e.id()))
+                .map(|e| e.id())
+                .collect()
+        };
+
+        let mut had_zero = false;
+        let mut increase_order = false;
+        for id in &siblings_ids {
+            if let Some(edge) = self.g.edge_weight_mut(*id) {
+                if edge.order() == 0 {
+                    if had_zero {
+                        increase_order = true;
+                        break;
+                    }
+
+                    had_zero = true;
+                }
+            }
+        }
+
+        if increase_order {
+            for id in siblings_ids {
+                if let Some(edge) = self.g.edge_weight_mut(id) {
+                    edge.set_order(edge.order() + 1);
+                }
+            }
+        }
 
         idx
     }
@@ -263,6 +314,7 @@ where
     }
 
     /// Returns iterator over all edges connecting start and end node.
+    #[allow(clippy::type_complexity)]
     pub fn edges_connecting(
         &self,
         start: NodeIndex<Ix>,
@@ -279,6 +331,7 @@ where
     }
 
     /// Provides iterator over all edges and their indices.
+    #[allow(clippy::type_complexity)]
     pub fn edges_iter(&self) -> impl Iterator<Item = (EdgeIndex<Ix>, &Edge<N, E, Ty, Ix, Dn, De>)> {
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
@@ -349,5 +402,13 @@ where
 
     pub fn node_count(&self) -> usize {
         self.g.node_count()
+    }
+
+    pub fn set_bounds(&mut self, bounds: Rect) {
+        self.bounds = bounds;
+    }
+
+    pub fn bounds(&self) -> Rect {
+        self.bounds
     }
 }
