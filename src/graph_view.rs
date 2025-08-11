@@ -443,37 +443,35 @@ where
     }
 
     fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata) {
-        // calculate graph dimensions with decorative padding
-        let bounds = meta.graph_bounds();
-        let mut diag = bounds.max - bounds.min;
-
-        // if the graph is empty or consists from one node, use a default size
-        if diag == Vec2::ZERO {
-            diag = Vec2::new(1., 100.);
+        let raw_bounds = meta.graph_bounds();
+        let (mut min, mut max) = (raw_bounds.min, raw_bounds.max);
+        let invalid_bounds = !min.x.is_finite()
+            || !min.y.is_finite()
+            || !max.x.is_finite()
+            || !max.y.is_finite()
+            || min.x > max.x
+            || min.y > max.y;
+        if invalid_bounds {
+            min = Pos2::new(-0.5, -0.5);
+            max = Pos2::new(0.5, 0.5);
         }
-
+        let mut diag: Vec2 = max - min;
+        if !diag.x.is_finite() || !diag.y.is_finite() || diag.x <= 0.0 || diag.y <= 0.0 {
+            diag = Vec2::new(1., 1.);
+        }
         let graph_size = diag * (1. + self.settings_navigation.screen_padding);
-        let (width, height) = (graph_size.x, graph_size.y);
-
-        // calculate canvas dimensions
+        let (width, height) = (graph_size.x.max(1e-3), graph_size.y.max(1e-3));
         let canvas_size = rect.size();
         let (canvas_width, canvas_height) = (canvas_size.x, canvas_size.y);
-
-        // calculate zoom factors for x and y to fit the graph inside the canvas
-        let zoom_x = canvas_width / width;
-        let zoom_y = canvas_height / height;
-
-        // choose the minimum of the two zoom factors to avoid distortion
-        let new_zoom = zoom_x.min(zoom_y);
-
-        // calculate the zoom delta and call handle_zoom to adjust the zoom factor
+        let zoom_x = (canvas_width / width).abs();
+        let zoom_y = (canvas_height / height).abs();
+        let mut new_zoom = zoom_x.min(zoom_y);
+        if !new_zoom.is_finite() || new_zoom <= 0.0 {
+            new_zoom = 1.0;
+        }
         let zoom_delta = new_zoom / meta.zoom - 1.0;
         self.zoom(rect, zoom_delta, None, meta);
-
-        // calculate the center of the graph and the canvas
-        let graph_center = (bounds.min.to_vec2() + bounds.max.to_vec2()) / 2.0;
-
-        // adjust the pan value to align the centers of the graph and the canvas
+        let graph_center = (min.to_vec2() + max.to_vec2()) / 2.0;
         let new_pan = rect.center().to_vec2() - graph_center * new_zoom;
         self.set_pan(new_pan, meta);
     }

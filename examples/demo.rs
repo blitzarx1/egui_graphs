@@ -27,12 +27,14 @@ mod settings_local {
     #[derive(Default)]
     pub struct SettingsStyle {
         pub labels_always: bool,
+        pub edge_deemphasis: bool,
     }
 
     pub struct SettingsNavigation {
         pub fit_to_screen_enabled: bool,
         pub zoom_and_pan_enabled: bool,
         pub zoom_speed: f32,
+        pub screen_padding: f32,
     }
     impl Default for SettingsNavigation {
         fn default() -> Self {
@@ -40,6 +42,7 @@ mod settings_local {
                 fit_to_screen_enabled: true,
                 zoom_and_pan_enabled: false,
                 zoom_speed: 0.1,
+                screen_padding: 0.3,
             }
         }
     }
@@ -59,6 +62,11 @@ mod settings_local {
 }
 use settings_local as settings;
 
+fn info_icon(ui: &mut egui::Ui, tip: &str) {
+    ui.add_space(4.0);
+    ui.small_button("ℹ").on_hover_text(tip);
+}
+
 mod drawers {
     use egui::Ui;
 
@@ -77,12 +85,12 @@ mod drawers {
         ui.horizontal(|ui| {
             let start = v.nodes;
             ui.label("N");
-            ui.add(egui::Slider::new(&mut v.nodes, 1..=2500));
+            ui.add(egui::Slider::new(&mut v.nodes, 0..=2500));
             if ui.small_button("-10").clicked() {
-                v.nodes = (v.nodes.saturating_sub(10)).max(1);
+                v.nodes = v.nodes.saturating_sub(10);
             }
             if ui.small_button("-1").clicked() {
-                v.nodes = (v.nodes.saturating_sub(1)).max(1);
+                v.nodes = v.nodes.saturating_sub(1);
             }
             if ui.small_button("+1").clicked() {
                 v.nodes = (v.nodes + 1).min(2500);
@@ -127,7 +135,7 @@ mod drawers {
 }
 
 #[cfg(feature = "events")]
-const EVENTS_LIMIT: usize = 100;
+const EVENTS_LIMIT: usize = 1000;
 
 pub struct DemoApp {
     g: Graph<(), (), Directed, DefaultIx>,
@@ -157,15 +165,7 @@ impl DemoApp {
     fn new(cc: &CreationContext<'_>) -> Self {
         let settings_graph = settings::SettingsGraph::default();
         let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
-        let n = g.node_count().max(1);
-        let radius = (n as f32).sqrt() * 50.0 + 50.0;
-        let indices: Vec<_> = g.g().node_indices().collect();
-        for (i, idx) in indices.into_iter().enumerate() {
-            if let Some(node) = g.g_mut().node_weight_mut(idx) {
-                let angle = i as f32 / n as f32 * std::f32::consts::TAU;
-                node.set_location(Pos2::new(radius * angle.cos(), radius * angle.sin()));
-            }
-        }
+        Self::distribute_nodes_circle(&mut g);
 
         #[cfg(feature = "events")]
         let (event_publisher, event_consumer) = unbounded();
@@ -175,7 +175,10 @@ impl DemoApp {
             settings_graph,
             settings_interaction: settings::SettingsInteraction::default(),
             settings_navigation: settings::SettingsNavigation::default(),
-            settings_style: settings::SettingsStyle::default(),
+            settings_style: settings::SettingsStyle {
+                labels_always: false,
+                edge_deemphasis: true,
+            },
             fps: 0.0,
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
@@ -321,30 +324,97 @@ impl DemoApp {
         );
     }
 
+    fn reset_all(&mut self, ui: &mut Ui) {
+        self.settings_graph = settings::SettingsGraph::default();
+        self.settings_interaction = settings::SettingsInteraction::default();
+        self.settings_navigation = settings::SettingsNavigation::default();
+        self.settings_style = settings::SettingsStyle {
+            labels_always: false,
+            edge_deemphasis: true,
+        };
+        self.g = generate_random_graph(
+            self.settings_graph.count_node,
+            self.settings_graph.count_edge,
+        );
+        Self::distribute_nodes_circle(&mut self.g);
+        egui_graphs::GraphView::<
+            (),
+            (),
+            petgraph::Directed,
+            petgraph::stable_graph::DefaultIx,
+            egui_graphs::DefaultNodeShape,
+            egui_graphs::DefaultEdgeShape,
+            LayoutStateForceDirected,
+            LayoutForceDirected,
+        >::reset(ui);
+        ui.ctx().set_visuals(egui::Visuals::dark());
+        self.dark_mode = ui.ctx().style().visuals.dark_mode;
+        #[cfg(feature = "events")]
+        {
+            self.last_events.clear();
+            self.pan = [0.0, 0.0];
+            self.zoom = 1.0;
+        }
+        self.fps = 0.0;
+    }
+
+    fn distribute_nodes_circle(g: &mut Graph<(), (), Directed, DefaultIx>) {
+        let n = g.node_count().max(1);
+        if n == 0 {
+            return;
+        }
+        let radius = (n as f32).sqrt() * 50.0 + 50.0;
+        let indices: Vec<_> = g.g().node_indices().collect();
+        for (i, idx) in indices.into_iter().enumerate() {
+            if let Some(node) = g.g_mut().node_weight_mut(idx) {
+                let angle = i as f32 / n as f32 * std::f32::consts::TAU;
+                node.set_location(Pos2::new(radius * angle.cos(), radius * angle.sin()));
+            }
+        }
+    }
+
     fn ui_navigation(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Navigation")
             .default_open(true)
             .show(ui, |ui| {
-                if ui
-                    .checkbox(
-                        &mut self.settings_navigation.fit_to_screen_enabled,
-                        "fit_to_screen",
-                    )
-                    .clicked()
-                    && self.settings_navigation.fit_to_screen_enabled
-                {
-                    self.settings_navigation.zoom_and_pan_enabled = false;
-                }
-                ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
-                    ui.checkbox(
-                        &mut self.settings_navigation.zoom_and_pan_enabled,
-                        "zoom_and_pan",
-                    );
+                ui.horizontal(|ui| {
+                    if ui
+                        .checkbox(
+                            &mut self.settings_navigation.fit_to_screen_enabled,
+                            "fit_to_screen",
+                        )
+                        .clicked()
+                        && self.settings_navigation.fit_to_screen_enabled
+                    {
+                        self.settings_navigation.zoom_and_pan_enabled = false;
+                    }
+                    info_icon(ui, "Continuously recompute zoom/pan so whole graph stays visible.");
                 });
-                ui.add(
-                    egui::Slider::new(&mut self.settings_navigation.zoom_speed, 0.01..=1.0)
-                        .text("zoom_speed"),
-                );
+                ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.checkbox(
+                            &mut self.settings_navigation.zoom_and_pan_enabled,
+                            "zoom_and_pan",
+                        );
+                        info_icon(ui, "Manual navigation: Ctrl+wheel (zoom), drag (pan / node drag). Disable if auto-fit.");
+                    });
+                });
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::Slider::new(&mut self.settings_navigation.zoom_speed, 0.01..=1.0)
+                            .text("zoom_speed"),
+                    );
+                    info_icon(ui, "Multiplier controlling how fast zoom changes per wheel step.");
+                });
+                ui.add_enabled_ui(self.settings_navigation.fit_to_screen_enabled, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            egui::Slider::new(&mut self.settings_navigation.screen_padding, 0.0..=1.0)
+                                .text("screen_padding"),
+                        );
+                        info_icon(ui, "Extra fractional padding around graph when auto-fitting (0 = tight fit, 0.3 = 30% larger).");
+                    });
+                });
             });
     }
 
@@ -394,7 +464,6 @@ impl DemoApp {
                     ui.add(egui::Slider::new(&mut state.epsilon, 1e-5..=1e-1).logarithmic(true).text("epsilon"));
                     info_icon(ui, "Minimum distance clamp to avoid division by zero in force calculations.");
                 });
-                if ui.button("reset defaults").on_hover_text("Restore factory parameter values").clicked() { state = LayoutStateForceDirected::default(); }
             });
 
         egui_graphs::GraphView::<
@@ -413,111 +482,144 @@ impl DemoApp {
         CollapsingHeader::new("Interaction")
             .default_open(true)
             .show(ui, |ui| {
-                if ui
-                    .checkbox(&mut self.settings_interaction.dragging_enabled, "dragging")
-                    .clicked()
-                    && self.settings_interaction.dragging_enabled
-                {
-                    self.settings_interaction.node_clicking_enabled = true;
-                }
-                ui.add_enabled_ui(
-                    !(self.settings_interaction.dragging_enabled
-                        || self.settings_interaction.node_selection_enabled
-                        || self.settings_interaction.node_selection_multi_enabled),
-                    |ui| {
-                        ui.checkbox(
-                            &mut self.settings_interaction.node_clicking_enabled,
-                            "node_clicking",
-                        );
-                    },
-                );
+                ui.horizontal(|ui| {
+                    ui.checkbox(
+                        &mut self.settings_interaction.dragging_enabled,
+                        "dragging_enabled",
+                    );
+                    info_icon(ui, "Drag nodes with pointer when enabled.");
+                });
+                ui.horizontal(|ui| {
+                    ui.checkbox(
+                        &mut self.settings_interaction.node_clicking_enabled,
+                        "node_clicking",
+                    );
+                    info_icon(
+                        ui,
+                        "Enable click events for nodes (required for selection).",
+                    );
+                });
                 ui.add_enabled_ui(
                     !self.settings_interaction.node_selection_multi_enabled,
                     |ui| {
-                        if ui
-                            .checkbox(
-                                &mut self.settings_interaction.node_selection_enabled,
-                                "node_selection",
-                            )
-                            .clicked()
-                            && self.settings_interaction.node_selection_enabled
-                        {
-                            self.settings_interaction.node_clicking_enabled = true;
-                        }
+                        ui.horizontal(|ui| {
+                            if ui
+                                .checkbox(
+                                    &mut self.settings_interaction.node_selection_enabled,
+                                    "node_selection",
+                                )
+                                .clicked()
+                                && self.settings_interaction.node_selection_enabled
+                            {
+                                self.settings_interaction.node_clicking_enabled = true;
+                            }
+                            info_icon(ui, "Single node selection on click.");
+                        });
                     },
                 );
-                if ui
-                    .checkbox(
-                        &mut self.settings_interaction.node_selection_multi_enabled,
-                        "node_selection_multi",
-                    )
-                    .changed()
-                    && self.settings_interaction.node_selection_multi_enabled
-                {
-                    self.settings_interaction.node_selection_enabled = true;
-                    self.settings_interaction.node_clicking_enabled = true;
-                }
+                ui.horizontal(|ui| {
+                    if ui
+                        .checkbox(
+                            &mut self.settings_interaction.node_selection_multi_enabled,
+                            "node_selection_multi",
+                        )
+                        .changed()
+                        && self.settings_interaction.node_selection_multi_enabled
+                    {
+                        self.settings_interaction.node_selection_enabled = true;
+                        self.settings_interaction.node_clicking_enabled = true;
+                    }
+                    info_icon(ui, "Allow multiple nodes selected.");
+                });
                 ui.add_enabled_ui(
                     !(self.settings_interaction.edge_selection_enabled
                         || self.settings_interaction.edge_selection_multi_enabled),
                     |ui| {
-                        ui.checkbox(
-                            &mut self.settings_interaction.edge_clicking_enabled,
-                            "edge_clicking",
-                        );
+                        ui.horizontal(|ui| {
+                            ui.checkbox(
+                                &mut self.settings_interaction.edge_clicking_enabled,
+                                "edge_clicking",
+                            );
+                            info_icon(
+                                ui,
+                                "Enable click events for edges (required for selection).",
+                            );
+                        });
                     },
                 );
                 ui.add_enabled_ui(
                     !self.settings_interaction.edge_selection_multi_enabled,
                     |ui| {
-                        if ui
-                            .checkbox(
-                                &mut self.settings_interaction.edge_selection_enabled,
-                                "edge_selection",
-                            )
-                            .clicked()
-                            && self.settings_interaction.edge_selection_enabled
-                        {
-                            self.settings_interaction.edge_clicking_enabled = true;
-                        }
+                        ui.horizontal(|ui| {
+                            if ui
+                                .checkbox(
+                                    &mut self.settings_interaction.edge_selection_enabled,
+                                    "edge_selection",
+                                )
+                                .clicked()
+                                && self.settings_interaction.edge_selection_enabled
+                            {
+                                self.settings_interaction.edge_clicking_enabled = true;
+                            }
+                            info_icon(ui, "Single edge selection on click.");
+                        });
                     },
                 );
-                if ui
-                    .checkbox(
-                        &mut self.settings_interaction.edge_selection_multi_enabled,
-                        "edge_selection_multi",
-                    )
-                    .changed()
-                    && self.settings_interaction.edge_selection_multi_enabled
-                {
-                    self.settings_interaction.edge_selection_enabled = true;
-                    self.settings_interaction.edge_clicking_enabled = true;
-                }
+                ui.horizontal(|ui| {
+                    if ui
+                        .checkbox(
+                            &mut self.settings_interaction.edge_selection_multi_enabled,
+                            "edge_selection_multi",
+                        )
+                        .changed()
+                        && self.settings_interaction.edge_selection_multi_enabled
+                    {
+                        self.settings_interaction.edge_selection_enabled = true;
+                        self.settings_interaction.edge_clicking_enabled = true;
+                    }
+                    info_icon(ui, "Allow multiple edges selected.");
+                });
             });
     }
 
     fn ui_style(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Style").show(ui, |ui| {
+            // Dark mode toggle (checkbox + info icon on one line)
             ui.horizontal(|ui| {
-                let currently_dark = ui.ctx().style().visuals.dark_mode;
-                let icon = if currently_dark { "☀" } else { "🌙" };
-                let tip = if currently_dark {
-                    "Switch to light theme"
-                } else {
-                    "Switch to dark theme"
-                };
-                if ui.small_button(icon).on_hover_text(tip).clicked() {
-                    if currently_dark {
-                        ui.ctx().set_visuals(egui::Visuals::light());
-                    } else {
+                let mut dark = ui.ctx().style().visuals.dark_mode;
+                if ui
+                    .checkbox(&mut dark, "Dark Mode")
+                    .on_hover_text("Toggle dark or light visuals")
+                    .changed()
+                {
+                    if dark {
                         ui.ctx().set_visuals(egui::Visuals::dark());
+                    } else {
+                        ui.ctx().set_visuals(egui::Visuals::light());
                     }
-                    self.dark_mode = ui.ctx().style().visuals.dark_mode;
+                    self.dark_mode = dark;
                 } else {
-                    self.dark_mode = currently_dark;
+                    self.dark_mode = dark;
                 }
-                ui.separator();
+                info_icon(
+                    ui,
+                    "Synced with global egui style context for seamless integration.",
+                );
+            });
+            ui.add_space(4.0);
+            // Labels toggle line
+            ui.horizontal(|ui| {
                 ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
+                info_icon(
+                    ui,
+                    "Always render node & edge labels instead of only on interaction.",
+                );
+            });
+            ui.add_space(2.0);
+            // Edge deemphasis line
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.settings_style.edge_deemphasis, "edge_deemphasis");
+                info_icon(ui, "Dim non-selected edges to highlight current selection.");
             });
         });
     }
@@ -637,6 +739,13 @@ impl App for DemoApp {
                 ScrollArea::vertical().show(ui, |ui| {
                     #[cfg(not(feature = "events"))]
                     self.show_events_feature_tip(ui);
+                    if ui
+                        .button("Reset Defaults")
+                        .on_hover_text("Reset ALL settings, graph, layout & view state")
+                        .clicked()
+                    {
+                        self.reset_all(ui);
+                    }
                     CollapsingHeader::new("Graph / Layout")
                         .default_open(true)
                         .show(ui, |ui| self.ui_graph_section(ui));
@@ -666,19 +775,24 @@ impl App for DemoApp {
             let settings_navigation = &egui_graphs::SettingsNavigation::new()
                 .with_zoom_and_pan_enabled(self.settings_navigation.zoom_and_pan_enabled)
                 .with_fit_to_screen_enabled(self.settings_navigation.fit_to_screen_enabled)
-                .with_zoom_speed(self.settings_navigation.zoom_speed);
-            let settings_style = &egui_graphs::SettingsStyle::new()
-                .with_labels_always(self.settings_style.labels_always)
-                .with_edge_stroke_hook(|selected, _order, stroke, _style| {
-                    // Reduce alpha by half for non-selected edges to de-emphasize them.
-                    let mut s = stroke;
-                    if !selected {
-                        let c = s.color;
-                        let new_a = (f32::from(c.a()) * 0.5) as u8;
-                        s.color = egui::Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), new_a);
-                    }
-                    s
-                });
+                .with_zoom_speed(self.settings_navigation.zoom_speed)
+                .with_screen_padding(self.settings_navigation.screen_padding);
+            let mut style_builder = egui_graphs::SettingsStyle::new()
+                .with_labels_always(self.settings_style.labels_always);
+            if self.settings_style.edge_deemphasis {
+                style_builder =
+                    style_builder.with_edge_stroke_hook(|selected, _order, stroke, _style| {
+                        let mut s = stroke;
+                        if !selected {
+                            let c = s.color;
+                            let new_a = (f32::from(c.a()) * 0.5) as u8;
+                            s.color =
+                                egui::Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), new_a);
+                        }
+                        s
+                    });
+            }
+            let settings_style = &style_builder;
 
             let mut view = egui_graphs::GraphView::<
                 _,

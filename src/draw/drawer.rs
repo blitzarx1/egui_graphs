@@ -66,12 +66,12 @@ where
     ///    (which reads node display boundary points) uses fresh positions / sizes.
     /// 2. `draw_edges` builds edge shapes using the updated node display state.
     /// 3. `draw_nodes` paints nodes (non‑selected first) while deferring highlighted ones.
-    /// 4. `draw_postponed` paints deferred (selected / dragged) shapes on top.
+    /// 4. `draw_delayed` paints deferred (selected / dragged) shapes on top.
     pub(crate) fn draw(mut self) {
         self.update_nodes();
         self.draw_edges();
         self.draw_nodes();
-        self.draw_postponed();
+        self.draw_delayed();
     }
 
     /// Synchronizes node display state with their current props without emitting shapes.
@@ -92,7 +92,7 @@ where
             });
     }
 
-    fn draw_postponed(&mut self) {
+    fn draw_delayed(&mut self) {
         self.delayed.iter().for_each(|s| {
             self.ctx.painter.add(s.clone());
         });
