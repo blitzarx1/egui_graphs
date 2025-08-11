@@ -1,6 +1,6 @@
 use core::cmp::Ordering;
 use eframe::{run_native, App, CreationContext};
-use egui::{self, Align2, CollapsingHeader, Pos2, ScrollArea, Ui};
+use egui::{self, CollapsingHeader, Pos2, ScrollArea, Ui};
 use egui_graphs::{generate_random_graph, Graph, LayoutForceDirected, LayoutStateForceDirected};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
@@ -86,16 +86,32 @@ mod drawers {
             let start = v.nodes;
             ui.label("N");
             ui.add(egui::Slider::new(&mut v.nodes, 0..=2500));
-            if ui.small_button("-10").clicked() {
+            if ui
+                .small_button("-10")
+                .on_hover_text("Remove 10 nodes (M)")
+                .clicked()
+            {
                 v.nodes = v.nodes.saturating_sub(10);
             }
-            if ui.small_button("-1").clicked() {
+            if ui
+                .small_button("-1")
+                .on_hover_text("Remove 1 node (N)")
+                .clicked()
+            {
                 v.nodes = v.nodes.saturating_sub(1);
             }
-            if ui.small_button("+1").clicked() {
+            if ui
+                .small_button("+1")
+                .on_hover_text("Add 1 node (n)")
+                .clicked()
+            {
                 v.nodes = (v.nodes + 1).min(2500);
             }
-            if ui.small_button("+10").clicked() {
+            if ui
+                .small_button("+10")
+                .on_hover_text("Add 10 nodes (m)")
+                .clicked()
+            {
                 v.nodes = (v.nodes + 10).min(2500);
             }
             delta_nodes = if v.nodes >= start {
@@ -109,16 +125,32 @@ mod drawers {
             let start = v.edges;
             ui.label("E");
             ui.add(egui::Slider::new(&mut v.edges, 0..=2500));
-            if ui.small_button("-10").clicked() {
+            if ui
+                .small_button("-10")
+                .on_hover_text("Remove 10 edges (R)")
+                .clicked()
+            {
                 v.edges = v.edges.saturating_sub(10);
             }
-            if ui.small_button("-1").clicked() {
+            if ui
+                .small_button("-1")
+                .on_hover_text("Remove 1 edge (E)")
+                .clicked()
+            {
                 v.edges = v.edges.saturating_sub(1);
             }
-            if ui.small_button("+1").clicked() {
+            if ui
+                .small_button("+1")
+                .on_hover_text("Add 1 edge (e)")
+                .clicked()
+            {
                 v.edges = (v.edges + 1).min(2500);
             }
-            if ui.small_button("+10").clicked() {
+            if ui
+                .small_button("+10")
+                .on_hover_text("Add 10 edges (r)")
+                .clicked()
+            {
                 v.edges = (v.edges + 10).min(2500);
             }
             delta_edges = if v.edges >= start {
@@ -146,6 +178,7 @@ pub struct DemoApp {
     fps: f32,
     last_update_time: Instant,
     frames_last_time_span: usize,
+    show_sidebar: bool,
     #[cfg(not(feature = "events"))]
     copy_tip_until: Option<Instant>,
     #[cfg(feature = "events")]
@@ -162,6 +195,9 @@ pub struct DemoApp {
     event_filters: EventFilters,
     dark_mode: bool,
     show_debug_overlay: bool,
+    show_keybindings_overlay: bool,
+    // Runtime-measured height of the last rendered debug overlay label (for spacing keybindings)
+    last_debug_overlay_height: f32,
 }
 
 impl DemoApp {
@@ -185,6 +221,7 @@ impl DemoApp {
             fps: 0.0,
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
+            show_sidebar: true,
             #[cfg(not(feature = "events"))]
             copy_tip_until: None,
             #[cfg(feature = "events")]
@@ -201,6 +238,8 @@ impl DemoApp {
             event_filters: EventFilters::default(),
             dark_mode: cc.egui_ctx.style().visuals.dark_mode,
             show_debug_overlay: true,
+            show_keybindings_overlay: false,
+            last_debug_overlay_height: 0.0,
         }
     }
 
@@ -340,6 +379,8 @@ impl DemoApp {
             labels_always: false,
             edge_deemphasis: true,
         };
+        self.show_debug_overlay = true;
+        self.show_keybindings_overlay = false;
         self.g = generate_random_graph(
             self.settings_graph.count_node,
             self.settings_graph.count_edge,
@@ -733,12 +774,27 @@ impl DemoApp {
         CollapsingHeader::new("Debug")
             .default_open(false)
             .show(ui, |ui| {
-                ui.checkbox(&mut self.show_debug_overlay, "show debug overlay");
+                if ui
+                    .checkbox(&mut self.show_debug_overlay, "show debug overlay")
+                    .on_hover_text("Toggle debug overlay (d)")
+                    .clicked()
+                {}
+                if ui
+                    .checkbox(
+                        &mut self.show_keybindings_overlay,
+                        "show keybindings overlay",
+                    )
+                    .on_hover_text("Toggle keybindings overlay (h)")
+                    .clicked()
+                {}
             });
     }
 
-    fn overlay_debug(&self, ctx: &egui::Context) {
-        use egui::{Area, RichText};
+    fn overlay_debug_panel(&mut self, ui: &mut egui::Ui) {
+        if !self.show_debug_overlay {
+            return;
+        }
+        use egui::RichText;
         let text = {
             let fps_line = format!("FPS: {:.1}", self.fps);
             let n_line = format!("N: {}", self.g.node_count());
@@ -753,20 +809,76 @@ impl DemoApp {
             let pan_line = "Pan: enable events feature".to_string();
             format!("{fps_line}\n{n_line}\n{e_line}\n{zoom_line}\n{pan_line}")
         };
+        let full_rect = ui.max_rect();
+        let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(full_rect));
+        child_ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
+            let resp = ui.label(
+                RichText::new(text)
+                    .monospace()
+                    .color(ui.style().visuals.strong_text_color())
+                    .size(14.0),
+            );
+            // Store exact height (+ small breathing margin) for subsequent keybindings overlay.
+            self.last_debug_overlay_height = resp.rect.height() + ui.spacing().item_spacing.y * 0.5;
+        });
+    }
 
-        let visuals = &ctx.style().visuals;
-        Area::new(egui::Id::new("debug_overlay"))
-            .movable(false)
-            .interactable(false)
-            .anchor(Align2::LEFT_TOP, [10.0, 10.0])
-            .show(ctx, |ui| {
-                ui.label(
-                    RichText::new(text)
-                        .monospace()
-                        .color(visuals.strong_text_color())
-                        .size(14.0),
+    fn overlay_keybindings_panel(&self, ui: &mut egui::Ui) {
+        if !self.show_keybindings_overlay {
+            return;
+        }
+        use egui::RichText;
+        let full_rect = ui.max_rect();
+        let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(full_rect));
+        child_ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
+            if self.show_debug_overlay {
+                ui.add_space(self.last_debug_overlay_height);
+            }
+            let entries: [(&str, &str); 12] = [
+                ("n", "add 1 node"),
+                ("m", "add 10 nodes"),
+                ("e", "add 1 edge"),
+                ("r", "add 10 edges"),
+                ("Shift+m", "remove 10 nodes"),
+                ("Shift+n", "remove 1 node"),
+                ("Shift+e", "remove 1 edge"),
+                ("Shift+r", "remove 10 edges"),
+                ("Tab", "toggle side panel"),
+                ("d", "toggle debug overlay"),
+                ("h", "toggle keybindings overlay"),
+                ("Space", "reset all"),
+            ];
+            let max_key_len = entries.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
+            let max_desc_len = entries.iter().map(|(_, d)| d.len()).max().unwrap_or(0);
+            let mut lines = Vec::with_capacity(entries.len() + 2);
+            for (idx, (key, desc)) in entries.iter().enumerate() {
+                let left_extra = max_key_len.saturating_sub(key.len());
+                let spaces_before_arrow = left_extra + 1;
+                let right_extra = max_desc_len.saturating_sub(desc.len());
+                let spaces_after_arrow = 1 + right_extra;
+                let mut line = String::with_capacity(
+                    key.len() + spaces_before_arrow + 2 + spaces_after_arrow + desc.len(),
                 );
-            });
+                line.push_str(key);
+                line.extend(std::iter::repeat(' ').take(left_extra));
+                line.extend(std::iter::repeat(' ').take(1));
+                line.push_str("->");
+                line.extend(std::iter::repeat(' ').take(spaces_after_arrow));
+                line.push_str(desc);
+                lines.push(line);
+                // group separators: after first 8 entries (idx 7) and after next 3 (idx 10)
+                if idx == 7 || idx == 10 {
+                    lines.push(String::new());
+                }
+            }
+            let text = lines.join("\n");
+            ui.label(
+                RichText::new(text)
+                    .monospace()
+                    .color(ui.style().visuals.strong_text_color())
+                    .size(14.0),
+            );
+        });
     }
 
     #[cfg(not(feature = "events"))]
@@ -776,7 +888,7 @@ impl DemoApp {
 				egui::Color32::from_rgb(200, 180, 40),
 				"Tip: enable the 'events' feature to see interaction events (pan/zoom, clicks, selections).",
 			);
-            let cmd = "cargo run --example demo --features events";
+            let cmd = "cargo r --release --example demo --features events";
             ui.horizontal(|ui| {
                 ui.code(cmd);
                 if ui
@@ -810,33 +922,113 @@ impl DemoApp {
 
 impl App for DemoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::SidePanel::right("right")
-            .default_width(300.0)
-            .min_width(300.0)
-            .show(ctx, |ui| {
-                ScrollArea::vertical().show(ui, |ui| {
-                    #[cfg(not(feature = "events"))]
-                    self.show_events_feature_tip(ui);
-                    if ui
-                        .button("Reset Defaults")
-                        .on_hover_text("Reset ALL settings, graph, layout & view state")
-                        .clicked()
-                    {
-                        self.reset_all(ui);
-                    }
-                    CollapsingHeader::new("Graph / Layout")
-                        .default_open(true)
-                        .show(ui, |ui| self.ui_graph_section(ui));
-                    self.ui_debug(ui);
-                    self.ui_navigation(ui);
-                    self.ui_layout_force_directed(ui);
-                    self.ui_interaction(ui);
-                    self.ui_style(ui);
-                    self.ui_selected(ui);
-                    self.ui_events(ui);
-                });
-            });
+        if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
+            self.show_sidebar = !self.show_sidebar;
+        }
 
+        let mut reset_requested = false;
+        ctx.input(|i| {
+            for ev in &i.events {
+                if let egui::Event::Key {
+                    key,
+                    pressed,
+                    modifiers,
+                    ..
+                } = ev
+                {
+                    if !pressed {
+                        continue;
+                    }
+                    match key {
+                        egui::Key::N => {
+                            if modifiers.shift {
+                                self.remove_random_node();
+                            } else {
+                                self.add_random_node();
+                            }
+                        }
+                        egui::Key::E => {
+                            if modifiers.shift {
+                                self.remove_random_edge();
+                            } else {
+                                self.add_random_edge();
+                            }
+                        }
+                        egui::Key::M => {
+                            if modifiers.shift {
+                                for _ in 0..10 {
+                                    self.remove_random_node();
+                                }
+                            } else {
+                                for _ in 0..10 {
+                                    self.add_random_node();
+                                }
+                            }
+                        }
+                        egui::Key::R => {
+                            if modifiers.shift {
+                                for _ in 0..10 {
+                                    self.remove_random_edge();
+                                }
+                            } else {
+                                for _ in 0..10 {
+                                    self.add_random_edge();
+                                }
+                            }
+                        }
+                        egui::Key::D => {
+                            if !modifiers.any() {
+                                self.show_debug_overlay = !self.show_debug_overlay;
+                            }
+                        }
+                        egui::Key::H => {
+                            if !modifiers.any() {
+                                self.show_keybindings_overlay = !self.show_keybindings_overlay;
+                            }
+                        }
+                        egui::Key::Space => {
+                            if !modifiers.any() {
+                                reset_requested = true;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        });
+
+        if self.show_sidebar {
+            egui::SidePanel::right("right")
+                .default_width(300.0)
+                .min_width(300.0)
+                .show(ctx, |ui| {
+                    ScrollArea::vertical().show(ui, |ui| {
+                        #[cfg(not(feature = "events"))]
+                        self.show_events_feature_tip(ui);
+                        if ui
+                            .button("Reset Defaults")
+                            .on_hover_text("Reset ALL settings, graph, layout & view state (Space)")
+                            .clicked()
+                            || reset_requested
+                        {
+                            self.reset_all(ui);
+                            reset_requested = false;
+                        }
+                        CollapsingHeader::new("Graph / Layout")
+                            .default_open(true)
+                            .show(ui, |ui| self.ui_graph_section(ui));
+                        self.ui_navigation(ui);
+                        self.ui_layout_force_directed(ui);
+                        self.ui_interaction(ui);
+                        self.ui_style(ui);
+                        self.ui_selected(ui);
+                        self.ui_debug(ui);
+                        self.ui_events(ui);
+                    });
+                });
+        }
+
+        let mut toggle_requested = false;
         egui::CentralPanel::default().show(ctx, |ui| {
             let settings_interaction = &egui_graphs::SettingsInteraction::new()
                 .with_node_selection_enabled(self.settings_interaction.node_selection_enabled)
@@ -890,14 +1082,43 @@ impl App for DemoApp {
                 view = view.with_events(&self.event_publisher);
             }
             ui.add(&mut view);
+            self.overlay_debug_panel(ui);
+            self.overlay_keybindings_panel(ui);
+
+            let g_rect = ui.max_rect();
+            let btn_size = egui::vec2(28.0, 28.0);
+            let right_margin = 0.0;
+            let bottom_margin = 0.0;
+            let btn_pos = egui::pos2(
+                g_rect.right() - right_margin - btn_size.x,
+                g_rect.bottom() - bottom_margin - btn_size.y,
+            );
+            let (arrow, tip) = if self.show_sidebar {
+                ("▶", "Hide side panel (Tab)")
+            } else {
+                ("◀", "Show side panel (Tab)")
+            };
+            let btn_rect = egui::Rect::from_min_size(btn_pos, btn_size);
+            let arrow_text = egui::RichText::new(arrow).size(16.0);
+            let response = ui.put(btn_rect, egui::Button::new(arrow_text));
+            if response.on_hover_text(tip).clicked() {
+                toggle_requested = true;
+            }
         });
+        if toggle_requested {
+            self.show_sidebar = !self.show_sidebar;
+        }
+        if reset_requested && !self.show_sidebar {
+            egui::Area::new("hidden_reset_area".into())
+                .order(egui::Order::Background)
+                .show(ctx, |ui| {
+                    self.reset_all(ui);
+                });
+        }
 
         #[cfg(feature = "events")]
         self.handle_events();
         self.update_fps();
-        if self.show_debug_overlay {
-            self.overlay_debug(ctx);
-        }
     }
 }
 
