@@ -584,11 +584,10 @@ impl DemoApp {
 
     fn ui_style(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Style").show(ui, |ui| {
-            // Dark mode toggle (checkbox + info icon on one line)
             ui.horizontal(|ui| {
                 let mut dark = ui.ctx().style().visuals.dark_mode;
                 if ui
-                    .checkbox(&mut dark, "Dark Mode")
+                    .checkbox(&mut dark, "dark mode")
                     .on_hover_text("Toggle dark or light visuals")
                     .changed()
                 {
