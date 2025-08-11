@@ -813,7 +813,7 @@ impl DemoApp {
 				egui::Color32::from_rgb(200, 180, 40),
 				"Tip: enable the 'events' feature to see interaction events (pan/zoom, clicks, selections).",
 			);
-            let cmd = "cargo run --example demo --features events";
+            let cmd = "cargo r --release --example demo --features events";
             ui.horizontal(|ui| {
                 ui.code(cmd);
                 if ui
