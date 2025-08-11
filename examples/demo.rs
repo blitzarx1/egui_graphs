@@ -1,6 +1,6 @@
 use core::cmp::Ordering;
 use eframe::{run_native, App, CreationContext};
-use egui::{self, Align2, CollapsingHeader, Pos2, ScrollArea, Ui};
+use egui::{self, CollapsingHeader, Pos2, ScrollArea, Ui};
 use egui_graphs::{generate_random_graph, Graph, LayoutForceDirected, LayoutStateForceDirected};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
@@ -340,6 +340,7 @@ impl DemoApp {
             labels_always: false,
             edge_deemphasis: true,
         };
+        self.show_debug_overlay = true;
         self.g = generate_random_graph(
             self.settings_graph.count_node,
             self.settings_graph.count_edge,
@@ -737,8 +738,11 @@ impl DemoApp {
             });
     }
 
-    fn overlay_debug(&self, ctx: &egui::Context) {
-        use egui::{Area, RichText};
+    fn overlay_debug_panel(&self, ui: &mut egui::Ui) {
+        if !self.show_debug_overlay {
+            return;
+        }
+        use egui::RichText;
         let text = {
             let fps_line = format!("FPS: {:.1}", self.fps);
             let n_line = format!("N: {}", self.g.node_count());
@@ -754,19 +758,18 @@ impl DemoApp {
             format!("{fps_line}\n{n_line}\n{e_line}\n{zoom_line}\n{pan_line}")
         };
 
-        let visuals = &ctx.style().visuals;
-        Area::new(egui::Id::new("debug_overlay"))
-            .movable(false)
-            .interactable(false)
-            .anchor(Align2::LEFT_TOP, [10.0, 10.0])
-            .show(ctx, |ui| {
-                ui.label(
-                    RichText::new(text)
-                        .monospace()
-                        .color(visuals.strong_text_color())
-                        .size(14.0),
-                );
-            });
+        let full_rect = ui.max_rect();
+        let style = ui.style().clone();
+        // Safer: create a new UI rooted at the full rect without deprecated APIs.
+        let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(full_rect));
+        child_ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
+            ui.label(
+                RichText::new(text)
+                    .monospace()
+                    .color(style.visuals.strong_text_color())
+                    .size(14.0),
+            );
+        });
     }
 
     #[cfg(not(feature = "events"))]
@@ -827,12 +830,12 @@ impl App for DemoApp {
                     CollapsingHeader::new("Graph / Layout")
                         .default_open(true)
                         .show(ui, |ui| self.ui_graph_section(ui));
-                    self.ui_debug(ui);
                     self.ui_navigation(ui);
                     self.ui_layout_force_directed(ui);
                     self.ui_interaction(ui);
                     self.ui_style(ui);
                     self.ui_selected(ui);
+                    self.ui_debug(ui); // moved near events
                     self.ui_events(ui);
                 });
             });
@@ -890,14 +893,12 @@ impl App for DemoApp {
                 view = view.with_events(&self.event_publisher);
             }
             ui.add(&mut view);
+            self.overlay_debug_panel(ui);
         });
 
         #[cfg(feature = "events")]
         self.handle_events();
         self.update_fps();
-        if self.show_debug_overlay {
-            self.overlay_debug(ctx);
-        }
     }
 }
 
