@@ -7,6 +7,9 @@ use petgraph::Directed;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
+const MAX_NODE_COUNT: usize = 2500;
+const MAX_EDGE_COUNT: usize = 5000;
+
 #[cfg(feature = "events")]
 use crossbeam::channel::{unbounded, Receiver, Sender};
 #[cfg(feature = "events")]
@@ -68,6 +71,7 @@ fn info_icon(ui: &mut egui::Ui, tip: &str) {
 }
 
 mod drawers {
+    use crate::{MAX_EDGE_COUNT, MAX_NODE_COUNT};
     use egui::Ui;
 
     pub struct GraphCountSliders {
@@ -85,7 +89,7 @@ mod drawers {
         ui.horizontal(|ui| {
             let start = v.nodes;
             ui.label("N");
-            ui.add(egui::Slider::new(&mut v.nodes, 0..=2500));
+            ui.add(egui::Slider::new(&mut v.nodes, 0..=MAX_NODE_COUNT));
             if ui
                 .small_button("-10")
                 .on_hover_text("Remove 10 nodes (M)")
@@ -105,14 +109,14 @@ mod drawers {
                 .on_hover_text("Add 1 node (n)")
                 .clicked()
             {
-                v.nodes = (v.nodes + 1).min(2500);
+                v.nodes = (v.nodes + 1).min(MAX_NODE_COUNT);
             }
             if ui
                 .small_button("+10")
                 .on_hover_text("Add 10 nodes (m)")
                 .clicked()
             {
-                v.nodes = (v.nodes + 10).min(2500);
+                v.nodes = (v.nodes + 10).min(MAX_NODE_COUNT);
             }
             delta_nodes = if v.nodes >= start {
                 i32::try_from(v.nodes - start).unwrap()
@@ -124,7 +128,7 @@ mod drawers {
         ui.horizontal(|ui| {
             let start = v.edges;
             ui.label("E");
-            ui.add(egui::Slider::new(&mut v.edges, 0..=2500));
+            ui.add(egui::Slider::new(&mut v.edges, 0..=MAX_EDGE_COUNT));
             if ui
                 .small_button("-10")
                 .on_hover_text("Remove 10 edges (R)")
@@ -144,14 +148,14 @@ mod drawers {
                 .on_hover_text("Add 1 edge (e)")
                 .clicked()
             {
-                v.edges = (v.edges + 1).min(2500);
+                v.edges = (v.edges + 1).min(MAX_EDGE_COUNT);
             }
             if ui
                 .small_button("+10")
                 .on_hover_text("Add 10 edges (r)")
                 .clicked()
             {
-                v.edges = (v.edges + 10).min(2500);
+                v.edges = (v.edges + 10).min(MAX_EDGE_COUNT);
             }
             delta_edges = if v.edges >= start {
                 i32::try_from(v.edges - start).unwrap()
@@ -260,6 +264,9 @@ impl DemoApp {
         self.g.g().edge_indices().nth(idx)
     }
     fn add_random_node(&mut self) {
+        if self.g.node_count() >= MAX_NODE_COUNT {
+            return;
+        }
         if let Some(r) = self.random_node_idx() {
             let n = self.g.node(r).unwrap();
             let mut rng = rand::rng();
@@ -279,7 +286,6 @@ impl DemoApp {
     }
     fn remove_node(&mut self, idx: NodeIndex) {
         self.g.remove_node(idx);
-        self.settings_graph.count_edge = self.g.edge_count();
     }
     fn add_random_edge(&mut self) {
         if let (Some(a), Some(b)) = (self.random_node_idx(), self.random_node_idx()) {
@@ -287,6 +293,9 @@ impl DemoApp {
         }
     }
     fn add_edge(&mut self, a: NodeIndex, b: NodeIndex) {
+        if self.g.edge_count() >= MAX_EDGE_COUNT {
+            return;
+        }
         self.g.add_edge(a, b, ());
     }
     fn remove_random_edge(&mut self) {
@@ -797,8 +806,18 @@ impl DemoApp {
         use egui::RichText;
         let text = {
             let fps_line = format!("FPS: {:.1}", self.fps);
-            let n_line = format!("N: {}", self.g.node_count());
-            let e_line = format!("E: {}", self.g.edge_count());
+            let node_count = self.g.node_count();
+            let edge_count = self.g.edge_count();
+            let n_line = if node_count >= MAX_NODE_COUNT {
+                format!("N: {} MAX", node_count)
+            } else {
+                format!("N: {}", node_count)
+            };
+            let e_line = if edge_count >= MAX_EDGE_COUNT {
+                format!("E: {} MAX", edge_count)
+            } else {
+                format!("E: {}", edge_count)
+            };
             #[cfg(feature = "events")]
             let zoom_line = format!("Zoom: {:.3}", self.zoom);
             #[cfg(feature = "events")]
@@ -836,12 +855,12 @@ impl DemoApp {
             }
             let entries: [(&str, &str); 12] = [
                 ("n", "add 1 node"),
-                ("m", "add 10 nodes"),
                 ("e", "add 1 edge"),
+                ("m", "add 10 nodes"),
                 ("r", "add 10 edges"),
-                ("Shift+m", "remove 10 nodes"),
                 ("Shift+n", "remove 1 node"),
                 ("Shift+e", "remove 1 edge"),
+                ("Shift+m", "remove 10 nodes"),
                 ("Shift+r", "remove 10 edges"),
                 ("Tab", "toggle side panel"),
                 ("d", "toggle debug overlay"),
@@ -918,6 +937,13 @@ impl DemoApp {
 
     #[cfg(feature = "events")]
     fn show_events_feature_tip(&mut self, _ui: &mut Ui) {}
+
+    // Keeps settings_graph counts synchronized with the underlying graph so UI sliders reflect
+    // keyboard-triggered mutations in the same frame.
+    fn sync_counts(&mut self) {
+        self.settings_graph.count_node = self.g.node_count();
+        self.settings_graph.count_edge = self.g.edge_count();
+    }
 }
 
 impl App for DemoApp {
@@ -960,7 +986,9 @@ impl App for DemoApp {
                                     self.remove_random_node();
                                 }
                             } else {
-                                for _ in 0..10 {
+                                let remaining = MAX_NODE_COUNT.saturating_sub(self.g.node_count());
+                                let to_add = remaining.min(10);
+                                for _ in 0..to_add {
                                     self.add_random_node();
                                 }
                             }
@@ -971,7 +999,9 @@ impl App for DemoApp {
                                     self.remove_random_edge();
                                 }
                             } else {
-                                for _ in 0..10 {
+                                let remaining = MAX_EDGE_COUNT.saturating_sub(self.g.edge_count());
+                                let to_add = remaining.min(10);
+                                for _ in 0..to_add {
                                     self.add_random_edge();
                                 }
                             }
@@ -996,6 +1026,8 @@ impl App for DemoApp {
                 }
             }
         });
+
+        self.sync_counts();
 
         if self.show_sidebar {
             egui::SidePanel::right("right")
