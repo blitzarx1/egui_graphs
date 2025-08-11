@@ -86,16 +86,32 @@ mod drawers {
             let start = v.nodes;
             ui.label("N");
             ui.add(egui::Slider::new(&mut v.nodes, 0..=2500));
-            if ui.small_button("-10").clicked() {
+            if ui
+                .small_button("-10")
+                .on_hover_text("Remove 10 nodes (M)")
+                .clicked()
+            {
                 v.nodes = v.nodes.saturating_sub(10);
             }
-            if ui.small_button("-1").clicked() {
+            if ui
+                .small_button("-1")
+                .on_hover_text("Remove 1 node (N)")
+                .clicked()
+            {
                 v.nodes = v.nodes.saturating_sub(1);
             }
-            if ui.small_button("+1").clicked() {
+            if ui
+                .small_button("+1")
+                .on_hover_text("Add 1 node (n)")
+                .clicked()
+            {
                 v.nodes = (v.nodes + 1).min(2500);
             }
-            if ui.small_button("+10").clicked() {
+            if ui
+                .small_button("+10")
+                .on_hover_text("Add 10 nodes (m)")
+                .clicked()
+            {
                 v.nodes = (v.nodes + 10).min(2500);
             }
             delta_nodes = if v.nodes >= start {
@@ -109,16 +125,32 @@ mod drawers {
             let start = v.edges;
             ui.label("E");
             ui.add(egui::Slider::new(&mut v.edges, 0..=2500));
-            if ui.small_button("-10").clicked() {
+            if ui
+                .small_button("-10")
+                .on_hover_text("Remove 10 edges (R)")
+                .clicked()
+            {
                 v.edges = v.edges.saturating_sub(10);
             }
-            if ui.small_button("-1").clicked() {
+            if ui
+                .small_button("-1")
+                .on_hover_text("Remove 1 edge (E)")
+                .clicked()
+            {
                 v.edges = v.edges.saturating_sub(1);
             }
-            if ui.small_button("+1").clicked() {
+            if ui
+                .small_button("+1")
+                .on_hover_text("Add 1 edge (e)")
+                .clicked()
+            {
                 v.edges = (v.edges + 1).min(2500);
             }
-            if ui.small_button("+10").clicked() {
+            if ui
+                .small_button("+10")
+                .on_hover_text("Add 10 edges (r)")
+                .clicked()
+            {
                 v.edges = (v.edges + 10).min(2500);
             }
             delta_edges = if v.edges >= start {
@@ -146,6 +178,7 @@ pub struct DemoApp {
     fps: f32,
     last_update_time: Instant,
     frames_last_time_span: usize,
+    show_sidebar: bool,
     #[cfg(not(feature = "events"))]
     copy_tip_until: Option<Instant>,
     #[cfg(feature = "events")]
@@ -185,6 +218,7 @@ impl DemoApp {
             fps: 0.0,
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
+            show_sidebar: true,
             #[cfg(not(feature = "events"))]
             copy_tip_until: None,
             #[cfg(feature = "events")]
@@ -813,33 +847,103 @@ impl DemoApp {
 
 impl App for DemoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::SidePanel::right("right")
-            .default_width(300.0)
-            .min_width(300.0)
-            .show(ctx, |ui| {
-                ScrollArea::vertical().show(ui, |ui| {
-                    #[cfg(not(feature = "events"))]
-                    self.show_events_feature_tip(ui);
-                    if ui
-                        .button("Reset Defaults")
-                        .on_hover_text("Reset ALL settings, graph, layout & view state")
-                        .clicked()
-                    {
-                        self.reset_all(ui);
-                    }
-                    CollapsingHeader::new("Graph / Layout")
-                        .default_open(true)
-                        .show(ui, |ui| self.ui_graph_section(ui));
-                    self.ui_navigation(ui);
-                    self.ui_layout_force_directed(ui);
-                    self.ui_interaction(ui);
-                    self.ui_style(ui);
-                    self.ui_selected(ui);
-                    self.ui_debug(ui); // moved near events
-                    self.ui_events(ui);
-                });
-            });
+        if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
+            self.show_sidebar = !self.show_sidebar;
+        }
 
+        let mut reset_requested = false;
+        ctx.input(|i| {
+            for ev in &i.events {
+                if let egui::Event::Key {
+                    key,
+                    pressed,
+                    modifiers,
+                    ..
+                } = ev
+                {
+                    if !pressed {
+                        continue;
+                    }
+                    match key {
+                        egui::Key::N => {
+                            if modifiers.shift {
+                                self.remove_random_node();
+                            } else {
+                                self.add_random_node();
+                            }
+                        }
+                        egui::Key::E => {
+                            if modifiers.shift {
+                                self.remove_random_edge();
+                            } else {
+                                self.add_random_edge();
+                            }
+                        }
+                        egui::Key::M => {
+                            if modifiers.shift {
+                                for _ in 0..10 {
+                                    self.remove_random_node();
+                                }
+                            } else {
+                                for _ in 0..10 {
+                                    self.add_random_node();
+                                }
+                            }
+                        }
+                        egui::Key::R => {
+                            if modifiers.shift {
+                                for _ in 0..10 {
+                                    self.remove_random_edge();
+                                }
+                            } else {
+                                for _ in 0..10 {
+                                    self.add_random_edge();
+                                }
+                            }
+                        }
+                        egui::Key::Space => {
+                            if !modifiers.any() {
+                                reset_requested = true;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        });
+
+        if self.show_sidebar {
+            egui::SidePanel::right("right")
+                .default_width(300.0)
+                .min_width(300.0)
+                .show(ctx, |ui| {
+                    ScrollArea::vertical().show(ui, |ui| {
+                        #[cfg(not(feature = "events"))]
+                        self.show_events_feature_tip(ui);
+                        if ui
+                            .button("Reset Defaults")
+                            .on_hover_text("Reset ALL settings, graph, layout & view state (Space)")
+                            .clicked()
+                            || reset_requested
+                        {
+                            self.reset_all(ui);
+                            reset_requested = false;
+                        }
+                        CollapsingHeader::new("Graph / Layout")
+                            .default_open(true)
+                            .show(ui, |ui| self.ui_graph_section(ui));
+                        self.ui_navigation(ui);
+                        self.ui_layout_force_directed(ui);
+                        self.ui_interaction(ui);
+                        self.ui_style(ui);
+                        self.ui_selected(ui);
+                        self.ui_debug(ui);
+                        self.ui_events(ui);
+                    });
+                });
+        }
+
+        let mut toggle_requested = false;
         egui::CentralPanel::default().show(ctx, |ui| {
             let settings_interaction = &egui_graphs::SettingsInteraction::new()
                 .with_node_selection_enabled(self.settings_interaction.node_selection_enabled)
@@ -894,7 +998,37 @@ impl App for DemoApp {
             }
             ui.add(&mut view);
             self.overlay_debug_panel(ui);
+
+            let g_rect = ui.max_rect();
+            let btn_size = egui::vec2(28.0, 28.0);
+            let right_margin = 0.0;
+            let bottom_margin = 0.0;
+            let btn_pos = egui::pos2(
+                g_rect.right() - right_margin - btn_size.x,
+                g_rect.bottom() - bottom_margin - btn_size.y,
+            );
+            let (arrow, tip) = if self.show_sidebar {
+                ("▶", "Hide side panel (Tab)")
+            } else {
+                ("◀", "Show side panel (Tab)")
+            };
+            let btn_rect = egui::Rect::from_min_size(btn_pos, btn_size);
+            let arrow_text = egui::RichText::new(arrow).size(16.0);
+            let response = ui.put(btn_rect, egui::Button::new(arrow_text));
+            if response.on_hover_text(tip).clicked() {
+                toggle_requested = true;
+            }
         });
+        if toggle_requested {
+            self.show_sidebar = !self.show_sidebar;
+        }
+        if reset_requested && !self.show_sidebar {
+            egui::Area::new("hidden_reset_area".into())
+                .order(egui::Order::Background)
+                .show(ctx, |ui| {
+                    self.reset_all(ui);
+                });
+        }
 
         #[cfg(feature = "events")]
         self.handle_events();
