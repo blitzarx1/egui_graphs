@@ -158,6 +158,8 @@ pub struct DemoApp {
     event_publisher: Sender<Event>,
     #[cfg(feature = "events")]
     event_consumer: Receiver<Event>,
+    #[cfg(feature = "events")]
+    event_filters: EventFilters,
     dark_mode: bool,
 }
 
@@ -194,6 +196,8 @@ impl DemoApp {
             event_publisher,
             #[cfg(feature = "events")]
             event_consumer,
+            #[cfg(feature = "events")]
+            event_filters: EventFilters::default(),
             dark_mode: cc.egui_ctx.style().visuals.dark_mode,
         }
     }
@@ -272,10 +276,12 @@ impl DemoApp {
     #[cfg(feature = "events")]
     fn handle_events(&mut self) {
         self.event_consumer.try_iter().for_each(|e| {
-            if self.last_events.len() > EVENTS_LIMIT {
-                self.last_events.remove(0);
+            if self.event_filters.enabled_for(&e) {
+                while self.last_events.len() >= EVENTS_LIMIT {
+                    self.last_events.remove(0);
+                }
+                self.last_events.push(format!("{e:?}"));
             }
-            self.last_events.push(format!("{e:?}"));
             match e {
                 Event::Pan(p) => self.pan = p.new_pan,
                 Event::Zoom(p) => self.zoom = p.new_zoom,
@@ -354,6 +360,7 @@ impl DemoApp {
             self.last_events.clear();
             self.pan = [0.0, 0.0];
             self.zoom = 1.0;
+            self.event_filters = EventFilters::default();
         }
         self.fps = 0.0;
     }
@@ -479,107 +486,105 @@ impl DemoApp {
     }
 
     fn ui_interaction(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("Interaction")
-            .default_open(true)
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.checkbox(
-                        &mut self.settings_interaction.dragging_enabled,
-                        "dragging_enabled",
-                    );
-                    info_icon(ui, "Drag nodes with pointer when enabled.");
-                });
-                ui.horizontal(|ui| {
-                    ui.checkbox(
-                        &mut self.settings_interaction.node_clicking_enabled,
-                        "node_clicking",
-                    );
-                    info_icon(
-                        ui,
-                        "Enable click events for nodes (required for selection).",
-                    );
-                });
-                ui.add_enabled_ui(
-                    !self.settings_interaction.node_selection_multi_enabled,
-                    |ui| {
-                        ui.horizontal(|ui| {
-                            if ui
-                                .checkbox(
-                                    &mut self.settings_interaction.node_selection_enabled,
-                                    "node_selection",
-                                )
-                                .clicked()
-                                && self.settings_interaction.node_selection_enabled
-                            {
-                                self.settings_interaction.node_clicking_enabled = true;
-                            }
-                            info_icon(ui, "Single node selection on click.");
-                        });
-                    },
+        CollapsingHeader::new("Interaction").show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.checkbox(
+                    &mut self.settings_interaction.dragging_enabled,
+                    "dragging_enabled",
                 );
-                ui.horizontal(|ui| {
-                    if ui
-                        .checkbox(
-                            &mut self.settings_interaction.node_selection_multi_enabled,
-                            "node_selection_multi",
-                        )
-                        .changed()
-                        && self.settings_interaction.node_selection_multi_enabled
-                    {
-                        self.settings_interaction.node_selection_enabled = true;
-                        self.settings_interaction.node_clicking_enabled = true;
-                    }
-                    info_icon(ui, "Allow multiple nodes selected.");
-                });
-                ui.add_enabled_ui(
-                    !(self.settings_interaction.edge_selection_enabled
-                        || self.settings_interaction.edge_selection_multi_enabled),
-                    |ui| {
-                        ui.horizontal(|ui| {
-                            ui.checkbox(
-                                &mut self.settings_interaction.edge_clicking_enabled,
-                                "edge_clicking",
-                            );
-                            info_icon(
-                                ui,
-                                "Enable click events for edges (required for selection).",
-                            );
-                        });
-                    },
-                );
-                ui.add_enabled_ui(
-                    !self.settings_interaction.edge_selection_multi_enabled,
-                    |ui| {
-                        ui.horizontal(|ui| {
-                            if ui
-                                .checkbox(
-                                    &mut self.settings_interaction.edge_selection_enabled,
-                                    "edge_selection",
-                                )
-                                .clicked()
-                                && self.settings_interaction.edge_selection_enabled
-                            {
-                                self.settings_interaction.edge_clicking_enabled = true;
-                            }
-                            info_icon(ui, "Single edge selection on click.");
-                        });
-                    },
-                );
-                ui.horizontal(|ui| {
-                    if ui
-                        .checkbox(
-                            &mut self.settings_interaction.edge_selection_multi_enabled,
-                            "edge_selection_multi",
-                        )
-                        .changed()
-                        && self.settings_interaction.edge_selection_multi_enabled
-                    {
-                        self.settings_interaction.edge_selection_enabled = true;
-                        self.settings_interaction.edge_clicking_enabled = true;
-                    }
-                    info_icon(ui, "Allow multiple edges selected.");
-                });
+                info_icon(ui, "Drag nodes with pointer when enabled.");
             });
+            ui.horizontal(|ui| {
+                ui.checkbox(
+                    &mut self.settings_interaction.node_clicking_enabled,
+                    "node_clicking",
+                );
+                info_icon(
+                    ui,
+                    "Enable click events for nodes (required for selection).",
+                );
+            });
+            ui.add_enabled_ui(
+                !self.settings_interaction.node_selection_multi_enabled,
+                |ui| {
+                    ui.horizontal(|ui| {
+                        if ui
+                            .checkbox(
+                                &mut self.settings_interaction.node_selection_enabled,
+                                "node_selection",
+                            )
+                            .clicked()
+                            && self.settings_interaction.node_selection_enabled
+                        {
+                            self.settings_interaction.node_clicking_enabled = true;
+                        }
+                        info_icon(ui, "Single node selection on click.");
+                    });
+                },
+            );
+            ui.horizontal(|ui| {
+                if ui
+                    .checkbox(
+                        &mut self.settings_interaction.node_selection_multi_enabled,
+                        "node_selection_multi",
+                    )
+                    .changed()
+                    && self.settings_interaction.node_selection_multi_enabled
+                {
+                    self.settings_interaction.node_selection_enabled = true;
+                    self.settings_interaction.node_clicking_enabled = true;
+                }
+                info_icon(ui, "Allow multiple nodes selected.");
+            });
+            ui.add_enabled_ui(
+                !(self.settings_interaction.edge_selection_enabled
+                    || self.settings_interaction.edge_selection_multi_enabled),
+                |ui| {
+                    ui.horizontal(|ui| {
+                        ui.checkbox(
+                            &mut self.settings_interaction.edge_clicking_enabled,
+                            "edge_clicking",
+                        );
+                        info_icon(
+                            ui,
+                            "Enable click events for edges (required for selection).",
+                        );
+                    });
+                },
+            );
+            ui.add_enabled_ui(
+                !self.settings_interaction.edge_selection_multi_enabled,
+                |ui| {
+                    ui.horizontal(|ui| {
+                        if ui
+                            .checkbox(
+                                &mut self.settings_interaction.edge_selection_enabled,
+                                "edge_selection",
+                            )
+                            .clicked()
+                            && self.settings_interaction.edge_selection_enabled
+                        {
+                            self.settings_interaction.edge_clicking_enabled = true;
+                        }
+                        info_icon(ui, "Single edge selection on click.");
+                    });
+                },
+            );
+            ui.horizontal(|ui| {
+                if ui
+                    .checkbox(
+                        &mut self.settings_interaction.edge_selection_multi_enabled,
+                        "edge_selection_multi",
+                    )
+                    .changed()
+                    && self.settings_interaction.edge_selection_multi_enabled
+                {
+                    self.settings_interaction.edge_selection_enabled = true;
+                    self.settings_interaction.edge_clicking_enabled = true;
+                }
+                info_icon(ui, "Allow multiple edges selected.");
+            });
+        });
     }
 
     fn ui_style(&mut self, ui: &mut Ui) {
@@ -640,18 +645,81 @@ impl DemoApp {
 
     #[allow(clippy::unused_self)]
     fn ui_events(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("Last Events")
+        CollapsingHeader::new("Events")
             .default_open(true)
             .show(ui, |ui| {
                 #[cfg(feature = "events")]
                 {
-                    if ui.button("clear").clicked() {
-                        self.last_events.clear();
-                    }
-                    ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
-                        for ev in self.last_events.iter().rev() {
-                            ui.label(ev);
+                    ui.collapsing("Filters", |ui| {
+                        let mut changed = false;
+                        ui.horizontal_wrapped(|ui| {
+                            changed |= ui.checkbox(&mut self.event_filters.pan, "Pan").changed();
+                            changed |= ui.checkbox(&mut self.event_filters.zoom, "Zoom").changed();
+                            changed |= ui
+                                .checkbox(&mut self.event_filters.node_move, "NodeMove")
+                                .changed();
+                            changed |= ui
+                                .checkbox(&mut self.event_filters.node_drag_start, "NodeDragStart")
+                                .changed();
+                            changed |= ui
+                                .checkbox(&mut self.event_filters.node_drag_end, "NodeDragEnd")
+                                .changed();
+                            changed |= ui
+                                .checkbox(&mut self.event_filters.node_select, "NodeSelect")
+                                .changed();
+                            changed |= ui
+                                .checkbox(&mut self.event_filters.node_deselect, "NodeDeselect")
+                                .changed();
+                            changed |= ui
+                                .checkbox(&mut self.event_filters.node_click, "NodeClick")
+                                .changed();
+                            changed |= ui
+                                .checkbox(
+                                    &mut self.event_filters.node_double_click,
+                                    "NodeDoubleClick",
+                                )
+                                .changed();
+                            changed |= ui
+                                .checkbox(&mut self.event_filters.edge_click, "EdgeClick")
+                                .changed();
+                            changed |= ui
+                                .checkbox(&mut self.event_filters.edge_select, "EdgeSelect")
+                                .changed();
+                            changed |= ui
+                                .checkbox(&mut self.event_filters.edge_deselect, "EdgeDeselect")
+                                .changed();
+                        });
+                        if changed {
+                            self.event_filters.purge_disabled(&mut self.last_events);
                         }
+                        ui.small("Uncheck to hide events");
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{} / {}", self.last_events.len(), EVENTS_LIMIT));
+                        if ui.button("clear").clicked() {
+                            self.last_events.clear();
+                        }
+                    });
+                    const MIN_EVENTS_HEIGHT: f32 = 140.0;
+                    egui::Frame::none().show(ui, |ui| {
+                        ui.set_min_height(MIN_EVENTS_HEIGHT);
+                        let full_w = ui.available_width();
+                        ui.set_min_width(full_w);
+                        ScrollArea::vertical()
+                            .max_height(200.0)
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
+                                ui.set_min_width(full_w);
+                                if self.last_events.is_empty() {
+                                    ui.centered_and_justified(|ui| {
+                                        ui.label(egui::RichText::new("No events").weak());
+                                    });
+                                } else {
+                                    for ev in self.last_events.iter().rev() {
+                                        ui.label(ev);
+                                    }
+                                }
+                            });
                     });
                 }
                 #[cfg(not(feature = "events"))]
@@ -733,7 +801,8 @@ impl DemoApp {
 impl App for DemoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::right("right")
-            .default_width(260.0)
+            .default_width(300.0)
+            .min_width(300.0)
             .show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
                     #[cfg(not(feature = "events"))]
@@ -817,6 +886,108 @@ impl App for DemoApp {
         self.handle_events();
         self.update_fps();
         self.overlay_debug(ctx);
+    }
+}
+
+#[cfg(feature = "events")]
+#[derive(Clone)]
+struct EventFilters {
+    pan: bool,
+    zoom: bool,
+    node_move: bool,
+    node_drag_start: bool,
+    node_drag_end: bool,
+    node_select: bool,
+    node_deselect: bool,
+    node_click: bool,
+    node_double_click: bool,
+    edge_click: bool,
+    edge_select: bool,
+    edge_deselect: bool,
+}
+
+#[cfg(feature = "events")]
+impl Default for EventFilters {
+    fn default() -> Self {
+        Self {
+            pan: true,
+            zoom: true,
+            node_move: true,
+            node_drag_start: true,
+            node_drag_end: true,
+            node_select: true,
+            node_deselect: true,
+            node_click: true,
+            node_double_click: true,
+            edge_click: true,
+            edge_select: true,
+            edge_deselect: true,
+        }
+    }
+}
+
+#[cfg(feature = "events")]
+impl EventFilters {
+    fn enabled_for(&self, e: &Event) -> bool {
+        use Event::*;
+        match e {
+            Pan(_) => self.pan,
+            Zoom(_) => self.zoom,
+            NodeMove(_) => self.node_move,
+            NodeDragStart(_) => self.node_drag_start,
+            NodeDragEnd(_) => self.node_drag_end,
+            NodeSelect(_) => self.node_select,
+            NodeDeselect(_) => self.node_deselect,
+            NodeClick(_) => self.node_click,
+            NodeDoubleClick(_) => self.node_double_click,
+            EdgeClick(_) => self.edge_click,
+            EdgeSelect(_) => self.edge_select,
+            EdgeDeselect(_) => self.edge_deselect,
+        }
+    }
+    fn purge_disabled(&self, events: &mut Vec<String>) {
+        let disabled: [&str; 12] = [
+            if self.pan { "" } else { "Pan(" },
+            if self.zoom { "" } else { "Zoom(" },
+            if self.node_move { "" } else { "NodeMove(" },
+            if self.node_drag_start {
+                ""
+            } else {
+                "NodeDragStart("
+            },
+            if self.node_drag_end {
+                ""
+            } else {
+                "NodeDragEnd("
+            },
+            if self.node_select { "" } else { "NodeSelect(" },
+            if self.node_deselect {
+                ""
+            } else {
+                "NodeDeselect("
+            },
+            if self.node_click { "" } else { "NodeClick(" },
+            if self.node_double_click {
+                ""
+            } else {
+                "NodeDoubleClick("
+            },
+            if self.edge_click { "" } else { "EdgeClick(" },
+            if self.edge_select { "" } else { "EdgeSelect(" },
+            if self.edge_deselect {
+                ""
+            } else {
+                "EdgeDeselect("
+            },
+        ];
+        if disabled.iter().all(|p| p.is_empty()) {
+            return;
+        }
+        events.retain(|line| {
+            !disabled
+                .iter()
+                .any(|p| !p.is_empty() && line.starts_with(p))
+        });
     }
 }
 
