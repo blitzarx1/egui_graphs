@@ -1,5 +1,5 @@
 use core::cmp::Ordering;
-use eframe::{run_native, App, CreationContext};
+use eframe::{App, CreationContext};
 use egui::{self, CollapsingHeader, Pos2, ScrollArea, Ui};
 use egui_graphs::{generate_random_graph, Graph, LayoutForceDirected, LayoutStateForceDirected};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
@@ -78,6 +78,7 @@ mod drawers {
         pub nodes: usize,
         pub edges: usize,
     }
+
     pub fn graph_count_sliders(
         ui: &mut Ui,
         mut v: GraphCountSliders,
@@ -170,10 +171,7 @@ mod drawers {
     }
 }
 
-#[cfg(feature = "events")]
-const EVENTS_LIMIT: usize = 1000;
-
-pub struct DemoApp {
+struct DemoApp {
     g: Graph<(), (), Directed, DefaultIx>,
     settings_graph: settings::SettingsGraph,
     settings_interaction: settings::SettingsInteraction,
@@ -200,6 +198,7 @@ pub struct DemoApp {
     dark_mode: bool,
     show_debug_overlay: bool,
     show_keybindings_overlay: bool,
+    keybindings_just_opened: bool,
     // Runtime-measured height of the last rendered debug overlay label (for spacing keybindings)
     last_debug_overlay_height: f32,
 }
@@ -243,6 +242,7 @@ impl DemoApp {
             dark_mode: cc.egui_ctx.style().visuals.dark_mode,
             show_debug_overlay: true,
             show_keybindings_overlay: false,
+            keybindings_just_opened: false,
             last_debug_overlay_height: 0.0,
         }
     }
@@ -789,13 +789,13 @@ impl DemoApp {
                     .clicked()
                 {}
                 if ui
-                    .checkbox(
-                        &mut self.show_keybindings_overlay,
-                        "show keybindings overlay",
-                    )
-                    .on_hover_text("Toggle keybindings overlay (h)")
+                    .button("keybindings")
+                    .on_hover_text("Show keybindings (h / ?)")
                     .clicked()
-                {}
+                {
+                    self.show_keybindings_overlay = true;
+                    self.keybindings_just_opened = true;
+                }
             });
     }
 
@@ -842,20 +842,27 @@ impl DemoApp {
         });
     }
 
-    fn overlay_keybindings_panel(&self, ui: &mut egui::Ui) {
+    fn keybindings_modal(&mut self, ctx: &egui::Context) {
         if !self.show_keybindings_overlay {
             return;
         }
-        use egui::RichText;
-        let full_rect = ui.max_rect();
-        let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(full_rect));
-        child_ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
-            if self.show_debug_overlay {
-                ui.add_space(self.last_debug_overlay_height);
-            }
-            // TODO: add ctrl keybindings to info
-            // TODO: rethink keybindings help visualization
-            let entries: [(&str, &str); 12] = [
+        let modal = egui::Modal::new(egui::Id::new("keybindings_modal"));
+        let resp = modal.show(ctx, |ui| {
+            use egui::RichText;
+            let accent = if self.dark_mode {
+                egui::Color32::from_rgb(130, 200, 255)
+            } else {
+                egui::Color32::from_rgb(20, 90, 160)
+            };
+            ui.label(
+                RichText::new("Keybindings")
+                    .strong()
+                    .size(20.0)
+                    .color(accent),
+            );
+            ui.add(egui::Separator::default());
+
+            let entries: [(&str, &str); 16] = [
                 ("n", "add 1 node"),
                 ("e", "add 1 edge"),
                 ("m", "add 10 nodes"),
@@ -864,42 +871,54 @@ impl DemoApp {
                 ("Shift+e", "remove 1 edge"),
                 ("Shift+m", "remove 10 nodes"),
                 ("Shift+r", "remove 10 edges"),
+                ("Ctrl+n", "swap 1 node"),
+                ("Ctrl+e", "swap 1 edge"),
+                ("Ctrl+m", "swap 10 nodes"),
+                ("Ctrl+r", "swap 10 edges"),
                 ("Tab", "toggle side panel"),
                 ("d", "toggle debug overlay"),
-                ("h", "toggle keybindings overlay"),
+                ("h / ?", "open keybindings (this) modal"),
                 ("Space", "reset all"),
             ];
-            let max_key_len = entries.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
-            let max_desc_len = entries.iter().map(|(_, d)| d.len()).max().unwrap_or(0);
-            let mut lines = Vec::with_capacity(entries.len() + 2);
-            for (idx, (key, desc)) in entries.iter().enumerate() {
-                let left_extra = max_key_len.saturating_sub(key.len());
-                let spaces_before_arrow = left_extra + 1;
-                let right_extra = max_desc_len.saturating_sub(desc.len());
-                let spaces_after_arrow = 1 + right_extra;
-                let mut line = String::with_capacity(
-                    key.len() + spaces_before_arrow + 2 + spaces_after_arrow + desc.len(),
-                );
-                line.push_str(key);
-                line.extend(std::iter::repeat(' ').take(left_extra));
-                line.extend(std::iter::repeat(' ').take(1));
-                line.push_str("->");
-                line.extend(std::iter::repeat(' ').take(spaces_after_arrow));
-                line.push_str(desc);
-                lines.push(line);
-                // group separators: after first 8 entries (idx 7) and after next 3 (idx 10)
-                if idx == 7 || idx == 10 {
-                    lines.push(String::new());
-                }
-            }
-            let text = lines.join("\n");
+
+            let render_group =
+                |ui: &mut egui::Ui, group_entries: &[(&str, &str)], grid_id: &str| {
+                    egui::Grid::new(grid_id)
+                        .num_columns(2)
+                        .spacing(egui::vec2(8.0, 4.0))
+                        .show(ui, |ui| {
+                            for (key, desc) in group_entries.iter() {
+                                ui.code(*key);
+                                ui.label(*desc);
+                                ui.end_row();
+                            }
+                        });
+                };
+
             ui.label(
-                RichText::new(text)
-                    .monospace()
-                    .color(ui.style().visuals.strong_text_color())
-                    .size(14.0),
+                RichText::new("Graph elements")
+                    .strong()
+                    .color(accent)
+                    .size(16.0),
             );
+            render_group(ui, &entries[0..12], "kb_group_elements");
+            ui.add_space(6.0);
+
+            ui.label(
+                RichText::new("Graph actions")
+                    .strong()
+                    .color(accent)
+                    .size(16.0),
+            );
+            render_group(ui, &entries[15..16], "kb_group_actions");
+            ui.add_space(6.0);
+
+            ui.label(RichText::new("Interface").strong().color(accent).size(16.0));
+            render_group(ui, &entries[12..15], "kb_group_interface");
         });
+        if resp.should_close() {
+            self.show_keybindings_overlay = false;
+        }
     }
 
     #[cfg(not(feature = "events"))]
@@ -946,15 +965,84 @@ impl DemoApp {
         self.settings_graph.count_node = self.g.node_count();
         self.settings_graph.count_edge = self.g.edge_count();
     }
-}
 
-impl App for DemoApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn handle_keypresses(&mut self, ctx: &egui::Context) -> bool {
+        let mut reset_requested = false;
+
         if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
             self.show_sidebar = !self.show_sidebar;
         }
 
-        let mut reset_requested = false;
+        let mut any_key_pressed = false;
+        let mut any_pointer_pressed = false;
+        let mut pressed_h = false;
+        let mut pressed_shift_slash = false;
+        let mut saw_text_question = false;
+        ctx.input(|i| {
+            for ev in &i.events {
+                match ev {
+                    egui::Event::Key {
+                        key,
+                        pressed,
+                        modifiers,
+                        ..
+                    } => {
+                        if *pressed {
+                            any_key_pressed = true;
+                        }
+                        if *pressed && !modifiers.any() && *key == egui::Key::H {
+                            pressed_h = true;
+                        }
+                        if *pressed && *key == egui::Key::Slash && modifiers.shift {
+                            pressed_shift_slash = true;
+                        }
+                    }
+                    egui::Event::PointerButton { pressed, .. } => {
+                        if *pressed {
+                            any_pointer_pressed = true;
+                        }
+                    }
+                    egui::Event::Text(t) => {
+                        if t == "?" {
+                            saw_text_question = true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        });
+        if saw_text_question {
+            pressed_shift_slash = true;
+        }
+        ctx.input(|i| {
+            if i.key_pressed(egui::Key::Slash) && i.modifiers.shift {
+                pressed_shift_slash = true;
+            }
+        });
+
+        let mut open_modal = false;
+        let mut close_modal = false;
+        if pressed_h || pressed_shift_slash {
+            if self.show_keybindings_overlay {
+                close_modal = true;
+            } else {
+                open_modal = true;
+            }
+        }
+        if open_modal {
+            self.show_keybindings_overlay = true;
+            self.keybindings_just_opened = true;
+        }
+        if self.show_keybindings_overlay {
+            if !self.keybindings_just_opened && (any_key_pressed || any_pointer_pressed) {
+                close_modal = true;
+            }
+            self.keybindings_just_opened = false;
+        }
+        if close_modal {
+            self.show_keybindings_overlay = false;
+        }
+
         ctx.input(|i| {
             for ev in &i.events {
                 if let egui::Event::Key {
@@ -970,7 +1058,6 @@ impl App for DemoApp {
                     match key {
                         egui::Key::N => {
                             if modifiers.ctrl && !modifiers.shift {
-                                // Ctrl+N: swap 1 node (remove 1, then add 1)
                                 self.remove_random_node();
                                 self.add_random_node();
                             } else if modifiers.shift {
@@ -981,7 +1068,6 @@ impl App for DemoApp {
                         }
                         egui::Key::E => {
                             if modifiers.ctrl && !modifiers.shift {
-                                // Ctrl+E: swap 1 edge (remove 1, then add 1)
                                 self.remove_random_edge();
                                 self.add_random_edge();
                             } else if modifiers.shift {
@@ -992,7 +1078,6 @@ impl App for DemoApp {
                         }
                         egui::Key::M => {
                             if modifiers.ctrl && !modifiers.shift {
-                                // Ctrl+M: swap 10 nodes (remove 10, then add 10)
                                 for _ in 0..10 {
                                     self.remove_random_node();
                                 }
@@ -1013,7 +1098,6 @@ impl App for DemoApp {
                         }
                         egui::Key::R => {
                             if modifiers.ctrl && !modifiers.shift {
-                                // Ctrl+R: swap 10 edges (remove 10, then add 10)
                                 for _ in 0..10 {
                                     self.remove_random_edge();
                                 }
@@ -1037,11 +1121,6 @@ impl App for DemoApp {
                                 self.show_debug_overlay = !self.show_debug_overlay;
                             }
                         }
-                        egui::Key::H => {
-                            if !modifiers.any() {
-                                self.show_keybindings_overlay = !self.show_keybindings_overlay;
-                            }
-                        }
                         egui::Key::Space => {
                             if !modifiers.any() {
                                 reset_requested = true;
@@ -1052,6 +1131,14 @@ impl App for DemoApp {
                 }
             }
         });
+
+        reset_requested
+    }
+}
+
+impl App for DemoApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let mut reset_requested = self.handle_keypresses(ctx);
 
         self.sync_counts();
 
@@ -1141,7 +1228,6 @@ impl App for DemoApp {
             }
             ui.add(&mut view);
             self.overlay_debug_panel(ui);
-            self.overlay_keybindings_panel(ui);
 
             let g_rect = ui.max_rect();
             let btn_size = egui::vec2(28.0, 28.0);
@@ -1166,6 +1252,8 @@ impl App for DemoApp {
         if toggle_requested {
             self.show_sidebar = !self.show_sidebar;
         }
+
+        self.keybindings_modal(ctx);
         if reset_requested && !self.show_sidebar {
             egui::Area::new("hidden_reset_area".into())
                 .order(egui::Order::Background)
@@ -1238,55 +1326,31 @@ impl EventFilters {
     }
     fn purge_disabled(&self, events: &mut Vec<String>) {
         let disabled: [&str; 12] = [
-            if self.pan { "" } else { "Pan(" },
-            if self.zoom { "" } else { "Zoom(" },
-            if self.node_move { "" } else { "NodeMove(" },
-            if self.node_drag_start {
-                ""
-            } else {
-                "NodeDragStart("
-            },
-            if self.node_drag_end {
-                ""
-            } else {
-                "NodeDragEnd("
-            },
-            if self.node_select { "" } else { "NodeSelect(" },
-            if self.node_deselect {
-                ""
-            } else {
-                "NodeDeselect("
-            },
-            if self.node_click { "" } else { "NodeClick(" },
-            if self.node_double_click {
-                ""
-            } else {
-                "NodeDoubleClick("
-            },
-            if self.edge_click { "" } else { "EdgeClick(" },
-            if self.edge_select { "" } else { "EdgeSelect(" },
-            if self.edge_deselect {
-                ""
-            } else {
-                "EdgeDeselect("
-            },
+            "Pan",
+            "Zoom",
+            "NodeMove",
+            "NodeDragStart",
+            "NodeDragEnd",
+            "NodeSelect",
+            "NodeDeselect",
+            "NodeClick",
+            "NodeDoubleClick",
+            "EdgeClick",
+            "EdgeSelect",
+            "EdgeDeselect",
         ];
-        if disabled.iter().all(|p| p.is_empty()) {
-            return;
-        }
-        events.retain(|line| {
-            !disabled
-                .iter()
-                .any(|p| !p.is_empty() && line.starts_with(p))
+        events.retain(|ev| {
+            let is_enabled = self.enabled_for(&ev.parse().unwrap());
+            is_enabled || !disabled.contains(&ev.as_str())
         });
     }
 }
 
-fn main() {
-    run_native(
+fn main() -> eframe::Result<()> {
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(
         "egui_graphs demo",
-        eframe::NativeOptions::default(),
-        Box::new(|cc| Ok(Box::new(DemoApp::new(cc)))),
+        native_options,
+        Box::new(|cc| Ok::<Box<dyn eframe::App>, _>(Box::new(DemoApp::new(cc)))),
     )
-    .unwrap();
 }
