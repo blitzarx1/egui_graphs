@@ -1,3 +1,7 @@
+mod algorithm;
+mod fruchterman_reingold;
 mod layout;
 
-pub use layout::{ForceDirected, State};
+pub use algorithm::ForceAlgorithm;
+pub use fruchterman_reingold::{FruchtermanReingold, FruchtermanReingoldState};
+pub use layout::ForceDirected;
