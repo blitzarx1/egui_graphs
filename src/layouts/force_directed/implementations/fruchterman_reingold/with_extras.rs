@@ -10,6 +10,7 @@ use super::core::{
     apply_displacements, compute_attraction, compute_repulsion, prepare_constants,
     FruchtermanReingoldState,
 };
+use crate::layouts::layout::AnimatedState;
 use crate::layouts::LayoutState;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -19,6 +20,21 @@ pub struct FruchtermanReingoldWithExtrasState<E: ExtrasTuple> {
     pub extras: E,
 }
 impl<E: ExtrasTuple> LayoutState for FruchtermanReingoldWithExtrasState<E> {}
+
+impl<E: ExtrasTuple> AnimatedState for FruchtermanReingoldWithExtrasState<E> {
+    fn is_running(&self) -> bool {
+        self.base.is_running
+    }
+    fn set_running(&mut self, v: bool) {
+        self.base.is_running = v;
+    }
+    fn last_avg_displacement(&self) -> Option<f32> {
+        self.base.last_avg_displacement
+    }
+    fn set_last_avg_displacement(&mut self, v: Option<f32>) {
+        self.base.last_avg_displacement = v;
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct FruchtermanReingoldWithExtras<E: ExtrasTuple> {
@@ -92,7 +108,7 @@ impl<E: ExtrasTuple> ForceAlgorithm for FruchtermanReingoldWithExtras<E> {
             .extras
             .apply_all(g, &indices, &mut self.scratch_disp, area_rect, k);
 
-        apply_displacements(
+        let avg = apply_displacements(
             g,
             &indices,
             &self.scratch_disp,
@@ -100,6 +116,7 @@ impl<E: ExtrasTuple> ForceAlgorithm for FruchtermanReingoldWithExtras<E> {
             base.damping,
             base.max_step,
         );
+        self.state.base.last_avg_displacement = avg;
     }
 
     fn state(&self) -> Self::State {
