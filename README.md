@@ -26,23 +26,6 @@ Please use `main` branch for the latest updates.
 
 Check the [demo example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/demo.rs) for the comprehensive overview of the widget possibilities.
 
-## Layouts
-
-In addition to the basic graph display functionality, the project provides a layout mechanism to arrange the nodes in the graph. The `Layout` trait can be implemented by the library user allowing for custom layouts. The following layouts are provided out of the box:
-
-- [x] Random layout;
-- [x] Hierarchical layout;
-- [x] Force-directed layout (naive baseline);
-
-<img width="441" height="425" alt="Screenshot 2025-08-10 at 1 38 45 PM" src="https://github.com/user-attachments/assets/aebcb954-4ce8-4492-81be-2a787dfcdba8" />
-<img width="441" height="425" alt="Screenshot 2025-08-10 at 1 38 45 PM" src="https://github.com/user-attachments/assets/48614f43-4436-42eb-a238-af196d2044b4" />
-
-Check the [layouts example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/layouts.rs).
-
-### Force-directed layout
-
-A naive O(n²) force-directed layout (Fruchterman–Reingold style) is now included. It exposes adjustable simulation parameters (step size, damping, gravity, etc.). For a live demonstration and tuning panel, see the [demo example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/demo.rs). This implementation is a baseline and may be optimized in future releases.
-
 ## Examples
 
 ### Basic setup example
@@ -125,6 +108,126 @@ fn main() {
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
 
 ## Features
+
+### Layouts
+
+Built-in layouts with a pluggable API. The `Layout` trait powers layout selection and persistence; you can plug different algorithms or implement your own.
+
+- Random: quick scatter for any graph (default via `DefaultGraphView`).
+- Hierarchical: layered (ranked) layout.
+- Force-directed: Fruchterman–Reingold baseline with optional Extras (e.g., Center Gravity).
+
+Quick start:
+
+```rust
+// Default random layout
+let mut view = egui_graphs::DefaultGraphView::new(&mut graph);
+ui.add(&mut view);
+
+// Pick a specific layout (Hierarchical)
+type L = egui_graphs::LayoutHierarchical;
+type S = egui_graphs::LayoutStateHierarchical;
+let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
+ui.add(&mut view);
+
+// Force‑Directed (FR) with Center Gravity
+type L = egui_graphs::LayoutForceDirected<egui_graphs::FruchtermanReingoldWithCenterGravity>;
+type S = egui_graphs::FruchtermanReingoldWithCenterGravityState;
+let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
+ui.add(&mut view);
+```
+
+In-depth: Force‑Directed layout
+
+A naive O(n²) force-directed layout (Fruchterman–Reingold style) is included. It exposes adjustable simulation parameters (step size, damping, etc.). See the demo for a live tuning panel. The force-directed subsystem is split into:
+
+- A layout shell: `ForceDirected<A>` that plugs any algorithm implementing `ForceAlgorithm` into the common `Layout` interface.
+- Algorithms: `FruchtermanReingold` (baseline) and `FruchtermanReingoldWithExtras<E>` that layers composable extra forces.
+
+Select algorithm via the layout type parameter:
+
+```rust
+use egui_graphs::{ForceDirected as LayoutForceDirected};
+use egui_graphs::layouts::force_directed::{FruchtermanReingold, FruchtermanReingoldState};
+
+type L = LayoutForceDirected<FruchtermanReingold>;
+type S = FruchtermanReingoldState;
+let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
+```
+
+Algorithm contract:
+
+- `from_state(state) -> Self`
+- `step(&mut self, &mut Graph, view_rect: egui::Rect)`
+- `state(&self) -> State`
+
+Extras (composable add‑ons)
+
+Use `FruchtermanReingoldWithExtras<E>` to apply base FR forces plus your extras each frame. Built-in extra: Center Gravity.
+
+```rust
+use egui_graphs::layouts::force_directed::{
+    FruchtermanReingoldWithCenterGravity,
+    FruchtermanReingoldWithCenterGravityState,
+};
+use egui_graphs::{ForceDirected as LayoutForceDirected};
+
+type L = LayoutForceDirected<FruchtermanReingoldWithCenterGravity>;
+type S = FruchtermanReingoldWithCenterGravityState;
+let mut state = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::get_layout_state(ui);
+state.base.is_running = true;
+state.extras.0.params.c = 0.2;
+egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::set_layout_state(ui, state);
+let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
+ui.add(&mut view);
+```
+
+Author an extra force:
+
+```rust
+use egui::{Rect, Vec2};
+use egui_graphs::layouts::force_directed::extras::core::ExtraForce;
+use egui_graphs::{DisplayEdge, DisplayNode, Graph};
+use petgraph::EdgeType;
+
+#[derive(Debug, Clone, Default)]
+struct MyParams { strength: f32 }
+
+#[derive(Debug, Default)]
+struct MyExtra;
+
+impl ExtraForce for MyExtra {
+    type Params = MyParams;
+    fn apply<N,E,Ty,Ix,Dn,De>(
+        params: &Self::Params,
+        g: &Graph<N,E,Ty,Ix,Dn,De>,
+        indices: &[petgraph::stable_graph::NodeIndex<Ix>],
+        disp: &mut [Vec2],
+        area: Rect,
+        _k: f32,
+    ) where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: petgraph::csr::IndexType,
+        Dn: DisplayNode<N,E,Ty,Ix>,
+        De: DisplayEdge<N,E,Ty,Ix,Dn>,
+    {
+        let center = area.center();
+        for (pos, &idx) in indices.iter().enumerate() {
+            let p = g.g().node_weight(idx).unwrap().location();
+            disp[pos] += (center - p) * params.strength;
+        }
+    }
+}
+
+use egui_graphs::layouts::force_directed::{Extra, FruchtermanReingoldWithExtrasState};
+type Extras = (Extra<MyExtra, true>, ());
+type State = FruchtermanReingoldWithExtrasState<Extras>;
+type Layout = egui_graphs::ForceDirected<egui_graphs::layouts::force_directed::implementations::fruchterman_reingold::with_extras::FruchtermanReingoldWithExtras<Extras>>;
+```
+
+Composition is order-sensitive; each enabled extra accumulates into the shared displacement vector in tuple order.
 
 ### Styling Hooks (Node & Edge Strokes)
 

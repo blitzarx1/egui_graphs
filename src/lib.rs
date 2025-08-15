@@ -22,6 +22,7 @@ pub use layouts::force_directed::{
     CenterGravity, CenterGravityParams, Extra, ForceAlgorithm,
     ForceDirected as LayoutForceDirected, FruchtermanReingold, FruchtermanReingoldState,
     FruchtermanReingoldWithCenterGravity, FruchtermanReingoldWithCenterGravityState,
+    FruchtermanReingoldWithExtras, FruchtermanReingoldWithExtrasState,
 };
 pub use layouts::hierarchical::{
     Hierarchical as LayoutHierarchical, State as LayoutStateHierarchical,
