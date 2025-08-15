@@ -201,20 +201,27 @@ impl<'a> EdgeShapeBuilder<'a> {
         let mut stroke = self.stroke;
 
         let dist = end - start;
-        let dir = dist.normalized();
-        let dir_p = Vec2::new(-dir.y, dir.x);
-        let center_point = (start + end.to_vec2()) / 2.0;
-        let height = dir_p * curve_size * param;
-        let cp = center_point + height;
+        let len = dist.length();
 
-        let cp_start = cp - dir * curve_size / (param * dist * 0.5);
-        let cp_end = cp + dir * curve_size / (param * dist * 0.5);
+        // Guard against degenerate or overlapping nodes: fallback to straight if too short.
+        if !len.is_finite() || len <= f32::EPSILON {
+            return self.shape_straight((start, end));
+        }
+
+        let dir = dist / len; // safe: len > 0
+        let dir_p = Vec2::new(-dir.y, dir.x);
+        // Normal offset height controls bulge; independent of length for consistent look
+        let offset = dir_p * (curve_size * param);
+        // Place control points along the tangents for a smooth cubic
+        let s = (len / 3.0).max(1.0);
+        let cp_start = start + dir * s + offset;
+        let cp_end = end - dir * s + offset;
 
         let mut points_curve = vec![start, cp_start, cp_end, end];
 
         let mut points_tip = match self.tip {
             Some(tip_props) => {
-                let tip_dir = (end - cp).normalized();
+                let tip_dir = (end - cp_end).normalized();
 
                 let arrow_tip_dir_1 = rotate_vector(tip_dir, tip_props.angle) * tip_props.size;
                 let arrow_tip_dir_2 = rotate_vector(tip_dir, -tip_props.angle) * tip_props.size;
@@ -296,4 +303,35 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
     let cos = angle.cos();
     let sin = angle.sin();
     Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn curved_falls_back_to_straight_when_zero_length() {
+        let stroke = Stroke::new(1.0, Color32::WHITE);
+        let builder = EdgeShapeBuilder::new(stroke).curved(
+            (Pos2::new(0.0, 0.0), Pos2::new(0.0, 0.0)),
+            20.0,
+            1,
+        );
+        let shapes = builder.build();
+        // Expect a straight line segment (fallback)
+        assert!(matches!(shapes.first(), Some(Shape::LineSegment { .. })));
+    }
+
+    #[test]
+    fn curved_builds_cubic_for_normal_bounds() {
+        let stroke = Stroke::new(1.0, Color32::WHITE);
+        let builder = EdgeShapeBuilder::new(stroke).curved(
+            (Pos2::new(0.0, 0.0), Pos2::new(10.0, 0.0)),
+            20.0,
+            1,
+        );
+        let shapes = builder.build();
+        // First shape should be a cubic bezier
+        assert!(matches!(shapes.first(), Some(Shape::CubicBezier(_))));
+    }
 }
