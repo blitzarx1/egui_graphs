@@ -15,6 +15,7 @@ pub struct DefaultNodeShape {
 
     pub selected: bool,
     pub dragged: bool,
+    pub hovered: bool,
     pub color: Option<Color32>,
 
     pub label_text: String,
@@ -29,6 +30,7 @@ impl<N: Clone> From<NodeProps<N>> for DefaultNodeShape {
             pos: node_props.location(),
             selected: node_props.selected,
             dragged: node_props.dragged,
+            hovered: node_props.hovered,
             label_text: node_props.label.to_string(),
             color: node_props.color(),
 
@@ -65,7 +67,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
             .into(),
         );
 
-        if !(ctx.style.labels_always || self.selected || self.dragged) {
+        if !(ctx.style.labels_always || self.selected || self.dragged || self.hovered) {
             return res;
         }
 
@@ -83,6 +85,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
         self.pos = state.location();
         self.selected = state.selected;
         self.dragged = state.dragged;
+        self.hovered = state.hovered;
         self.label_text = state.label.to_string();
         self.color = state.color();
     }
@@ -99,7 +102,7 @@ fn is_inside_circle(center: Pos2, radius: f32, pos: Pos2) -> bool {
 
 impl DefaultNodeShape {
     fn is_interacted(&self) -> bool {
-        self.selected || self.dragged
+        self.selected || self.dragged || self.hovered
     }
 
     fn effective_color(&self, ctx: &DrawContext) -> Color32 {

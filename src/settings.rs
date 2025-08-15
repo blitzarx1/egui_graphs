@@ -1,7 +1,15 @@
 /// Represents graph interaction settings.
+///
+/// Master-child semantics:
+/// - If `dragging_enabled` is true, it implicitly enables node clicking and hover.
+/// - If `node_selection_enabled` or `edge_selection_enabled` is true, they implicitly enable node clicking and hover.
+/// - If `node_selection_multi_enabled` or `edge_selection_multi_enabled` is true, they implicitly enable selection, node clicking and hover.
+///
+/// Disabling a child while its master is enabled has no effect at runtime (the effective behavior still treats it as enabled).
 #[derive(Debug, Clone)]
 pub struct SettingsInteraction {
     pub(crate) dragging_enabled: bool,
+    pub(crate) hover_enabled: bool,
     pub(crate) node_clicking_enabled: bool,
     pub(crate) node_selection_enabled: bool,
     pub(crate) node_selection_multi_enabled: bool,
@@ -14,6 +22,7 @@ impl Default for SettingsInteraction {
     fn default() -> Self {
         Self {
             dragging_enabled: true,
+            hover_enabled: true,
             node_clicking_enabled: false,
             node_selection_enabled: false,
             node_selection_multi_enabled: false,
@@ -35,6 +44,19 @@ impl SettingsInteraction {
     /// Default: `false`
     pub fn with_dragging_enabled(mut self, enabled: bool) -> Self {
         self.dragging_enabled = enabled;
+        self
+    }
+
+    /// Enables hover detection for nodes and emits hover events when hovered node changes.
+    /// Also sets pointing hand cursor when hovering a node or dragging.
+    ///
+    /// Note: This is implicitly enabled when `dragging_enabled`, `node_selection_enabled`,
+    /// `edge_selection_enabled`, `node_selection_multi_enabled` or `edge_selection_multi_enabled` are true.
+    /// Disabling this while a master is enabled has no effect at runtime.
+    ///
+    /// Default: `true`
+    pub fn with_hover_enabled(mut self, enabled: bool) -> Self {
+        self.hover_enabled = enabled;
         self
     }
 
@@ -100,17 +122,17 @@ impl SettingsInteraction {
 pub struct SettingsNavigation {
     pub(crate) fit_to_screen_enabled: bool,
     pub(crate) zoom_and_pan_enabled: bool,
-    pub(crate) screen_padding: f32,
+    pub(crate) fit_to_screen_padding: f32,
     pub(crate) zoom_speed: f32,
 }
 
 impl Default for SettingsNavigation {
     fn default() -> Self {
         Self {
-            screen_padding: 0.3,
+            fit_to_screen_padding: 0.1,
             zoom_speed: 0.1,
-            fit_to_screen_enabled: false,
-            zoom_and_pan_enabled: true,
+            fit_to_screen_enabled: true,
+            zoom_and_pan_enabled: false,
         }
     }
 }
@@ -125,7 +147,7 @@ impl SettingsNavigation {
     ///
     /// With this enabled, the graph will be scaled and panned to fit the screen on every frame.
     ///
-    /// You can configure the padding around the graph with `screen_padding` setting.
+    /// You can configure the padding around the graph with `fit_to_screen_padding` setting.
     ///
     /// Default: `true`
     pub fn with_fit_to_screen_enabled(mut self, enabled: bool) -> Self {
@@ -142,12 +164,16 @@ impl SettingsNavigation {
     }
 
     /// Padding around the graph when fitting to the screen.
-    pub fn with_screen_padding(mut self, padding: f32) -> Self {
-        self.screen_padding = padding;
+    ///
+    /// Default: `0.1`
+    pub fn with_fit_to_screen_padding(mut self, padding: f32) -> Self {
+        self.fit_to_screen_padding = padding;
         self
     }
 
     /// Controls the speed of the zoom.
+    ///
+    /// Default: `0.1`
     pub fn with_zoom_speed(mut self, speed: f32) -> Self {
         self.zoom_speed = speed;
         self

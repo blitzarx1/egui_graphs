@@ -44,6 +44,7 @@ pub struct Graph<
     selected_nodes: Vec<NodeIndex<Ix>>,
     selected_edges: Vec<EdgeIndex<Ix>>,
     dragged_node: Option<NodeIndex<Ix>>,
+    hovered_node: Option<NodeIndex<Ix>>,
 
     bounds: Rect,
 }
@@ -77,6 +78,7 @@ where
             selected_nodes: Vec::default(),
             selected_edges: Vec::default(),
             dragged_node: Option::default(),
+            hovered_node: Option::default(),
             bounds: Rect::from_min_max(Pos2::ZERO, Pos2::ZERO),
         }
     }
@@ -394,6 +396,14 @@ where
 
     pub fn set_dragged_node(&mut self, node: Option<NodeIndex<Ix>>) {
         self.dragged_node = node;
+    }
+
+    pub fn hovered_node(&self) -> Option<NodeIndex<Ix>> {
+        self.hovered_node
+    }
+
+    pub fn set_hovered_node(&mut self, node: Option<NodeIndex<Ix>>) {
+        self.hovered_node = node;
     }
 
     pub fn edge_count(&self) -> usize {

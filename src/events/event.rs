@@ -50,6 +50,16 @@ pub struct PayloadNodeDoubleClick {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadNodeHoverEnter {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PayloadNodeHoverLeave {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PayloadEdgeClick {
     pub id: usize,
 }
@@ -75,6 +85,8 @@ pub enum Event {
     NodeDeselect(PayloadNodeDeselect),
     NodeClick(PayloadNodeClick),
     NodeDoubleClick(PayloadNodeDoubleClick),
+    NodeHoverEnter(PayloadNodeHoverEnter),
+    NodeHoverLeave(PayloadNodeHoverLeave),
     EdgeClick(PayloadEdgeClick),
     EdgeSelect(PayloadEdgeSelect),
     EdgeDeselect(PayloadEdgeDeselect),
