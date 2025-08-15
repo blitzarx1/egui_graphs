@@ -297,21 +297,36 @@ impl DefaultEdgeShape {
             builder = builder.with_tip(tip);
         }
         let curved_shapes = builder.build();
-        let Some(Shape::CubicBezier(line_curved)) = curved_shapes.first() else {
-            panic!("invalid shape type")
-        };
-        res.extend(curved_shapes.clone());
-        if label_visible {
-            let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
-            let galley = ctx.ctx.fonts(|f| {
-                f.layout_no_wrap(
-                    self.label_text.clone(),
-                    FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
-                    color,
-                )
-            });
-            let median = Self::median_point(line_curved);
-            res.push(Self::label_shape(galley, median, color));
+        // Use first shape for label anchor. It may be a cubic or a straight segment (degenerate case).
+        if let Some(first) = curved_shapes.first() {
+            res.extend(curved_shapes.clone());
+            if label_visible {
+                let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
+                let galley = ctx.ctx.fonts(|f| {
+                    f.layout_no_wrap(
+                        self.label_text.clone(),
+                        FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
+                        color,
+                    )
+                });
+                let anchor = match first {
+                    Shape::CubicBezier(cubic) => Self::median_point(cubic),
+                    Shape::LineSegment { points, .. } => {
+                        let mid =
+                            (*points.first().unwrap() + points.last().unwrap().to_vec2()) / 2.0;
+                        mid
+                    }
+                    _ => {
+                        // Fallback to midpoint between connectors in canvas coords transformed to screen
+                        let center_canvas = ((start_connector_point.to_vec2()
+                            + end_connector_point.to_vec2())
+                            / 2.0)
+                            .to_pos2();
+                        ctx.meta.canvas_to_screen_pos(center_canvas)
+                    }
+                };
+                res.push(Self::label_shape(galley, anchor, color));
+            }
         }
         res
     }
@@ -324,7 +339,8 @@ impl DefaultEdgeShape {
     }
 
     fn median_point(curve: &CubicBezierShape) -> Pos2 {
-        let flattened = curve.flatten(None);
+        // Ensure positive tolerance to avoid epaint panic on some platforms/configs.
+        let flattened = curve.flatten(Some(1.0_f32));
         *flattened.get(flattened.len() / 2).unwrap()
     }
 
@@ -433,7 +449,8 @@ fn proj(a: Vec2, b: Vec2) -> Vec2 {
 }
 
 fn is_point_on_curve(point: Pos2, curve: &CubicBezierShape, tolerance: f32) -> bool {
-    for p in curve.flatten(None) {
+    // Positive tessellation tolerance for robust flattening.
+    for p in curve.flatten(Some(1.0_f32)) {
         if p.distance(point) < tolerance {
             return true;
         }
@@ -496,5 +513,39 @@ mod tests {
     fn test_proj_same_vector() {
         let a = Vec2::new(5.3, 4.9);
         assert_eq!(proj(a, a), a);
+    }
+
+    #[test]
+    fn test_median_point_no_panic() {
+        let stroke = Stroke::new(1.0, Color32::WHITE);
+        let curve = CubicBezierShape::from_points_stroke(
+            [
+                Pos2::new(0.0, 0.0),
+                Pos2::new(5.0, 10.0),
+                Pos2::new(10.0, 10.0),
+                Pos2::new(10.0, 0.0),
+            ],
+            false,
+            Color32::TRANSPARENT,
+            stroke,
+        );
+        let _ = DefaultEdgeShape::median_point(&curve);
+    }
+
+    #[test]
+    fn test_is_point_on_curve_positive_tolerance() {
+        let stroke = Stroke::new(1.0, Color32::WHITE);
+        let curve = CubicBezierShape::from_points_stroke(
+            [
+                Pos2::new(0.0, 0.0),
+                Pos2::new(5.0, 10.0),
+                Pos2::new(10.0, 10.0),
+                Pos2::new(10.0, 0.0),
+            ],
+            false,
+            Color32::TRANSPARENT,
+            stroke,
+        );
+        let _ = is_point_on_curve(Pos2::new(5.0, 5.0), &curve, 2.0);
     }
 }
