@@ -12,6 +12,8 @@ use std::time::{Duration, Instant};
 
 const MAX_NODE_COUNT: usize = 2500;
 const MAX_EDGE_COUNT: usize = 5000;
+#[cfg(feature = "events")]
+const EVENTS_LIMIT: usize = 200;
 
 #[cfg(feature = "events")]
 use crossbeam::channel::{unbounded, Receiver, Sender};
@@ -446,27 +448,10 @@ impl DemoApp {
                             "fit_to_screen",
                         )
                         .clicked()
-                        && self.settings_navigation.fit_to_screen_enabled
-                    {
-                        self.settings_navigation.zoom_and_pan_enabled = false;
-                    }
+                        {
+                            self.settings_navigation.zoom_and_pan_enabled = !self.settings_navigation.zoom_and_pan_enabled;
+                        }
                     info_icon(ui, "Continuously recompute zoom/pan so whole graph stays visible.");
-                });
-                ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.checkbox(
-                            &mut self.settings_navigation.zoom_and_pan_enabled,
-                            "zoom_and_pan",
-                        );
-                        info_icon(ui, "Manual navigation: Ctrl+wheel (zoom), drag (pan / node drag). Disable if auto-fit.");
-                    });
-                });
-                ui.horizontal(|ui| {
-                    ui.add(
-                        egui::Slider::new(&mut self.settings_navigation.zoom_speed, 0.01..=1.0)
-                            .text("zoom_speed"),
-                    );
-                    info_icon(ui, "Multiplier controlling how fast zoom changes per wheel step.");
                 });
                 ui.add_enabled_ui(self.settings_navigation.fit_to_screen_enabled, |ui| {
                     ui.horizontal(|ui| {
@@ -475,6 +460,27 @@ impl DemoApp {
                                 .text("screen_padding"),
                         );
                         info_icon(ui, "Extra fractional padding around graph when auto-fitting (0 = tight fit, 0.3 = 30% larger).");
+                    });
+                });
+                ui.horizontal(|ui| {
+                    if ui.
+                        checkbox(
+                        &mut self.settings_navigation.zoom_and_pan_enabled,
+                        "zoom_and_pan",
+                        )
+                        .clicked()
+                        {
+                            self.settings_navigation.fit_to_screen_enabled = !self.settings_navigation.fit_to_screen_enabled;
+                        };
+                    info_icon(ui, "Manual navigation: Ctrl+wheel (zoom), drag (pan / node drag). Disable if auto-fit.");
+                });
+                ui.add_enabled_ui(self.settings_navigation.zoom_and_pan_enabled, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            egui::Slider::new(&mut self.settings_navigation.zoom_speed, 0.01..=1.0)
+                                .text("zoom_speed"),
+                        );
+                        info_icon(ui, "Multiplier controlling how fast zoom changes per wheel step.");
                     });
                 });
             });
@@ -809,8 +815,7 @@ impl DemoApp {
         CollapsingHeader::new("Debug")
             .default_open(false)
             .show(ui, |ui| {
-                ui
-                    .checkbox(&mut self.show_debug_overlay, "show debug overlay")
+                ui.checkbox(&mut self.show_debug_overlay, "show debug overlay")
                     .on_hover_text("Toggle debug overlay (d)")
                     .clicked();
                 if ui
@@ -1349,24 +1354,41 @@ impl EventFilters {
             EdgeDeselect(_) => self.edge_deselect,
         }
     }
+    // For previously captured events stored as strings (via Debug format), decide
+    // whether they should be kept based on their variant name prefix.
+    fn is_event_str_enabled(&self, ev: &str) -> Option<bool> {
+        if ev.starts_with("Pan") {
+            Some(self.pan)
+        } else if ev.starts_with("Zoom") {
+            Some(self.zoom)
+        } else if ev.starts_with("NodeMove") {
+            Some(self.node_move)
+        } else if ev.starts_with("NodeDragStart") {
+            Some(self.node_drag_start)
+        } else if ev.starts_with("NodeDragEnd") {
+            Some(self.node_drag_end)
+        } else if ev.starts_with("NodeSelect") {
+            Some(self.node_select)
+        } else if ev.starts_with("NodeDeselect") {
+            Some(self.node_deselect)
+        } else if ev.starts_with("NodeClick") {
+            Some(self.node_click)
+        } else if ev.starts_with("NodeDoubleClick") {
+            Some(self.node_double_click)
+        } else if ev.starts_with("EdgeClick") {
+            Some(self.edge_click)
+        } else if ev.starts_with("EdgeSelect") {
+            Some(self.edge_select)
+        } else if ev.starts_with("EdgeDeselect") {
+            Some(self.edge_deselect)
+        } else {
+            None
+        }
+    }
     fn purge_disabled(&self, events: &mut Vec<String>) {
-        let disabled: [&str; 12] = [
-            "Pan",
-            "Zoom",
-            "NodeMove",
-            "NodeDragStart",
-            "NodeDragEnd",
-            "NodeSelect",
-            "NodeDeselect",
-            "NodeClick",
-            "NodeDoubleClick",
-            "EdgeClick",
-            "EdgeSelect",
-            "EdgeDeselect",
-        ];
-        events.retain(|ev| {
-            let is_enabled = self.enabled_for(&ev.parse().unwrap());
-            is_enabled || !disabled.contains(&ev.as_str())
+        events.retain(|ev| match self.is_event_str_enabled(ev.as_str()) {
+            Some(enabled) => enabled,
+            None => true, // keep unknown strings
         });
     }
 }

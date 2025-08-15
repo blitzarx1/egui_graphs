@@ -368,7 +368,7 @@ where
         &self,
         idx: NodeIndex<Ix>,
         dir: Direction,
-    ) -> impl Iterator<Item = EdgeReference<Edge<N, E, Ty, Ix, Dn, De>, Ix>> {
+    ) -> impl Iterator<Item = EdgeReference<'_, Edge<N, E, Ty, Ix, Dn, De>, Ix>> {
         self.g.edges_directed(idx, dir)
     }
 
