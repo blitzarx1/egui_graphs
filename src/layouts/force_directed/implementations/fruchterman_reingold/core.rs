@@ -106,10 +106,10 @@ impl ForceAlgorithm for FruchtermanReingold {
 
         let indices: Vec<_> = g.g().node_indices().collect();
         // Ensure scratch buffer is sized and zeroed
-        if self.scratch_disp.len() != indices.len() {
-            self.scratch_disp.resize(indices.len(), Vec2::ZERO);
-        } else {
+        if self.scratch_disp.len() == indices.len() {
             self.scratch_disp.fill(Vec2::ZERO);
+        } else {
+            self.scratch_disp.resize(indices.len(), Vec2::ZERO);
         }
 
         compute_repulsion(

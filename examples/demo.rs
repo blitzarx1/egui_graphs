@@ -809,11 +809,10 @@ impl DemoApp {
         CollapsingHeader::new("Debug")
             .default_open(false)
             .show(ui, |ui| {
-                if ui
+                ui
                     .checkbox(&mut self.show_debug_overlay, "show debug overlay")
                     .on_hover_text("Toggle debug overlay (d)")
-                    .clicked()
-                {}
+                    .clicked();
                 if ui
                     .button("keybindings")
                     .on_hover_text("Show keybindings (h / ?)")
@@ -835,14 +834,14 @@ impl DemoApp {
             let node_count = self.g.node_count();
             let edge_count = self.g.edge_count();
             let n_line = if node_count >= MAX_NODE_COUNT {
-                format!("N: {} MAX", node_count)
+                format!("N: {node_count} MAX")
             } else {
-                format!("N: {}", node_count)
+                format!("N: {node_count}")
             };
             let e_line = if edge_count >= MAX_EDGE_COUNT {
-                format!("E: {} MAX", edge_count)
+                format!("E: {edge_count} MAX")
             } else {
-                format!("E: {}", edge_count)
+                format!("E: {edge_count}")
             };
             #[cfg(feature = "events")]
             let zoom_line = format!("Zoom: {:.3}", self.zoom);
@@ -913,7 +912,7 @@ impl DemoApp {
                         .num_columns(2)
                         .spacing(egui::vec2(8.0, 4.0))
                         .show(ui, |ui| {
-                            for (key, desc) in group_entries.iter() {
+                            for (key, desc) in group_entries {
                                 ui.code(*key);
                                 ui.label(*desc);
                                 ui.end_row();
