@@ -240,7 +240,17 @@ where
         payload: E,
         edge_transform: impl FnOnce(&mut Edge<N, E, Ty, Ix, Dn, De>),
     ) -> EdgeIndex<Ix> {
-        let order = self.g.edges_connecting(start, end).count();
+        // Choose the smallest non-negative order not yet used by edges in the SAME direction
+        // to avoid multiple edges sharing the same visual offset (stacking).
+        let used_orders: std::collections::HashSet<usize> = self
+            .g
+            .edges_connecting(start, end)
+            .map(|e| e.weight().order())
+            .collect();
+        let mut order = 0usize;
+        while used_orders.contains(&order) {
+            order += 1;
+        }
 
         let idx = self.g.add_edge(start, end, Edge::new(payload));
         let e = self.g.edge_weight_mut(idx).unwrap();
@@ -250,8 +260,8 @@ where
 
         edge_transform(e);
 
-        // check if we have 2 edges between start and end node with 0 order
-        // in this case we need to set increase order by 1 for every edge
+        // If we have two opposite-direction edges with order 0 (two straight lines),
+        // bump all siblings' order by 1 to avoid overlapping straight segments.
 
         let siblings_ids: Vec<_> = {
             let mut visited = HashSet::new();
@@ -420,5 +430,48 @@ where
 
     pub fn bounds(&self) -> Rect {
         self.bounds
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use petgraph::stable_graph::StableGraph;
+
+    #[test]
+    fn edge_orders_do_not_duplicate_in_same_direction() {
+        // Directed graph with default display types
+        let mut sg: StableGraph<(), ()> = StableGraph::default();
+        let a = sg.add_node(());
+        let b = sg.add_node(());
+        let mut g: Graph<(), (), Directed> =
+            Graph::new(sg.map(|_, ()| crate::Node::new(()), |_, ()| crate::Edge::new(())));
+
+        // Add opposite-direction edges; both initially 0, then logic bumps them to 1.
+        let e1 = g.add_edge(a, b, ());
+        let e2 = g.add_edge(b, a, ());
+        let o1 = g.edge(e1).unwrap().order();
+        let o2 = g.edge(e2).unwrap().order();
+        assert_eq!(
+            o1, 1,
+            "A->B should be bumped to order 1 when B->A exists at 0"
+        );
+        assert_eq!(
+            o2, 1,
+            "B->A should be bumped to order 1 when A->B exists at 0"
+        );
+
+        // Now add a second A->B edge; it should pick smallest unused (0), not duplicate 1.
+        let e3 = g.add_edge(a, b, ());
+        let o3 = g.edge(e3).unwrap().order();
+        assert_eq!(
+            o3, 0,
+            "Second A->B edge should get order 0 (smallest unused), not stack at 1"
+        );
+
+        // Add third A->B; orders used are {0,1}, expect 2.
+        let e4 = g.add_edge(a, b, ());
+        let o4 = g.edge(e4).unwrap().order();
+        assert_eq!(o4, 2, "Third A->B edge should get order 2");
     }
 }
