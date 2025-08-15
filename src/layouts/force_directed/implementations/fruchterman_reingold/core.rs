@@ -3,6 +3,7 @@ use egui::{Rect, Vec2};
 use petgraph::{csr::IndexType, stable_graph::NodeIndex, EdgeType};
 use serde::{Deserialize, Serialize};
 
+use crate::layouts::layout::AnimatedState;
 use crate::layouts::LayoutState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,6 +16,8 @@ pub struct FruchtermanReingoldState {
     pub k_scale: f32,
     pub c_attract: f32,
     pub c_repulse: f32,
+    #[serde(skip)]
+    pub last_avg_displacement: Option<f32>,
 }
 
 impl LayoutState for FruchtermanReingoldState {}
@@ -30,6 +33,7 @@ impl Default for FruchtermanReingoldState {
             k_scale: 1.0,
             c_attract: 1.0,
             c_repulse: 1.0,
+            last_avg_displacement: None,
         }
     }
 }
@@ -56,7 +60,23 @@ impl FruchtermanReingoldState {
             k_scale,
             c_attract,
             c_repulse,
+            last_avg_displacement: None,
         }
+    }
+}
+
+impl AnimatedState for FruchtermanReingoldState {
+    fn is_running(&self) -> bool {
+        self.is_running
+    }
+    fn set_running(&mut self, v: bool) {
+        self.is_running = v;
+    }
+    fn last_avg_displacement(&self) -> Option<f32> {
+        self.last_avg_displacement
+    }
+    fn set_last_avg_displacement(&mut self, v: Option<f32>) {
+        self.last_avg_displacement = v;
     }
 }
 
@@ -129,7 +149,7 @@ impl ForceAlgorithm for FruchtermanReingold {
             params.epsilon,
             params.c_attract,
         );
-        apply_displacements(
+        let avg = apply_displacements(
             g,
             &indices,
             &self.scratch_disp,
@@ -137,6 +157,7 @@ impl ForceAlgorithm for FruchtermanReingold {
             params.damping,
             params.max_step,
         );
+        self.state.last_avg_displacement = avg;
     }
 
     fn state(&self) -> Self::State {
@@ -220,7 +241,8 @@ pub(crate) fn apply_displacements<N, E, Ty, Ix, Dn, De>(
     dt: f32,
     damping: f32,
     max_step: f32,
-) where
+) -> Option<f32>
+where
     N: Clone,
     E: Clone,
     Ty: EdgeType,
@@ -228,9 +250,15 @@ pub(crate) fn apply_displacements<N, E, Ty, Ix, Dn, De>(
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
+    if indices.is_empty() {
+        return Some(0.0);
+    }
+    let mut sum = 0.0f32;
+    let mut count = 0usize;
     for (vec_pos, &idx) in indices.iter().enumerate() {
         let mut step = disp[vec_pos] * dt * damping;
-        if step.length() > max_step {
+        let len = step.length();
+        if len > max_step {
             step = step.normalized() * max_step;
         }
         let loc = g.g().node_weight(idx).unwrap().location();
@@ -242,6 +270,13 @@ pub(crate) fn apply_displacements<N, E, Ty, Ix, Dn, De>(
             .node_weight_mut(idx)
             .unwrap()
             .set_location(new_loc);
+        sum += len.min(max_step);
+        count += 1;
+    }
+    if count == 0 {
+        None
+    } else {
+        Some(sum / count as f32)
     }
 }
 

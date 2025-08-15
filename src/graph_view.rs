@@ -16,6 +16,133 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 const KEY_LAYOUT: &str = "egui_graphs_layout";
 
+// Shared cores to avoid duplication across general and force-run variants.
+fn ff_steps_core<N, E, Ty, Ix, Dn, De, S, L, Pre, Post>(
+    ui: &egui::Ui,
+    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    target_steps: u32,
+    budget_millis: Option<u64>,
+    pre_toggle: Pre,
+    post_toggle: Post,
+) -> u32
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    S: LayoutState,
+    L: Layout<S>,
+    Pre: Fn(&mut S) -> Option<bool>,
+    Post: Fn(&mut S, Option<bool>),
+{
+    if target_steps == 0 || g.node_count() == 0 {
+        return 0;
+    }
+    let mut state = GraphView::<N, E, Ty, Ix, Dn, De, S, L>::get_layout_state(ui);
+    let token = pre_toggle(&mut state);
+    let mut layout = L::from_state(state);
+    let start = std::time::Instant::now();
+    let mut done = 0u32;
+    while done < target_steps {
+        if let Some(ms) = budget_millis {
+            if start.elapsed().as_millis() as u64 >= ms {
+                break;
+            }
+        }
+        layout.next(g, ui);
+        done += 1;
+    }
+    let mut new_state = layout.state();
+    post_toggle(&mut new_state, token);
+    GraphView::<N, E, Ty, Ix, Dn, De, S, L>::set_layout_state(ui, new_state);
+    done
+}
+
+#[allow(clippy::too_many_arguments)]
+fn ff_until_stable_core<N, E, Ty, Ix, Dn, De, S, L, Metric, Pre, Post>(
+    ui: &egui::Ui,
+    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    epsilon: f32,
+    max_steps: u32,
+    budget_millis: Option<u64>,
+    metric: Metric,
+    pre_toggle: Pre,
+    post_toggle: Post,
+) -> (u32, f32)
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    S: LayoutState,
+    L: Layout<S>,
+    Metric: Fn(&S) -> Option<f32>,
+    Pre: Fn(&mut S) -> Option<bool>,
+    Post: Fn(&mut S, Option<bool>),
+{
+    if g.node_count() == 0 || max_steps == 0 {
+        return (0, 0.0);
+    }
+
+    let mut state = GraphView::<N, E, Ty, Ix, Dn, De, S, L>::get_layout_state(ui);
+    let token = pre_toggle(&mut state);
+    let mut layout = L::from_state(state);
+
+    let start = std::time::Instant::now();
+    let mut steps_done = 0u32;
+    let mut last_avg = f32::INFINITY;
+    let indices: Vec<_> = g.g().node_indices().collect();
+    let mut prev_positions = Vec::with_capacity(indices.len());
+    prev_positions.extend(
+        indices
+            .iter()
+            .map(|&idx| g.g().node_weight(idx).unwrap().location()),
+    );
+
+    while steps_done < max_steps {
+        if let Some(ms) = budget_millis {
+            if start.elapsed().as_millis() as u64 >= ms {
+                break;
+            }
+        }
+        layout.next(g, ui);
+        steps_done += 1;
+
+        if let Some(avg) = metric(&layout.state()) {
+            last_avg = avg;
+        } else {
+            let mut sum = 0.0f32;
+            let mut count = 0usize;
+            for (i, &idx) in indices.iter().enumerate() {
+                if let Some(n) = g.g().node_weight(idx) {
+                    let cur = n.location();
+                    let d = (cur - prev_positions[i]).length();
+                    sum += d;
+                    count += 1;
+                    prev_positions[i] = cur;
+                }
+            }
+            last_avg = if count == 0 { 0.0 } else { sum / count as f32 };
+        }
+
+        if last_avg < epsilon {
+            break;
+        }
+    }
+
+    let mut new_state = layout.state();
+    post_toggle(&mut new_state, token);
+    GraphView::<N, E, Ty, Ix, Dn, De, S, L>::set_layout_state(ui, new_state);
+    (
+        steps_done,
+        if last_avg.is_finite() { last_avg } else { 0.0 },
+    )
+}
+
 pub type DefaultGraphView<'a> = GraphView<
     'a,
     (),
@@ -149,7 +276,44 @@ where
     }
 }
 
+// Constructor and lifetime-bound methods
 impl<'a, N, E, Ty, Ix, Dn, De, S, L> GraphView<'a, N, E, Ty, Ix, Dn, De, S, L>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    S: LayoutState,
+    L: Layout<S>,
+{
+    /// Creates a new `GraphView` widget with default navigation and interactions settings.
+    /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
+    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De>) -> Self {
+        Self {
+            g,
+
+            settings_style: SettingsStyle::default(),
+            settings_interaction: SettingsInteraction::default(),
+            settings_navigation: SettingsNavigation::default(),
+
+            #[cfg(feature = "events")]
+            events_publisher: Option::default(),
+
+            _marker: PhantomData,
+        }
+    }
+
+    #[cfg(feature = "events")]
+    /// Allows to supply channel where events happening in the graph will be reported.
+    pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
+        self.events_publisher = Some(events_publisher);
+        self
+    }
+}
+
+impl<N, E, Ty, Ix, Dn, De, S, L> GraphView<'_, N, E, Ty, Ix, Dn, De, S, L>
 where
     N: Clone,
     E: Clone,
@@ -207,22 +371,6 @@ where
         }
 
         eff
-    }
-    /// Creates a new `GraphView` widget with default navigation and interactions settings.
-    /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De>) -> Self {
-        Self {
-            g,
-
-            settings_style: SettingsStyle::default(),
-            settings_interaction: SettingsInteraction::default(),
-            settings_navigation: SettingsNavigation::default(),
-
-            #[cfg(feature = "events")]
-            events_publisher: Option::default(),
-
-            _marker: PhantomData,
-        }
     }
 
     fn handle_hover(
@@ -338,12 +486,116 @@ where
         });
     }
 
-    #[cfg(feature = "events")]
-    /// Allows to supply channel where events happening in the graph will be reported.
-    pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
-        self.events_publisher = Some(events_publisher);
-        self
+    /// Advance the active layout simulation by a fixed number of steps immediately.
+    pub fn fast_forward(ui: &egui::Ui, g: &mut Graph<N, E, Ty, Ix, Dn, De>, steps: u32)
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+        S: LayoutState,
+        L: Layout<S>,
+    {
+        ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
+            ui,
+            g,
+            steps,
+            None,
+            |_s| None,
+            |_s, _tok| {},
+        );
     }
+
+    /// Advance the active layout by up to `target_steps`, but stop early if `max_millis` has elapsed.
+    /// Returns the number of steps actually performed.
+    pub fn fast_forward_budgeted(
+        ui: &egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        target_steps: u32,
+        max_millis: u64,
+    ) -> u32
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+        S: LayoutState,
+        L: Layout<S>,
+    {
+        ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
+            ui,
+            g,
+            target_steps,
+            Some(max_millis),
+            |_s| None,
+            |_s, _tok| {},
+        )
+    }
+
+    /// Run simulation steps until the average node displacement drops below `epsilon`
+    /// or `max_steps` is reached. Returns (`steps_done`, `last_avg_disp`).
+    pub fn fast_forward_until_stable(
+        ui: &egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        epsilon: f32,
+        max_steps: u32,
+    ) -> (u32, f32)
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+        S: LayoutState,
+        L: Layout<S>,
+    {
+        ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
+            ui,
+            g,
+            epsilon,
+            max_steps,
+            None,
+            |_s| None, // no internal metric available in general case
+            |_s| None,
+            |_s, _tok| {},
+        )
+    }
+
+    /// Budgeted variant of `fast_forward_until_stable`.
+    pub fn fast_forward_until_stable_budgeted(
+        ui: &egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        epsilon: f32,
+        max_steps: u32,
+        max_millis: u64,
+    ) -> (u32, f32)
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+        S: LayoutState,
+        L: Layout<S>,
+    {
+        ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
+            ui,
+            g,
+            epsilon,
+            max_steps,
+            Some(max_millis),
+            |_s| None,
+            |_s| None,
+            |_s, _tok| {},
+        )
+    }
+    // See a separate impl with an explicit lifetime for the `with_events` method.
 
     fn sync_layout(&mut self, ui: &mut Ui) {
         let state = ui.data_mut(|data| {
@@ -824,5 +1076,118 @@ where
         if let Some(sender) = self.events_publisher {
             sender.send(event).unwrap();
         }
+    }
+}
+
+// Force-run variants available when the layout state supports animation toggling.
+impl<N, E, Ty, Ix, Dn, De, S, L> GraphView<'_, N, E, Ty, Ix, Dn, De, S, L>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    S: layouts::AnimatedState + LayoutState,
+    L: Layout<S>,
+{
+    /// Advance simulation even if paused by temporarily forcing `running = true`.
+    pub fn fast_forward_force_run(ui: &egui::Ui, g: &mut Graph<N, E, Ty, Ix, Dn, De>, steps: u32) {
+        ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
+            ui,
+            g,
+            steps,
+            None,
+            |s| {
+                let prev = Some(s.is_running());
+                s.set_running(true);
+                prev
+            },
+            |s, prev| {
+                if let Some(p) = prev {
+                    s.set_running(p);
+                }
+            },
+        );
+    }
+
+    /// Budgeted variant of `fast_forward_force_run`.
+    pub fn fast_forward_budgeted_force_run(
+        ui: &egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        target_steps: u32,
+        max_millis: u64,
+    ) -> u32 {
+        ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
+            ui,
+            g,
+            target_steps,
+            Some(max_millis),
+            |s| {
+                let prev = Some(s.is_running());
+                s.set_running(true);
+                prev
+            },
+            |s, prev| {
+                if let Some(p) = prev {
+                    s.set_running(p);
+                }
+            },
+        )
+    }
+
+    /// Until-stable variant that forces running during the operation.
+    pub fn fast_forward_until_stable_force_run(
+        ui: &egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        epsilon: f32,
+        max_steps: u32,
+    ) -> (u32, f32) {
+        ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
+            ui,
+            g,
+            epsilon,
+            max_steps,
+            None,
+            super::layouts::AnimatedState::last_avg_displacement,
+            |s| {
+                let prev = Some(s.is_running());
+                s.set_running(true);
+                prev
+            },
+            |s, prev| {
+                if let Some(p) = prev {
+                    s.set_running(p);
+                }
+            },
+        )
+    }
+
+    /// Budgeted until-stable variant with forced running.
+    pub fn fast_forward_until_stable_budgeted_force_run(
+        ui: &egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        epsilon: f32,
+        max_steps: u32,
+        max_millis: u64,
+    ) -> (u32, f32) {
+        ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
+            ui,
+            g,
+            epsilon,
+            max_steps,
+            Some(max_millis),
+            super::layouts::AnimatedState::last_avg_displacement,
+            |s| {
+                let prev = Some(s.is_running());
+                s.set_running(true);
+                prev
+            },
+            |s, prev| {
+                if let Some(p) = prev {
+                    s.set_running(p);
+                }
+            },
+        )
     }
 }
