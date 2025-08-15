@@ -7,7 +7,7 @@ use crate::{DisplayEdge, DisplayNode, Graph};
 pub trait LayoutState: SerializableAny + Default + Debug {}
 
 /// Optional hooks for animated/simulated layout states.
-/// Implement on your layout state to allow GraphView helpers to force-run steps
+/// Implement on your layout state to allow `GraphView` helpers to force-run steps
 /// even when paused and to read/write the last average displacement metric.
 pub trait AnimatedState {
     fn is_running(&self) -> bool;

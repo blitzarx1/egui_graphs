@@ -501,6 +501,7 @@ impl DemoApp {
     }
 
     #[allow(clippy::unused_self)]
+    #[allow(clippy::too_many_lines)]
     fn ui_layout_force_directed(&mut self, ui: &mut Ui) {
         let mut state = egui_graphs::GraphView::<
             (),
@@ -641,6 +642,7 @@ impl DemoApp {
         >::set_layout_state(ui, state);
     }
 
+    #[allow(clippy::too_many_lines)]
     fn ui_interaction(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Interaction").show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -958,7 +960,6 @@ impl DemoApp {
         if !self.show_debug_overlay {
             return;
         }
-        use egui::RichText;
         let text = {
             let fps_line = format!("FPS: {:.1}", self.fps);
             let node_count = self.g.node_count();
@@ -987,7 +988,7 @@ impl DemoApp {
         let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(full_rect));
         child_ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
             ui.label(
-                RichText::new(text)
+                egui::RichText::new(text)
                     .monospace()
                     .color(ui.style().visuals.strong_text_color())
                     .size(14.0),
@@ -1119,6 +1120,7 @@ impl DemoApp {
         self.settings_graph.count_edge = self.g.edge_count();
     }
 
+    #[allow(clippy::too_many_lines)]
     fn handle_keypresses(&mut self, ctx: &egui::Context) -> bool {
         let mut reset_requested = false;
 
@@ -1290,6 +1292,7 @@ impl DemoApp {
 }
 
 impl App for DemoApp {
+    #[allow(clippy::too_many_lines)]
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut reset_requested = self.handle_keypresses(ctx);
 

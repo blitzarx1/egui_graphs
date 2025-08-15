@@ -17,7 +17,7 @@ use petgraph::{stable_graph::NodeIndex, EdgeType};
 const KEY_LAYOUT: &str = "egui_graphs_layout";
 
 // Shared cores to avoid duplication across general and force-run variants.
-fn ff_steps_core<'a, N, E, Ty, Ix, Dn, De, S, L, Pre, Post>(
+fn ff_steps_core<N, E, Ty, Ix, Dn, De, S, L, Pre, Post>(
     ui: &egui::Ui,
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     target_steps: u32,
@@ -60,7 +60,8 @@ where
     done
 }
 
-fn ff_until_stable_core<'a, N, E, Ty, Ix, Dn, De, S, L, Metric, Pre, Post>(
+#[allow(clippy::too_many_arguments)]
+fn ff_until_stable_core<N, E, Ty, Ix, Dn, De, S, L, Metric, Pre, Post>(
     ui: &egui::Ui,
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     epsilon: f32,
@@ -275,7 +276,44 @@ where
     }
 }
 
+// Constructor and lifetime-bound methods
 impl<'a, N, E, Ty, Ix, Dn, De, S, L> GraphView<'a, N, E, Ty, Ix, Dn, De, S, L>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    S: LayoutState,
+    L: Layout<S>,
+{
+    /// Creates a new `GraphView` widget with default navigation and interactions settings.
+    /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
+    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De>) -> Self {
+        Self {
+            g,
+
+            settings_style: SettingsStyle::default(),
+            settings_interaction: SettingsInteraction::default(),
+            settings_navigation: SettingsNavigation::default(),
+
+            #[cfg(feature = "events")]
+            events_publisher: Option::default(),
+
+            _marker: PhantomData,
+        }
+    }
+
+    #[cfg(feature = "events")]
+    /// Allows to supply channel where events happening in the graph will be reported.
+    pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
+        self.events_publisher = Some(events_publisher);
+        self
+    }
+}
+
+impl<N, E, Ty, Ix, Dn, De, S, L> GraphView<'_, N, E, Ty, Ix, Dn, De, S, L>
 where
     N: Clone,
     E: Clone,
@@ -333,22 +371,6 @@ where
         }
 
         eff
-    }
-    /// Creates a new `GraphView` widget with default navigation and interactions settings.
-    /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De>) -> Self {
-        Self {
-            g,
-
-            settings_style: SettingsStyle::default(),
-            settings_interaction: SettingsInteraction::default(),
-            settings_navigation: SettingsNavigation::default(),
-
-            #[cfg(feature = "events")]
-            events_publisher: Option::default(),
-
-            _marker: PhantomData,
-        }
     }
 
     fn handle_hover(
@@ -515,7 +537,7 @@ where
     }
 
     /// Run simulation steps until the average node displacement drops below `epsilon`
-    /// or `max_steps` is reached. Returns (steps_done, last_avg_disp).
+    /// or `max_steps` is reached. Returns (`steps_done`, `last_avg_disp`).
     pub fn fast_forward_until_stable(
         ui: &egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
@@ -573,12 +595,7 @@ where
             |_s, _tok| {},
         )
     }
-    #[cfg(feature = "events")]
-    /// Allows to supply channel where events happening in the graph will be reported.
-    pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
-        self.events_publisher = Some(events_publisher);
-        self
-    }
+    // See a separate impl with an explicit lifetime for the `with_events` method.
 
     fn sync_layout(&mut self, ui: &mut Ui) {
         let state = ui.data_mut(|data| {
@@ -1063,7 +1080,7 @@ where
 }
 
 // Force-run variants available when the layout state supports animation toggling.
-impl<'a, N, E, Ty, Ix, Dn, De, S, L> GraphView<'a, N, E, Ty, Ix, Dn, De, S, L>
+impl<N, E, Ty, Ix, Dn, De, S, L> GraphView<'_, N, E, Ty, Ix, Dn, De, S, L>
 where
     N: Clone,
     E: Clone,
@@ -1132,7 +1149,7 @@ where
             epsilon,
             max_steps,
             None,
-            |s| s.last_avg_displacement(),
+            super::layouts::AnimatedState::last_avg_displacement,
             |s| {
                 let prev = Some(s.is_running());
                 s.set_running(true);
@@ -1160,7 +1177,7 @@ where
             epsilon,
             max_steps,
             Some(max_millis),
-            |s| s.last_avg_displacement(),
+            super::layouts::AnimatedState::last_avg_displacement,
             |s| {
                 let prev = Some(s.is_running());
                 s.set_running(true);
