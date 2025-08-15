@@ -14,21 +14,21 @@ use crate::layouts::LayoutState;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(bound(serialize = "E: Serialize", deserialize = "E: DeserializeOwned"))]
-pub struct FRWithExtrasState<E: ExtrasTuple> {
+pub struct FruchtermanReingoldWithExtrasState<E: ExtrasTuple> {
     pub base: FruchtermanReingoldState,
     pub extras: E,
 }
-impl<E: ExtrasTuple> LayoutState for FRWithExtrasState<E> {}
+impl<E: ExtrasTuple> LayoutState for FruchtermanReingoldWithExtrasState<E> {}
 
 #[derive(Debug, Default)]
-pub struct FRWithExtras<E: ExtrasTuple> {
-    state: FRWithExtrasState<E>,
+pub struct FruchtermanReingoldWithExtras<E: ExtrasTuple> {
+    state: FruchtermanReingoldWithExtrasState<E>,
     // Reusable displacement buffer
     scratch_disp: Vec<Vec2>,
 }
 
-impl<E: ExtrasTuple> FRWithExtras<E> {
-    pub fn from_state(state: FRWithExtrasState<E>) -> Self {
+impl<E: ExtrasTuple> FruchtermanReingoldWithExtras<E> {
+    pub fn from_state(state: FruchtermanReingoldWithExtrasState<E>) -> Self {
         Self {
             state,
             scratch_disp: Vec::new(),
@@ -36,8 +36,8 @@ impl<E: ExtrasTuple> FRWithExtras<E> {
     }
 }
 
-impl<E: ExtrasTuple> ForceAlgorithm for FRWithExtras<E> {
-    type State = FRWithExtrasState<E>;
+impl<E: ExtrasTuple> ForceAlgorithm for FruchtermanReingoldWithExtras<E> {
+    type State = FruchtermanReingoldWithExtrasState<E>;
 
     fn from_state(state: Self::State) -> Self {
         Self {
@@ -108,6 +108,7 @@ impl<E: ExtrasTuple> ForceAlgorithm for FRWithExtras<E> {
 }
 
 /// Convenience aliases when only center gravity is desired.
-pub type FruchtermanReingoldWithCenterGravity = FRWithExtras<(Extra<CenterGravity, true>, ())>;
+pub type FruchtermanReingoldWithCenterGravity =
+    FruchtermanReingoldWithExtras<(Extra<CenterGravity, true>, ())>;
 pub type FruchtermanReingoldWithCenterGravityState =
-    FRWithExtrasState<(Extra<CenterGravity, true>, ())>;
+    FruchtermanReingoldWithExtrasState<(Extra<CenterGravity, true>, ())>;
