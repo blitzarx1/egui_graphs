@@ -8,7 +8,9 @@ use egui_graphs::{
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
 use rand::Rng;
-use std::time::{Duration, Instant};
+#[cfg(not(feature = "events"))]
+use std::time::Duration;
+use std::time::Instant;
 
 const MAX_NODE_COUNT: usize = 2500;
 const MAX_EDGE_COUNT: usize = 5000;
@@ -21,15 +23,29 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use egui_graphs::events::Event;
 
 mod settings_local {
-    #[derive(Default)]
     pub struct SettingsInteraction {
         pub dragging_enabled: bool,
+        pub hover_enabled: bool,
         pub node_clicking_enabled: bool,
         pub node_selection_enabled: bool,
         pub node_selection_multi_enabled: bool,
         pub edge_clicking_enabled: bool,
         pub edge_selection_enabled: bool,
         pub edge_selection_multi_enabled: bool,
+    }
+    impl Default for SettingsInteraction {
+        fn default() -> Self {
+            Self {
+                dragging_enabled: true,
+                hover_enabled: true,
+                node_clicking_enabled: false,
+                node_selection_enabled: false,
+                node_selection_multi_enabled: false,
+                edge_clicking_enabled: false,
+                edge_selection_enabled: false,
+                edge_selection_multi_enabled: false,
+            }
+        }
     }
 
     #[derive(Default)]
@@ -42,7 +58,7 @@ mod settings_local {
         pub fit_to_screen_enabled: bool,
         pub zoom_and_pan_enabled: bool,
         pub zoom_speed: f32,
-        pub screen_padding: f32,
+        pub fit_to_screen_padding: f32,
     }
     impl Default for SettingsNavigation {
         fn default() -> Self {
@@ -50,7 +66,7 @@ mod settings_local {
                 fit_to_screen_enabled: true,
                 zoom_and_pan_enabled: false,
                 zoom_speed: 0.1,
-                screen_padding: 0.3,
+                fit_to_screen_padding: 0.1,
             }
         }
     }
@@ -186,6 +202,10 @@ struct DemoApp {
     last_update_time: Instant,
     frames_last_time_span: usize,
     show_sidebar: bool,
+    dark_mode: bool,
+    show_debug_overlay: bool,
+    show_keybindings_overlay: bool,
+    keybindings_just_opened: bool,
     #[cfg(not(feature = "events"))]
     copy_tip_until: Option<Instant>,
     #[cfg(feature = "events")]
@@ -200,12 +220,6 @@ struct DemoApp {
     event_consumer: Receiver<Event>,
     #[cfg(feature = "events")]
     event_filters: EventFilters,
-    dark_mode: bool,
-    show_debug_overlay: bool,
-    show_keybindings_overlay: bool,
-    keybindings_just_opened: bool,
-    // Runtime-measured height of the last rendered debug overlay label (for spacing keybindings)
-    last_debug_overlay_height: f32,
 }
 
 impl DemoApp {
@@ -248,7 +262,6 @@ impl DemoApp {
             show_debug_overlay: true,
             show_keybindings_overlay: false,
             keybindings_just_opened: false,
-            last_debug_overlay_height: 0.0,
         }
     }
 
@@ -456,10 +469,11 @@ impl DemoApp {
                 ui.add_enabled_ui(self.settings_navigation.fit_to_screen_enabled, |ui| {
                     ui.horizontal(|ui| {
                         ui.add(
-                            egui::Slider::new(&mut self.settings_navigation.screen_padding, 0.0..=1.0)
-                                .text("screen_padding"),
+                            egui::Slider::new(&mut self.settings_navigation.fit_to_screen_padding, 0.0..=1.0)
+                                .text("fit_to_screen_padding"),
                         );
-                        info_icon(ui, "Extra fractional padding around graph when auto-fitting (0 = tight fit, 0.3 = 30% larger).");
+                        info_icon(ui, "Extra fractional padding around graph when auto-fitting (0 = tight fit, 0.3 = 30% larger).",
+                        );
                     });
                 });
                 ui.horizontal(|ui| {
@@ -572,22 +586,50 @@ impl DemoApp {
     fn ui_interaction(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Interaction").show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.checkbox(
-                    &mut self.settings_interaction.dragging_enabled,
-                    "dragging_enabled",
-                );
-                info_icon(ui, "Drag nodes with pointer when enabled.");
+                if ui
+                    .checkbox(
+                        &mut self.settings_interaction.dragging_enabled,
+                        "dragging_enabled",
+                    )
+                    .clicked()
+                    && self.settings_interaction.dragging_enabled
+                {
+                    // Enabling dragging implies node clicks and hover are on.
+                    self.settings_interaction.node_clicking_enabled = true;
+                    self.settings_interaction.hover_enabled = true;
+                }
+                info_icon(ui, "Master: also enables node_clicking and hover.");
             });
-            ui.horizontal(|ui| {
-                ui.checkbox(
-                    &mut self.settings_interaction.node_clicking_enabled,
-                    "node_clicking",
-                );
-                info_icon(
-                    ui,
-                    "Enable click events for nodes (required for selection).",
-                );
-            });
+            ui.add_enabled_ui(!self.settings_interaction.dragging_enabled
+                && !self.settings_interaction.node_selection_enabled
+                && !self.settings_interaction.node_selection_multi_enabled
+                && !self.settings_interaction.edge_selection_enabled
+                && !self.settings_interaction.edge_selection_multi_enabled,
+                |ui| {
+                    ui.horizontal(|ui| {
+                        ui.checkbox(
+                            &mut self.settings_interaction.hover_enabled,
+                            "hover_enabled",
+                        );
+                        info_icon(ui, "Disabled while any master is enabled (dragging/selection/multiselection).");
+                    });
+                }
+            );
+            ui.add_enabled_ui(!self.settings_interaction.dragging_enabled
+                && !self.settings_interaction.node_selection_enabled
+                && !self.settings_interaction.node_selection_multi_enabled
+                && !self.settings_interaction.edge_selection_enabled
+                && !self.settings_interaction.edge_selection_multi_enabled,
+                |ui| {
+                    ui.horizontal(|ui| {
+                        ui.checkbox(
+                            &mut self.settings_interaction.node_clicking_enabled,
+                            "node_clicking",
+                        );
+                        info_icon(ui, "Disabled while any master is enabled (dragging/selection/multiselection).");
+                    });
+                }
+            );
             ui.add_enabled_ui(
                 !self.settings_interaction.node_selection_multi_enabled,
                 |ui| {
@@ -600,9 +642,11 @@ impl DemoApp {
                             .clicked()
                             && self.settings_interaction.node_selection_enabled
                         {
+                            // Master: selection enables clicking + hover
                             self.settings_interaction.node_clicking_enabled = true;
+                            self.settings_interaction.hover_enabled = true;
                         }
-                        info_icon(ui, "Single node selection on click.");
+                        info_icon(ui, "Master: also enables node_clicking and hover.");
                     });
                 },
             );
@@ -615,24 +659,31 @@ impl DemoApp {
                     .changed()
                     && self.settings_interaction.node_selection_multi_enabled
                 {
+                    // Master: multiselection implies selection, clicking and hover
                     self.settings_interaction.node_selection_enabled = true;
                     self.settings_interaction.node_clicking_enabled = true;
+                    self.settings_interaction.hover_enabled = true;
                 }
-                info_icon(ui, "Allow multiple nodes selected.");
+                info_icon(ui, "Master: also enables selection, node_clicking and hover.");
             });
             ui.add_enabled_ui(
                 !(self.settings_interaction.edge_selection_enabled
                     || self.settings_interaction.edge_selection_multi_enabled),
                 |ui| {
                     ui.horizontal(|ui| {
-                        ui.checkbox(
-                            &mut self.settings_interaction.edge_clicking_enabled,
-                            "edge_clicking",
+                        ui.add_enabled_ui(!self.settings_interaction.edge_selection_enabled
+                            && !self.settings_interaction.edge_selection_multi_enabled
+                            && !self.settings_interaction.dragging_enabled
+                            && !self.settings_interaction.node_selection_enabled
+                            && !self.settings_interaction.node_selection_multi_enabled,
+                            |ui| {
+                                ui.checkbox(
+                                    &mut self.settings_interaction.edge_clicking_enabled,
+                                    "edge_clicking",
+                                );
+                            }
                         );
-                        info_icon(
-                            ui,
-                            "Enable click events for edges (required for selection).",
-                        );
+                        info_icon(ui, "Disabled while any master is enabled (dragging/selection/multiselection).");
                     });
                 },
             );
@@ -648,9 +699,11 @@ impl DemoApp {
                             .clicked()
                             && self.settings_interaction.edge_selection_enabled
                         {
+                            // Master: selection enables clicking + hover
                             self.settings_interaction.edge_clicking_enabled = true;
+                            self.settings_interaction.hover_enabled = true;
                         }
-                        info_icon(ui, "Single edge selection on click.");
+                        info_icon(ui, "Master: also enables node_clicking and hover.");
                     });
                 },
             );
@@ -663,10 +716,12 @@ impl DemoApp {
                     .changed()
                     && self.settings_interaction.edge_selection_multi_enabled
                 {
+                    // Master: multiselection implies selection, clicking and hover
                     self.settings_interaction.edge_selection_enabled = true;
                     self.settings_interaction.edge_clicking_enabled = true;
+                    self.settings_interaction.hover_enabled = true;
                 }
-                info_icon(ui, "Allow multiple edges selected.");
+                info_icon(ui, "Master: also enables selection, node_clicking and hover.");
             });
         });
     }
@@ -749,6 +804,18 @@ impl DemoApp {
                                 .checkbox(&mut self.event_filters.node_drag_end, "NodeDragEnd")
                                 .changed();
                             changed |= ui
+                                .checkbox(
+                                    &mut self.event_filters.node_hover_enter,
+                                    "NodeHoverEnter",
+                                )
+                                .changed();
+                            changed |= ui
+                                .checkbox(
+                                    &mut self.event_filters.node_hover_leave,
+                                    "NodeHoverLeave",
+                                )
+                                .changed();
+                            changed |= ui
                                 .checkbox(&mut self.event_filters.node_select, "NodeSelect")
                                 .changed();
                             changed |= ui
@@ -785,7 +852,7 @@ impl DemoApp {
                         }
                     });
                     const MIN_EVENTS_HEIGHT: f32 = 140.0;
-                    egui::Frame::none().show(ui, |ui| {
+                    egui::Frame::NONE.show(ui, |ui| {
                         ui.set_min_height(MIN_EVENTS_HEIGHT);
                         let full_w = ui.available_width();
                         ui.set_min_width(full_w);
@@ -861,14 +928,12 @@ impl DemoApp {
         let full_rect = ui.max_rect();
         let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(full_rect));
         child_ui.with_layout(egui::Layout::top_down(egui::Align::RIGHT), |ui| {
-            let resp = ui.label(
+            ui.label(
                 RichText::new(text)
                     .monospace()
                     .color(ui.style().visuals.strong_text_color())
                     .size(14.0),
             );
-            // Store exact height (+ small breathing margin) for subsequent keybindings overlay.
-            self.last_debug_overlay_height = resp.rect.height() + ui.spacing().item_spacing.y * 0.5;
         });
     }
 
@@ -1211,6 +1276,7 @@ impl App for DemoApp {
                     self.settings_interaction.node_selection_multi_enabled,
                 )
                 .with_dragging_enabled(self.settings_interaction.dragging_enabled)
+                .with_hover_enabled(self.settings_interaction.hover_enabled)
                 .with_node_clicking_enabled(self.settings_interaction.node_clicking_enabled)
                 .with_edge_clicking_enabled(self.settings_interaction.edge_clicking_enabled)
                 .with_edge_selection_enabled(self.settings_interaction.edge_selection_enabled)
@@ -1221,7 +1287,7 @@ impl App for DemoApp {
                 .with_zoom_and_pan_enabled(self.settings_navigation.zoom_and_pan_enabled)
                 .with_fit_to_screen_enabled(self.settings_navigation.fit_to_screen_enabled)
                 .with_zoom_speed(self.settings_navigation.zoom_speed)
-                .with_screen_padding(self.settings_navigation.screen_padding);
+                .with_fit_to_screen_padding(self.settings_navigation.fit_to_screen_padding);
             let mut style_builder = egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always);
             if self.settings_style.edge_deemphasis {
@@ -1306,6 +1372,8 @@ struct EventFilters {
     node_move: bool,
     node_drag_start: bool,
     node_drag_end: bool,
+    node_hover_enter: bool,
+    node_hover_leave: bool,
     node_select: bool,
     node_deselect: bool,
     node_click: bool,
@@ -1324,6 +1392,8 @@ impl Default for EventFilters {
             node_move: true,
             node_drag_start: true,
             node_drag_end: true,
+            node_hover_enter: true,
+            node_hover_leave: true,
             node_select: true,
             node_deselect: true,
             node_click: true,
@@ -1345,6 +1415,8 @@ impl EventFilters {
             NodeMove(_) => self.node_move,
             NodeDragStart(_) => self.node_drag_start,
             NodeDragEnd(_) => self.node_drag_end,
+            NodeHoverEnter(_) => self.node_hover_enter,
+            NodeHoverLeave(_) => self.node_hover_leave,
             NodeSelect(_) => self.node_select,
             NodeDeselect(_) => self.node_deselect,
             NodeClick(_) => self.node_click,
@@ -1367,6 +1439,10 @@ impl EventFilters {
             Some(self.node_drag_start)
         } else if ev.starts_with("NodeDragEnd") {
             Some(self.node_drag_end)
+        } else if ev.starts_with("NodeHoverEnter") {
+            Some(self.node_hover_enter)
+        } else if ev.starts_with("NodeHoverLeave") {
+            Some(self.node_hover_leave)
         } else if ev.starts_with("NodeSelect") {
             Some(self.node_select)
         } else if ev.starts_with("NodeDeselect") {

@@ -20,6 +20,7 @@ where
     pub label: String,
     pub selected: bool,
     pub dragged: bool,
+    pub hovered: bool,
 
     color: Option<Color32>,
     location: Pos2,
@@ -105,6 +106,7 @@ where
             label: String::default(),
             selected: bool::default(),
             dragged: bool::default(),
+            hovered: bool::default(),
         };
 
         Node::new_with_props(props)
@@ -181,6 +183,14 @@ where
 
     pub fn set_dragged(&mut self, dragged: bool) {
         self.props.dragged = dragged;
+    }
+
+    pub fn hovered(&self) -> bool {
+        self.props.hovered
+    }
+
+    pub fn set_hovered(&mut self, hovered: bool) {
+        self.props.hovered = hovered;
     }
 
     pub fn label(&self) -> String {

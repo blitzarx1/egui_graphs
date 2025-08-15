@@ -32,10 +32,24 @@ pub type DefaultGraphView<'a> = GraphView<
 use crate::events::{
     Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
     PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd, PayloadNodeDragStart,
-    PayloadNodeMove, PayloadNodeSelect, PayloadPan, PayloadZoom,
+    PayloadNodeHoverEnter, PayloadNodeHoverLeave, PayloadNodeMove, PayloadNodeSelect, PayloadPan,
+    PayloadZoom,
 };
 #[cfg(feature = "events")]
 use crossbeam::channel::Sender;
+
+// Effective interaction flags after applying master->child rules.
+#[derive(Clone, Copy, Debug, Default)]
+struct EffectiveInteraction {
+    dragging: bool,
+    hover: bool,
+    node_clicking: bool,
+    node_selection: bool,
+    node_selection_multi: bool,
+    edge_clicking: bool,
+    edge_selection: bool,
+    edge_selection_multi: bool,
+}
 
 /// Widget for visualizing and interacting with graphs.
 ///
@@ -101,11 +115,18 @@ where
         let mut meta = Metadata::load(ui);
         self.sync_state(&mut meta);
 
+        // Compute effective interactions once per frame
+        let eff = self.effective();
+
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+        // Hover detection and cursor update happens as early as possible using current input state
+        self.handle_hover(ui, &resp, &mut meta, eff);
         self.handle_fit_to_screen(&resp, &mut meta);
-        self.handle_navigation(ui, &resp, &mut meta);
-        self.handle_node_drag(&resp, &mut meta);
-        self.handle_click(&resp, &mut meta);
+        // Handle node drag before navigation so pan doesn't kick in on the first frame
+        // when starting a node drag.
+        self.handle_node_drag(&resp, &mut meta, eff);
+        self.handle_navigation(ui, &resp, &mut meta, eff);
+        self.handle_click(&resp, &mut meta, eff);
 
         Drawer::<N, E, Ty, Ix, Nd, Ed, S, L>::new(
             self.g,
@@ -139,6 +160,54 @@ where
     S: LayoutState,
     L: Layout<S>,
 {
+    /// Compute effective interactions, honoring master->child rules described in docs:
+    /// - Dragging enabled implies node click + hover are enabled.
+    /// - Selection enabled (node/edge) implies node click + hover enabled.
+    /// - Multi-selection enabled (node/edge) implies node click + hover + selection enabled.
+    fn effective(&self) -> EffectiveInteraction {
+        let si = &self.settings_interaction;
+
+        let mut eff = EffectiveInteraction {
+            dragging: si.dragging_enabled,
+            hover: si.hover_enabled,
+            node_clicking: si.node_clicking_enabled,
+            node_selection: si.node_selection_enabled,
+            node_selection_multi: si.node_selection_multi_enabled,
+            edge_clicking: si.edge_clicking_enabled,
+            edge_selection: si.edge_selection_enabled,
+            edge_selection_multi: si.edge_selection_multi_enabled,
+        };
+
+        // Master: dragging -> children
+        if eff.dragging {
+            eff.node_clicking = true;
+            eff.hover = true;
+        }
+        // Master: node selection -> children
+        if eff.node_selection {
+            eff.node_clicking = true;
+            eff.hover = true;
+        }
+        // Master: edge selection -> children
+        if eff.edge_selection {
+            eff.node_clicking = true;
+            eff.hover = true;
+        }
+        // Master: node multiselection -> children
+        if eff.node_selection_multi {
+            eff.node_selection = true;
+            eff.node_clicking = true;
+            eff.hover = true;
+        }
+        // Master: edge multiselection -> children
+        if eff.edge_selection_multi {
+            eff.edge_selection = true;
+            eff.node_clicking = true;
+            eff.hover = true;
+        }
+
+        eff
+    }
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
     pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De>) -> Self {
@@ -153,6 +222,67 @@ where
             events_publisher: Option::default(),
 
             _marker: PhantomData,
+        }
+    }
+
+    fn handle_hover(
+        &mut self,
+        ui: &Ui,
+        resp: &Response,
+        meta: &mut Metadata,
+        eff: EffectiveInteraction,
+    ) {
+        if self.g.dragged_node().is_some() {
+            ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+        }
+
+        if !eff.hover {
+            return;
+        }
+
+        let hovered_now = if let Some(pos) = resp.hover_pos() {
+            self.g.node_by_screen_pos(meta, pos)
+        } else {
+            None
+        };
+
+        if hovered_now.is_some() {
+            ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+        }
+
+        let prev = self.g.hovered_node();
+        if hovered_now != prev {
+            if let Some(prev_idx) = prev {
+                #[cfg(feature = "events")]
+                {
+                    self.publish_event(Event::NodeHoverLeave(PayloadNodeHoverLeave {
+                        id: prev_idx.index(),
+                    }));
+                }
+                #[cfg(not(feature = "events"))]
+                {
+                    let _ = prev_idx;
+                }
+                if let Some(n) = self.g.node_mut(prev_idx) {
+                    n.set_hovered(false);
+                }
+            }
+            if let Some(cur_idx) = hovered_now {
+                #[cfg(feature = "events")]
+                {
+                    self.publish_event(Event::NodeHoverEnter(PayloadNodeHoverEnter {
+                        id: cur_idx.index(),
+                    }));
+                }
+                #[cfg(not(feature = "events"))]
+                {
+                    let _ = cur_idx;
+                }
+                if let Some(n) = self.g.node_mut(cur_idx) {
+                    n.set_hovered(true);
+                }
+            }
+            self.g.set_hovered_node(hovered_now);
         }
     }
 
@@ -276,17 +406,17 @@ where
         self.fit_to_screen(&r.rect, meta);
     }
 
-    fn handle_click(&mut self, resp: &Response, meta: &mut Metadata) {
+    fn handle_click(&mut self, resp: &Response, meta: &mut Metadata, eff: EffectiveInteraction) {
         if !resp.clicked() && !resp.double_clicked() {
             return;
         }
 
-        let clickable = self.settings_interaction.node_clicking_enabled
-            || self.settings_interaction.node_selection_enabled
-            || self.settings_interaction.node_selection_multi_enabled
-            || self.settings_interaction.edge_clicking_enabled
-            || self.settings_interaction.edge_selection_enabled
-            || self.settings_interaction.edge_selection_multi_enabled;
+        let clickable = eff.node_clicking
+            || eff.node_selection
+            || eff.node_selection_multi
+            || eff.edge_clicking
+            || eff.edge_selection
+            || eff.edge_selection_multi;
 
         if !(clickable) {
             return;
@@ -299,14 +429,12 @@ where
         let found_node = self.g.node_by_screen_pos(meta, cursor_pos);
         if found_node.is_none() && found_edge.is_none() {
             // click on empty space
-            let nodes_selectable = self.settings_interaction.node_selection_enabled
-                || self.settings_interaction.node_selection_multi_enabled;
+            let nodes_selectable = eff.node_selection || eff.node_selection_multi;
             if nodes_selectable {
                 self.deselect_all_nodes();
             }
 
-            let edges_selectable = self.settings_interaction.edge_selection_enabled
-                || self.settings_interaction.edge_selection_multi_enabled;
+            let edges_selectable = eff.edge_selection || eff.edge_selection_multi;
             if edges_selectable {
                 self.deselect_all_edges();
             }
@@ -318,40 +446,38 @@ where
             // so if you double click a node it will handle it as single click at first
             // and only after as double click
             if resp.double_clicked() {
-                self.handle_node_double_click(idx);
+                self.handle_node_double_click(idx, eff);
                 return;
             }
-            self.handle_node_click(idx);
+            self.handle_node_click(idx, eff);
             return;
         }
 
         if let Some(edge_idx) = found_edge {
-            self.handle_edge_click(edge_idx);
+            self.handle_edge_click(edge_idx, eff);
         }
     }
 
-    fn handle_node_double_click(&mut self, idx: NodeIndex<Ix>) {
-        if !self.settings_interaction.node_clicking_enabled {
+    fn handle_node_double_click(&mut self, idx: NodeIndex<Ix>, eff: EffectiveInteraction) {
+        if !eff.node_clicking {
             return;
         }
 
-        if self.settings_interaction.node_clicking_enabled {
+        if eff.node_clicking {
             self.set_node_double_clicked(idx);
         }
     }
 
-    fn handle_node_click(&mut self, idx: NodeIndex<Ix>) {
-        if !self.settings_interaction.node_clicking_enabled
-            && !self.settings_interaction.node_selection_enabled
-        {
+    fn handle_node_click(&mut self, idx: NodeIndex<Ix>, eff: EffectiveInteraction) {
+        if !eff.node_clicking && !eff.node_selection {
             return;
         }
 
-        if self.settings_interaction.node_clicking_enabled {
+        if eff.node_clicking {
             self.set_node_clicked(idx);
         }
 
-        if !self.settings_interaction.node_selection_enabled {
+        if !eff.node_selection {
             return;
         }
 
@@ -361,25 +487,23 @@ where
             return;
         }
 
-        if !self.settings_interaction.node_selection_multi_enabled {
+        if !eff.node_selection_multi {
             self.deselect_all();
         }
 
         self.select_node(idx);
     }
 
-    fn handle_edge_click(&mut self, idx: EdgeIndex<Ix>) {
-        if !self.settings_interaction.edge_clicking_enabled
-            && !self.settings_interaction.edge_selection_enabled
-        {
+    fn handle_edge_click(&mut self, idx: EdgeIndex<Ix>, eff: EffectiveInteraction) {
+        if !eff.edge_clicking && !eff.edge_selection {
             return;
         }
 
-        if self.settings_interaction.edge_clicking_enabled {
+        if eff.edge_clicking {
             self.set_edge_clicked(idx);
         }
 
-        if !self.settings_interaction.edge_selection_enabled {
+        if !eff.edge_selection {
             return;
         }
 
@@ -389,16 +513,40 @@ where
             return;
         }
 
-        if !self.settings_interaction.edge_selection_multi_enabled {
+        if !eff.edge_selection_multi {
             self.deselect_all();
         }
 
         self.select_edge(idx);
     }
 
-    fn handle_node_drag(&mut self, resp: &Response, meta: &mut Metadata) {
-        if !self.settings_interaction.dragging_enabled {
+    fn handle_node_drag(
+        &mut self,
+        resp: &Response,
+        meta: &mut Metadata,
+        eff: EffectiveInteraction,
+    ) {
+        if !eff.dragging {
             return;
+        }
+
+        // Immediately mark a node as dragged on pointer-down over it, and end on release.
+        let node_hover_index = match resp.hover_pos() {
+            Some(hover_pos) => self.g.node_by_screen_pos(meta, hover_pos),
+            None => None,
+        };
+        if resp.is_pointer_button_down_on() {
+            if self.g.dragged_node().is_none() {
+                if let Some(idx) = node_hover_index {
+                    self.set_drag_start(idx);
+                    self.g.set_dragged_node(Some(idx));
+                }
+            }
+        } else if !resp.is_pointer_button_down_on() {
+            if let Some(dragged_idx) = self.g.dragged_node() {
+                self.set_drag_end(dragged_idx);
+                self.g.set_dragged_node(None);
+            }
         }
 
         if !resp.dragged_by(PointerButton::Primary)
@@ -408,9 +556,14 @@ where
             return;
         }
 
-        if resp.drag_started() {
-            if let Some(idx) = self.g.node_by_screen_pos(meta, resp.hover_pos().unwrap()) {
-                self.set_drag_start(idx);
+        // If a drag started and no node is currently marked as dragged (e.g., started outside a node),
+        // try to start dragging the node under the cursor once. Otherwise skip to avoid double-starting.
+        if resp.drag_started() && self.g.dragged_node().is_none() {
+            if let Some(pos) = resp.hover_pos() {
+                if let Some(idx) = self.g.node_by_screen_pos(meta, pos) {
+                    self.set_drag_start(idx);
+                    self.g.set_dragged_node(Some(idx));
+                }
             }
         }
 
@@ -459,7 +612,7 @@ where
         if !diag.x.is_finite() || !diag.y.is_finite() || diag.x <= 0.0 || diag.y <= 0.0 {
             diag = Vec2::new(1., 1.);
         }
-        let graph_size = diag * (1. + self.settings_navigation.screen_padding);
+        let graph_size = diag * (1. + self.settings_navigation.fit_to_screen_padding);
         let (width, height) = (graph_size.x.max(1e-3), graph_size.y.max(1e-3));
         let canvas_size = rect.size();
         let (canvas_width, canvas_height) = (canvas_size.x, canvas_size.y);
@@ -476,17 +629,29 @@ where
         self.set_pan(new_pan, meta);
     }
 
-    fn handle_navigation(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
+    fn handle_navigation(
+        &self,
+        ui: &Ui,
+        resp: &Response,
+        meta: &mut Metadata,
+        eff: EffectiveInteraction,
+    ) {
         if !meta.first_frame {
             meta.pan += resp.rect.left_top() - meta.top_left;
         }
         meta.top_left = resp.rect.left_top();
 
-        self.handle_zoom(ui, resp, meta);
-        self.handle_pan(resp, meta);
+        self.handle_zoom(ui, resp, meta, eff);
+        self.handle_pan(resp, meta, eff);
     }
 
-    fn handle_zoom(&self, ui: &Ui, resp: &Response, meta: &mut Metadata) {
+    fn handle_zoom(
+        &self,
+        ui: &Ui,
+        resp: &Response,
+        meta: &mut Metadata,
+        _eff: EffectiveInteraction,
+    ) {
         if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
@@ -502,7 +667,7 @@ where
         });
     }
 
-    fn handle_pan(&self, resp: &Response, meta: &mut Metadata) {
+    fn handle_pan(&self, resp: &Response, meta: &mut Metadata, _eff: EffectiveInteraction) {
         if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
