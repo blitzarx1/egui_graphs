@@ -14,7 +14,7 @@ use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::{graph::IndexType, Directed};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
-const KEY_LAYOUT: &str = "egui_grpahs_layout";
+const KEY_LAYOUT: &str = "egui_graphs_layout";
 
 pub type DefaultGraphView<'a> = GraphView<
     'a,
