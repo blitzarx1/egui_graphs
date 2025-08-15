@@ -579,7 +579,7 @@ impl DemoApp {
                     info_icon(ui, "Advance the simulation instantly by a fixed number of steps or within a frame-time budget.");
                 });
                 ui.vertical(|ui| {
-                    if ui.button("Fast-forward 1000 steps").clicked() {
+                    if ui.button("Fast-forward 100 steps").clicked() {
                         egui_graphs::GraphView::<
                             (),
                             (),
@@ -589,9 +589,19 @@ impl DemoApp {
                             egui_graphs::DefaultEdgeShape,
                             FruchtermanReingoldWithCenterGravityState,
                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                        >::fast_forward_force_run(ui, &mut self.g, 1000);
+                        >::fast_forward_force_run(ui, &mut self.g, 100);
+                        state = egui_graphs::GraphView::<
+                            (),
+                            (),
+                            petgraph::Directed,
+                            petgraph::stable_graph::DefaultIx,
+                            egui_graphs::DefaultNodeShape,
+                            egui_graphs::DefaultEdgeShape,
+                            FruchtermanReingoldWithCenterGravityState,
+                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                        >::get_layout_state(ui);
                     }
-                    if ui.button("Fast-forward 1000 steps_budgeted (16ms)").clicked() {
+                    if ui.button("Fast-forward 1000 steps_budgeted (100ms)").clicked() {
                         let _done = egui_graphs::GraphView::<
                             (),
                             (),
@@ -601,9 +611,19 @@ impl DemoApp {
                             egui_graphs::DefaultEdgeShape,
                             FruchtermanReingoldWithCenterGravityState,
                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                        >::fast_forward_budgeted_force_run(ui, &mut self.g, 1000, 16);
+                        >::fast_forward_budgeted_force_run(ui, &mut self.g, 1000, 100);
+                        state = egui_graphs::GraphView::<
+                            (),
+                            (),
+                            petgraph::Directed,
+                            petgraph::stable_graph::DefaultIx,
+                            egui_graphs::DefaultNodeShape,
+                            egui_graphs::DefaultEdgeShape,
+                            FruchtermanReingoldWithCenterGravityState,
+                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                        >::get_layout_state(ui);
                     }
-                    if ui.button("Until stable (ε=0.01, ≤10000 steps)").clicked() {
+                    if ui.button("Until stable (ε=0.01, ≤1000 steps)").clicked() {
                         let _r = egui_graphs::GraphView::<
                             (),
                             (),
@@ -613,7 +633,17 @@ impl DemoApp {
                             egui_graphs::DefaultEdgeShape,
                             FruchtermanReingoldWithCenterGravityState,
                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                        >::fast_forward_until_stable_force_run(ui, &mut self.g, 0.01, 10000);
+                        >::fast_forward_until_stable_force_run(ui, &mut self.g, 0.01, 1000);
+                        state = egui_graphs::GraphView::<
+                            (),
+                            (),
+                            petgraph::Directed,
+                            petgraph::stable_graph::DefaultIx,
+                            egui_graphs::DefaultNodeShape,
+                            egui_graphs::DefaultEdgeShape,
+                            FruchtermanReingoldWithCenterGravityState,
+                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                        >::get_layout_state(ui);
                     }
                     if ui.button("Until stable_budgeted (ε=0.01, ≤10000 steps, 1000ms)").clicked() {
                         let _r = egui_graphs::GraphView::<
@@ -626,6 +656,16 @@ impl DemoApp {
                             FruchtermanReingoldWithCenterGravityState,
                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                         >::fast_forward_until_stable_budgeted_force_run(ui, &mut self.g, 0.01, 10000, 1000);
+                        state = egui_graphs::GraphView::<
+                            (),
+                            (),
+                            petgraph::Directed,
+                            petgraph::stable_graph::DefaultIx,
+                            egui_graphs::DefaultNodeShape,
+                            egui_graphs::DefaultEdgeShape,
+                            FruchtermanReingoldWithCenterGravityState,
+                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                        >::get_layout_state(ui);
                     }
                 });
             });
@@ -982,7 +1022,23 @@ impl DemoApp {
             let zoom_line = "Zoom: enable events feature".to_string();
             #[cfg(not(feature = "events"))]
             let pan_line = "Pan: enable events feature".to_string();
-            format!("{fps_line}\n{n_line}\n{e_line}\n{zoom_line}\n{pan_line}")
+
+            // Query current layout state to show total step count
+            let steps_line = {
+                let state = egui_graphs::GraphView::<
+                    (),
+                    (),
+                    petgraph::Directed,
+                    petgraph::stable_graph::DefaultIx,
+                    egui_graphs::DefaultNodeShape,
+                    egui_graphs::DefaultEdgeShape,
+                    FruchtermanReingoldWithCenterGravityState,
+                    LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                >::get_layout_state(ui);
+                format!("Steps: {}", state.base.step_count)
+            };
+
+            format!("{fps_line}\n{n_line}\n{e_line}\n{steps_line}\n{zoom_line}\n{pan_line}")
         };
         let full_rect = ui.max_rect();
         let mut child_ui = ui.new_child(egui::UiBuilder::new().max_rect(full_rect));

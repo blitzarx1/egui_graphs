@@ -34,6 +34,12 @@ impl<E: ExtrasTuple> AnimatedState for FruchtermanReingoldWithExtrasState<E> {
     fn set_last_avg_displacement(&mut self, v: Option<f32>) {
         self.base.last_avg_displacement = v;
     }
+    fn step_count(&self) -> u64 {
+        self.base.step_count
+    }
+    fn set_step_count(&mut self, v: u64) {
+        self.base.step_count = v;
+    }
 }
 
 #[derive(Debug, Default)]
@@ -117,6 +123,7 @@ impl<E: ExtrasTuple> ForceAlgorithm for FruchtermanReingoldWithExtras<E> {
             base.max_step,
         );
         self.state.base.last_avg_displacement = avg;
+        self.state.base.inc_step_count();
     }
 
     fn state(&self) -> Self::State {
