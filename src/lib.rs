@@ -19,8 +19,9 @@ pub use helpers::{
 };
 
 pub use layouts::force_directed::{
-    ForceAlgorithm, ForceDirected as LayoutForceDirected, FruchtermanReingold,
-    FruchtermanReingoldState,
+    CenterGravity, CenterGravityParams, Extra, ForceAlgorithm,
+    ForceDirected as LayoutForceDirected, FruchtermanReingold, FruchtermanReingoldState,
+    FruchtermanReingoldWithCenterGravity, FruchtermanReingoldWithCenterGravityState,
 };
 pub use layouts::hierarchical::{
     Hierarchical as LayoutHierarchical, State as LayoutStateHierarchical,

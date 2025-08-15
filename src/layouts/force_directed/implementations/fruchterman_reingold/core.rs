@@ -1,9 +1,8 @@
-use crate::{DisplayEdge, DisplayNode, Graph};
+use crate::{DisplayEdge, DisplayNode, ForceAlgorithm, Graph};
 use egui::{Rect, Vec2};
 use petgraph::{csr::IndexType, stable_graph::NodeIndex, EdgeType};
 use serde::{Deserialize, Serialize};
 
-use super::algorithm::ForceAlgorithm;
 use crate::layouts::LayoutState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,7 +15,6 @@ pub struct FruchtermanReingoldState {
     pub k_scale: f32,
     pub c_attract: f32,
     pub c_repulse: f32,
-    pub use_viewport_area: bool,
 }
 
 impl LayoutState for FruchtermanReingoldState {}
@@ -32,7 +30,6 @@ impl Default for FruchtermanReingoldState {
             k_scale: 1.0,
             c_attract: 1.0,
             c_repulse: 1.0,
-            use_viewport_area: true,
         }
     }
 }
@@ -48,7 +45,6 @@ impl FruchtermanReingoldState {
         k_scale: f32,
         c_attract: f32,
         c_repulse: f32,
-        use_viewport_area: bool,
     ) -> Self {
         Self {
             is_running,
@@ -59,7 +55,6 @@ impl FruchtermanReingoldState {
             k_scale,
             c_attract,
             c_repulse,
-            use_viewport_area,
         }
     }
 }
@@ -67,11 +62,16 @@ impl FruchtermanReingoldState {
 #[derive(Debug, Default)]
 pub struct FruchtermanReingold {
     state: FruchtermanReingoldState,
+    // Reusable displacement buffer to avoid per-frame allocations
+    scratch_disp: Vec<Vec2>,
 }
 
 impl FruchtermanReingold {
     pub fn from_state(state: FruchtermanReingoldState) -> Self {
-        Self { state }
+        Self {
+            state,
+            scratch_disp: Vec::new(),
+        }
     }
 }
 
@@ -79,7 +79,10 @@ impl ForceAlgorithm for FruchtermanReingold {
     type State = FruchtermanReingoldState;
 
     fn from_state(state: Self::State) -> Self {
-        Self { state }
+        Self {
+            state,
+            scratch_disp: Vec::new(),
+        }
     }
 
     fn step<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>, view: Rect)
@@ -96,30 +99,39 @@ impl ForceAlgorithm for FruchtermanReingold {
         }
 
         let params = &self.state;
-        // Decide which area to use for k: viewport or graph bounds.
-        let area_rect = if params.use_viewport_area {
-            view
-        } else {
-            let r = g.bounds();
-            if r.is_positive() && r.is_finite() {
-                r
-            } else {
-                view
-            }
-        };
-        let Some(k) = prepare_constants(area_rect, g.node_count(), params.k_scale) else {
+        // Always compute k from the viewport area for stability and simplicity.
+        let Some(k) = prepare_constants(view, g.node_count(), params.k_scale) else {
             return;
         };
 
         let indices: Vec<_> = g.g().node_indices().collect();
-        let mut disp: Vec<Vec2> = vec![Vec2::ZERO; indices.len()];
+        // Ensure scratch buffer is sized and zeroed
+        if self.scratch_disp.len() != indices.len() {
+            self.scratch_disp.resize(indices.len(), Vec2::ZERO);
+        } else {
+            self.scratch_disp.fill(Vec2::ZERO);
+        }
 
-        compute_repulsion(g, &indices, &mut disp, k, params.epsilon, params.c_repulse);
-        compute_attraction(g, &indices, &mut disp, k, params.epsilon, params.c_attract);
+        compute_repulsion(
+            g,
+            &indices,
+            &mut self.scratch_disp,
+            k,
+            params.epsilon,
+            params.c_repulse,
+        );
+        compute_attraction(
+            g,
+            &indices,
+            &mut self.scratch_disp,
+            k,
+            params.epsilon,
+            params.c_attract,
+        );
         apply_displacements(
             g,
             &indices,
-            &disp,
+            &self.scratch_disp,
             params.dt,
             params.damping,
             params.max_step,
@@ -131,7 +143,7 @@ impl ForceAlgorithm for FruchtermanReingold {
     }
 }
 
-fn prepare_constants(canvas: Rect, node_count: usize, k_scale: f32) -> Option<f32> {
+pub(crate) fn prepare_constants(canvas: Rect, node_count: usize, k_scale: f32) -> Option<f32> {
     if node_count == 0 {
         return None;
     }
@@ -145,7 +157,7 @@ fn prepare_constants(canvas: Rect, node_count: usize, k_scale: f32) -> Option<f3
     Some(k)
 }
 
-fn compute_repulsion<N, E, Ty, Ix, Dn, De>(
+pub(crate) fn compute_repulsion<N, E, Ty, Ix, Dn, De>(
     g: &Graph<N, E, Ty, Ix, Dn, De>,
     indices: &[NodeIndex<Ix>],
     disp: &mut [Vec2],
@@ -174,7 +186,7 @@ fn compute_repulsion<N, E, Ty, Ix, Dn, De>(
     }
 }
 
-fn compute_attraction<N, E, Ty, Ix, Dn, De>(
+pub(crate) fn compute_attraction<N, E, Ty, Ix, Dn, De>(
     g: &Graph<N, E, Ty, Ix, Dn, De>,
     indices: &[NodeIndex<Ix>],
     disp: &mut [Vec2],
@@ -200,7 +212,7 @@ fn compute_attraction<N, E, Ty, Ix, Dn, De>(
     }
 }
 
-fn apply_displacements<N, E, Ty, Ix, Dn, De>(
+pub(crate) fn apply_displacements<N, E, Ty, Ix, Dn, De>(
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     indices: &[NodeIndex<Ix>],
     disp: &[Vec2],

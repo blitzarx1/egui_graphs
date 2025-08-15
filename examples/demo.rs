@@ -2,8 +2,8 @@ use core::cmp::Ordering;
 use eframe::{App, CreationContext};
 use egui::{self, CollapsingHeader, Pos2, ScrollArea, Ui};
 use egui_graphs::{
-    generate_random_graph, FruchtermanReingold, FruchtermanReingoldState, Graph,
-    LayoutForceDirected,
+    generate_random_graph, FruchtermanReingoldWithCenterGravity,
+    FruchtermanReingoldWithCenterGravityState, Graph, LayoutForceDirected,
 };
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
@@ -405,8 +405,8 @@ impl DemoApp {
             petgraph::stable_graph::DefaultIx,
             egui_graphs::DefaultNodeShape,
             egui_graphs::DefaultEdgeShape,
-            FruchtermanReingoldState,
-            LayoutForceDirected<FruchtermanReingold>,
+            FruchtermanReingoldWithCenterGravityState,
+            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
         >::reset(ui);
         ui.ctx().set_visuals(egui::Visuals::dark());
         self.dark_mode = ui.ctx().style().visuals.dark_mode;
@@ -489,8 +489,8 @@ impl DemoApp {
             petgraph::stable_graph::DefaultIx,
             egui_graphs::DefaultNodeShape,
             egui_graphs::DefaultEdgeShape,
-            FruchtermanReingoldState,
-            LayoutForceDirected<FruchtermanReingold>,
+            FruchtermanReingoldWithCenterGravityState,
+            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
         >::get_layout_state(ui);
 
         CollapsingHeader::new("Force Directed Layout")
@@ -502,42 +502,52 @@ impl DemoApp {
                     }
                 }
 
+                // FR base controls
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut state.is_running, "running");
+                    ui.checkbox(&mut state.base.is_running, "running");
                     info_icon(ui, "Run/pause the simulation. When paused node positions stay fixed.");
                 });
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut state.use_viewport_area, "use_viewport_area");
-                    info_icon(ui, "When on: compute k from viewport area (paper-like). When off: compute k from current graph bounds (adaptive).");
-                });
-
-                ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.dt, 0.001..=0.2).text("dt"));
+                    ui.add(egui::Slider::new(&mut state.base.dt, 0.001..=0.2).text("dt"));
                     info_icon(ui, "Integration time step (Euler). Larger = faster movement but less stable.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.damping, 0.0..=1.0).text("damping"));
+                    ui.add(egui::Slider::new(&mut state.base.damping, 0.0..=1.0).text("damping"));
                     info_icon(ui, "Velocity damping per frame. 1 = no damping, 0 = immediate stop.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.max_step, 0.1..=50.0).text("max_step"));
+                    ui.add(egui::Slider::new(&mut state.base.max_step, 0.1..=50.0).text("max_step"));
                     info_icon(ui, "Maximum pixel displacement applied per frame to prevent explosions.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.epsilon, 1e-5..=1e-1).logarithmic(true).text("epsilon"));
+                    ui.add(egui::Slider::new(&mut state.base.epsilon, 1e-5..=1e-1).logarithmic(true).text("epsilon"));
                     info_icon(ui, "Minimum distance clamp to avoid division by zero in force calculations.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.k_scale, 0.2..=3.0).text("k_scale"));
+                    ui.add(egui::Slider::new(&mut state.base.k_scale, 0.2..=3.0).text("k_scale"));
                     info_icon(ui, "Scale ideal edge length k; >1 spreads the layout, <1 compacts it.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.c_attract, 0.1..=3.0).text("c_attract"));
+                    ui.add(egui::Slider::new(&mut state.base.c_attract, 0.1..=3.0).text("c_attract"));
                     info_icon(ui, "Multiplier for attractive force along edges (higher pulls connected nodes together).");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.c_repulse, 0.1..=3.0).text("c_repulse"));
+                    ui.add(egui::Slider::new(&mut state.base.c_repulse, 0.1..=3.0).text("c_repulse"));
                     info_icon(ui, "Multiplier for repulsive force between nodes (higher pushes nodes apart).");
+                });
+
+                // Extras: Center gravity
+                ui.add_space(6.0);
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut state.extras.0.enabled, "center_gravity");
+                    info_icon(ui, "Enable/disable center gravity force.");
+                });
+                ui.add_enabled_ui(state.extras.0.enabled, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.add(egui::Slider::new(&mut state.extras.0.params.c, 0.0..=2.0).text("center_strength"));
+                        info_icon(ui, "Coefficient for pull toward viewport/graph center.");
+                    });
                 });
             });
 
@@ -548,8 +558,8 @@ impl DemoApp {
             petgraph::stable_graph::DefaultIx,
             egui_graphs::DefaultNodeShape,
             egui_graphs::DefaultEdgeShape,
-            FruchtermanReingoldState,
-            LayoutForceDirected<FruchtermanReingold>,
+            FruchtermanReingoldWithCenterGravityState,
+            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
         >::set_layout_state(ui, state);
     }
 
@@ -1232,8 +1242,8 @@ impl App for DemoApp {
                 _,
                 _,
                 _,
-                FruchtermanReingoldState,
-                LayoutForceDirected<FruchtermanReingold>,
+                FruchtermanReingoldWithCenterGravityState,
+                LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
             >::new(&mut self.g)
             .with_interactions(settings_interaction)
             .with_navigations(settings_navigation)

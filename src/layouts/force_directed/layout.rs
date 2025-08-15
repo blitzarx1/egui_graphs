@@ -1,4 +1,3 @@
-// no direct Rect import; use egui::Rect inline
 use petgraph::{csr::IndexType, EdgeType};
 
 use crate::{layouts::Layout, DisplayEdge, DisplayNode, Graph};

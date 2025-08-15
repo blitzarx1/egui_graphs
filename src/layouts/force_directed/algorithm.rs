@@ -13,7 +13,7 @@ pub trait ForceAlgorithm: Default {
     /// Construct from a state value (typically deserialized each frame).
     fn from_state(state: Self::State) -> Self;
 
-    /// Advance the simulation by one step using the given viewport rectangle.
+    /// Advance the simulation by one step using the given viewport rectangle if needed.
     fn step<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>, view: Rect)
     where
         N: Clone,
