@@ -11,7 +11,7 @@ Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) 
 The project implements a Widget for the egui framework, enabling easy visualization of interactive graphs in rust. The goal is to implement the very basic engine for graph visualization within egui, which can be easily extended and customized for your needs.
 
 - [x] Visualization of any complex graphs;
-- [x] Layots and custom layout mechanism;
+- [x] Layouts and custom layout mechanism;
 - [x] Zooming and panning;
 - [x] Node and edges interactions and events reporting: click, double click, select, drag;
 - [x] Node and Edge labels;
@@ -117,7 +117,7 @@ Built-in layouts with a pluggable API. The `Layout` trait powers layout selectio
 - Hierarchical: layered (ranked) layout.
 - Force-directed: Fruchterman–Reingold baseline with optional Extras (e.g., Center Gravity).
 
-Quick start:
+#### Quick start
 
 ```rust
 // Default random layout
@@ -137,40 +137,30 @@ let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
 ui.add(&mut view);
 ```
 
-In-depth: Force‑Directed layout
+#### In-depth: Force‑Directed layout
 
-A naive O(n²) force-directed layout (Fruchterman–Reingold style) is included. It exposes adjustable simulation parameters (step size, damping, etc.). See the demo for a live tuning panel. The force-directed subsystem is split into:
+A naive O(n²) force-directed layout (Fruchterman–Reingold style) is included. It exposes adjustable simulation parameters (step size, damping, etc.). See the demo for a live tuning panel. Built-in options include the baseline Fruchterman–Reingold and an extended variant with composable “extras” (e.g., Center Gravity).
 
-- A layout shell: `ForceDirected<A>` that plugs any algorithm implementing `ForceAlgorithm` into the common `Layout` interface.
-- Algorithms: `FruchtermanReingold` (baseline) and `FruchtermanReingoldWithExtras<E>` that layers composable extra forces.
-
-Select algorithm via the layout type parameter:
+Select algorithm via the layout type parameter (public aliases):
 
 ```rust
-use egui_graphs::{ForceDirected as LayoutForceDirected};
-use egui_graphs::layouts::force_directed::{FruchtermanReingold, FruchtermanReingoldState};
+use egui_graphs::{LayoutForceDirected, FruchtermanReingold, FruchtermanReingoldState};
 
 type L = LayoutForceDirected<FruchtermanReingold>;
 type S = FruchtermanReingoldState;
 let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
 ```
 
-Algorithm contract:
-
-- `from_state(state) -> Self`
-- `step(&mut self, &mut Graph, view_rect: egui::Rect)`
-- `state(&self) -> State`
-
-Extras (composable add‑ons)
+#### Extras (composable add‑ons)
 
 Use `FruchtermanReingoldWithExtras<E>` to apply base FR forces plus your extras each frame. Built-in extra: Center Gravity.
 
 ```rust
-use egui_graphs::layouts::force_directed::{
+use egui_graphs::{
+    LayoutForceDirected,
     FruchtermanReingoldWithCenterGravity,
     FruchtermanReingoldWithCenterGravityState,
 };
-use egui_graphs::{ForceDirected as LayoutForceDirected};
 
 type L = LayoutForceDirected<FruchtermanReingoldWithCenterGravity>;
 type S = FruchtermanReingoldWithCenterGravityState;
@@ -182,49 +172,19 @@ let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
 ui.add(&mut view);
 ```
 
-Author an extra force:
+##### Author a custom extra
+
+You can implement your own force by implementing the `ExtraForce` trait and then composing it via `Extra<MyExtra, ENABLED>` in a tuple. To keep this README focused, see the trait docs for a full example and method signature (docs.rs → egui_graphs → layouts → force_directed → extras → core → ExtraForce).
+
+Once implemented, use the public aliases to plug it in:
 
 ```rust
-use egui::{Rect, Vec2};
-use egui_graphs::layouts::force_directed::extras::core::ExtraForce;
-use egui_graphs::{DisplayEdge, DisplayNode, Graph};
-use petgraph::EdgeType;
+use egui_graphs::{Extra, FruchtermanReingoldWithExtras, FruchtermanReingoldWithExtrasState, LayoutForceDirected};
 
-#[derive(Debug, Clone, Default)]
-struct MyParams { strength: f32 }
-
-#[derive(Debug, Default)]
-struct MyExtra;
-
-impl ExtraForce for MyExtra {
-    type Params = MyParams;
-    fn apply<N,E,Ty,Ix,Dn,De>(
-        params: &Self::Params,
-        g: &Graph<N,E,Ty,Ix,Dn,De>,
-        indices: &[petgraph::stable_graph::NodeIndex<Ix>],
-        disp: &mut [Vec2],
-        area: Rect,
-        _k: f32,
-    ) where
-        N: Clone,
-        E: Clone,
-        Ty: EdgeType,
-        Ix: petgraph::csr::IndexType,
-        Dn: DisplayNode<N,E,Ty,Ix>,
-        De: DisplayEdge<N,E,Ty,Ix,Dn>,
-    {
-        let center = area.center();
-        for (pos, &idx) in indices.iter().enumerate() {
-            let p = g.g().node_weight(idx).unwrap().location();
-            disp[pos] += (center - p) * params.strength;
-        }
-    }
-}
-
-use egui_graphs::layouts::force_directed::{Extra, FruchtermanReingoldWithExtrasState};
 type Extras = (Extra<MyExtra, true>, ());
-type State = FruchtermanReingoldWithExtrasState<Extras>;
-type Layout = egui_graphs::ForceDirected<egui_graphs::layouts::force_directed::implementations::fruchterman_reingold::with_extras::FruchtermanReingoldWithExtras<Extras>>;
+type S = FruchtermanReingoldWithExtrasState<Extras>;
+type L = LayoutForceDirected<FruchtermanReingoldWithExtras<Extras>>;
+let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
 ```
 
 Composition is order-sensitive; each enabled extra accumulates into the shared displacement vector in tuple order.
