@@ -1,7 +1,10 @@
 use core::cmp::Ordering;
 use eframe::{App, CreationContext};
 use egui::{self, CollapsingHeader, Pos2, ScrollArea, Ui};
-use egui_graphs::{generate_random_graph, Graph, LayoutForceDirected, LayoutStateForceDirected};
+use egui_graphs::{
+    generate_random_graph, FruchtermanReingoldWithCenterGravity,
+    FruchtermanReingoldWithCenterGravityState, Graph, LayoutForceDirected,
+};
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
 use rand::Rng;
@@ -9,6 +12,8 @@ use std::time::{Duration, Instant};
 
 const MAX_NODE_COUNT: usize = 2500;
 const MAX_EDGE_COUNT: usize = 5000;
+#[cfg(feature = "events")]
+const EVENTS_LIMIT: usize = 200;
 
 #[cfg(feature = "events")]
 use crossbeam::channel::{unbounded, Receiver, Sender};
@@ -402,8 +407,8 @@ impl DemoApp {
             petgraph::stable_graph::DefaultIx,
             egui_graphs::DefaultNodeShape,
             egui_graphs::DefaultEdgeShape,
-            LayoutStateForceDirected,
-            LayoutForceDirected,
+            FruchtermanReingoldWithCenterGravityState,
+            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
         >::reset(ui);
         ui.ctx().set_visuals(egui::Visuals::dark());
         self.dark_mode = ui.ctx().style().visuals.dark_mode;
@@ -443,27 +448,10 @@ impl DemoApp {
                             "fit_to_screen",
                         )
                         .clicked()
-                        && self.settings_navigation.fit_to_screen_enabled
-                    {
-                        self.settings_navigation.zoom_and_pan_enabled = false;
-                    }
+                        {
+                            self.settings_navigation.zoom_and_pan_enabled = !self.settings_navigation.zoom_and_pan_enabled;
+                        }
                     info_icon(ui, "Continuously recompute zoom/pan so whole graph stays visible.");
-                });
-                ui.add_enabled_ui(!self.settings_navigation.fit_to_screen_enabled, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.checkbox(
-                            &mut self.settings_navigation.zoom_and_pan_enabled,
-                            "zoom_and_pan",
-                        );
-                        info_icon(ui, "Manual navigation: Ctrl+wheel (zoom), drag (pan / node drag). Disable if auto-fit.");
-                    });
-                });
-                ui.horizontal(|ui| {
-                    ui.add(
-                        egui::Slider::new(&mut self.settings_navigation.zoom_speed, 0.01..=1.0)
-                            .text("zoom_speed"),
-                    );
-                    info_icon(ui, "Multiplier controlling how fast zoom changes per wheel step.");
                 });
                 ui.add_enabled_ui(self.settings_navigation.fit_to_screen_enabled, |ui| {
                     ui.horizontal(|ui| {
@@ -472,6 +460,27 @@ impl DemoApp {
                                 .text("screen_padding"),
                         );
                         info_icon(ui, "Extra fractional padding around graph when auto-fitting (0 = tight fit, 0.3 = 30% larger).");
+                    });
+                });
+                ui.horizontal(|ui| {
+                    if ui.
+                        checkbox(
+                        &mut self.settings_navigation.zoom_and_pan_enabled,
+                        "zoom_and_pan",
+                        )
+                        .clicked()
+                        {
+                            self.settings_navigation.fit_to_screen_enabled = !self.settings_navigation.fit_to_screen_enabled;
+                        };
+                    info_icon(ui, "Manual navigation: Ctrl+wheel (zoom), drag (pan / node drag). Disable if auto-fit.");
+                });
+                ui.add_enabled_ui(self.settings_navigation.zoom_and_pan_enabled, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            egui::Slider::new(&mut self.settings_navigation.zoom_speed, 0.01..=1.0)
+                                .text("zoom_speed"),
+                        );
+                        info_icon(ui, "Multiplier controlling how fast zoom changes per wheel step.");
                     });
                 });
             });
@@ -486,8 +495,8 @@ impl DemoApp {
             petgraph::stable_graph::DefaultIx,
             egui_graphs::DefaultNodeShape,
             egui_graphs::DefaultEdgeShape,
-            LayoutStateForceDirected,
-            LayoutForceDirected,
+            FruchtermanReingoldWithCenterGravityState,
+            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
         >::get_layout_state(ui);
 
         CollapsingHeader::new("Force Directed Layout")
@@ -499,29 +508,52 @@ impl DemoApp {
                     }
                 }
 
+                // FR base controls
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut state.is_running, "running");
+                    ui.checkbox(&mut state.base.is_running, "running");
                     info_icon(ui, "Run/pause the simulation. When paused node positions stay fixed.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.dt, 0.001..=0.2).text("dt"));
+                    ui.add(egui::Slider::new(&mut state.base.dt, 0.001..=0.2).text("dt"));
                     info_icon(ui, "Integration time step (Euler). Larger = faster movement but less stable.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.damping, 0.0..=1.0).text("damping"));
+                    ui.add(egui::Slider::new(&mut state.base.damping, 0.0..=1.0).text("damping"));
                     info_icon(ui, "Velocity damping per frame. 1 = no damping, 0 = immediate stop.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.max_step, 0.1..=50.0).text("max_step"));
+                    ui.add(egui::Slider::new(&mut state.base.max_step, 0.1..=50.0).text("max_step"));
                     info_icon(ui, "Maximum pixel displacement applied per frame to prevent explosions.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.gravity_base, 100.0..=2500.0).text("gravity_base"));
-                    info_icon(ui, "Base strength of gentle pull toward canvas center (scaled inversely by view size).");
+                    ui.add(egui::Slider::new(&mut state.base.epsilon, 1e-5..=1e-1).logarithmic(true).text("epsilon"));
+                    info_icon(ui, "Minimum distance clamp to avoid division by zero in force calculations.");
                 });
                 ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.epsilon, 1e-5..=1e-1).logarithmic(true).text("epsilon"));
-                    info_icon(ui, "Minimum distance clamp to avoid division by zero in force calculations.");
+                    ui.add(egui::Slider::new(&mut state.base.k_scale, 0.2..=3.0).text("k_scale"));
+                    info_icon(ui, "Scale ideal edge length k; >1 spreads the layout, <1 compacts it.");
+                });
+                ui.horizontal(|ui| {
+                    ui.add(egui::Slider::new(&mut state.base.c_attract, 0.1..=3.0).text("c_attract"));
+                    info_icon(ui, "Multiplier for attractive force along edges (higher pulls connected nodes together).");
+                });
+                ui.horizontal(|ui| {
+                    ui.add(egui::Slider::new(&mut state.base.c_repulse, 0.1..=3.0).text("c_repulse"));
+                    info_icon(ui, "Multiplier for repulsive force between nodes (higher pushes nodes apart).");
+                });
+
+                // Extras: Center gravity
+                ui.add_space(6.0);
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut state.extras.0.enabled, "center_gravity");
+                    info_icon(ui, "Enable/disable center gravity force.");
+                });
+                ui.add_enabled_ui(state.extras.0.enabled, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.add(egui::Slider::new(&mut state.extras.0.params.c, 0.0..=2.0).text("center_strength"));
+                        info_icon(ui, "Coefficient for pull toward viewport/graph center.");
+                    });
                 });
             });
 
@@ -532,8 +564,8 @@ impl DemoApp {
             petgraph::stable_graph::DefaultIx,
             egui_graphs::DefaultNodeShape,
             egui_graphs::DefaultEdgeShape,
-            LayoutStateForceDirected,
-            LayoutForceDirected,
+            FruchtermanReingoldWithCenterGravityState,
+            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
         >::set_layout_state(ui, state);
     }
 
@@ -783,11 +815,9 @@ impl DemoApp {
         CollapsingHeader::new("Debug")
             .default_open(false)
             .show(ui, |ui| {
-                if ui
-                    .checkbox(&mut self.show_debug_overlay, "show debug overlay")
+                ui.checkbox(&mut self.show_debug_overlay, "show debug overlay")
                     .on_hover_text("Toggle debug overlay (d)")
-                    .clicked()
-                {}
+                    .clicked();
                 if ui
                     .button("keybindings")
                     .on_hover_text("Show keybindings (h / ?)")
@@ -809,14 +839,14 @@ impl DemoApp {
             let node_count = self.g.node_count();
             let edge_count = self.g.edge_count();
             let n_line = if node_count >= MAX_NODE_COUNT {
-                format!("N: {} MAX", node_count)
+                format!("N: {node_count} MAX")
             } else {
-                format!("N: {}", node_count)
+                format!("N: {node_count}")
             };
             let e_line = if edge_count >= MAX_EDGE_COUNT {
-                format!("E: {} MAX", edge_count)
+                format!("E: {edge_count} MAX")
             } else {
-                format!("E: {}", edge_count)
+                format!("E: {edge_count}")
             };
             #[cfg(feature = "events")]
             let zoom_line = format!("Zoom: {:.3}", self.zoom);
@@ -887,7 +917,7 @@ impl DemoApp {
                         .num_columns(2)
                         .spacing(egui::vec2(8.0, 4.0))
                         .show(ui, |ui| {
-                            for (key, desc) in group_entries.iter() {
+                            for (key, desc) in group_entries {
                                 ui.code(*key);
                                 ui.label(*desc);
                                 ui.end_row();
@@ -1216,8 +1246,8 @@ impl App for DemoApp {
                 _,
                 _,
                 _,
-                LayoutStateForceDirected,
-                LayoutForceDirected,
+                FruchtermanReingoldWithCenterGravityState,
+                LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
             >::new(&mut self.g)
             .with_interactions(settings_interaction)
             .with_navigations(settings_navigation)
@@ -1324,24 +1354,41 @@ impl EventFilters {
             EdgeDeselect(_) => self.edge_deselect,
         }
     }
+    // For previously captured events stored as strings (via Debug format), decide
+    // whether they should be kept based on their variant name prefix.
+    fn is_event_str_enabled(&self, ev: &str) -> Option<bool> {
+        if ev.starts_with("Pan") {
+            Some(self.pan)
+        } else if ev.starts_with("Zoom") {
+            Some(self.zoom)
+        } else if ev.starts_with("NodeMove") {
+            Some(self.node_move)
+        } else if ev.starts_with("NodeDragStart") {
+            Some(self.node_drag_start)
+        } else if ev.starts_with("NodeDragEnd") {
+            Some(self.node_drag_end)
+        } else if ev.starts_with("NodeSelect") {
+            Some(self.node_select)
+        } else if ev.starts_with("NodeDeselect") {
+            Some(self.node_deselect)
+        } else if ev.starts_with("NodeClick") {
+            Some(self.node_click)
+        } else if ev.starts_with("NodeDoubleClick") {
+            Some(self.node_double_click)
+        } else if ev.starts_with("EdgeClick") {
+            Some(self.edge_click)
+        } else if ev.starts_with("EdgeSelect") {
+            Some(self.edge_select)
+        } else if ev.starts_with("EdgeDeselect") {
+            Some(self.edge_deselect)
+        } else {
+            None
+        }
+    }
     fn purge_disabled(&self, events: &mut Vec<String>) {
-        let disabled: [&str; 12] = [
-            "Pan",
-            "Zoom",
-            "NodeMove",
-            "NodeDragStart",
-            "NodeDragEnd",
-            "NodeSelect",
-            "NodeDeselect",
-            "NodeClick",
-            "NodeDoubleClick",
-            "EdgeClick",
-            "EdgeSelect",
-            "EdgeDeselect",
-        ];
-        events.retain(|ev| {
-            let is_enabled = self.enabled_for(&ev.parse().unwrap());
-            is_enabled || !disabled.contains(&ev.as_str())
+        events.retain(|ev| match self.is_event_str_enabled(ev.as_str()) {
+            Some(enabled) => enabled,
+            None => true, // keep unknown strings
         });
     }
 }
