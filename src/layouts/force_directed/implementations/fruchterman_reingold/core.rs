@@ -18,6 +18,8 @@ pub struct FruchtermanReingoldState {
     pub c_repulse: f32,
     #[serde(skip)]
     pub last_avg_displacement: Option<f32>,
+    /// Total number of simulation steps executed.
+    pub step_count: u64,
 }
 
 impl LayoutState for FruchtermanReingoldState {}
@@ -34,6 +36,7 @@ impl Default for FruchtermanReingoldState {
             c_attract: 1.0,
             c_repulse: 1.0,
             last_avg_displacement: None,
+            step_count: 0,
         }
     }
 }
@@ -61,9 +64,12 @@ impl FruchtermanReingoldState {
             c_attract,
             c_repulse,
             last_avg_displacement: None,
+            step_count: 0,
         }
     }
 }
+
+// Step counting is provided via AnimatedState default methods and field in this state.
 
 impl AnimatedState for FruchtermanReingoldState {
     fn is_running(&self) -> bool {
@@ -77,6 +83,12 @@ impl AnimatedState for FruchtermanReingoldState {
     }
     fn set_last_avg_displacement(&mut self, v: Option<f32>) {
         self.last_avg_displacement = v;
+    }
+    fn step_count(&self) -> u64 {
+        self.step_count
+    }
+    fn set_step_count(&mut self, v: u64) {
+        self.step_count = v;
     }
 }
 
@@ -158,6 +170,7 @@ impl ForceAlgorithm for FruchtermanReingold {
             params.max_step,
         );
         self.state.last_avg_displacement = avg;
+        self.state.inc_step_count();
     }
 
     fn state(&self) -> Self::State {

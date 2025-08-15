@@ -19,7 +19,25 @@ pub trait AnimatedState {
     }
     /// Store average displacement metric. Default: no-op.
     fn set_last_avg_displacement(&mut self, _v: Option<f32>) {}
+
+    /// Retrieve current total step count (for animated/simulated layouts).
+    fn step_count(&self) -> u64 {
+        0
+    }
+    /// Set total step count.
+    fn set_step_count(&mut self, _v: u64) {}
+    /// Convenience: increment step count (saturating add).
+    fn inc_step_count(&mut self) {
+        let n = self.step_count();
+        self.set_step_count(n.saturating_add(1));
+    }
+    /// Convenience: reset step count to zero.
+    fn reset_step_count(&mut self) {
+        self.set_step_count(0);
+    }
 }
+
+// Note: Step counting is part of AnimatedState for animated layouts.
 
 pub trait Layout<S>: Default
 where
