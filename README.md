@@ -104,7 +104,8 @@ fn main() {
 }
 ```
 
-![Screenshot 2023-10-14 at 23 49 49](https://github.com/blitzarx1/egui_graphs/assets/32969427/584b78de-bca3-421b-b003-9321fd3e1b13)
+<img width="792" height="594" alt="Screenshot 2025-08-16 at 7 46 25 PM" src="https://github.com/user-attachments/assets/be2eaf6c-0c88-4450-9825-2d7640278d7f" />
+
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
 
 ## Features
