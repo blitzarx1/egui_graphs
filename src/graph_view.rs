@@ -9,6 +9,7 @@ use crate::{
 };
 
 use egui::{Id, PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use instant::Instant;
 
 use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::{graph::IndexType, Directed};
@@ -43,7 +44,7 @@ where
     let mut state = GraphView::<N, E, Ty, Ix, Dn, De, S, L>::get_layout_state(ui);
     let token = pre_toggle(&mut state);
     let mut layout = L::from_state(state);
-    let start = std::time::Instant::now();
+    let start = Instant::now();
     let mut done = 0u32;
     while done < target_steps {
         if let Some(ms) = budget_millis {
@@ -92,7 +93,7 @@ where
     let token = pre_toggle(&mut state);
     let mut layout = L::from_state(state);
 
-    let start = std::time::Instant::now();
+    let start = Instant::now();
     let mut steps_done = 0u32;
     let mut last_avg = f32::INFINITY;
     let indices: Vec<_> = g.g().node_indices().collect();
