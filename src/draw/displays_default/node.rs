@@ -9,7 +9,7 @@ use crate::{draw::drawer::DrawContext, DisplayNode, NodeProps};
 /// This is the default node shape which is used to display nodes in the graph.
 ///
 /// You can use this implementation as an example for implementing your own custom node shapes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DefaultNodeShape {
     pub pos: Pos2,
 
