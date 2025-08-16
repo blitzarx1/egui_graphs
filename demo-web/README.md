@@ -8,9 +8,16 @@ Web (WASM) demo for `egui_graphs` using `eframe` + `wasm-bindgen`, built with `t
 ## Prerequisites
 
 - Rust toolchain with the wasm target:
-  - `rustup target add wasm32-unknown-unknown`
+
+  ```sh
+  rustup target add wasm32-unknown-unknown
+  ```
+
 - Trunk (Rust/Web bundler):
-  - `cargo install trunk`
+
+  ```sh
+  cargo install trunk
+  ```
 
 ## Run locally
 
