@@ -10,7 +10,7 @@ use crate::{draw::DrawContext, elements::EdgeProps, node_size, DisplayEdge, Disp
 
 use super::edge_shape_builder::{EdgeShapeBuilder, TipProps};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DefaultEdgeShape {
     pub order: usize,
     pub selected: bool,
