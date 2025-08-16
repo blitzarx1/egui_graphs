@@ -1021,9 +1021,7 @@ impl DemoApp {
         // Other shortcuts
         ctx.input(|i| {
             // Space: reset defaults
-            if i.key_pressed(egui::Key::Space) {
-                if !i.modifiers.any() { self.reset_requested = true; }
-            }
+            if i.key_pressed(egui::Key::Space) && !i.modifiers.any() { self.reset_requested = true; }
             // Esc: close modal if open
             if i.key_pressed(egui::Key::Escape) {
                 self.show_keybindings_overlay = false;

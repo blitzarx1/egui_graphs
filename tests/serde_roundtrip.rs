@@ -1,6 +1,5 @@
 use egui_graphs::{Edge, Graph, Node};
 use petgraph::visit::{EdgeRef, IntoEdgeReferences, IntoNodeReferences};
-use serde_json;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct TestNodePayload {
