@@ -188,7 +188,6 @@ pub struct DemoApp {
     #[cfg(feature = "events")]
     pub event_filters: EventFilters,
 }
-
 impl DemoApp {
     pub fn new(cc: &CreationContext<'_>) -> Self {
         let settings_graph = settings::SettingsGraph::default();
@@ -702,6 +701,7 @@ impl DemoApp {
             ui.colored_label(egui::Color32::from_rgb(200, 180, 40),
                 "Tip: enable the 'events' feature to see interaction events (pan/zoom, clicks, selections).",
             );
+
             let cmd = "cargo r --release --example demo --features events";
             ui.horizontal(|ui| {
                 ui.code(cmd);
@@ -815,6 +815,8 @@ impl App for DemoApp {
 
             // Draw overlay inside the CentralPanel so it stays within the graph area
             self.overlay_debug_panel(ui);
+            // Draw toggle button for the side panel at bottom-right of the graph area
+            self.overlay_toggle_sidebar_button(ui);
         });
 
         self.update_fps();
@@ -934,6 +936,7 @@ impl DemoApp {
                     ("Click", "select node/edge (requires: node_clicking / node_selection / edge_selection)"),
                     ("Ctrl+Wheel", "zoom (requires: zoom_and_pan)"),
                     ("Drag background", "pan (requires: zoom_and_pan)"),
+                    ("Tab", "toggle right side panel"),
                     ("h / ?", "open keybindings (this) modal"),
                 ],
                 "kb_group_interface");
@@ -941,6 +944,39 @@ impl DemoApp {
     }
     }
 
+    fn overlay_toggle_sidebar_button(&mut self, ui: &mut egui::Ui) {
+        // Small overlay button inside the CentralPanel to toggle the right side panel
+        let g_rect = ui.max_rect();
+        let btn_size = egui::vec2(28.0, 28.0);
+        // Use the same external padding as the debug overlay (10px)
+        let right_margin = 10.0;
+        let bottom_margin = 10.0;
+        let btn_pos = egui::pos2(
+            g_rect.right() - right_margin - btn_size.x,
+            g_rect.bottom() - bottom_margin - btn_size.y,
+        );
+
+        // Use filled triangles for a nicer look
+        let (arrow, tip) = if self.show_sidebar {
+            ("▶", "Hide side panel (Tab)")
+        } else {
+            ("◀", "Show side panel (Tab)")
+        };
+
+        egui::Area::new(egui::Id::new("sidebar_toggle_btn"))
+            .order(egui::Order::Middle)
+            .fixed_pos(btn_pos)
+            .movable(false)
+            .show(ui.ctx(), |ui_area| {
+                // Clip the button to the CentralPanel rect
+                ui_area.set_clip_rect(g_rect);
+                let arrow_text = egui::RichText::new(arrow).size(16.0);
+                let response = ui_area.add_sized(btn_size, egui::Button::new(arrow_text));
+                if response.on_hover_text(tip).clicked() {
+                    self.show_sidebar = !self.show_sidebar;
+                }
+            });
+    }
     fn process_keybindings(&mut self, ctx: &egui::Context) {
         // Toggle modal on 'h' or '?' and close on any interaction after open.
         let mut any_key_pressed = false;
@@ -996,6 +1032,9 @@ impl DemoApp {
                 if let egui::Event::Key { key, pressed, modifiers, .. } = ev {
                     if !pressed { continue; }
                     match key {
+                        egui::Key::Tab => {
+                            if !modifiers.any() { self.show_sidebar = !self.show_sidebar; }
+                        }
                         egui::Key::D => { if !modifiers.any() { self.show_debug_overlay = !self.show_debug_overlay; } }
                         egui::Key::N => {
                             if modifiers.ctrl && modifiers.shift { self.remove_random_node(); self.add_random_node(); }
