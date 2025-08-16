@@ -17,7 +17,9 @@ pub fn start() -> Result<(), JsValue> {
 #[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("no window"))?;
-    let document = window.document().ok_or_else(|| JsValue::from_str("no document"))?;
+    let document = window
+        .document()
+        .ok_or_else(|| JsValue::from_str("no document"))?;
     let canvas = document
         .get_element_by_id("the_canvas_id")
         .ok_or_else(|| JsValue::from_str("canvas with id 'the_canvas_id' not found"))?

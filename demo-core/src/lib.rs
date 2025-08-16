@@ -171,6 +171,8 @@ pub struct DemoApp {
     pub show_debug_overlay: bool,
     pub show_keybindings_overlay: bool,
     pub keybindings_just_opened: bool,
+    pub reset_requested: bool,
+    pub last_step_count: usize,
     #[cfg(not(feature = "events"))]
     pub copy_tip_until: Option<Instant>,
     #[cfg(feature = "events")]
@@ -224,6 +226,8 @@ impl DemoApp {
             show_debug_overlay: true,
             show_keybindings_overlay: false,
             keybindings_just_opened: false,
+            reset_requested: false,
+            last_step_count: 0,
         }
     }
 
@@ -661,6 +665,28 @@ impl DemoApp {
         });
     }
 
+    pub fn ui_debug(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("Debug")
+            .default_open(false)
+            .show(ui, |ui| {
+                if ui
+                    .checkbox(&mut self.show_debug_overlay, "show debug overlay")
+                    .on_hover_text("Toggle debug overlay (d)")
+                    .clicked()
+                {
+                    // nothing extra
+                }
+                if ui
+                    .button("keybindings")
+                    .on_hover_text("Show keybindings (h / ?)")
+                    .clicked()
+                {
+                    self.show_keybindings_overlay = true;
+                    self.keybindings_just_opened = true;
+                }
+            });
+    }
+
     pub fn ui_selected(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Selected").default_open(true).show(ui, |ui| {
             ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
@@ -709,7 +735,10 @@ impl App for DemoApp {
         // Sync counts displayed on sliders with actual graph values
         self.sync_counts();
 
-        // Right side panel with controls
+    // Handle global keyboard shortcuts and modal toggling
+    self.process_keybindings(ctx);
+
+    // Right side panel with controls
         if self.show_sidebar {
             egui::SidePanel::right("right").default_width(300.0).min_width(300.0).show(ctx, |ui| {
                 ScrollArea::vertical().show(ui, |ui| {
@@ -723,13 +752,18 @@ impl App for DemoApp {
                     self.ui_layout_force_directed(ui);
                     self.ui_interaction(ui);
                     self.ui_style(ui);
+                    self.ui_debug(ui);
                     self.ui_selected(ui);
                 });
             });
         }
 
-        // Central graph view
-        egui::CentralPanel::default().show(ctx, |ui| {
+    // Central graph view
+    egui::CentralPanel::default().show(ctx, |ui| {
+            if self.reset_requested {
+                self.reset_all(ui);
+                self.reset_requested = false;
+            }
             let settings_interaction = &egui_graphs::SettingsInteraction::new()
                 .with_node_selection_enabled(self.settings_interaction.node_selection_enabled)
                 .with_node_selection_multi_enabled(self.settings_interaction.node_selection_multi_enabled)
@@ -769,9 +803,233 @@ impl App for DemoApp {
             #[cfg(feature = "events")]
             { view = view.with_events(&self.event_publisher); }
             ui.add(&mut view);
+
+            // Capture latest layout step count for overlay display
+            let state = egui_graphs::GraphView::<
+                (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
+                egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                FruchtermanReingoldWithCenterGravityState,
+                LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+            >::get_layout_state(ui);
+            self.last_step_count = state.base.step_count as usize;
+
+            // Draw overlay inside the CentralPanel so it stays within the graph area
+            self.overlay_debug_panel(ui);
         });
 
         self.update_fps();
+
+    // Draw modal after main UI
+    self.keybindings_modal(ctx);
+    }
+}
+
+impl DemoApp {
+    fn overlay_debug_panel(&mut self, ui: &mut egui::Ui) {
+        if !self.show_debug_overlay {
+            return;
+        }
+
+        // Compose overlay text
+        let text = {
+            let fps_line = format!("FPS: {:.1}", self.fps);
+            let node_count = self.g.node_count();
+            let edge_count = self.g.edge_count();
+            let n_line = if node_count >= MAX_NODE_COUNT { format!("N: {node_count} MAX") } else { format!("N: {node_count}") };
+            let e_line = if edge_count >= MAX_EDGE_COUNT { format!("E: {edge_count} MAX") } else { format!("E: {edge_count}") };
+            let steps_line = format!("Steps: {}", self.last_step_count);
+            #[cfg(feature = "events")]
+            let zoom_line = format!("Zoom: {:.3}", self.zoom);
+            #[cfg(feature = "events")]
+            let pan_line = format!("Pan: [{:.1},{:.1}]", self.pan[0], self.pan[1]);
+
+            #[cfg(feature = "events")]
+            { format!("{fps_line}\n{n_line}\n{e_line}\n{steps_line}\n{zoom_line}\n{pan_line}") }
+            #[cfg(not(feature = "events"))]
+            { format!(
+                "{fps_line}\n{n_line}\n{e_line}\n{steps_line}\nZoom: enable events feature\nPan: enable events feature"
+            ) }
+        };
+
+    // Measure text using monospace font
+    let font_id = egui::FontId::monospace(14.0);
+    let text_color = ui.style().visuals.strong_text_color();
+    let text_size = ui.fonts(|f| f.layout_no_wrap(text.clone(), font_id.clone(), text_color).size());
+
+    // Position (no frame) based on text size
+    let margin = 10.0;
+    let panel_rect = ui.max_rect();
+    let pos = egui::pos2(panel_rect.max.x - margin - text_size.x, panel_rect.min.y + margin);
+
+    // Draw overlay text only (no frame) within the CentralPanel rect.
+        egui::Area::new(egui::Id::new("overlay_debug_in_panel"))
+            .order(egui::Order::Middle)
+            .fixed_pos(pos)
+            .movable(false)
+            .show(ui.ctx(), |ui_area| {
+                // clip to panel to ensure it doesn't draw outside
+                ui_area.set_clip_rect(panel_rect);
+        ui_area.style_mut().override_text_style = Some(egui::TextStyle::Monospace);
+        ui_area.label(
+            egui::RichText::new(text)
+            .monospace()
+            .color(text_color)
+            .size(14.0),
+        );
+            });
+    }
+
+    fn keybindings_modal(&mut self, ctx: &egui::Context) {
+    // Use egui::Modal so it renders above overlays and dims the background.
+    let modal = egui::Modal::new(egui::Id::new("keybindings_modal"));
+    if self.show_keybindings_overlay {
+    modal.show(ctx, |ui| {
+            use egui::RichText;
+            let accent = ui.visuals().hyperlink_color;
+            ui.label(RichText::new("Keybindings").strong().size(20.0).color(accent));
+            ui.separator();
+
+            let render_group = |ui: &mut egui::Ui, title: &str, entries: &[(&str, &str)], grid_id: &str| {
+                ui.label(RichText::new(title).strong().color(accent).size(16.0));
+                egui::Grid::new(grid_id).num_columns(2).spacing(egui::vec2(8.0, 4.0)).show(ui, |ui| {
+                    for (key, desc) in entries {
+                        ui.code(*key);
+                        ui.label(*desc);
+                        ui.end_row();
+                    }
+                });
+                ui.add_space(6.0);
+            };
+
+            // Graph elements
+            render_group(ui, "Graph elements",
+                &[
+                    ("n", "add 1 node"),
+                    ("Shift+n", "remove 1 node"),
+                    ("Ctrl+Shift+n", "swap 1 node (remove then add)"),
+                    ("m", "+10 nodes (up to max)"),
+                    ("Shift+m", "-10 nodes"),
+                    ("Ctrl+Shift+m", "swap 10 nodes"),
+                    ("e", "add 1 edge"),
+                    ("Shift+e", "remove 1 edge"),
+                    ("Ctrl+Shift+e", "swap 1 edge"),
+                    ("r", "+10 edges (up to max)"),
+                    ("Shift+r", "-10 edges"),
+                    ("Ctrl+Shift+r", "swap 10 edges"),
+                ],
+                "kb_group_elements");
+
+            // Graph actions
+            render_group(ui, "Graph actions",
+                &[
+                    ("d", "toggle debug overlay"),
+                    ("Space", "reset all"),
+                ],
+                "kb_group_actions");
+
+            // Interface / navigation (notes about enabling the corresponding settings)
+            render_group(ui, "Interface",
+                &[
+                    ("Drag", "move nodes (requires: dragging_enabled)"),
+                    ("Click", "select node/edge (requires: node_clicking / node_selection / edge_selection)"),
+                    ("Ctrl+Wheel", "zoom (requires: zoom_and_pan)"),
+                    ("Drag background", "pan (requires: zoom_and_pan)"),
+                    ("h / ?", "open keybindings (this) modal"),
+                ],
+                "kb_group_interface");
+    });
+    }
+    }
+
+    fn process_keybindings(&mut self, ctx: &egui::Context) {
+        // Toggle modal on 'h' or '?' and close on any interaction after open.
+        let mut any_key_pressed = false;
+        let mut any_pointer_pressed = false;
+        let mut pressed_h = false;            // 'h' or 'H'
+        let mut pressed_shift_slash = false; // '?'
+        ctx.input(|i| {
+            for ev in &i.events {
+                match ev {
+                    egui::Event::Key { key, pressed, modifiers, .. } => {
+                        if *pressed { any_key_pressed = true; }
+                        if *pressed && !modifiers.any() && *key == egui::Key::H { pressed_h = true; }
+                        if *pressed && *key == egui::Key::Slash && modifiers.shift { pressed_shift_slash = true; }
+                    }
+                    egui::Event::PointerButton { pressed, .. } => { if *pressed { any_pointer_pressed = true; } }
+                    egui::Event::Text(t) => {
+                        if t == "?" { pressed_shift_slash = true; }
+                        if t.eq_ignore_ascii_case("h") { pressed_h = true; }
+                    }
+                    _ => {}
+                }
+            }
+        });
+        let mut open_modal = false;
+        let mut close_modal = false;
+        if pressed_h || pressed_shift_slash {
+            if self.show_keybindings_overlay { close_modal = true; } else { open_modal = true; }
+        }
+        if open_modal {
+            self.show_keybindings_overlay = true;
+            self.keybindings_just_opened = true;
+        }
+        if self.show_keybindings_overlay {
+            if !self.keybindings_just_opened && (any_key_pressed || any_pointer_pressed) {
+                close_modal = true;
+            }
+            // Clear the "just opened" guard at the end of the frame
+            self.keybindings_just_opened = false;
+        }
+        if close_modal { self.show_keybindings_overlay = false; }
+
+        // Other shortcuts
+        ctx.input(|i| {
+            // Space: reset defaults
+            if i.key_pressed(egui::Key::Space) {
+                if !i.modifiers.any() { self.reset_requested = true; }
+            }
+            // Esc: close modal if open
+            if i.key_pressed(egui::Key::Escape) {
+                self.show_keybindings_overlay = false;
+            }
+            for ev in &i.events {
+                if let egui::Event::Key { key, pressed, modifiers, .. } = ev {
+                    if !pressed { continue; }
+                    match key {
+                        egui::Key::D => { if !modifiers.any() { self.show_debug_overlay = !self.show_debug_overlay; } }
+                        egui::Key::N => {
+                            if modifiers.ctrl && modifiers.shift { self.remove_random_node(); self.add_random_node(); }
+                            else if modifiers.shift { self.remove_random_node(); }
+                            else { self.add_random_node(); }
+                        }
+                        egui::Key::M => {
+                            if modifiers.ctrl && modifiers.shift { for _ in 0..10 { self.remove_random_node(); } for _ in 0..10 { self.add_random_node(); } }
+                            else if modifiers.shift { for _ in 0..10 { self.remove_random_node(); } }
+                            else {
+                                let remaining = MAX_NODE_COUNT.saturating_sub(self.g.node_count());
+                                let to_add = remaining.min(10);
+                                for _ in 0..to_add { self.add_random_node(); }
+                            }
+                        }
+                        egui::Key::E => {
+                            if modifiers.ctrl && modifiers.shift { self.remove_random_edge(); self.add_random_edge(); }
+                            else if modifiers.shift { self.remove_random_edge(); }
+                            else { self.add_random_edge(); }
+                        }
+                        egui::Key::R => {
+                            if modifiers.ctrl && modifiers.shift { for _ in 0..10 { self.remove_random_edge(); } for _ in 0..10 { self.add_random_edge(); } }
+                            else if modifiers.shift { for _ in 0..10 { self.remove_random_edge(); } }
+                            else {
+                                let remaining = MAX_EDGE_COUNT.saturating_sub(self.g.edge_count());
+                                let to_add = remaining.min(10);
+                                for _ in 0..to_add { self.add_random_edge(); }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        });
     }
 }
 
