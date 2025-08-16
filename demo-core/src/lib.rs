@@ -5,12 +5,12 @@ use egui_graphs::{
     generate_random_graph, FruchtermanReingoldWithCenterGravity,
     FruchtermanReingoldWithCenterGravityState, Graph, LayoutForceDirected,
 };
+use instant::Instant;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
 use rand::Rng;
 #[cfg(not(feature = "events"))]
 use std::time::Duration;
-use instant::Instant;
 
 pub const MAX_NODE_COUNT: usize = 2500;
 pub const MAX_EDGE_COUNT: usize = 5000;
@@ -77,7 +77,10 @@ pub mod settings_local {
     }
     impl Default for SettingsGraph {
         fn default() -> Self {
-            Self { count_node: 25, count_edge: 50 }
+            Self {
+                count_node: 25,
+                count_edge: 50,
+            }
         }
     }
 }
@@ -109,16 +112,32 @@ pub mod drawers {
             let start = v.nodes;
             ui.label("N");
             ui.add(egui::Slider::new(&mut v.nodes, 0..=MAX_NODE_COUNT));
-            if ui.small_button("-10").on_hover_text("Remove 10 nodes (M)").clicked() {
+            if ui
+                .small_button("-10")
+                .on_hover_text("Remove 10 nodes (M)")
+                .clicked()
+            {
                 v.nodes = v.nodes.saturating_sub(10);
             }
-            if ui.small_button("-1").on_hover_text("Remove 1 node (N)").clicked() {
+            if ui
+                .small_button("-1")
+                .on_hover_text("Remove 1 node (N)")
+                .clicked()
+            {
                 v.nodes = v.nodes.saturating_sub(1);
             }
-            if ui.small_button("+1").on_hover_text("Add 1 node (n)").clicked() {
+            if ui
+                .small_button("+1")
+                .on_hover_text("Add 1 node (n)")
+                .clicked()
+            {
                 v.nodes = (v.nodes + 1).min(MAX_NODE_COUNT);
             }
-            if ui.small_button("+10").on_hover_text("Add 10 nodes (m)").clicked() {
+            if ui
+                .small_button("+10")
+                .on_hover_text("Add 10 nodes (m)")
+                .clicked()
+            {
                 v.nodes = (v.nodes + 10).min(MAX_NODE_COUNT);
             }
             delta_nodes = if v.nodes >= start {
@@ -132,16 +151,32 @@ pub mod drawers {
             let start = v.edges;
             ui.label("E");
             ui.add(egui::Slider::new(&mut v.edges, 0..=MAX_EDGE_COUNT));
-            if ui.small_button("-10").on_hover_text("Remove 10 edges (R)").clicked() {
+            if ui
+                .small_button("-10")
+                .on_hover_text("Remove 10 edges (R)")
+                .clicked()
+            {
                 v.edges = v.edges.saturating_sub(10);
             }
-            if ui.small_button("-1").on_hover_text("Remove 1 edge (E)").clicked() {
+            if ui
+                .small_button("-1")
+                .on_hover_text("Remove 1 edge (E)")
+                .clicked()
+            {
                 v.edges = v.edges.saturating_sub(1);
             }
-            if ui.small_button("+1").on_hover_text("Add 1 edge (e)").clicked() {
+            if ui
+                .small_button("+1")
+                .on_hover_text("Add 1 edge (e)")
+                .clicked()
+            {
                 v.edges = (v.edges + 1).min(MAX_EDGE_COUNT);
             }
-            if ui.small_button("+10").on_hover_text("Add 10 edges (r)").clicked() {
+            if ui
+                .small_button("+10")
+                .on_hover_text("Add 10 edges (r)")
+                .clicked()
+            {
                 v.edges = (v.edges + 10).min(MAX_EDGE_COUNT);
             }
             delta_edges = if v.edges >= start {
@@ -202,7 +237,10 @@ impl DemoApp {
             settings_graph,
             settings_interaction: settings::SettingsInteraction::default(),
             settings_navigation: settings::SettingsNavigation::default(),
-            settings_style: settings::SettingsStyle { labels_always: false, edge_deemphasis: true },
+            settings_style: settings::SettingsStyle {
+                labels_always: false,
+                edge_deemphasis: true,
+            },
             fps: 0.0,
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
@@ -247,7 +285,9 @@ impl DemoApp {
         self.g.g().edge_indices().nth(idx)
     }
     pub fn add_random_node(&mut self) {
-        if self.g.node_count() >= MAX_NODE_COUNT { return; }
+        if self.g.node_count() >= MAX_NODE_COUNT {
+            return;
+        }
         if let Some(r) = self.random_node_idx() {
             let n = self.g.node(r).unwrap();
             let mut rng = rand::rng();
@@ -274,7 +314,9 @@ impl DemoApp {
         }
     }
     pub fn add_edge(&mut self, a: NodeIndex, b: NodeIndex) {
-        if self.g.edge_count() >= MAX_EDGE_COUNT { return; }
+        if self.g.edge_count() >= MAX_EDGE_COUNT {
+            return;
+        }
         self.g.add_edge(a, b, ());
     }
     pub fn remove_random_edge(&mut self) {
@@ -305,16 +347,35 @@ impl DemoApp {
     pub fn ui_graph_section(&mut self, ui: &mut Ui) {
         crate::drawers::graph_count_sliders(
             ui,
-            crate::drawers::GraphCountSliders { nodes: self.settings_graph.count_node, edges: self.settings_graph.count_edge },
+            crate::drawers::GraphCountSliders {
+                nodes: self.settings_graph.count_node,
+                edges: self.settings_graph.count_edge,
+            },
             |dn, de| {
                 match dn.cmp(&0) {
-                    Ordering::Greater => { for _ in 0..dn { self.add_random_node(); } },
-                    Ordering::Less => { for _ in 0..(-dn) { self.remove_random_node(); } },
+                    Ordering::Greater => {
+                        for _ in 0..dn {
+                            self.add_random_node();
+                        }
+                    }
+                    Ordering::Less => {
+                        for _ in 0..(-dn) {
+                            self.remove_random_node();
+                        }
+                    }
                     Ordering::Equal => {}
                 }
                 match de.cmp(&0) {
-                    Ordering::Greater => { for _ in 0..de { self.add_random_edge(); } },
-                    Ordering::Less => { for _ in 0..(-de) { self.remove_random_edge(); } },
+                    Ordering::Greater => {
+                        for _ in 0..de {
+                            self.add_random_edge();
+                        }
+                    }
+                    Ordering::Less => {
+                        for _ in 0..(-de) {
+                            self.remove_random_edge();
+                        }
+                    }
                     Ordering::Equal => {}
                 }
                 self.settings_graph.count_node = self.g.node_count();
@@ -327,14 +388,24 @@ impl DemoApp {
         self.settings_graph = settings::SettingsGraph::default();
         self.settings_interaction = settings::SettingsInteraction::default();
         self.settings_navigation = settings::SettingsNavigation::default();
-        self.settings_style = settings::SettingsStyle { labels_always: false, edge_deemphasis: true };
+        self.settings_style = settings::SettingsStyle {
+            labels_always: false,
+            edge_deemphasis: true,
+        };
         self.show_debug_overlay = true;
         self.show_keybindings_overlay = false;
-        self.g = generate_random_graph(self.settings_graph.count_node, self.settings_graph.count_edge);
+        self.g = generate_random_graph(
+            self.settings_graph.count_node,
+            self.settings_graph.count_edge,
+        );
         Self::distribute_nodes_circle(&mut self.g);
         egui_graphs::GraphView::<
-            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+            (),
+            (),
+            petgraph::Directed,
+            petgraph::stable_graph::DefaultIx,
+            egui_graphs::DefaultNodeShape,
+            egui_graphs::DefaultEdgeShape,
             FruchtermanReingoldWithCenterGravityState,
             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
         >::reset(ui);
@@ -352,7 +423,9 @@ impl DemoApp {
 
     pub fn distribute_nodes_circle(g: &mut Graph<(), (), Directed, DefaultIx>) {
         let n_usize = core::cmp::max(g.node_count(), 1);
-        if n_usize == 0 { return; }
+        if n_usize == 0 {
+            return;
+        }
         let n_f32 = n_usize as f32;
         let radius = n_f32.sqrt() * 50.0 + 50.0;
         let indices: Vec<_> = g.g().node_indices().collect();
@@ -395,8 +468,12 @@ impl DemoApp {
 
     pub fn ui_layout_force_directed(&mut self, ui: &mut Ui) {
         let mut state = egui_graphs::GraphView::<
-            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+            (),
+            (),
+            petgraph::Directed,
+            petgraph::stable_graph::DefaultIx,
+            egui_graphs::DefaultNodeShape,
+            egui_graphs::DefaultEdgeShape,
             FruchtermanReingoldWithCenterGravityState,
             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
         >::get_layout_state(ui);
@@ -521,8 +598,12 @@ impl DemoApp {
         });
 
         egui_graphs::GraphView::<
-            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+            (),
+            (),
+            petgraph::Directed,
+            petgraph::stable_graph::DefaultIx,
+            egui_graphs::DefaultNodeShape,
+            egui_graphs::DefaultEdgeShape,
             FruchtermanReingoldWithCenterGravityState,
             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
         >::set_layout_state(ui, state);
@@ -643,18 +724,32 @@ impl DemoApp {
         CollapsingHeader::new("Style").show(ui, |ui| {
             ui.horizontal(|ui| {
                 let mut dark = ui.ctx().style().visuals.dark_mode;
-                if ui.checkbox(&mut dark, "dark mode").on_hover_text("Toggle dark or light visuals").changed() {
-                    if dark { ui.ctx().set_visuals(egui::Visuals::dark()); } else { ui.ctx().set_visuals(egui::Visuals::light()); }
+                if ui
+                    .checkbox(&mut dark, "dark mode")
+                    .on_hover_text("Toggle dark or light visuals")
+                    .changed()
+                {
+                    if dark {
+                        ui.ctx().set_visuals(egui::Visuals::dark());
+                    } else {
+                        ui.ctx().set_visuals(egui::Visuals::light());
+                    }
                     self.dark_mode = dark;
                 } else {
                     self.dark_mode = dark;
                 }
-                info_icon(ui, "Synced with global egui style context for seamless integration.");
+                info_icon(
+                    ui,
+                    "Synced with global egui style context for seamless integration.",
+                );
             });
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 ui.checkbox(&mut self.settings_style.labels_always, "labels_always");
-                info_icon(ui, "Always render node & edge labels instead of only on interaction.");
+                info_icon(
+                    ui,
+                    "Always render node & edge labels instead of only on interaction.",
+                );
             });
             ui.add_space(2.0);
             ui.horizontal(|ui| {
@@ -687,12 +782,18 @@ impl DemoApp {
     }
 
     pub fn ui_selected(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("Selected").default_open(true).show(ui, |ui| {
-            ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
-                for n in self.g.selected_nodes() { ui.label(format!("{n:?}")); }
-                for e in self.g.selected_edges() { ui.label(format!("{e:?}")); }
+        CollapsingHeader::new("Selected")
+            .default_open(true)
+            .show(ui, |ui| {
+                ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
+                    for n in self.g.selected_nodes() {
+                        ui.label(format!("{n:?}"));
+                    }
+                    for e in self.g.selected_edges() {
+                        ui.label(format!("{e:?}"));
+                    }
+                });
             });
-        });
     }
 
     #[cfg(not(feature = "events"))]
@@ -735,79 +836,106 @@ impl App for DemoApp {
         // Sync counts displayed on sliders with actual graph values
         self.sync_counts();
 
-    // Handle global keyboard shortcuts and modal toggling
-    self.process_keybindings(ctx);
+        // Handle global keyboard shortcuts and modal toggling
+        self.process_keybindings(ctx);
 
-    // Right side panel with controls
+        // Right side panel with controls
         if self.show_sidebar {
-            egui::SidePanel::right("right").default_width(300.0).min_width(300.0).show(ctx, |ui| {
-                ScrollArea::vertical().show(ui, |ui| {
-                    #[cfg(not(feature = "events"))]
-                    self.show_events_feature_tip(ui);
-                    if ui.button("Reset Defaults").on_hover_text("Reset ALL settings, graph, layout & view state (Space)").clicked() {
-                        self.reset_all(ui);
-                    }
-                    CollapsingHeader::new("Graph / Layout").default_open(true).show(ui, |ui| self.ui_graph_section(ui));
-                    self.ui_navigation(ui);
-                    self.ui_layout_force_directed(ui);
-                    self.ui_interaction(ui);
-                    self.ui_style(ui);
-                    self.ui_debug(ui);
-                    self.ui_selected(ui);
+            egui::SidePanel::right("right")
+                .default_width(300.0)
+                .min_width(300.0)
+                .show(ctx, |ui| {
+                    ScrollArea::vertical().show(ui, |ui| {
+                        #[cfg(not(feature = "events"))]
+                        self.show_events_feature_tip(ui);
+                        if ui
+                            .button("Reset Defaults")
+                            .on_hover_text("Reset ALL settings, graph, layout & view state (Space)")
+                            .clicked()
+                        {
+                            self.reset_all(ui);
+                        }
+                        CollapsingHeader::new("Graph / Layout")
+                            .default_open(true)
+                            .show(ui, |ui| self.ui_graph_section(ui));
+                        self.ui_navigation(ui);
+                        self.ui_layout_force_directed(ui);
+                        self.ui_interaction(ui);
+                        self.ui_style(ui);
+                        self.ui_debug(ui);
+                        self.ui_selected(ui);
+                    });
                 });
-            });
         }
 
-    // Central graph view
-    egui::CentralPanel::default().show(ctx, |ui| {
+        // Central graph view
+        egui::CentralPanel::default().show(ctx, |ui| {
             if self.reset_requested {
                 self.reset_all(ui);
                 self.reset_requested = false;
             }
             let settings_interaction = &egui_graphs::SettingsInteraction::new()
                 .with_node_selection_enabled(self.settings_interaction.node_selection_enabled)
-                .with_node_selection_multi_enabled(self.settings_interaction.node_selection_multi_enabled)
+                .with_node_selection_multi_enabled(
+                    self.settings_interaction.node_selection_multi_enabled,
+                )
                 .with_dragging_enabled(self.settings_interaction.dragging_enabled)
                 .with_hover_enabled(self.settings_interaction.hover_enabled)
                 .with_node_clicking_enabled(self.settings_interaction.node_clicking_enabled)
                 .with_edge_clicking_enabled(self.settings_interaction.edge_clicking_enabled)
                 .with_edge_selection_enabled(self.settings_interaction.edge_selection_enabled)
-                .with_edge_selection_multi_enabled(self.settings_interaction.edge_selection_multi_enabled);
+                .with_edge_selection_multi_enabled(
+                    self.settings_interaction.edge_selection_multi_enabled,
+                );
             let settings_navigation = &egui_graphs::SettingsNavigation::new()
                 .with_zoom_and_pan_enabled(self.settings_navigation.zoom_and_pan_enabled)
                 .with_fit_to_screen_enabled(self.settings_navigation.fit_to_screen_enabled)
                 .with_zoom_speed(self.settings_navigation.zoom_speed)
                 .with_fit_to_screen_padding(self.settings_navigation.fit_to_screen_padding);
-            let mut style_builder = egui_graphs::SettingsStyle::new().with_labels_always(self.settings_style.labels_always);
+            let mut style_builder = egui_graphs::SettingsStyle::new()
+                .with_labels_always(self.settings_style.labels_always);
             if self.settings_style.edge_deemphasis {
-                style_builder = style_builder.with_edge_stroke_hook(|selected, _order, stroke, _style| {
-                    let mut s = stroke;
-                    if !selected {
-                        let c = s.color;
-                        let new_a = (f32::from(c.a()) * 0.5) as u8;
-                        s.color = egui::Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), new_a);
-                    }
-                    s
-                });
+                style_builder =
+                    style_builder.with_edge_stroke_hook(|selected, _order, stroke, _style| {
+                        let mut s = stroke;
+                        if !selected {
+                            let c = s.color;
+                            let new_a = (f32::from(c.a()) * 0.5) as u8;
+                            s.color =
+                                egui::Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), new_a);
+                        }
+                        s
+                    });
             }
             let settings_style = &style_builder;
 
             let mut view = egui_graphs::GraphView::<
-                _, _, _, _, _, _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
                 FruchtermanReingoldWithCenterGravityState,
                 LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
             >::new(&mut self.g)
-                .with_interactions(settings_interaction)
-                .with_navigations(settings_navigation)
-                .with_styles(settings_style);
+            .with_interactions(settings_interaction)
+            .with_navigations(settings_navigation)
+            .with_styles(settings_style);
             #[cfg(feature = "events")]
-            { view = view.with_events(&self.event_publisher); }
+            {
+                view = view.with_events(&self.event_publisher);
+            }
             ui.add(&mut view);
 
             // Capture latest layout step count for overlay display
             let state = egui_graphs::GraphView::<
-                (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                (),
+                (),
+                petgraph::Directed,
+                petgraph::stable_graph::DefaultIx,
+                egui_graphs::DefaultNodeShape,
+                egui_graphs::DefaultEdgeShape,
                 FruchtermanReingoldWithCenterGravityState,
                 LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
             >::get_layout_state(ui);
@@ -821,8 +949,8 @@ impl App for DemoApp {
 
         self.update_fps();
 
-    // Draw modal after main UI
-    self.keybindings_modal(ctx);
+        // Draw modal after main UI
+        self.keybindings_modal(ctx);
     }
 }
 
@@ -837,8 +965,16 @@ impl DemoApp {
             let fps_line = format!("FPS: {:.1}", self.fps);
             let node_count = self.g.node_count();
             let edge_count = self.g.edge_count();
-            let n_line = if node_count >= MAX_NODE_COUNT { format!("N: {node_count} MAX") } else { format!("N: {node_count}") };
-            let e_line = if edge_count >= MAX_EDGE_COUNT { format!("E: {edge_count} MAX") } else { format!("E: {edge_count}") };
+            let n_line = if node_count >= MAX_NODE_COUNT {
+                format!("N: {node_count} MAX")
+            } else {
+                format!("N: {node_count}")
+            };
+            let e_line = if edge_count >= MAX_EDGE_COUNT {
+                format!("E: {edge_count} MAX")
+            } else {
+                format!("E: {edge_count}")
+            };
             let steps_line = format!("Steps: {}", self.last_step_count);
             #[cfg(feature = "events")]
             let zoom_line = format!("Zoom: {:.3}", self.zoom);
@@ -846,24 +982,34 @@ impl DemoApp {
             let pan_line = format!("Pan: [{:.1},{:.1}]", self.pan[0], self.pan[1]);
 
             #[cfg(feature = "events")]
-            { format!("{fps_line}\n{n_line}\n{e_line}\n{steps_line}\n{zoom_line}\n{pan_line}") }
+            {
+                format!("{fps_line}\n{n_line}\n{e_line}\n{steps_line}\n{zoom_line}\n{pan_line}")
+            }
             #[cfg(not(feature = "events"))]
-            { format!(
+            {
+                format!(
                 "{fps_line}\n{n_line}\n{e_line}\n{steps_line}\nZoom: enable events feature\nPan: enable events feature"
-            ) }
+            )
+            }
         };
 
-    // Measure text using monospace font
-    let font_id = egui::FontId::monospace(14.0);
-    let text_color = ui.style().visuals.strong_text_color();
-    let text_size = ui.fonts(|f| f.layout_no_wrap(text.clone(), font_id.clone(), text_color).size());
+        // Measure text using monospace font
+        let font_id = egui::FontId::monospace(14.0);
+        let text_color = ui.style().visuals.strong_text_color();
+        let text_size = ui.fonts(|f| {
+            f.layout_no_wrap(text.clone(), font_id.clone(), text_color)
+                .size()
+        });
 
-    // Position (no frame) based on text size
-    let margin = 10.0;
-    let panel_rect = ui.max_rect();
-    let pos = egui::pos2(panel_rect.max.x - margin - text_size.x, panel_rect.min.y + margin);
+        // Position (no frame) based on text size
+        let margin = 10.0;
+        let panel_rect = ui.max_rect();
+        let pos = egui::pos2(
+            panel_rect.max.x - margin - text_size.x,
+            panel_rect.min.y + margin,
+        );
 
-    // Draw overlay text only (no frame) within the CentralPanel rect.
+        // Draw overlay text only (no frame) within the CentralPanel rect.
         egui::Area::new(egui::Id::new("overlay_debug_in_panel"))
             .order(egui::Order::Middle)
             .fixed_pos(pos)
@@ -871,21 +1017,21 @@ impl DemoApp {
             .show(ui.ctx(), |ui_area| {
                 // clip to panel to ensure it doesn't draw outside
                 ui_area.set_clip_rect(panel_rect);
-        ui_area.style_mut().override_text_style = Some(egui::TextStyle::Monospace);
-        ui_area.label(
-            egui::RichText::new(text)
-            .monospace()
-            .color(text_color)
-            .size(14.0),
-        );
+                ui_area.style_mut().override_text_style = Some(egui::TextStyle::Monospace);
+                ui_area.label(
+                    egui::RichText::new(text)
+                        .monospace()
+                        .color(text_color)
+                        .size(14.0),
+                );
             });
     }
 
     fn keybindings_modal(&mut self, ctx: &egui::Context) {
-    // Use egui::Modal so it renders above overlays and dims the background.
-    let modal = egui::Modal::new(egui::Id::new("keybindings_modal"));
-    if self.show_keybindings_overlay {
-    modal.show(ctx, |ui| {
+        // Use egui::Modal so it renders above overlays and dims the background.
+        let modal = egui::Modal::new(egui::Id::new("keybindings_modal"));
+        if self.show_keybindings_overlay {
+            modal.show(ctx, |ui| {
             use egui::RichText;
             let accent = ui.visuals().hyperlink_color;
             ui.label(RichText::new("Keybindings").strong().size(20.0).color(accent));
@@ -941,7 +1087,7 @@ impl DemoApp {
                 ],
                 "kb_group_interface");
     });
-    }
+        }
     }
 
     fn overlay_toggle_sidebar_button(&mut self, ui: &mut egui::Ui) {
@@ -981,20 +1127,39 @@ impl DemoApp {
         // Toggle modal on 'h' or '?' and close on any interaction after open.
         let mut any_key_pressed = false;
         let mut any_pointer_pressed = false;
-        let mut pressed_h = false;            // 'h' or 'H'
+        let mut pressed_h = false; // 'h' or 'H'
         let mut pressed_shift_slash = false; // '?'
         ctx.input(|i| {
             for ev in &i.events {
                 match ev {
-                    egui::Event::Key { key, pressed, modifiers, .. } => {
-                        if *pressed { any_key_pressed = true; }
-                        if *pressed && !modifiers.any() && *key == egui::Key::H { pressed_h = true; }
-                        if *pressed && *key == egui::Key::Slash && modifiers.shift { pressed_shift_slash = true; }
+                    egui::Event::Key {
+                        key,
+                        pressed,
+                        modifiers,
+                        ..
+                    } => {
+                        if *pressed {
+                            any_key_pressed = true;
+                        }
+                        if *pressed && !modifiers.any() && *key == egui::Key::H {
+                            pressed_h = true;
+                        }
+                        if *pressed && *key == egui::Key::Slash && modifiers.shift {
+                            pressed_shift_slash = true;
+                        }
                     }
-                    egui::Event::PointerButton { pressed, .. } => { if *pressed { any_pointer_pressed = true; } }
+                    egui::Event::PointerButton { pressed, .. } => {
+                        if *pressed {
+                            any_pointer_pressed = true;
+                        }
+                    }
                     egui::Event::Text(t) => {
-                        if t == "?" { pressed_shift_slash = true; }
-                        if t.eq_ignore_ascii_case("h") { pressed_h = true; }
+                        if t == "?" {
+                            pressed_shift_slash = true;
+                        }
+                        if t.eq_ignore_ascii_case("h") {
+                            pressed_h = true;
+                        }
                     }
                     _ => {}
                 }
@@ -1003,7 +1168,11 @@ impl DemoApp {
         let mut open_modal = false;
         let mut close_modal = false;
         if pressed_h || pressed_shift_slash {
-            if self.show_keybindings_overlay { close_modal = true; } else { open_modal = true; }
+            if self.show_keybindings_overlay {
+                close_modal = true;
+            } else {
+                open_modal = true;
+            }
         }
         if open_modal {
             self.show_keybindings_overlay = true;
@@ -1016,50 +1185,100 @@ impl DemoApp {
             // Clear the "just opened" guard at the end of the frame
             self.keybindings_just_opened = false;
         }
-        if close_modal { self.show_keybindings_overlay = false; }
+        if close_modal {
+            self.show_keybindings_overlay = false;
+        }
 
         // Other shortcuts
         ctx.input(|i| {
             // Space: reset defaults
-            if i.key_pressed(egui::Key::Space) && !i.modifiers.any() { self.reset_requested = true; }
+            if i.key_pressed(egui::Key::Space) && !i.modifiers.any() {
+                self.reset_requested = true;
+            }
             // Esc: close modal if open
             if i.key_pressed(egui::Key::Escape) {
                 self.show_keybindings_overlay = false;
             }
             for ev in &i.events {
-                if let egui::Event::Key { key, pressed, modifiers, .. } = ev {
-                    if !pressed { continue; }
+                if let egui::Event::Key {
+                    key,
+                    pressed,
+                    modifiers,
+                    ..
+                } = ev
+                {
+                    if !pressed {
+                        continue;
+                    }
                     match key {
                         egui::Key::Tab => {
-                            if !modifiers.any() { self.show_sidebar = !self.show_sidebar; }
+                            if !modifiers.any() {
+                                self.show_sidebar = !self.show_sidebar;
+                            }
                         }
-                        egui::Key::D => { if !modifiers.any() { self.show_debug_overlay = !self.show_debug_overlay; } }
+                        egui::Key::D => {
+                            if !modifiers.any() {
+                                self.show_debug_overlay = !self.show_debug_overlay;
+                            }
+                        }
                         egui::Key::N => {
-                            if modifiers.ctrl && modifiers.shift { self.remove_random_node(); self.add_random_node(); }
-                            else if modifiers.shift { self.remove_random_node(); }
-                            else { self.add_random_node(); }
+                            if modifiers.ctrl && modifiers.shift {
+                                self.remove_random_node();
+                                self.add_random_node();
+                            } else if modifiers.shift {
+                                self.remove_random_node();
+                            } else {
+                                self.add_random_node();
+                            }
                         }
                         egui::Key::M => {
-                            if modifiers.ctrl && modifiers.shift { for _ in 0..10 { self.remove_random_node(); } for _ in 0..10 { self.add_random_node(); } }
-                            else if modifiers.shift { for _ in 0..10 { self.remove_random_node(); } }
-                            else {
+                            if modifiers.ctrl && modifiers.shift {
+                                for _ in 0..10 {
+                                    self.remove_random_node();
+                                }
+                                for _ in 0..10 {
+                                    self.add_random_node();
+                                }
+                            } else if modifiers.shift {
+                                for _ in 0..10 {
+                                    self.remove_random_node();
+                                }
+                            } else {
                                 let remaining = MAX_NODE_COUNT.saturating_sub(self.g.node_count());
                                 let to_add = remaining.min(10);
-                                for _ in 0..to_add { self.add_random_node(); }
+                                for _ in 0..to_add {
+                                    self.add_random_node();
+                                }
                             }
                         }
                         egui::Key::E => {
-                            if modifiers.ctrl && modifiers.shift { self.remove_random_edge(); self.add_random_edge(); }
-                            else if modifiers.shift { self.remove_random_edge(); }
-                            else { self.add_random_edge(); }
+                            if modifiers.ctrl && modifiers.shift {
+                                self.remove_random_edge();
+                                self.add_random_edge();
+                            } else if modifiers.shift {
+                                self.remove_random_edge();
+                            } else {
+                                self.add_random_edge();
+                            }
                         }
                         egui::Key::R => {
-                            if modifiers.ctrl && modifiers.shift { for _ in 0..10 { self.remove_random_edge(); } for _ in 0..10 { self.add_random_edge(); } }
-                            else if modifiers.shift { for _ in 0..10 { self.remove_random_edge(); } }
-                            else {
+                            if modifiers.ctrl && modifiers.shift {
+                                for _ in 0..10 {
+                                    self.remove_random_edge();
+                                }
+                                for _ in 0..10 {
+                                    self.add_random_edge();
+                                }
+                            } else if modifiers.shift {
+                                for _ in 0..10 {
+                                    self.remove_random_edge();
+                                }
+                            } else {
                                 let remaining = MAX_EDGE_COUNT.saturating_sub(self.g.edge_count());
                                 let to_add = remaining.min(10);
-                                for _ in 0..to_add { self.add_random_edge(); }
+                                for _ in 0..to_add {
+                                    self.add_random_edge();
+                                }
                             }
                         }
                         _ => {}
@@ -1092,7 +1311,22 @@ pub struct EventFilters {
 #[cfg(feature = "events")]
 impl Default for EventFilters {
     fn default() -> Self {
-        Self { pan: true, zoom: true, node_move: true, node_drag_start: true, node_drag_end: true, node_hover_enter: true, node_hover_leave: true, node_select: true, node_deselect: true, node_click: true, node_double_click: true, edge_click: true, edge_select: true, edge_deselect: true }
+        Self {
+            pan: true,
+            zoom: true,
+            node_move: true,
+            node_drag_start: true,
+            node_drag_end: true,
+            node_hover_enter: true,
+            node_hover_leave: true,
+            node_select: true,
+            node_deselect: true,
+            node_click: true,
+            node_double_click: true,
+            edge_click: true,
+            edge_select: true,
+            edge_deselect: true,
+        }
     }
 }
 
@@ -1118,23 +1352,42 @@ impl EventFilters {
         }
     }
     pub fn is_event_str_enabled(&self, ev: &str) -> Option<bool> {
-        if ev.starts_with("Pan") { Some(self.pan) }
-        else if ev.starts_with("Zoom") { Some(self.zoom) }
-        else if ev.starts_with("NodeMove") { Some(self.node_move) }
-        else if ev.starts_with("NodeDragStart") { Some(self.node_drag_start) }
-        else if ev.starts_with("NodeDragEnd") { Some(self.node_drag_end) }
-        else if ev.starts_with("NodeHoverEnter") { Some(self.node_hover_enter) }
-        else if ev.starts_with("NodeHoverLeave") { Some(self.node_hover_leave) }
-        else if ev.starts_with("NodeSelect") { Some(self.node_select) }
-        else if ev.starts_with("NodeDeselect") { Some(self.node_deselect) }
-        else if ev.starts_with("NodeClick") { Some(self.node_click) }
-        else if ev.starts_with("NodeDoubleClick") { Some(self.node_double_click) }
-        else if ev.starts_with("EdgeClick") { Some(self.edge_click) }
-        else if ev.starts_with("EdgeSelect") { Some(self.edge_select) }
-        else if ev.starts_with("EdgeDeselect") { Some(self.edge_deselect) }
-        else { None }
+        if ev.starts_with("Pan") {
+            Some(self.pan)
+        } else if ev.starts_with("Zoom") {
+            Some(self.zoom)
+        } else if ev.starts_with("NodeMove") {
+            Some(self.node_move)
+        } else if ev.starts_with("NodeDragStart") {
+            Some(self.node_drag_start)
+        } else if ev.starts_with("NodeDragEnd") {
+            Some(self.node_drag_end)
+        } else if ev.starts_with("NodeHoverEnter") {
+            Some(self.node_hover_enter)
+        } else if ev.starts_with("NodeHoverLeave") {
+            Some(self.node_hover_leave)
+        } else if ev.starts_with("NodeSelect") {
+            Some(self.node_select)
+        } else if ev.starts_with("NodeDeselect") {
+            Some(self.node_deselect)
+        } else if ev.starts_with("NodeClick") {
+            Some(self.node_click)
+        } else if ev.starts_with("NodeDoubleClick") {
+            Some(self.node_double_click)
+        } else if ev.starts_with("EdgeClick") {
+            Some(self.edge_click)
+        } else if ev.starts_with("EdgeSelect") {
+            Some(self.edge_select)
+        } else if ev.starts_with("EdgeDeselect") {
+            Some(self.edge_deselect)
+        } else {
+            None
+        }
     }
     pub fn purge_disabled(&self, events: &mut Vec<String>) {
-        events.retain(|ev| match self.is_event_str_enabled(ev.as_str()) { Some(enabled) => enabled, None => true });
+        events.retain(|ev| match self.is_event_str_enabled(ev.as_str()) {
+            Some(enabled) => enabled,
+            None => true,
+        });
     }
 }
