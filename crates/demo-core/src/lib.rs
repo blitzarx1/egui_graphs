@@ -211,6 +211,10 @@ pub struct DemoApp {
     pub reset_requested: bool,
     pub last_step_count: usize,
     pub show_open_settings_tip: bool,
+    // One-time tip to prompt opening keybindings with '?' or 'h'
+    pub show_open_keybindings_tip: bool,
+    // Whether the keybindings tip has been cleared (e.g., user pressed '?' or 'h')
+    pub keybindings_tip_cleared: bool,
     #[cfg(not(feature = "events"))]
     pub copy_tip_until: Option<Instant>,
     #[cfg(feature = "events")]
@@ -276,6 +280,9 @@ impl DemoApp {
             reset_requested: false,
             last_step_count: 0,
             show_open_settings_tip: true,
+            // Start with only the TAB instruction visible; keybindings tip appears after first Tab
+            show_open_keybindings_tip: false,
+            keybindings_tip_cleared: false,
         }
     }
 
@@ -1084,6 +1091,8 @@ impl App for DemoApp {
             self.overlay_toggle_sidebar_button(ui);
             // One-time hint at the bottom of the graph area
             self.overlay_open_settings_tip(ui);
+            // One-time hint (stacked above) for opening keybindings
+            self.overlay_open_keybindings_tip(ui);
         });
 
         self.update_fps();
@@ -1318,6 +1327,37 @@ impl DemoApp {
                 );
             });
     }
+    fn overlay_open_keybindings_tip(&mut self, ui: &mut egui::Ui) {
+        if !self.show_open_keybindings_tip {
+            return;
+        }
+        let panel_rect = ui.max_rect();
+        let text = "Press ? or h to open keybindings.";
+        let font_id = egui::FontId::proportional(16.0);
+        let color = ui.style().visuals.text_color();
+        let galley = ui.fonts(|f| f.layout_no_wrap(text.into(), font_id.clone(), color));
+        let margin = 12.0;
+        let y = if self.show_open_settings_tip {
+            panel_rect.bottom() - margin - galley.size().y * 2.2
+        } else {
+            panel_rect.bottom() - margin - galley.size().y
+        };
+        let pos = egui::pos2(panel_rect.center().x - galley.size().x * 0.5, y);
+
+        egui::Area::new(egui::Id::new("overlay_open_keybindings_tip"))
+            .order(egui::Order::Middle)
+            .fixed_pos(pos)
+            .movable(false)
+            .show(ui.ctx(), |ui_area| {
+                ui_area.set_clip_rect(panel_rect);
+                ui_area.with_layout(
+                    egui::Layout::top_down(egui::Align::LEFT).with_main_wrap(false),
+                    |ui| {
+                        ui.label(egui::RichText::new(text).color(color).size(16.0));
+                    },
+                );
+            });
+    }
     fn process_keybindings(&mut self, ctx: &egui::Context) {
         // Toggle modal on 'h' or '?' and close on any interaction after open.
         let mut any_key_pressed = false;
@@ -1368,6 +1408,9 @@ impl DemoApp {
             } else {
                 open_modal = true;
             }
+            // Only clear the keybindings tip (corresponding message) and prevent it from showing later
+            self.keybindings_tip_cleared = true;
+            self.show_open_keybindings_tip = false;
         }
         if open_modal {
             self.show_keybindings_overlay = true;
@@ -1409,13 +1452,35 @@ impl DemoApp {
                         egui::Key::Tab => {
                             if !modifiers.any() {
                                 self.show_sidebar = !self.show_sidebar;
-                                // Hide the one-time tip once Tab is used
-                                self.show_open_settings_tip = false;
+                                // Message-queue logic:
+                                // 1) If settings tip is showing and help was already invoked, clear all tips.
+                                // 2) Else if settings tip is showing and help not invoked yet, swap to keybindings tip.
+                                // 3) Else (no settings tip), hide keybindings tip as well (clear).
+                                if self.show_open_settings_tip {
+                                    self.show_open_settings_tip = false;
+                                    if !self.keybindings_tip_cleared {
+                                        self.show_open_keybindings_tip = true;
+                                    }
+                                }
                             }
                         }
                         egui::Key::D => {
                             if !modifiers.any() {
                                 self.show_debug_overlay = !self.show_debug_overlay;
+                            }
+                        }
+                        egui::Key::H => {
+                            if !modifiers.any() {
+                                // Clear only the keybindings tip
+                                self.keybindings_tip_cleared = true;
+                                self.show_open_keybindings_tip = false;
+                            }
+                        }
+                        egui::Key::Slash => {
+                            if modifiers.shift {
+                                // '?' pressed — clear only the keybindings tip
+                                self.keybindings_tip_cleared = true;
+                                self.show_open_keybindings_tip = false;
                             }
                         }
                         egui::Key::N => {
