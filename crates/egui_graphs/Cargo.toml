@@ -1,0 +1,52 @@
+[package]
+name = "egui_graphs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Interactive graph visualization widget for rust powered by egui"
+keywords = ["egui", "ui", "graph", "node-graph"]
+categories = ["gui", "visualization"]
+
+ 
+
+[dependencies]
+egui = { workspace = true, default-features = false, features = [
+  "persistence",
+] }
+rand.workspace = true
+petgraph = { workspace = true, default-features = false, features = [
+  "graphmap",
+  "stable_graph",
+  "matrix_graph",
+  "serde-1",
+] }
+serde = { workspace = true, features = ["derive"] }
+instant.workspace = true
+
+crossbeam = { workspace = true, optional = true }
+
+[features]
+events = ["dep:crossbeam", "demo-core/events"]
+
+
+
+[dev-dependencies]
+eframe.workspace = true
+bevy.workspace = true
+bevy_egui.workspace = true
+serde_json.workspace = true
+ureq = { workspace = true, default-features = true, features = ["json"] }
+criterion = { workspace = true, features = ["html_reports"] }
+demo-core = { path = "../demo-core" }
+ 
+
+[[bench]]
+name = "fruchterman_reingold"
+harness = false
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Enable JS RNG source for all wasm dependents via feature unification.
+getrandom = { version = "0.2", features = ["js"] }

@@ -1,62 +1,47 @@
-[package]
-name = "egui_graphs"
+[workspace]
+members = [
+  "crates/egui_graphs",
+  "crates/demo-core",
+  "crates/demo-web",
+]
+resolver = "2"
+
+[workspace.package]
 version = "0.27.0"
-authors = ["Dmitrii Samsonov <blitzarx1@gmail.com>"]
+edition = "2021"
 license = "MIT"
 homepage = "https://github.com/blitzarx1/egui_graphs"
 repository = "https://github.com/blitzarx1/egui_graphs"
-description = "Interactive graph visualization widget for rust powered by egui"
-edition = "2021"
-keywords = ["egui", "ui", "graph", "node-graph"]
-categories = ["gui", "visualization"]
+authors = ["Dmitrii Samsonov <blitzar90@gmail.com>, <blitzarx1@gmail.com>"]
 
-[dependencies]
-egui = { version = "0.32", default-features = false, features = [
-  "persistence",
-] }
-rand = "0.9"
-petgraph = { version = "0.8", default-features = false, features = [
-  "graphmap",
-  "stable_graph",
-  "matrix_graph",
-  "serde-1",
-] }
-serde = { version = "1.0", features = ["derive"] }
-
-crossbeam = { version = "0.8", optional = true }
-
-[features]
-events = ["dep:crossbeam"]
-
-[lints.rust]
+[workspace.lints.rust]
 unsafe_code = "forbid"
 
-[lints.clippy]
+[workspace.lints.clippy]
 pedantic = { level = "deny", priority = 0 }
 enum_glob_use = { level = "deny", priority = 1 }
 perf = { level = "deny", priority = 2 }
 style = { level = "deny", priority = 3 }
-# unwrap_used = { level = "deny", priority = 4 } These should enabled in the future
-# expect_used = { level = "deny", priority = 5 }
 module_name_repetitions = { level = "allow", priority = 6 }
 cast_precision_loss = { level = "allow", priority = 7 }
 float_cmp = { level = "allow", priority = 8 }
 cast_possible_truncation = { level = "allow", priority = 9 }
 cast_sign_loss = { level = "allow", priority = 10 }
 out_of_bounds_indexing = { level = "allow", priority = 11 }
-
 must_use_candidate = { level = "allow", priority = 12 }
 struct_excessive_bools = { level = "allow", priority = 13 }
 return_self_not_must_use = { level = "allow", priority = 14 }
 
-[dev-dependencies]
+[workspace.dependencies]
+egui = { version = "0.32", default-features = false }
 eframe = "0.32"
+petgraph = { version = "0.8", default-features = false }
+serde = "1.0"
+serde_json = "1.0"
+rand = "0.9"
+instant = "0.1"
+crossbeam = "0.8"
 bevy = "0.16"
 bevy_egui = "0.36"
-serde_json = "1.0"
-ureq = { version = "2.9", default-features = true, features = ["json"] }
+ureq = { version = "2.9", default-features = true }
 criterion = { version = "0.5", features = ["html_reports"] }
-
-[[bench]]
-name = "fruchterman_reingold"
-harness = false
