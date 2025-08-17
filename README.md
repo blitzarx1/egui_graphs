@@ -111,6 +111,7 @@ You can further customize the appearance and behavior of your graph by modifying
 ## Repository organization
 
 Crates:
+
 - crates/egui_graphs – library crate published to crates.io
 - crates/demo-core – shared demo logic (not published)
 - crates/demo-web – WASM web demo (not published)
