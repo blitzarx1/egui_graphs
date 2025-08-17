@@ -16,6 +16,8 @@ pub const MAX_NODE_COUNT: usize = 2500;
 pub const MAX_EDGE_COUNT: usize = 5000;
 #[cfg(feature = "events")]
 pub const EVENTS_LIMIT: usize = 500;
+// Keep margins consistent for overlays/buttons in the CentralPanel
+const UI_MARGIN: f32 = 10.0;
 
 #[cfg(feature = "events")]
 pub use crossbeam::channel::{unbounded, Receiver, Sender};
@@ -1148,9 +1150,17 @@ impl DemoApp {
             };
             let steps_line = format!("Steps: {}", self.last_step_count);
             #[cfg(feature = "events")]
-            let zoom_line = format!("Zoom: {:.3}", self.zoom);
+            let zoom_line = if self.event_filters.zoom {
+                format!("Zoom: {:.3}", self.zoom)
+            } else {
+                "Zoom: (filter off)".to_string()
+            };
             #[cfg(feature = "events")]
-            let pan_line = format!("Pan: [{:.1},{:.1}]", self.pan[0], self.pan[1]);
+            let pan_line = if self.event_filters.pan {
+                format!("Pan: [{:.1},{:.1}]", self.pan[0], self.pan[1])
+            } else {
+                "Pan: (filter off)".to_string()
+            };
 
             #[cfg(feature = "events")]
             {
@@ -1164,38 +1174,19 @@ impl DemoApp {
             }
         };
 
-        // Measure text using monospace font
-        let font_id = egui::FontId::monospace(14.0);
         let text_color = ui.style().visuals.strong_text_color();
-        let text_size = ui.fonts(|f| {
-            f.layout_no_wrap(text.clone(), font_id.clone(), text_color)
-                .size()
-        });
-
-        // Position (no frame) based on text size
-        let margin = 10.0;
         let panel_rect = ui.max_rect();
+        let font_id = egui::FontId::monospace(14.0);
+        // Layout without wrapping: each line stays single-line
+        let galley = ui.fonts(|f| f.layout_no_wrap(text.clone(), font_id, text_color));
+        // Position galley at top-right with margin
         let pos = egui::pos2(
-            panel_rect.max.x - margin - text_size.x,
-            panel_rect.min.y + margin,
+            panel_rect.right() - UI_MARGIN - galley.size().x,
+            panel_rect.top() + UI_MARGIN,
         );
-
-        // Draw overlay text only (no frame) within the CentralPanel rect.
-        egui::Area::new(egui::Id::new("overlay_debug_in_panel"))
-            .order(egui::Order::Middle)
-            .fixed_pos(pos)
-            .movable(false)
-            .show(ui.ctx(), |ui_area| {
-                // clip to panel to ensure it doesn't draw outside
-                ui_area.set_clip_rect(panel_rect);
-                ui_area.style_mut().override_text_style = Some(egui::TextStyle::Monospace);
-                ui_area.label(
-                    egui::RichText::new(text)
-                        .monospace()
-                        .color(text_color)
-                        .size(14.0),
-                );
-            });
+        // Paint within the CentralPanel clip rect to keep it inside
+        let painter = ui.painter_at(panel_rect);
+        painter.galley(pos, galley, text_color);
     }
 
     fn keybindings_modal(&mut self, ctx: &egui::Context) {
@@ -1265,9 +1256,9 @@ impl DemoApp {
         // Small overlay button inside the CentralPanel to toggle the right side panel
         let g_rect = ui.max_rect();
         let btn_size = egui::vec2(28.0, 28.0);
-        // Use the same external padding as the debug overlay (10px)
-        let right_margin = 10.0;
-        let bottom_margin = 10.0;
+        // Use the same external padding as the debug overlay
+        let right_margin = UI_MARGIN;
+        let bottom_margin = UI_MARGIN;
         let btn_pos = egui::pos2(
             g_rect.right() - right_margin - btn_size.x,
             g_rect.bottom() - bottom_margin - btn_size.y,
@@ -1319,7 +1310,12 @@ impl DemoApp {
             .movable(false)
             .show(ui.ctx(), |ui_area| {
                 ui_area.set_clip_rect(panel_rect);
-                ui_area.label(egui::RichText::new(text).color(color).size(16.0));
+                ui_area.with_layout(
+                    egui::Layout::top_down(egui::Align::LEFT).with_main_wrap(false),
+                    |ui| {
+                        ui.label(egui::RichText::new(text).color(color).size(16.0));
+                    },
+                );
             });
     }
     fn process_keybindings(&mut self, ctx: &egui::Context) {
