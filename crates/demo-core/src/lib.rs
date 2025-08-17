@@ -1150,9 +1150,17 @@ impl DemoApp {
             };
             let steps_line = format!("Steps: {}", self.last_step_count);
             #[cfg(feature = "events")]
-            let zoom_line = format!("Zoom: {:.3}", self.zoom);
+            let zoom_line = if self.event_filters.zoom {
+                format!("Zoom: {:.3}", self.zoom)
+            } else {
+                "Zoom: (filter off)".to_string()
+            };
             #[cfg(feature = "events")]
-            let pan_line = format!("Pan: [{:.1},{:.1}]", self.pan[0], self.pan[1]);
+            let pan_line = if self.event_filters.pan {
+                format!("Pan: [{:.1},{:.1}]", self.pan[0], self.pan[1])
+            } else {
+                "Pan: (filter off)".to_string()
+            };
 
             #[cfg(feature = "events")]
             {
@@ -1168,26 +1176,17 @@ impl DemoApp {
 
         let text_color = ui.style().visuals.strong_text_color();
         let panel_rect = ui.max_rect();
-
-        // Draw overlay text only (transparent background, no frame), anchored to CentralPanel top-right with margin.
-        let anchor_pos = panel_rect.right_top() + egui::vec2(-UI_MARGIN, UI_MARGIN);
-        egui::Area::new(egui::Id::new("overlay_debug_in_panel"))
-            .order(egui::Order::Middle)
-            .pivot(egui::Align2::RIGHT_TOP)
-            .fixed_pos(anchor_pos)
-            .movable(false)
-            .show(ui.ctx(), |ui_area| {
-                // clip to panel to ensure it doesn't draw outside
-                ui_area.set_clip_rect(panel_rect);
-                ui_area.style_mut().override_text_style = Some(egui::TextStyle::Monospace);
-                let lbl = egui::Label::new(
-                    egui::RichText::new(text)
-                        .monospace()
-                        .color(text_color)
-                        .size(14.0),
-                );
-                ui_area.add(lbl);
-            });
+        let font_id = egui::FontId::monospace(14.0);
+        // Layout without wrapping: each line stays single-line
+        let galley = ui.fonts(|f| f.layout_no_wrap(text.clone(), font_id, text_color));
+        // Position galley at top-right with margin
+        let pos = egui::pos2(
+            panel_rect.right() - UI_MARGIN - galley.size().x,
+            panel_rect.top() + UI_MARGIN,
+        );
+        // Paint within the CentralPanel clip rect to keep it inside
+        let painter = ui.painter_at(panel_rect);
+        painter.galley(pos, galley, text_color);
     }
 
     fn keybindings_modal(&mut self, ctx: &egui::Context) {
@@ -1311,7 +1310,12 @@ impl DemoApp {
             .movable(false)
             .show(ui.ctx(), |ui_area| {
                 ui_area.set_clip_rect(panel_rect);
-                ui_area.label(egui::RichText::new(text).color(color).size(16.0));
+                ui_area.with_layout(
+                    egui::Layout::top_down(egui::Align::LEFT).with_main_wrap(false),
+                    |ui| {
+                        ui.label(egui::RichText::new(text).color(color).size(16.0));
+                    },
+                );
             });
     }
     fn process_keybindings(&mut self, ctx: &egui::Context) {
