@@ -16,6 +16,8 @@ pub const MAX_NODE_COUNT: usize = 2500;
 pub const MAX_EDGE_COUNT: usize = 5000;
 #[cfg(feature = "events")]
 pub const EVENTS_LIMIT: usize = 500;
+// Keep margins consistent for overlays/buttons in the CentralPanel
+const UI_MARGIN: f32 = 10.0;
 
 #[cfg(feature = "events")]
 pub use crossbeam::channel::{unbounded, Receiver, Sender};
@@ -1164,37 +1166,27 @@ impl DemoApp {
             }
         };
 
-        // Measure text using monospace font
-        let font_id = egui::FontId::monospace(14.0);
         let text_color = ui.style().visuals.strong_text_color();
-        let text_size = ui.fonts(|f| {
-            f.layout_no_wrap(text.clone(), font_id.clone(), text_color)
-                .size()
-        });
-
-        // Position (no frame) based on text size
-        let margin = 10.0;
         let panel_rect = ui.max_rect();
-        let pos = egui::pos2(
-            panel_rect.max.x - margin - text_size.x,
-            panel_rect.min.y + margin,
-        );
 
-        // Draw overlay text only (no frame) within the CentralPanel rect.
+        // Draw overlay text only (transparent background, no frame), anchored to CentralPanel top-right with margin.
+        let anchor_pos = panel_rect.right_top() + egui::vec2(-UI_MARGIN, UI_MARGIN);
         egui::Area::new(egui::Id::new("overlay_debug_in_panel"))
             .order(egui::Order::Middle)
-            .fixed_pos(pos)
+            .pivot(egui::Align2::RIGHT_TOP)
+            .fixed_pos(anchor_pos)
             .movable(false)
             .show(ui.ctx(), |ui_area| {
                 // clip to panel to ensure it doesn't draw outside
                 ui_area.set_clip_rect(panel_rect);
                 ui_area.style_mut().override_text_style = Some(egui::TextStyle::Monospace);
-                ui_area.label(
+                let lbl = egui::Label::new(
                     egui::RichText::new(text)
                         .monospace()
                         .color(text_color)
                         .size(14.0),
                 );
+                ui_area.add(lbl);
             });
     }
 
@@ -1265,9 +1257,9 @@ impl DemoApp {
         // Small overlay button inside the CentralPanel to toggle the right side panel
         let g_rect = ui.max_rect();
         let btn_size = egui::vec2(28.0, 28.0);
-        // Use the same external padding as the debug overlay (10px)
-        let right_margin = 10.0;
-        let bottom_margin = 10.0;
+        // Use the same external padding as the debug overlay
+        let right_margin = UI_MARGIN;
+        let bottom_margin = UI_MARGIN;
         let btn_pos = egui::pos2(
             g_rect.right() - right_margin - btn_size.x,
             g_rect.bottom() - bottom_margin - btn_size.y,
