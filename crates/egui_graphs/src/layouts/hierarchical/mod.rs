@@ -1,3 +1,3 @@
 mod layout;
 
-pub use layout::{Hierarchical, State};
+pub use layout::{Hierarchical, Orientation, State};
