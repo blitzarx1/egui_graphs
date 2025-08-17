@@ -1,15 +1,3 @@
-This repository has been reorganized into a Cargo workspace with a `crates/` layout similar to the `egui` monorepo.
-
-Crates:
-- crates/egui_graphs – library crate published to crates.io
-- crates/demo-core – shared demo logic (not published)
-- crates/demo-web – WASM web demo (not published)
-
-Build from the workspace root:
-
-```
-cargo build --workspace
-```
 ![build](https://github.com/blitzarx1/egui_graphs/actions/workflows/rust.yml/badge.svg)
 [![Crates.io](https://img.shields.io/crates/v/egui_graphs)](https://crates.io/crates/egui_graphs)
 [![docs.rs](https://img.shields.io/docsrs/egui_graphs)](https://docs.rs/egui_graphs)
@@ -36,13 +24,13 @@ The project is on track for a stable release v1.0.0. For the moment, breaking re
 
 Please use `main` branch for the latest updates.
 
-Check the [demo example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/demo.rs) for the comprehensive overview of the widget possibilities.
+Check the [demo example](https://github.com/blitzar-tech/egui_graphs/blob/main/crates/egui_graphs/examples/demo.rs) for the comprehensive overview of the widget possibilities.
 
 ## Examples
 
 ### Basic setup example
 
-The source code of the following steps can be found in the [basic example](https://github.com/blitzar-tech/egui_graphs/blob/main/examples/basic.rs).
+The source code of the following steps can be found in the [basic example](https://github.com/blitzar-tech/egui_graphs/blob/main/crates/egui_graphs/examples/basic.rs).
 
 #### Step 1: Setting up the `BasicApp` struct
 
@@ -119,6 +107,67 @@ fn main() {
 <img width="792" height="594" alt="Screenshot 2025-08-16 at 7 46 25 PM" src="https://github.com/user-attachments/assets/be2eaf6c-0c88-4450-9825-2d7640278d7f" />
 
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
+
+## Repository organization
+
+Crates:
+- crates/egui_graphs – library crate published to crates.io
+- crates/demo-core – shared demo logic (not published)
+- crates/demo-web – WASM web demo (not published)
+
+Build from the workspace root:
+
+```bash
+cargo build --workspace
+```
+
+## Run locally
+
+### Run the web demo (WASM)
+
+Prerequisites:
+
+- Rust toolchain
+- wasm target and trunk
+
+```bash
+rustup target add wasm32-unknown-unknown
+cargo install trunk # if not installed
+```
+
+Serve locally:
+
+```bash
+cd crates/demo-web
+trunk serve
+# opens http://127.0.0.1:8080 (or similar)
+```
+
+Build static assets:
+
+```bash
+cd crates/demo-web
+trunk build
+# output in crates/demo-web/dist
+```
+
+### Run any native example
+
+From the workspace root, specify the package and the example name:
+
+```bash
+# demo example
+cargo run -p egui_graphs --example demo
+
+# another example (basic)
+cargo run -p egui_graphs --example basic
+
+# enable features (e.g., events)
+cargo run -p egui_graphs --example demo --features events
+
+# release mode
+cargo run -p egui_graphs --example demo --release
+```
 
 ## Features
 
