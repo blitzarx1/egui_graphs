@@ -1,4 +1,4 @@
 /target
 /Cargo.lock
 
-# /demo-web/dist/
+/demo-web/dist/

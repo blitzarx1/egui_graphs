@@ -11,7 +11,7 @@ pub struct CenterGravityParams {
 }
 impl Default for CenterGravityParams {
     fn default() -> Self {
-        Self { c: 0.1 }
+        Self { c: 0.3 }
     }
 }
 

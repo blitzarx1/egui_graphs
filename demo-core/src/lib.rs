@@ -17,7 +17,7 @@ use std::{cell::RefCell, rc::Rc};
 pub const MAX_NODE_COUNT: usize = 2500;
 pub const MAX_EDGE_COUNT: usize = 5000;
 #[cfg(feature = "events")]
-pub const EVENTS_LIMIT: usize = 1000;
+pub const EVENTS_LIMIT: usize = 500;
 
 #[cfg(feature = "events")]
 pub use crossbeam::channel::{unbounded, Receiver, Sender};
@@ -233,10 +233,10 @@ impl DemoApp {
         let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
         Self::distribute_nodes_circle(&mut g);
 
-    #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
-    let (event_publisher, event_consumer) = crate::unbounded();
-    #[cfg(all(feature = "events", target_arch = "wasm32"))]
-    let events_buf: Rc<RefCell<Vec<Event>>> = Rc::new(RefCell::new(Vec::new()));
+        #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
+        let (event_publisher, event_consumer) = crate::unbounded();
+        #[cfg(all(feature = "events", target_arch = "wasm32"))]
+        let events_buf: Rc<RefCell<Vec<Event>>> = Rc::new(RefCell::new(Vec::new()));
 
         Self {
             g,
@@ -527,20 +527,6 @@ impl DemoApp {
 
             ui.add_space(6.0);
             ui.separator();
-            ui.label("Extras");
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut state.extras.0.enabled, "center_gravity");
-                info_icon(ui, "Enable/disable center gravity force.");
-            });
-            ui.add_enabled_ui(state.extras.0.enabled, |ui| {
-                ui.horizontal(|ui| {
-                    ui.add(egui::Slider::new(&mut state.extras.0.params.c, 0.0..=2.0).text("center_strength"));
-                    info_icon(ui, "Coefficient for pull toward viewport/graph center.");
-                });
-            });
-
-            ui.add_space(6.0);
-            ui.separator();
             ui.horizontal(|ui| {
                 ui.label("Fast Forward");
                 info_icon(ui, "Advance the simulation instantly by a fixed number of steps or within a frame-time budget.");
@@ -602,6 +588,20 @@ impl DemoApp {
                         LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                     >::get_layout_state(ui);
                 }
+            });
+
+            ui.add_space(6.0);
+            ui.separator();
+            ui.label("Extras");
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut state.extras.0.enabled, "center_gravity");
+                info_icon(ui, "Enable/disable center gravity force.");
+            });
+            ui.add_enabled_ui(state.extras.0.enabled, |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(egui::Slider::new(&mut state.extras.0.params.c, 0.0..=2.0).text("center_strength"));
+                    info_icon(ui, "Coefficient for pull toward viewport/graph center.");
+                });
             });
         });
 
@@ -806,99 +806,129 @@ impl DemoApp {
 
     #[cfg(feature = "events")]
     pub fn ui_events(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("Events").default_open(true).show(ui, |ui| {
-            // Ensure the events section has a reasonable minimum height so it doesn't collapse too small.
-            ui.set_min_height(220.0);
-            ui.horizontal(|ui| {
-                if ui.button("All").clicked() {
-                    self.event_filters = EventFilters {
-                        pan: true,
-                        zoom: true,
-                        node_move: true,
-                        node_drag_start: true,
-                        node_drag_end: true,
-                        node_hover_enter: true,
-                        node_hover_leave: true,
-                        node_select: true,
-                        node_deselect: true,
-                        node_click: true,
-                        node_double_click: true,
-                        edge_click: true,
-                        edge_select: true,
-                        edge_deselect: true,
-                    };
-                }
-                if ui.button("None").clicked() {
-                    self.event_filters = EventFilters {
-                        pan: false,
-                        zoom: false,
-                        node_move: false,
-                        node_drag_start: false,
-                        node_drag_end: false,
-                        node_hover_enter: false,
-                        node_hover_leave: false,
-                        node_select: false,
-                        node_deselect: false,
-                        node_click: false,
-                        node_double_click: false,
-                        edge_click: false,
-                        edge_select: false,
-                        edge_deselect: false,
-                    };
-                    // After disabling all, clear list for clarity
-                    self.last_events.clear();
-                }
-                if ui.button("Clear").clicked() {
-                    self.last_events.clear();
-                }
-                ui.label(format!("showing {} / {}", self.last_events.len(), EVENTS_LIMIT));
-            });
-
-            ui.separator();
-            ui.label("Filters");
-            egui::Grid::new("events_filters_grid")
-                .num_columns(2)
-                .spacing(egui::vec2(12.0, 4.0))
-                .show(ui, |ui| {
-                    let mut changed = false;
-                    changed |= ui.checkbox(&mut self.event_filters.pan, "Pan").changed();
-                    changed |= ui.checkbox(&mut self.event_filters.zoom, "Zoom").changed();
-                    ui.end_row();
-                    changed |= ui.checkbox(&mut self.event_filters.node_move, "NodeMove").changed();
-                    changed |= ui.checkbox(&mut self.event_filters.node_drag_start, "NodeDragStart").changed();
-                    ui.end_row();
-                    changed |= ui.checkbox(&mut self.event_filters.node_drag_end, "NodeDragEnd").changed();
-                    changed |= ui.checkbox(&mut self.event_filters.node_hover_enter, "NodeHoverEnter").changed();
-                    ui.end_row();
-                    changed |= ui.checkbox(&mut self.event_filters.node_hover_leave, "NodeHoverLeave").changed();
-                    changed |= ui.checkbox(&mut self.event_filters.node_select, "NodeSelect").changed();
-                    ui.end_row();
-                    changed |= ui.checkbox(&mut self.event_filters.node_deselect, "NodeDeselect").changed();
-                    changed |= ui.checkbox(&mut self.event_filters.node_click, "NodeClick").changed();
-                    ui.end_row();
-                    changed |= ui.checkbox(&mut self.event_filters.node_double_click, "NodeDoubleClick").changed();
-                    changed |= ui.checkbox(&mut self.event_filters.edge_click, "EdgeClick").changed();
-                    ui.end_row();
-                    changed |= ui.checkbox(&mut self.event_filters.edge_select, "EdgeSelect").changed();
-                    changed |= ui.checkbox(&mut self.event_filters.edge_deselect, "EdgeDeselect").changed();
-                    ui.end_row();
-
-                    if changed {
-                        // Drop already stored events that are no longer enabled
-                        self.event_filters.purge_disabled(&mut self.last_events);
-                        ui.ctx().request_repaint();
+        CollapsingHeader::new("Events")
+            .default_open(true)
+            .show(ui, |ui| {
+                // Ensure the events section has a reasonable minimum height so it doesn't collapse too small.
+                ui.set_min_height(220.0);
+                ui.horizontal(|ui| {
+                    if ui.button("All").clicked() {
+                        self.event_filters = EventFilters {
+                            pan: true,
+                            zoom: true,
+                            node_move: true,
+                            node_drag_start: true,
+                            node_drag_end: true,
+                            node_hover_enter: true,
+                            node_hover_leave: true,
+                            node_select: true,
+                            node_deselect: true,
+                            node_click: true,
+                            node_double_click: true,
+                            edge_click: true,
+                            edge_select: true,
+                            edge_deselect: true,
+                        };
                     }
+                    if ui.button("None").clicked() {
+                        self.event_filters = EventFilters {
+                            pan: false,
+                            zoom: false,
+                            node_move: false,
+                            node_drag_start: false,
+                            node_drag_end: false,
+                            node_hover_enter: false,
+                            node_hover_leave: false,
+                            node_select: false,
+                            node_deselect: false,
+                            node_click: false,
+                            node_double_click: false,
+                            edge_click: false,
+                            edge_select: false,
+                            edge_deselect: false,
+                        };
+                        // After disabling all, clear list for clarity
+                        self.last_events.clear();
+                    }
+                    if ui.button("Clear").clicked() {
+                        self.last_events.clear();
+                    }
+                    ui.label(format!(
+                        "showing {} / {}",
+                        self.last_events.len(),
+                        EVENTS_LIMIT
+                    ));
                 });
 
-            ui.separator();
-            let list_h = ui.available_height();
-            ScrollArea::vertical().max_height(list_h).show(ui, |ui| {
-                // Show in chronological order; newest at bottom.
-                for ev in &self.last_events {
-                    ui.code(ev);
-                }
+                ui.separator();
+                ui.label("Filters");
+                egui::Grid::new("events_filters_grid")
+                    .num_columns(2)
+                    .spacing(egui::vec2(12.0, 4.0))
+                    .show(ui, |ui| {
+                        let mut changed = false;
+                        changed |= ui.checkbox(&mut self.event_filters.pan, "Pan").changed();
+                        changed |= ui.checkbox(&mut self.event_filters.zoom, "Zoom").changed();
+                        ui.end_row();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.node_move, "NodeMove")
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.node_drag_start, "NodeDragStart")
+                            .changed();
+                        ui.end_row();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.node_drag_end, "NodeDragEnd")
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.node_hover_enter, "NodeHoverEnter")
+                            .changed();
+                        ui.end_row();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.node_hover_leave, "NodeHoverLeave")
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.node_select, "NodeSelect")
+                            .changed();
+                        ui.end_row();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.node_deselect, "NodeDeselect")
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.node_click, "NodeClick")
+                            .changed();
+                        ui.end_row();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.node_double_click, "NodeDoubleClick")
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.edge_click, "EdgeClick")
+                            .changed();
+                        ui.end_row();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.edge_select, "EdgeSelect")
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.event_filters.edge_deselect, "EdgeDeselect")
+                            .changed();
+                        ui.end_row();
+
+                        if changed {
+                            // Drop already stored events that are no longer enabled
+                            self.event_filters.purge_disabled(&mut self.last_events);
+                            ui.ctx().request_repaint();
+                        }
+                    });
+
+                ui.separator();
+                let list_h = ui.available_height();
+                ScrollArea::vertical().max_height(list_h).show(ui, |ui| {
+                    // Show in chronological order; newest at bottom.
+                    for ev in &self.last_events {
+                        ui.code(ev);
+                    }
+                });
             });
-        });
     }
 
     #[cfg(not(feature = "events"))]

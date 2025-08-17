@@ -34,7 +34,6 @@ instant = "0.1"
 crossbeam = { version = "0.8", optional = true }
 
 [features]
-# Forward 'events' to demo-core so examples get the same feature when enabled.
 events = ["dep:crossbeam", "demo-core/events"]
 
 [lints.rust]
