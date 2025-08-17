@@ -208,6 +208,7 @@ pub struct DemoApp {
     pub keybindings_just_opened: bool,
     pub reset_requested: bool,
     pub last_step_count: usize,
+    pub show_open_settings_tip: bool,
     #[cfg(not(feature = "events"))]
     pub copy_tip_until: Option<Instant>,
     #[cfg(feature = "events")]
@@ -248,7 +249,8 @@ impl DemoApp {
             fps: 0.0,
             last_update_time: Instant::now(),
             frames_last_time_span: 0,
-            show_sidebar: true,
+            // Start with side panel hidden by default
+            show_sidebar: false,
             #[cfg(not(feature = "events"))]
             copy_tip_until: None,
             #[cfg(feature = "events")]
@@ -271,6 +273,7 @@ impl DemoApp {
             keybindings_just_opened: false,
             reset_requested: false,
             last_step_count: 0,
+            show_open_settings_tip: true,
         }
     }
 
@@ -1077,6 +1080,8 @@ impl App for DemoApp {
             self.overlay_debug_panel(ui);
             // Draw toggle button for the side panel at bottom-right of the graph area
             self.overlay_toggle_sidebar_button(ui);
+            // One-time hint at the bottom of the graph area
+            self.overlay_open_settings_tip(ui);
         });
 
         self.update_fps();
@@ -1289,6 +1294,32 @@ impl DemoApp {
                 }
             });
     }
+    fn overlay_open_settings_tip(&mut self, ui: &mut egui::Ui) {
+        if !self.show_open_settings_tip {
+            return;
+        }
+        // Draw the tip at the bottom center of the CentralPanel area
+        let panel_rect = ui.max_rect();
+        let text = "Press TAB to open settings";
+        let font_id = egui::FontId::proportional(16.0);
+        let color = ui.style().visuals.text_color();
+        let galley_size =
+            ui.fonts(|f| f.layout_no_wrap(text.into(), font_id.clone(), color).size());
+        let margin = 12.0;
+        let pos = egui::pos2(
+            panel_rect.center().x - galley_size.x * 0.5,
+            panel_rect.bottom() - margin - galley_size.y,
+        );
+
+        egui::Area::new(egui::Id::new("overlay_press_tab_tip"))
+            .order(egui::Order::Middle)
+            .fixed_pos(pos)
+            .movable(false)
+            .show(ui.ctx(), |ui_area| {
+                ui_area.set_clip_rect(panel_rect);
+                ui_area.label(egui::RichText::new(text).color(color).size(16.0));
+            });
+    }
     fn process_keybindings(&mut self, ctx: &egui::Context) {
         // Toggle modal on 'h' or '?' and close on any interaction after open.
         let mut any_key_pressed = false;
@@ -1380,6 +1411,8 @@ impl DemoApp {
                         egui::Key::Tab => {
                             if !modifiers.any() {
                                 self.show_sidebar = !self.show_sidebar;
+                                // Hide the one-time tip once Tab is used
+                                self.show_open_settings_tip = false;
                             }
                         }
                         egui::Key::D => {

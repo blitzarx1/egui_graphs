@@ -29,8 +29,8 @@
   </style>
   
 <script type="module">
-import init, * as bindings from '/demo-web-5e5c8e6835a4032b.js';
-const wasm = await init({ module_or_path: '/demo-web-5e5c8e6835a4032b_bg.wasm' });
+import init, * as bindings from '/demo-web-91dede21383c1e9b.js';
+const wasm = await init({ module_or_path: '/demo-web-91dede21383c1e9b_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -40,7 +40,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
   
-  <link rel="modulepreload" href="/demo-web-5e5c8e6835a4032b.js" crossorigin="anonymous" integrity="sha384-Qhw8zzmoaH2zRD70eL0FxDJ7Cn5qrVN6zmkv+05uMhgzx8O0xf96Ctn7LrITGlWb"><link rel="preload" href="/demo-web-5e5c8e6835a4032b_bg.wasm" crossorigin="anonymous" integrity="sha384-boe1liaelsyjoZ++IViPou5NHRxiFL5xR2pn1vETn9LUACzWEv5V5nf9ik6nkTd9" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/demo-web-91dede21383c1e9b.js" crossorigin="anonymous" integrity="sha384-LaH/3C9T1q6AcEmaEBn2MM4fFhDTLfqNARjNXMNP/p97Inh5pAqPinDhAhGabKd7"><link rel="preload" href="/demo-web-91dede21383c1e9b_bg.wasm" crossorigin="anonymous" integrity="sha384-lEPRa25YvaP1DuoKYp1VZfb1lipkYBrgylmdWVgzOJt+YiDUASuHQi9JcT542SRk" as="fetch" type="application/wasm"></head>
   <body>
     <canvas id="the_canvas_id"></canvas>
   <script>"use strict";
