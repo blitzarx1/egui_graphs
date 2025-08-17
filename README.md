@@ -143,12 +143,26 @@ trunk serve
 # opens http://127.0.0.1:8080 (or similar)
 ```
 
+With the events feature enabled:
+
+```bash
+cd crates/demo-web
+trunk serve --features events
+```
+
 Build static assets:
 
 ```bash
 cd crates/demo-web
 trunk build
 # output in crates/demo-web/dist
+```
+
+Build with the events feature enabled:
+
+```bash
+cd crates/demo-web
+trunk build --features events
 ```
 
 ### Run any native example

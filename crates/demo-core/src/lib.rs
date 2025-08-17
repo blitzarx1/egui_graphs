@@ -9,8 +9,6 @@ use instant::Instant;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
 use rand::Rng;
-#[cfg(not(feature = "events"))]
-use std::time::Duration;
 #[cfg(all(feature = "events", target_arch = "wasm32"))]
 use std::{cell::RefCell, rc::Rc};
 
@@ -942,24 +940,6 @@ impl DemoApp {
             ui.colored_label(egui::Color32::from_rgb(200, 180, 40),
                 "Tip: enable the 'events' feature to see interaction events (pan/zoom, clicks, selections).",
             );
-
-            let cmd = "cargo r --release --example demo --features events";
-            ui.horizontal(|ui| {
-                ui.code(cmd);
-                if ui.small_button("📋").on_hover_text("Copy command").clicked() {
-                    ui.ctx().copy_text(cmd.to_string());
-                    self.copy_tip_until = Some(Instant::now() + Duration::from_millis(1500));
-                    ui.ctx().request_repaint();
-                }
-            });
-            if let Some(until) = self.copy_tip_until {
-                if Instant::now() < until {
-                    ui.label(egui::RichText::new("Copied!").color(egui::Color32::LIGHT_GREEN).small());
-                    ui.ctx().request_repaint_after(Duration::from_millis(100));
-                } else {
-                    self.copy_tip_until = None;
-                }
-            }
         });
     }
     #[cfg(feature = "events")]
