@@ -15,8 +15,7 @@ use crate::{
 };
 
 /// Orientation of the hierarchical layout.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum Orientation {
     /// Levels grow downward (classic top-down tree). Rows are vertical steps.
     #[default]
@@ -24,7 +23,6 @@ pub enum Orientation {
     /// Levels grow to the right. Rows are horizontal steps.
     LeftRight,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
