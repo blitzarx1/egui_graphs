@@ -699,7 +699,7 @@ impl DemoApp {
     }
 
     pub fn ui_layout_force_directed(&mut self, ui: &mut Ui) {
-        let mut state = egui_graphs::GraphView::<
+        let state = egui_graphs::GraphView::<
             (),
             (),
             petgraph::Directed,
