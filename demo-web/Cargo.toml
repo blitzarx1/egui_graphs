@@ -17,6 +17,10 @@ eframe = { version = "0.32" }
 demo-core = { path = "../demo-core" }
 egui_graphs = { path = ".." }
 
+[features]
+# Forward the `events` feature to crates that actually implement it.
+events = ["demo-core/events", "egui_graphs/events"]
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
