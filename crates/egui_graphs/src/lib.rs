@@ -25,7 +25,8 @@ pub use layouts::force_directed::{
     FruchtermanReingoldWithExtras, FruchtermanReingoldWithExtrasState,
 };
 pub use layouts::hierarchical::{
-    Hierarchical as LayoutHierarchical, State as LayoutStateHierarchical,
+    Hierarchical as LayoutHierarchical, Orientation as LayoutHierarchicalOrientation,
+    State as LayoutStateHierarchical,
 };
 pub use layouts::random::{Random as LayoutRandom, State as LayoutStateRandom};
 pub use layouts::{Layout, LayoutState};
