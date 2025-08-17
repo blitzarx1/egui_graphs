@@ -11,11 +11,13 @@ use petgraph::Directed;
 use rand::Rng;
 #[cfg(not(feature = "events"))]
 use std::time::Duration;
+#[cfg(all(feature = "events", target_arch = "wasm32"))]
+use std::{cell::RefCell, rc::Rc};
 
 pub const MAX_NODE_COUNT: usize = 2500;
 pub const MAX_EDGE_COUNT: usize = 5000;
 #[cfg(feature = "events")]
-pub const EVENTS_LIMIT: usize = 200;
+pub const EVENTS_LIMIT: usize = 1000;
 
 #[cfg(feature = "events")]
 pub use crossbeam::channel::{unbounded, Receiver, Sender};
@@ -216,10 +218,12 @@ pub struct DemoApp {
     pub zoom: f32,
     #[cfg(feature = "events")]
     pub last_events: Vec<String>,
-    #[cfg(feature = "events")]
+    #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
     pub event_publisher: crate::Sender<Event>,
-    #[cfg(feature = "events")]
+    #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
     pub event_consumer: crate::Receiver<Event>,
+    #[cfg(all(feature = "events", target_arch = "wasm32"))]
+    pub events_buf: Rc<RefCell<Vec<Event>>>,
     #[cfg(feature = "events")]
     pub event_filters: EventFilters,
 }
@@ -229,8 +233,10 @@ impl DemoApp {
         let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
         Self::distribute_nodes_circle(&mut g);
 
-        #[cfg(feature = "events")]
-        let (event_publisher, event_consumer) = crate::unbounded();
+    #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
+    let (event_publisher, event_consumer) = crate::unbounded();
+    #[cfg(all(feature = "events", target_arch = "wasm32"))]
+    let events_buf: Rc<RefCell<Vec<Event>>> = Rc::new(RefCell::new(Vec::new()));
 
         Self {
             g,
@@ -253,10 +259,12 @@ impl DemoApp {
             zoom: 1.0,
             #[cfg(feature = "events")]
             last_events: Vec::new(),
-            #[cfg(feature = "events")]
+            #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
             event_publisher,
-            #[cfg(feature = "events")]
+            #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
             event_consumer,
+            #[cfg(all(feature = "events", target_arch = "wasm32"))]
+            events_buf,
             #[cfg(feature = "events")]
             event_filters: EventFilters::default(),
             dark_mode: cc.egui_ctx.style().visuals.dark_mode,
@@ -796,6 +804,108 @@ impl DemoApp {
             });
     }
 
+    #[cfg(feature = "events")]
+    pub fn ui_events(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("Events").default_open(true).show(ui, |ui| {
+            // Ensure the events section has a reasonable minimum height so it doesn't collapse too small.
+            ui.set_min_height(220.0);
+            ui.horizontal(|ui| {
+                if ui.button("All").clicked() {
+                    self.event_filters = EventFilters {
+                        pan: true,
+                        zoom: true,
+                        node_move: true,
+                        node_drag_start: true,
+                        node_drag_end: true,
+                        node_hover_enter: true,
+                        node_hover_leave: true,
+                        node_select: true,
+                        node_deselect: true,
+                        node_click: true,
+                        node_double_click: true,
+                        edge_click: true,
+                        edge_select: true,
+                        edge_deselect: true,
+                    };
+                }
+                if ui.button("None").clicked() {
+                    self.event_filters = EventFilters {
+                        pan: false,
+                        zoom: false,
+                        node_move: false,
+                        node_drag_start: false,
+                        node_drag_end: false,
+                        node_hover_enter: false,
+                        node_hover_leave: false,
+                        node_select: false,
+                        node_deselect: false,
+                        node_click: false,
+                        node_double_click: false,
+                        edge_click: false,
+                        edge_select: false,
+                        edge_deselect: false,
+                    };
+                    // After disabling all, clear list for clarity
+                    self.last_events.clear();
+                }
+                if ui.button("Clear").clicked() {
+                    self.last_events.clear();
+                }
+                ui.label(format!("showing {} / {}", self.last_events.len(), EVENTS_LIMIT));
+            });
+
+            ui.separator();
+            ui.label("Filters");
+            egui::Grid::new("events_filters_grid")
+                .num_columns(2)
+                .spacing(egui::vec2(12.0, 4.0))
+                .show(ui, |ui| {
+                    let mut changed = false;
+                    changed |= ui.checkbox(&mut self.event_filters.pan, "Pan").changed();
+                    changed |= ui.checkbox(&mut self.event_filters.zoom, "Zoom").changed();
+                    ui.end_row();
+                    changed |= ui.checkbox(&mut self.event_filters.node_move, "NodeMove").changed();
+                    changed |= ui.checkbox(&mut self.event_filters.node_drag_start, "NodeDragStart").changed();
+                    ui.end_row();
+                    changed |= ui.checkbox(&mut self.event_filters.node_drag_end, "NodeDragEnd").changed();
+                    changed |= ui.checkbox(&mut self.event_filters.node_hover_enter, "NodeHoverEnter").changed();
+                    ui.end_row();
+                    changed |= ui.checkbox(&mut self.event_filters.node_hover_leave, "NodeHoverLeave").changed();
+                    changed |= ui.checkbox(&mut self.event_filters.node_select, "NodeSelect").changed();
+                    ui.end_row();
+                    changed |= ui.checkbox(&mut self.event_filters.node_deselect, "NodeDeselect").changed();
+                    changed |= ui.checkbox(&mut self.event_filters.node_click, "NodeClick").changed();
+                    ui.end_row();
+                    changed |= ui.checkbox(&mut self.event_filters.node_double_click, "NodeDoubleClick").changed();
+                    changed |= ui.checkbox(&mut self.event_filters.edge_click, "EdgeClick").changed();
+                    ui.end_row();
+                    changed |= ui.checkbox(&mut self.event_filters.edge_select, "EdgeSelect").changed();
+                    changed |= ui.checkbox(&mut self.event_filters.edge_deselect, "EdgeDeselect").changed();
+                    ui.end_row();
+
+                    if changed {
+                        // Drop already stored events that are no longer enabled
+                        self.event_filters.purge_disabled(&mut self.last_events);
+                        ui.ctx().request_repaint();
+                    }
+                });
+
+            ui.separator();
+            let list_h = ui.available_height();
+            ScrollArea::vertical().max_height(list_h).show(ui, |ui| {
+                // Show in chronological order; newest at bottom.
+                for ev in &self.last_events {
+                    ui.code(ev);
+                }
+            });
+        });
+    }
+
+    #[cfg(not(feature = "events"))]
+    pub fn ui_events(&mut self, ui: &mut Ui) {
+        self.show_events_feature_tip(ui);
+    }
+
     #[cfg(not(feature = "events"))]
     pub fn show_events_feature_tip(&mut self, ui: &mut Ui) {
         ui.group(|ui| {
@@ -845,9 +955,8 @@ impl App for DemoApp {
                 .default_width(300.0)
                 .min_width(300.0)
                 .show(ctx, |ui| {
-                    ScrollArea::vertical().show(ui, |ui| {
-                        #[cfg(not(feature = "events"))]
-                        self.show_events_feature_tip(ui);
+                    // Single scroll area: all sections scroll naturally; Events is last.
+                    egui::ScrollArea::vertical().show(ui, |ui| {
                         if ui
                             .button("Reset Defaults")
                             .on_hover_text("Reset ALL settings, graph, layout & view state (Space)")
@@ -861,9 +970,12 @@ impl App for DemoApp {
                         self.ui_navigation(ui);
                         self.ui_layout_force_directed(ui);
                         self.ui_interaction(ui);
+                        // Selected under Interaction
+                        self.ui_selected(ui);
                         self.ui_style(ui);
                         self.ui_debug(ui);
-                        self.ui_selected(ui);
+                        // Events or tip shown last and scrollable
+                        self.ui_events(ui);
                     });
                 });
         }
@@ -924,9 +1036,19 @@ impl App for DemoApp {
             .with_styles(settings_style);
             #[cfg(feature = "events")]
             {
-                view = view.with_events(&self.event_publisher);
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    view = view.with_event_sink(&self.event_publisher);
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    view = view.with_event_sink(&self.events_buf);
+                }
             }
             ui.add(&mut view);
+
+            #[cfg(feature = "events")]
+            self.consume_events();
 
             // Capture latest layout step count for overlay display
             let state = egui_graphs::GraphView::<
@@ -955,6 +1077,40 @@ impl App for DemoApp {
 }
 
 impl DemoApp {
+    #[cfg(feature = "events")]
+    fn consume_events(&mut self) {
+        use egui_graphs::events::Event;
+        let mut push_event = |e: &Event| {
+            if !self.event_filters.enabled_for(e) {
+                return;
+            }
+            match e {
+                Event::Pan(p) => self.pan = p.new_pan,
+                Event::Zoom(z) => self.zoom = z.new_zoom,
+                _ => {}
+            }
+            let s = format!("{:?}", e);
+            self.last_events.push(s);
+            if self.last_events.len() > crate::EVENTS_LIMIT {
+                let overflow = self.last_events.len() - crate::EVENTS_LIMIT;
+                self.last_events.drain(0..overflow);
+            }
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            while let Ok(e) = self.event_consumer.try_recv() {
+                push_event(&e);
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut buf = self.events_buf.borrow_mut();
+            for e in buf.drain(..) {
+                push_event(&e);
+            }
+        }
+    }
     fn overlay_debug_panel(&mut self, ui: &mut egui::Ui) {
         if !self.show_debug_overlay {
             return;

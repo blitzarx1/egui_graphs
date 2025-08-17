@@ -15,7 +15,8 @@ petgraph = { version = "0.8", default-features = false, features = [
 ] }
 rand = "0.9"
 instant = "0.1"
+crossbeam = { version = "0.8", optional = true }
 
 [features]
-# Pass-through for consumers if needed (not used here)
-events = ["egui_graphs/events"]
+# Enable events in this demo and pull in crossbeam for native channels
+events = ["egui_graphs/events", "dep:crossbeam"]

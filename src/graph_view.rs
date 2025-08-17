@@ -158,13 +158,11 @@ pub type DefaultGraphView<'a> = GraphView<
 
 #[cfg(feature = "events")]
 use crate::events::{
-    Event, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
+    Event, EventSink, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
     PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd, PayloadNodeDragStart,
     PayloadNodeHoverEnter, PayloadNodeHoverLeave, PayloadNodeMove, PayloadNodeSelect, PayloadPan,
     PayloadZoom,
 };
-#[cfg(feature = "events")]
-use crossbeam::channel::Sender;
 
 // Effective interaction flags after applying master->child rules.
 #[derive(Clone, Copy, Debug, Default)]
@@ -221,7 +219,7 @@ pub struct GraphView<
     settings_style: SettingsStyle,
 
     #[cfg(feature = "events")]
-    events_publisher: Option<&'a Sender<Event>>,
+    events_sink: Option<&'a dyn EventSink>,
 
     _marker: PhantomData<(Nd, Ed, L, S)>,
 }
@@ -300,17 +298,25 @@ where
             settings_navigation: SettingsNavigation::default(),
 
             #[cfg(feature = "events")]
-            events_publisher: Option::default(),
+            events_sink: Option::default(),
 
             _marker: PhantomData,
         }
     }
 
     #[cfg(feature = "events")]
-    /// Allows to supply channel where events happening in the graph will be reported.
-    pub fn with_events(mut self, events_publisher: &'a Sender<Event>) -> Self {
-        self.events_publisher = Some(events_publisher);
+    /// Supply a generic sink that will receive interaction events.
+    /// Works with crossbeam::Sender<Event>, closures `Fn(Event)`, or custom implementations.
+    pub fn with_event_sink(mut self, sink: &'a dyn EventSink) -> Self {
+        self.events_sink = Some(sink);
         self
+    }
+
+    #[cfg(feature = "events")]
+    #[deprecated(since = "0.28.0", note = "Use with_event_sink instead")]
+    /// Backwards-compat wrapper for crossbeam channels.
+    pub fn with_events(self, events_publisher: &'a crossbeam::channel::Sender<Event>) -> Self {
+        self.with_event_sink(events_publisher)
     }
 }
 
@@ -1074,8 +1080,8 @@ where
 
     #[cfg(feature = "events")]
     fn publish_event(&self, event: Event) {
-        if let Some(sender) = self.events_publisher {
-            sender.send(event).unwrap();
+        if let Some(sink) = self.events_sink {
+            sink.send(event);
         }
     }
 }
