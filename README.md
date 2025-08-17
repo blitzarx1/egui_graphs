@@ -1,3 +1,15 @@
+This repository has been reorganized into a Cargo workspace with a `crates/` layout similar to the `egui` monorepo.
+
+Crates:
+- crates/egui_graphs – library crate published to crates.io
+- crates/demo-core – shared demo logic (not published)
+- crates/demo-web – WASM web demo (not published)
+
+Build from the workspace root:
+
+```
+cargo build --workspace
+```
 ![build](https://github.com/blitzarx1/egui_graphs/actions/workflows/rust.yml/badge.svg)
 [![Crates.io](https://img.shields.io/crates/v/egui_graphs)](https://crates.io/crates/egui_graphs)
 [![docs.rs](https://img.shields.io/docsrs/egui_graphs)](https://docs.rs/egui_graphs)
