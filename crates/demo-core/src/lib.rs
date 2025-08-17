@@ -1291,6 +1291,8 @@ impl DemoApp {
                 let response = ui_area.add_sized(btn_size, egui::Button::new(arrow_text));
                 if response.on_hover_text(tip).clicked() {
                     self.show_sidebar = !self.show_sidebar;
+                    // Also hide the one-time tip if the user used the button
+                    self.show_open_settings_tip = false;
                 }
             });
     }
@@ -1300,7 +1302,7 @@ impl DemoApp {
         }
         // Draw the tip at the bottom center of the CentralPanel area
         let panel_rect = ui.max_rect();
-        let text = "Press TAB to open settings";
+        let text = "Press Tab or click the ◀ button to open settings.";
         let font_id = egui::FontId::proportional(16.0);
         let color = ui.style().visuals.text_color();
         let galley_size =

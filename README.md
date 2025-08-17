@@ -22,9 +22,7 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 
 The project is on track for a stable release v1.0.0. For the moment, breaking releases are very possible.
 
-Please use `main` branch for the latest updates.
-
-Check the [demo example](TODO: link to web demo app) for the comprehensive overview of the widget possibilities.
+Check the [web-demo](https://blitzar-tech.github.io/egui_graphs/) for the comprehensive overview of the widget possibilities.
 
 ## Examples
 
