@@ -1262,16 +1262,18 @@ impl DemoApp {
     }
 
     fn overlay_toggle_sidebar_button(&mut self, ui: &mut egui::Ui) {
-        // Small overlay button inside the CentralPanel to toggle the right side panel
+        // Small overlay buttons inside the CentralPanel: '?' (help) and '<'/'>' (toggle sidebar)
         let g_rect = ui.max_rect();
         let btn_size = egui::vec2(28.0, 28.0);
+        let spacing = 6.0;
         // Use the same external padding as the debug overlay
         let right_margin = UI_MARGIN;
         let bottom_margin = UI_MARGIN;
-        let btn_pos = egui::pos2(
+        let toggle_pos = egui::pos2(
             g_rect.right() - right_margin - btn_size.x,
             g_rect.bottom() - bottom_margin - btn_size.y,
         );
+        let help_pos = egui::pos2(toggle_pos.x - spacing - btn_size.x, toggle_pos.y);
 
         // Use filled triangles for a nicer look
         let (arrow, tip) = if self.show_sidebar {
@@ -1280,9 +1282,30 @@ impl DemoApp {
             ("◀", "Show side panel (Tab)")
         };
 
+        // Help '?' button (opens keybindings)
+        egui::Area::new(egui::Id::new("help_btn"))
+            .order(egui::Order::Middle)
+            .fixed_pos(help_pos)
+            .movable(false)
+            .show(ui.ctx(), |ui_area| {
+                // Clip the button to the CentralPanel rect
+                ui_area.set_clip_rect(g_rect);
+                let help_text = egui::RichText::new("ℹ").size(16.0);
+                let response = ui_area.add_sized(btn_size, egui::Button::new(help_text));
+                if response.on_hover_text("Open keybindings (h / ?)").clicked() {
+                    // Open the keybindings modal
+                    self.show_keybindings_overlay = true;
+                    self.keybindings_just_opened = true;
+                    // Affect instructional messages the same as pressing '?' or 'h'
+                    self.keybindings_tip_cleared = true;
+                    self.show_open_keybindings_tip = false;
+                }
+            });
+
+        // Sidebar toggle button
         egui::Area::new(egui::Id::new("sidebar_toggle_btn"))
             .order(egui::Order::Middle)
-            .fixed_pos(btn_pos)
+            .fixed_pos(toggle_pos)
             .movable(false)
             .show(ui.ctx(), |ui_area| {
                 // Clip the button to the CentralPanel rect
@@ -1291,8 +1314,13 @@ impl DemoApp {
                 let response = ui_area.add_sized(btn_size, egui::Button::new(arrow_text));
                 if response.on_hover_text(tip).clicked() {
                     self.show_sidebar = !self.show_sidebar;
-                    // Also hide the one-time tip if the user used the button
-                    self.show_open_settings_tip = false;
+                    // Mirror the Tab key logic for instructional tips
+                    if self.show_open_settings_tip {
+                        self.show_open_settings_tip = false;
+                        if !self.keybindings_tip_cleared {
+                            self.show_open_keybindings_tip = true;
+                        }
+                    }
                 }
             });
     }
