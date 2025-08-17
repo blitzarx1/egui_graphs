@@ -24,7 +24,7 @@ The project is on track for a stable release v1.0.0. For the moment, breaking re
 
 Please use `main` branch for the latest updates.
 
-Check the [demo example](https://github.com/blitzar-tech/egui_graphs/blob/main/crates/egui_graphs/examples/demo.rs) for the comprehensive overview of the widget possibilities.
+Check the [demo example](TODO: link to web demo app) for the comprehensive overview of the widget possibilities.
 
 ## Examples
 
