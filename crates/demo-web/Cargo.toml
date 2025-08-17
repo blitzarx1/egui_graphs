@@ -12,8 +12,8 @@ console_error_panic_hook = "0.1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement"] }
-egui = "0.32"
-eframe = { version = "0.32" }
+egui.workspace = true
+eframe.workspace = true
 demo-core = { path = "../demo-core" }
 egui_graphs = { path = "../egui_graphs" }
 

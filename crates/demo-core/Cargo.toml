@@ -5,17 +5,17 @@ edition = "2021"
 publish = false
 
 [dependencies]
-egui = "0.32"
-eframe = "0.32"
+egui.workspace = true
+eframe.workspace = true
 egui_graphs = { path = "../egui_graphs" }
-petgraph = { version = "0.8", default-features = false, features = [
+petgraph = { workspace = true, default-features = false, features = [
   "graphmap",
   "stable_graph",
   "matrix_graph",
 ] }
-rand = "0.9"
-instant = "0.1"
-crossbeam = { version = "0.8", optional = true }
+rand.workspace = true
+instant.workspace = true
+crossbeam = { workspace = true, optional = true }
 
 [features]
 # Enable events in this demo and pull in crossbeam for native channels
