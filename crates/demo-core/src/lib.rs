@@ -1360,7 +1360,7 @@ impl DemoApp {
             return;
         }
         let panel_rect = ui.max_rect();
-        let text = "Press ? or h to open keybindings.";
+        let text = "Press ? or click the ℹ button to open keybindings.";
         let font_id = egui::FontId::proportional(16.0);
         let color = ui.style().visuals.text_color();
         let galley = ui.fonts(|f| f.layout_no_wrap(text.into(), font_id.clone(), color));
