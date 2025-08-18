@@ -1060,6 +1060,10 @@ where
     #[allow(unused_variables, clippy::unused_self)]
     fn set_pan(&self, new_pan: Vec2, meta: &mut Metadata) {
         let diff = new_pan - meta.pan;
+        if diff == Vec2::ZERO {
+            return;
+        }
+
         meta.pan = new_pan;
 
         #[cfg(feature = "events")]
@@ -1072,6 +1076,10 @@ where
     #[allow(unused_variables, clippy::unused_self)]
     fn set_zoom(&self, new_zoom: f32, meta: &mut Metadata) {
         let diff = new_zoom - meta.zoom;
+        if diff == 0. {
+            return;
+        }
+
         meta.zoom = new_zoom;
 
         #[cfg(feature = "events")]
