@@ -316,17 +316,17 @@ impl DemoApp {
         if self.g.node_count() >= MAX_NODE_COUNT {
             return;
         }
-        if let Some(r) = self.random_node_idx() {
-            let n = self.g.node(r).unwrap();
-            let mut rng = rand::rng();
-            let loc = Pos2::new(
-                n.location().x + 10.0 + rng.random_range(0.0..50.0),
-                n.location().y + 10.0 + rng.random_range(0.0..50.0),
-            );
-            self.g.add_node_with_location((), loc);
+        let base = if let Some(r) = self.random_node_idx() {
+            self.g.node(r).unwrap().location()
         } else {
-            self.g.add_node(());
-        }
+            Pos2::new(0.0, 0.0)
+        };
+        let mut rng = rand::rng();
+        let loc = Pos2::new(
+            base.x + rng.random_range(-150.0..150.0),
+            base.y + rng.random_range(-150.0..150.0),
+        );
+        self.g.add_node_with_location((), loc);
     }
     pub fn remove_random_node(&mut self) {
         if let Some(i) = self.random_node_idx() {
@@ -436,6 +436,16 @@ impl DemoApp {
             egui_graphs::DefaultEdgeShape,
             FruchtermanReingoldWithCenterGravityState,
             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+        >::reset(ui);
+        egui_graphs::GraphView::<
+            (),
+            (),
+            petgraph::Directed,
+            petgraph::stable_graph::DefaultIx,
+            egui_graphs::DefaultNodeShape,
+            egui_graphs::DefaultEdgeShape,
+            LayoutStateHierarchical,
+            LayoutHierarchical,
         >::reset(ui);
         ui.ctx().set_visuals(egui::Visuals::dark());
         self.dark_mode = ui.ctx().style().visuals.dark_mode;
