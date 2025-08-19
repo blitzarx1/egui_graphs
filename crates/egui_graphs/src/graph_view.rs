@@ -236,7 +236,10 @@ where
     L: Layout<S>,
 {
     fn ui(self, ui: &mut Ui) -> Response {
+        // Measure layout step time
+        let t0 = Instant::now();
         self.sync_layout(ui);
+        let step_ms = t0.elapsed().as_secs_f32() * 1000.0;
 
         let mut meta = Metadata::load(ui);
         self.sync_state(&mut meta);
@@ -254,6 +257,8 @@ where
         self.handle_navigation(ui, &resp, &mut meta, eff);
         self.handle_click(&resp, &mut meta, eff);
 
+        // Measure draw time (exclude layout step): start after layout, stop after draw
+        let t_draw0 = Instant::now();
         Drawer::<N, E, Ty, Ix, Nd, Ed, S, L>::new(
             self.g,
             &DrawContext {
@@ -265,6 +270,10 @@ where
             },
         )
         .draw();
+        let draw_ms = t_draw0.elapsed().as_secs_f32() * 1000.0;
+
+        meta.last_step_time_ms = step_ms;
+        meta.last_draw_time_ms = draw_ms;
 
         meta.first_frame = false;
         meta.save(ui);
@@ -484,6 +493,12 @@ where
             data.get_persisted::<S>(Id::new(KEY_LAYOUT))
                 .unwrap_or_default()
         })
+    }
+
+    /// Returns the latest per-frame performance metrics stored in metadata.
+    pub fn get_metrics(ui: &egui::Ui) -> (f32, f32) {
+        let m = Metadata::load(ui);
+        (m.last_step_time_ms, m.last_draw_time_ms)
     }
 
     /// Persists a new layout state so that on the next frame it will be applied.
