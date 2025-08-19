@@ -1,5 +1,4 @@
 use core::cmp::Ordering;
-use core::time::Duration;
 use eframe::{App, CreationContext};
 use egui::{self, CollapsingHeader, Pos2, ScrollArea, Ui};
 use egui_graphs::{
@@ -11,193 +10,44 @@ use instant::Instant;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
 use rand::Rng;
-use std::collections::VecDeque;
 #[cfg(all(feature = "events", target_arch = "wasm32"))]
 use std::{cell::RefCell, rc::Rc};
 
-pub mod info_overlay;
+mod event_filters;
+mod graph_ops;
+mod keybindings;
+mod metrics;
+mod overlays;
+mod ui_consts;
 
 pub const MAX_NODE_COUNT: usize = 2500;
 pub const MAX_EDGE_COUNT: usize = 5000;
 #[cfg(feature = "events")]
 pub const EVENTS_LIMIT: usize = 500;
 // Keep margins consistent for overlays/buttons in the CentralPanel
-const UI_MARGIN: f32 = 10.0;
+use ui_consts::{
+    HEADING_TEXT_SIZE, OVERLAY_BTN_SIZE, OVERLAY_BTN_SPACING, OVERLAY_ICON_SIZE, SECTION_SPACING,
+    SELECTED_SCROLL_MAX_HEIGHT, SIDE_PANEL_WIDTH, UI_MARGIN,
+};
 
+#[cfg(feature = "events")]
+use crate::event_filters::EventFilters;
+use crate::graph_ops::GraphActions;
+use crate::keybindings::{dispatch as dispatch_keybindings, Command};
+use crate::metrics::MetricsRecorder;
 #[cfg(feature = "events")]
 pub use crossbeam::channel::{unbounded, Receiver, Sender};
 #[cfg(feature = "events")]
 pub use egui_graphs::events::Event;
 
-pub mod settings_local {
-    pub struct SettingsInteraction {
-        pub dragging_enabled: bool,
-        pub hover_enabled: bool,
-        pub node_clicking_enabled: bool,
-        pub node_selection_enabled: bool,
-        pub node_selection_multi_enabled: bool,
-        pub edge_clicking_enabled: bool,
-        pub edge_selection_enabled: bool,
-        pub edge_selection_multi_enabled: bool,
-    }
-    impl Default for SettingsInteraction {
-        fn default() -> Self {
-            Self {
-                dragging_enabled: true,
-                hover_enabled: true,
-                node_clicking_enabled: false,
-                node_selection_enabled: false,
-                node_selection_multi_enabled: false,
-                edge_clicking_enabled: false,
-                edge_selection_enabled: false,
-                edge_selection_multi_enabled: false,
-            }
-        }
-    }
-
-    #[derive(Default)]
-    pub struct SettingsStyle {
-        pub labels_always: bool,
-        pub edge_deemphasis: bool,
-    }
-
-    pub struct SettingsNavigation {
-        pub fit_to_screen_enabled: bool,
-        pub zoom_and_pan_enabled: bool,
-        pub zoom_speed: f32,
-        pub fit_to_screen_padding: f32,
-    }
-    impl Default for SettingsNavigation {
-        fn default() -> Self {
-            Self {
-                fit_to_screen_enabled: true,
-                zoom_and_pan_enabled: false,
-                zoom_speed: 0.1,
-                fit_to_screen_padding: 0.1,
-            }
-        }
-    }
-
-    pub struct SettingsGraph {
-        pub count_node: usize,
-        pub count_edge: usize,
-    }
-    impl Default for SettingsGraph {
-        fn default() -> Self {
-            Self {
-                count_node: 25,
-                count_edge: 50,
-            }
-        }
-    }
-}
-pub use settings_local as settings;
+pub mod settings;
 
 fn info_icon(ui: &mut egui::Ui, tip: &str) {
     ui.add_space(4.0);
     ui.small_button("ℹ").on_hover_text(tip);
 }
 
-pub mod drawers {
-    use crate::{MAX_EDGE_COUNT, MAX_NODE_COUNT};
-    use egui::Ui;
-
-    pub struct GraphCountSliders {
-        pub nodes: usize,
-        pub edges: usize,
-    }
-
-    pub fn graph_count_sliders(
-        ui: &mut Ui,
-        mut v: GraphCountSliders,
-        mut on_change: impl FnMut(i32, i32),
-    ) {
-        let mut delta_nodes: i32 = 0;
-        let mut delta_edges: i32 = 0;
-
-        ui.horizontal(|ui| {
-            let start = v.nodes;
-            ui.label("N");
-            ui.add(egui::Slider::new(&mut v.nodes, 0..=MAX_NODE_COUNT));
-            if ui
-                .small_button("-10")
-                .on_hover_text("Remove 10 nodes (M)")
-                .clicked()
-            {
-                v.nodes = v.nodes.saturating_sub(10);
-            }
-            if ui
-                .small_button("-1")
-                .on_hover_text("Remove 1 node (N)")
-                .clicked()
-            {
-                v.nodes = v.nodes.saturating_sub(1);
-            }
-            if ui
-                .small_button("+1")
-                .on_hover_text("Add 1 node (n)")
-                .clicked()
-            {
-                v.nodes = (v.nodes + 1).min(MAX_NODE_COUNT);
-            }
-            if ui
-                .small_button("+10")
-                .on_hover_text("Add 10 nodes (m)")
-                .clicked()
-            {
-                v.nodes = (v.nodes + 10).min(MAX_NODE_COUNT);
-            }
-            delta_nodes = if v.nodes >= start {
-                i32::try_from(v.nodes - start).unwrap()
-            } else {
-                -i32::try_from(start - v.nodes).unwrap()
-            };
-        });
-
-        ui.horizontal(|ui| {
-            let start = v.edges;
-            ui.label("E");
-            ui.add(egui::Slider::new(&mut v.edges, 0..=MAX_EDGE_COUNT));
-            if ui
-                .small_button("-10")
-                .on_hover_text("Remove 10 edges (R)")
-                .clicked()
-            {
-                v.edges = v.edges.saturating_sub(10);
-            }
-            if ui
-                .small_button("-1")
-                .on_hover_text("Remove 1 edge (E)")
-                .clicked()
-            {
-                v.edges = v.edges.saturating_sub(1);
-            }
-            if ui
-                .small_button("+1")
-                .on_hover_text("Add 1 edge (e)")
-                .clicked()
-            {
-                v.edges = (v.edges + 1).min(MAX_EDGE_COUNT);
-            }
-            if ui
-                .small_button("+10")
-                .on_hover_text("Add 10 edges (r)")
-                .clicked()
-            {
-                v.edges = (v.edges + 10).min(MAX_EDGE_COUNT);
-            }
-            delta_edges = if v.edges >= start {
-                i32::try_from(v.edges - start).unwrap()
-            } else {
-                -i32::try_from(start - v.edges).unwrap()
-            };
-        });
-
-        if delta_nodes != 0 || delta_edges != 0 {
-            on_change(delta_nodes, delta_edges);
-        }
-    }
-}
+mod drawers;
 
 pub struct DemoApp {
     pub g: Graph<(), (), Directed, DefaultIx>,
@@ -205,16 +55,13 @@ pub struct DemoApp {
     pub settings_interaction: settings::SettingsInteraction,
     pub settings_navigation: settings::SettingsNavigation,
     pub settings_style: settings::SettingsStyle,
-    pub fps: f32,
-    pub last_update_time: Instant,
-    pub frames_last_time_span: usize,
+    metrics: MetricsRecorder,
     pub show_sidebar: bool,
     pub dark_mode: bool,
     pub show_debug_overlay: bool,
     pub show_keybindings_overlay: bool,
     pub keybindings_just_opened: bool,
     pub reset_requested: bool,
-    pub last_step_count: usize,
 
     // Layout selection for the demo UI
     pub selected_layout: DemoLayout,
@@ -234,10 +81,6 @@ pub struct DemoApp {
     pub events_buf: Rc<RefCell<Vec<Event>>>,
     #[cfg(feature = "events")]
     pub event_filters: EventFilters,
-
-    // Rolling 5s performance history for overlay averages
-    step_hist_5s: VecDeque<(Instant, f32)>,
-    draw_hist_5s: VecDeque<(Instant, f32)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -265,9 +108,7 @@ impl DemoApp {
                 labels_always: false,
                 edge_deemphasis: true,
             },
-            fps: 0.0,
-            last_update_time: Instant::now(),
-            frames_last_time_span: 0,
+            metrics: MetricsRecorder::new(),
             // Start with side panel hidden by default
             show_sidebar: false,
             #[cfg(not(feature = "events"))]
@@ -291,16 +132,12 @@ impl DemoApp {
             show_keybindings_overlay: false,
             keybindings_just_opened: false,
             reset_requested: false,
-            last_step_count: 0,
-
             selected_layout: DemoLayout::FruchtermanReingold,
-
-            step_hist_5s: VecDeque::new(),
-            draw_hist_5s: VecDeque::new(),
         }
     }
 
     pub fn random_node_idx(&self) -> Option<NodeIndex> {
+        // Moved into GraphActions; keep thin wrapper if still referenced elsewhere.
         let cnt = self.g.node_count();
         if cnt == 0 {
             return None;
@@ -309,6 +146,7 @@ impl DemoApp {
         self.g.g().node_indices().nth(idx)
     }
     pub fn random_edge_idx(&self) -> Option<EdgeIndex> {
+        // Moved into GraphActions; keep thin wrapper if still referenced elsewhere.
         let cnt = self.g.edge_count();
         if cnt == 0 {
             return None;
@@ -317,63 +155,29 @@ impl DemoApp {
         self.g.g().edge_indices().nth(idx)
     }
     pub fn add_random_node(&mut self) {
-        if self.g.node_count() >= MAX_NODE_COUNT {
-            return;
-        }
-        let base = if let Some(r) = self.random_node_idx() {
-            self.g.node(r).unwrap().location()
-        } else {
-            Pos2::new(0.0, 0.0)
-        };
-        let mut rng = rand::rng();
-        let loc = Pos2::new(
-            base.x + rng.random_range(-150.0..150.0),
-            base.y + rng.random_range(-150.0..150.0),
-        );
-        self.g.add_node_with_location((), loc);
+        GraphActions { g: &mut self.g }.add_random_node();
     }
     pub fn remove_random_node(&mut self) {
-        if let Some(i) = self.random_node_idx() {
-            self.remove_node(i);
-        }
+        GraphActions { g: &mut self.g }.remove_random_node();
     }
     pub fn remove_node(&mut self, idx: NodeIndex) {
         self.g.remove_node(idx);
     }
     pub fn add_random_edge(&mut self) {
-        if let (Some(a), Some(b)) = (self.random_node_idx(), self.random_node_idx()) {
-            self.add_edge(a, b);
-        }
+        GraphActions { g: &mut self.g }.add_random_edge();
     }
     pub fn add_edge(&mut self, a: NodeIndex, b: NodeIndex) {
-        if self.g.edge_count() >= MAX_EDGE_COUNT {
-            return;
-        }
-        self.g.add_edge(a, b, ());
+        GraphActions { g: &mut self.g }.add_edge(a, b);
     }
     pub fn remove_random_edge(&mut self) {
-        if let Some(eidx) = self.random_edge_idx() {
-            if let Some((a, b)) = self.g.edge_endpoints(eidx) {
-                self.remove_edge(a, b);
-            }
-        }
+        GraphActions { g: &mut self.g }.remove_random_edge();
     }
     pub fn remove_edge(&mut self, a: NodeIndex, b: NodeIndex) {
-        let edge_id_opt = { self.g.edges_connecting(a, b).map(|(eid, _)| eid).next() };
-        if let Some(edge_id) = edge_id_opt {
-            self.g.remove_edge(edge_id);
-        }
+        GraphActions { g: &mut self.g }.remove_edge(a, b);
     }
 
     pub fn update_fps(&mut self) {
-        self.frames_last_time_span += 1;
-        let now = Instant::now();
-        let elapsed = now.duration_since(self.last_update_time);
-        if elapsed.as_secs() >= 1 {
-            self.last_update_time = now;
-            self.fps = self.frames_last_time_span as f32 / elapsed.as_secs_f32();
-            self.frames_last_time_span = 0;
-        }
+        self.metrics.update_fps();
     }
 
     pub fn ui_graph_section(&mut self, ui: &mut Ui) {
@@ -384,29 +188,22 @@ impl DemoApp {
                 edges: self.settings_graph.count_edge,
             },
             |dn, de| {
+                let mut ga = GraphActions { g: &mut self.g };
                 match dn.cmp(&0) {
                     Ordering::Greater => {
-                        for _ in 0..dn {
-                            self.add_random_node();
-                        }
+                        ga.add_nodes(dn as u32);
                     }
                     Ordering::Less => {
-                        for _ in 0..(-dn) {
-                            self.remove_random_node();
-                        }
+                        ga.remove_nodes((-dn) as u32);
                     }
                     Ordering::Equal => {}
                 }
                 match de.cmp(&0) {
                     Ordering::Greater => {
-                        for _ in 0..de {
-                            self.add_random_edge();
-                        }
+                        ga.add_edges(de as u32);
                     }
                     Ordering::Less => {
-                        for _ in 0..(-de) {
-                            self.remove_random_edge();
-                        }
+                        ga.remove_edges((-de) as u32);
                     }
                     Ordering::Equal => {}
                 }
@@ -460,7 +257,7 @@ impl DemoApp {
             self.zoom = 1.0;
             self.event_filters = EventFilters::default();
         }
-        self.fps = 0.0;
+        self.metrics.reset();
     }
 
     pub fn distribute_nodes_circle(g: &mut Graph<(), (), Directed, DefaultIx>) {
@@ -542,7 +339,7 @@ impl DemoApp {
                 }
             });
 
-            ui.add_space(6.0);
+            ui.add_space(SECTION_SPACING);
             // Inline settings for the selected layout
             match self.selected_layout {
                 DemoLayout::FruchtermanReingold => {
@@ -586,7 +383,7 @@ impl DemoApp {
                         info_icon(ui, "Multiplier for repulsive force between nodes (higher pushes nodes apart).");
                     });
 
-                    ui.add_space(6.0);
+                    ui.add_space(SECTION_SPACING);
                     ui.separator();
                     ui.horizontal(|ui| {
                         ui.label("Fast Forward");
@@ -651,7 +448,7 @@ impl DemoApp {
                         }
                     });
 
-                    ui.add_space(6.0);
+                    ui.add_space(SECTION_SPACING);
                     ui.separator();
                     ui.label("Extras");
                     ui.horizontal(|ui| {
@@ -790,7 +587,7 @@ impl DemoApp {
                     }
                 });
 
-                ui.add_space(6.0);
+                ui.add_space(SECTION_SPACING);
                 ui.horizontal(|ui| {
                     if ui.button("Re-run layout").clicked() {
                         state.triggered = false;
@@ -987,14 +784,16 @@ impl DemoApp {
         CollapsingHeader::new("Selected")
             .default_open(true)
             .show(ui, |ui| {
-                ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
-                    for n in self.g.selected_nodes() {
-                        ui.label(format!("{n:?}"));
-                    }
-                    for e in self.g.selected_edges() {
-                        ui.label(format!("{e:?}"));
-                    }
-                });
+                ScrollArea::vertical()
+                    .max_height(SELECTED_SCROLL_MAX_HEIGHT)
+                    .show(ui, |ui| {
+                        for n in self.g.selected_nodes() {
+                            ui.label(format!("{n:?}"));
+                        }
+                        for e in self.g.selected_edges() {
+                            ui.label(format!("{e:?}"));
+                        }
+                    });
             });
     }
 
@@ -1004,7 +803,10 @@ impl DemoApp {
             .default_open(true)
             .show(ui, |ui| {
                 // Ensure the events section has a reasonable minimum height so it doesn't collapse too small.
-                ui.set_min_height(220.0);
+                #[cfg(feature = "events")]
+                {
+                    ui.set_min_height(crate::ui_consts::EVENTS_MIN_HEIGHT);
+                }
                 ui.horizontal(|ui| {
                     if ui.button("All").clicked() {
                         self.event_filters = EventFilters {
@@ -1158,8 +960,8 @@ impl App for DemoApp {
         // Right side panel with controls
         if self.show_sidebar {
             egui::SidePanel::right("right")
-                .default_width(300.0)
-                .min_width(300.0)
+                .default_width(SIDE_PANEL_WIDTH)
+                .min_width(SIDE_PANEL_WIDTH)
                 .show(ctx, |ui| {
                     // Single scroll area: all sections scroll naturally; Events is last.
                     egui::ScrollArea::vertical().show(ui, |ui| {
@@ -1300,17 +1102,26 @@ impl App for DemoApp {
                     FruchtermanReingoldWithCenterGravityState,
                     LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                 >::get_layout_state(ui);
-                self.last_step_count = state.base.step_count as usize;
+                self.metrics
+                    .set_last_step_count(state.base.step_count as usize);
             } else {
-                self.last_step_count = 0;
+                self.metrics.set_last_step_count(0);
             }
 
             // Record performance samples for 5s rolling average
             self.record_perf_sample(ui);
             // Small info overlay (top-left): version + source link
-            crate::info_overlay::render_info_overlay(ui);
+            overlays::info_overlay::render_info_overlay(ui);
             // Draw overlay inside the CentralPanel so it stays within the graph area
-            self.overlay_debug_panel(ui);
+            if self.show_debug_overlay {
+                crate::overlays::debug_overlay::render(
+                    ui,
+                    &self.metrics,
+                    self.g.node_count(),
+                    self.g.edge_count(),
+                    self.metrics.last_step_count(),
+                );
+            }
             // Draw toggle button for the side panel at bottom-right of the graph area
             self.overlay_toggle_sidebar_button(ui);
             // Bottom tips removed; use single-line version/source overlay instead (moved below)
@@ -1348,34 +1159,7 @@ impl DemoApp {
             >::get_metrics(ui),
         };
 
-        let now = Instant::now();
-        // Push
-        self.step_hist_5s.push_back((now, step_ms));
-        self.draw_hist_5s.push_back((now, draw_ms));
-        // Prune older than 5 seconds
-        let window = Duration::from_secs(5);
-        while let Some((t, _)) = self.step_hist_5s.front() {
-            if now.duration_since(*t) > window {
-                self.step_hist_5s.pop_front();
-            } else {
-                break;
-            }
-        }
-        while let Some((t, _)) = self.draw_hist_5s.front() {
-            if now.duration_since(*t) > window {
-                self.draw_hist_5s.pop_front();
-            } else {
-                break;
-            }
-        }
-    }
-
-    fn avg_5s(hist: &VecDeque<(Instant, f32)>) -> f32 {
-        if hist.is_empty() {
-            return 0.0;
-        }
-        let sum: f32 = hist.iter().map(|(_, v)| *v).sum();
-        sum / (hist.len() as f32)
+        self.metrics.record_sample(step_ms, draw_ms);
     }
     #[cfg(feature = "events")]
     fn consume_events(&mut self) {
@@ -1411,71 +1195,6 @@ impl DemoApp {
             }
         }
     }
-    fn overlay_debug_panel(&mut self, ui: &mut egui::Ui) {
-        if !self.show_debug_overlay {
-            return;
-        }
-
-        // Compose overlay text
-        let text = {
-            let fps_line = format!("FPS: {:.1}", self.fps);
-            // Averages over last 5 seconds
-            let step_avg = Self::avg_5s(&self.step_hist_5s);
-            let draw_avg = Self::avg_5s(&self.draw_hist_5s);
-            let step_line = format!("TStep: {:.2} ms (avg 5s)", step_avg);
-            let draw_line = format!("TDraw: {:.2} ms (avg 5s)", draw_avg);
-            let node_count = self.g.node_count();
-            let edge_count = self.g.edge_count();
-            let n_line = if node_count >= MAX_NODE_COUNT {
-                format!("N: {node_count} MAX")
-            } else {
-                format!("N: {node_count}")
-            };
-            let e_line = if edge_count >= MAX_EDGE_COUNT {
-                format!("E: {edge_count} MAX")
-            } else {
-                format!("E: {edge_count}")
-            };
-            let steps_line = format!("Steps: {}", self.last_step_count);
-            #[cfg(feature = "events")]
-            let zoom_line = if self.event_filters.zoom {
-                format!("Zoom: {:.3}", self.zoom)
-            } else {
-                "Zoom: (filter off)".to_string()
-            };
-            #[cfg(feature = "events")]
-            let pan_line = if self.event_filters.pan {
-                format!("Pan: [{:.1},{:.1}]", self.pan[0], self.pan[1])
-            } else {
-                "Pan: (filter off)".to_string()
-            };
-
-            #[cfg(feature = "events")]
-            {
-                format!("{fps_line}\n{step_line}\n{draw_line}\n{n_line}\n{e_line}\n{steps_line}\n{zoom_line}\n{pan_line}")
-            }
-            #[cfg(not(feature = "events"))]
-            {
-                format!(
-                "{fps_line}\n{step_line}\n{draw_line}\n{n_line}\n{e_line}\n{steps_line}\nZoom: enable events feature\nPan: enable events feature"
-            )
-            }
-        };
-
-        let text_color = ui.style().visuals.strong_text_color();
-        let panel_rect = ui.max_rect();
-        let font_id = egui::FontId::monospace(14.0);
-        // Layout without wrapping: each line stays single-line
-        let galley = ui.fonts(|f| f.layout_no_wrap(text.clone(), font_id, text_color));
-        // Position galley at top-right with margin
-        let pos = egui::pos2(
-            panel_rect.right() - UI_MARGIN - galley.size().x,
-            panel_rect.top() + UI_MARGIN,
-        );
-        // Paint within the CentralPanel clip rect to keep it inside
-        let painter = ui.painter_at(panel_rect);
-        painter.galley(pos, galley, text_color);
-    }
 
     fn keybindings_modal(&mut self, ctx: &egui::Context) {
         // Use egui::Modal so it renders above overlays and dims the background.
@@ -1488,7 +1207,7 @@ impl DemoApp {
             ui.separator();
 
             let render_group = |ui: &mut egui::Ui, title: &str, entries: &[(&str, &str)], grid_id: &str| {
-                ui.label(RichText::new(title).strong().color(accent).size(16.0));
+                ui.label(RichText::new(title).strong().color(accent).size(HEADING_TEXT_SIZE));
                 egui::Grid::new(grid_id).num_columns(2).spacing(egui::vec2(8.0, 4.0)).show(ui, |ui| {
                     for (key, desc) in entries {
                         ui.code(*key);
@@ -1496,7 +1215,7 @@ impl DemoApp {
                         ui.end_row();
                     }
                 });
-                ui.add_space(6.0);
+                    ui.add_space(SECTION_SPACING);
             };
 
             // Graph elements
@@ -1543,8 +1262,8 @@ impl DemoApp {
     fn overlay_toggle_sidebar_button(&mut self, ui: &mut egui::Ui) {
         // Small overlay buttons inside the CentralPanel: '?' (help) and '<'/'>' (toggle sidebar)
         let g_rect = ui.max_rect();
-        let btn_size = egui::vec2(28.0, 28.0);
-        let spacing = 6.0;
+        let btn_size = egui::vec2(OVERLAY_BTN_SIZE, OVERLAY_BTN_SIZE);
+        let spacing = OVERLAY_BTN_SPACING;
         // Use the same external padding as the debug overlay
         let right_margin = UI_MARGIN;
         let bottom_margin = UI_MARGIN;
@@ -1569,7 +1288,7 @@ impl DemoApp {
             .show(ui.ctx(), |ui_area| {
                 // Clip the button to the CentralPanel rect
                 ui_area.set_clip_rect(g_rect);
-                let help_text = egui::RichText::new("ℹ").size(16.0);
+                let help_text = egui::RichText::new("ℹ").size(OVERLAY_ICON_SIZE);
                 let response = ui_area.add_sized(btn_size, egui::Button::new(help_text));
                 if response.on_hover_text("Open keybindings (h / ?)").clicked() {
                     self.show_keybindings_overlay = true;
@@ -1585,7 +1304,7 @@ impl DemoApp {
             .show(ui.ctx(), |ui_area| {
                 // Clip the button to the CentralPanel rect
                 ui_area.set_clip_rect(g_rect);
-                let arrow_text = egui::RichText::new(arrow).size(16.0);
+                let arrow_text = egui::RichText::new(arrow).size(OVERLAY_ICON_SIZE);
                 let response = ui_area.add_sized(btn_size, egui::Button::new(arrow_text));
                 if response.on_hover_text(tip).clicked() {
                     self.show_sidebar = !self.show_sidebar;
@@ -1594,28 +1313,52 @@ impl DemoApp {
     }
     // Bottom instructional tips removed
     fn process_keybindings(&mut self, ctx: &egui::Context) {
-        // Toggle modal on 'h' or '?' and close on any interaction after open.
+        let cmds = dispatch_keybindings(ctx);
+        let mut open_modal = false;
+        let mut close_modal = false;
+        for c in cmds {
+            match c {
+                Command::ToggleSidebar => self.show_sidebar = !self.show_sidebar,
+                Command::ToggleDebug => self.show_debug_overlay = !self.show_debug_overlay,
+                Command::OpenKeybindings => {
+                    if self.show_keybindings_overlay {
+                        close_modal = true;
+                    } else {
+                        open_modal = true;
+                    }
+                }
+                Command::CloseKeybindings => self.show_keybindings_overlay = false,
+                Command::ResetAll => self.reset_requested = true,
+                Command::AddNodes(n) => {
+                    GraphActions { g: &mut self.g }.add_nodes(n);
+                }
+                Command::RemoveNodes(n) => {
+                    GraphActions { g: &mut self.g }.remove_nodes(n);
+                }
+                Command::SwapNodes(n) => {
+                    GraphActions { g: &mut self.g }.swap_nodes(n);
+                }
+                Command::AddEdges(n) => {
+                    GraphActions { g: &mut self.g }.add_edges(n);
+                }
+                Command::RemoveEdges(n) => {
+                    GraphActions { g: &mut self.g }.remove_edges(n);
+                }
+                Command::SwapEdges(n) => {
+                    GraphActions { g: &mut self.g }.swap_edges(n);
+                }
+            }
+        }
+
+        // Detect any key/pointer press this frame to support "close on any interaction"
         let mut any_key_pressed = false;
         let mut any_pointer_pressed = false;
-        let mut pressed_h = false; // 'h' or 'H'
-        let mut pressed_shift_slash = false; // '?'
         ctx.input(|i| {
             for ev in &i.events {
                 match ev {
-                    egui::Event::Key {
-                        key,
-                        pressed,
-                        modifiers,
-                        ..
-                    } => {
+                    egui::Event::Key { pressed, .. } => {
                         if *pressed {
                             any_key_pressed = true;
-                        }
-                        if *pressed && !modifiers.any() && *key == egui::Key::H {
-                            pressed_h = true;
-                        }
-                        if *pressed && *key == egui::Key::Slash && modifiers.shift {
-                            pressed_shift_slash = true;
                         }
                     }
                     egui::Event::PointerButton { pressed, .. } => {
@@ -1623,27 +1366,11 @@ impl DemoApp {
                             any_pointer_pressed = true;
                         }
                     }
-                    egui::Event::Text(t) => {
-                        if t == "?" {
-                            pressed_shift_slash = true;
-                        }
-                        if t.eq_ignore_ascii_case("h") {
-                            pressed_h = true;
-                        }
-                    }
                     _ => {}
                 }
             }
         });
-        let mut open_modal = false;
-        let mut close_modal = false;
-        if pressed_h || pressed_shift_slash {
-            if self.show_keybindings_overlay {
-                close_modal = true;
-            } else {
-                open_modal = true;
-            }
-        }
+
         if open_modal {
             self.show_keybindings_overlay = true;
             self.keybindings_just_opened = true;
@@ -1652,211 +1379,11 @@ impl DemoApp {
             if !self.keybindings_just_opened && (any_key_pressed || any_pointer_pressed) {
                 close_modal = true;
             }
-            // Clear the "just opened" guard at the end of the frame
+            // Clear the guard at end of frame
             self.keybindings_just_opened = false;
         }
         if close_modal {
             self.show_keybindings_overlay = false;
         }
-
-        // Other shortcuts
-        ctx.input(|i| {
-            // Space: reset defaults
-            if i.key_pressed(egui::Key::Space) && !i.modifiers.any() {
-                self.reset_requested = true;
-            }
-            // Esc: close modal if open
-            if i.key_pressed(egui::Key::Escape) {
-                self.show_keybindings_overlay = false;
-            }
-            for ev in &i.events {
-                if let egui::Event::Key {
-                    key,
-                    pressed,
-                    modifiers,
-                    ..
-                } = ev
-                {
-                    if !pressed {
-                        continue;
-                    }
-                    match key {
-                        egui::Key::Tab => {
-                            if !modifiers.any() {
-                                self.show_sidebar = !self.show_sidebar;
-                            }
-                        }
-                        egui::Key::D => {
-                            if !modifiers.any() {
-                                self.show_debug_overlay = !self.show_debug_overlay;
-                            }
-                        }
-                        egui::Key::H => {}
-                        egui::Key::Slash => {}
-                        egui::Key::N => {
-                            if modifiers.ctrl && modifiers.shift {
-                                self.remove_random_node();
-                                self.add_random_node();
-                            } else if modifiers.shift {
-                                self.remove_random_node();
-                            } else {
-                                self.add_random_node();
-                            }
-                        }
-                        egui::Key::M => {
-                            if modifiers.ctrl && modifiers.shift {
-                                for _ in 0..10 {
-                                    self.remove_random_node();
-                                }
-                                for _ in 0..10 {
-                                    self.add_random_node();
-                                }
-                            } else if modifiers.shift {
-                                for _ in 0..10 {
-                                    self.remove_random_node();
-                                }
-                            } else {
-                                let remaining = MAX_NODE_COUNT.saturating_sub(self.g.node_count());
-                                let to_add = remaining.min(10);
-                                for _ in 0..to_add {
-                                    self.add_random_node();
-                                }
-                            }
-                        }
-                        egui::Key::E => {
-                            if modifiers.ctrl && modifiers.shift {
-                                self.remove_random_edge();
-                                self.add_random_edge();
-                            } else if modifiers.shift {
-                                self.remove_random_edge();
-                            } else {
-                                self.add_random_edge();
-                            }
-                        }
-                        egui::Key::R => {
-                            if modifiers.ctrl && modifiers.shift {
-                                for _ in 0..10 {
-                                    self.remove_random_edge();
-                                }
-                                for _ in 0..10 {
-                                    self.add_random_edge();
-                                }
-                            } else if modifiers.shift {
-                                for _ in 0..10 {
-                                    self.remove_random_edge();
-                                }
-                            } else {
-                                let remaining = MAX_EDGE_COUNT.saturating_sub(self.g.edge_count());
-                                let to_add = remaining.min(10);
-                                for _ in 0..to_add {
-                                    self.add_random_edge();
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        });
-    }
-}
-
-#[cfg(feature = "events")]
-#[derive(Clone)]
-pub struct EventFilters {
-    pub pan: bool,
-    pub zoom: bool,
-    pub node_move: bool,
-    pub node_drag_start: bool,
-    pub node_drag_end: bool,
-    pub node_hover_enter: bool,
-    pub node_hover_leave: bool,
-    pub node_select: bool,
-    pub node_deselect: bool,
-    pub node_click: bool,
-    pub node_double_click: bool,
-    pub edge_click: bool,
-    pub edge_select: bool,
-    pub edge_deselect: bool,
-}
-
-#[cfg(feature = "events")]
-impl Default for EventFilters {
-    fn default() -> Self {
-        Self {
-            pan: true,
-            zoom: true,
-            node_move: true,
-            node_drag_start: true,
-            node_drag_end: true,
-            node_hover_enter: true,
-            node_hover_leave: true,
-            node_select: true,
-            node_deselect: true,
-            node_click: true,
-            node_double_click: true,
-            edge_click: true,
-            edge_select: true,
-            edge_deselect: true,
-        }
-    }
-}
-
-#[cfg(feature = "events")]
-impl EventFilters {
-    pub fn enabled_for(&self, e: &Event) -> bool {
-        use Event::*;
-        match e {
-            Pan(_) => self.pan,
-            Zoom(_) => self.zoom,
-            NodeMove(_) => self.node_move,
-            NodeDragStart(_) => self.node_drag_start,
-            NodeDragEnd(_) => self.node_drag_end,
-            NodeHoverEnter(_) => self.node_hover_enter,
-            NodeHoverLeave(_) => self.node_hover_leave,
-            NodeSelect(_) => self.node_select,
-            NodeDeselect(_) => self.node_deselect,
-            NodeClick(_) => self.node_click,
-            NodeDoubleClick(_) => self.node_double_click,
-            EdgeClick(_) => self.edge_click,
-            EdgeSelect(_) => self.edge_select,
-            EdgeDeselect(_) => self.edge_deselect,
-        }
-    }
-    pub fn is_event_str_enabled(&self, ev: &str) -> Option<bool> {
-        if ev.starts_with("Pan") {
-            Some(self.pan)
-        } else if ev.starts_with("Zoom") {
-            Some(self.zoom)
-        } else if ev.starts_with("NodeMove") {
-            Some(self.node_move)
-        } else if ev.starts_with("NodeDragStart") {
-            Some(self.node_drag_start)
-        } else if ev.starts_with("NodeDragEnd") {
-            Some(self.node_drag_end)
-        } else if ev.starts_with("NodeHoverEnter") {
-            Some(self.node_hover_enter)
-        } else if ev.starts_with("NodeHoverLeave") {
-            Some(self.node_hover_leave)
-        } else if ev.starts_with("NodeSelect") {
-            Some(self.node_select)
-        } else if ev.starts_with("NodeDeselect") {
-            Some(self.node_deselect)
-        } else if ev.starts_with("NodeClick") {
-            Some(self.node_click)
-        } else if ev.starts_with("NodeDoubleClick") {
-            Some(self.node_double_click)
-        } else if ev.starts_with("EdgeClick") {
-            Some(self.edge_click)
-        } else if ev.starts_with("EdgeSelect") {
-            Some(self.edge_select)
-        } else if ev.starts_with("EdgeDeselect") {
-            Some(self.edge_deselect)
-        } else {
-            None
-        }
-    }
-    pub fn purge_disabled(&self, events: &mut Vec<String>) {
-        events.retain(|ev| self.is_event_str_enabled(ev.as_str()).unwrap_or(true));
     }
 }
