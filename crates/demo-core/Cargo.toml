@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 egui.workspace = true
 eframe.workspace = true
+egui_extras.workspace = true
 egui_graphs = { path = "../egui_graphs" }
 petgraph = { workspace = true, default-features = false, features = [
   "graphmap",
@@ -18,6 +19,8 @@ petgraph = { workspace = true, default-features = false, features = [
 rand.workspace = true
 instant.workspace = true
 crossbeam = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 
 [features]
 # Enable events in this demo and pull in crossbeam for native channels
