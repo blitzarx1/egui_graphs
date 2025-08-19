@@ -1,4 +1,5 @@
 use core::cmp::Ordering;
+use core::time::Duration;
 use eframe::{App, CreationContext};
 use egui::{self, CollapsingHeader, Pos2, ScrollArea, Ui};
 use egui_graphs::{
@@ -10,6 +11,7 @@ use instant::Instant;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
 use rand::Rng;
+use std::collections::VecDeque;
 #[cfg(all(feature = "events", target_arch = "wasm32"))]
 use std::{cell::RefCell, rc::Rc};
 
@@ -234,6 +236,10 @@ pub struct DemoApp {
     pub events_buf: Rc<RefCell<Vec<Event>>>,
     #[cfg(feature = "events")]
     pub event_filters: EventFilters,
+
+    // Rolling 5s performance history for overlay averages
+    step_hist_5s: VecDeque<(Instant, f32)>,
+    draw_hist_5s: VecDeque<(Instant, f32)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -293,6 +299,9 @@ impl DemoApp {
             show_open_keybindings_tip: false,
             keybindings_tip_cleared: false,
             selected_layout: DemoLayout::FruchtermanReingold,
+
+            step_hist_5s: VecDeque::new(),
+            draw_hist_5s: VecDeque::new(),
         }
     }
 
@@ -1301,6 +1310,8 @@ impl App for DemoApp {
                 self.last_step_count = 0;
             }
 
+            // Record performance samples for 5s rolling average
+            self.record_perf_sample(ui);
             // Draw overlay inside the CentralPanel so it stays within the graph area
             self.overlay_debug_panel(ui);
             // Draw toggle button for the side panel at bottom-right of the graph area
@@ -1319,6 +1330,59 @@ impl App for DemoApp {
 }
 
 impl DemoApp {
+    fn record_perf_sample(&mut self, ui: &mut egui::Ui) {
+        let (step_ms, draw_ms) = match self.selected_layout {
+            DemoLayout::FruchtermanReingold => egui_graphs::GraphView::<
+                (),
+                (),
+                petgraph::Directed,
+                petgraph::stable_graph::DefaultIx,
+                egui_graphs::DefaultNodeShape,
+                egui_graphs::DefaultEdgeShape,
+                FruchtermanReingoldWithCenterGravityState,
+                LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+            >::get_metrics(ui),
+            DemoLayout::Hierarchical => egui_graphs::GraphView::<
+                (),
+                (),
+                petgraph::Directed,
+                petgraph::stable_graph::DefaultIx,
+                egui_graphs::DefaultNodeShape,
+                egui_graphs::DefaultEdgeShape,
+                LayoutStateHierarchical,
+                LayoutHierarchical,
+            >::get_metrics(ui),
+        };
+
+        let now = Instant::now();
+        // Push
+        self.step_hist_5s.push_back((now, step_ms));
+        self.draw_hist_5s.push_back((now, draw_ms));
+        // Prune older than 5 seconds
+        let window = Duration::from_secs(5);
+        while let Some((t, _)) = self.step_hist_5s.front() {
+            if now.duration_since(*t) > window {
+                self.step_hist_5s.pop_front();
+            } else {
+                break;
+            }
+        }
+        while let Some((t, _)) = self.draw_hist_5s.front() {
+            if now.duration_since(*t) > window {
+                self.draw_hist_5s.pop_front();
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn avg_5s(hist: &VecDeque<(Instant, f32)>) -> f32 {
+        if hist.is_empty() {
+            return 0.0;
+        }
+        let sum: f32 = hist.iter().map(|(_, v)| *v).sum();
+        sum / (hist.len() as f32)
+    }
     #[cfg(feature = "events")]
     fn consume_events(&mut self) {
         use egui_graphs::events::Event;
@@ -1361,6 +1425,11 @@ impl DemoApp {
         // Compose overlay text
         let text = {
             let fps_line = format!("FPS: {:.1}", self.fps);
+            // Averages over last 5 seconds
+            let step_avg = Self::avg_5s(&self.step_hist_5s);
+            let draw_avg = Self::avg_5s(&self.draw_hist_5s);
+            let step_line = format!("TStep: {:.2} ms (avg 5s)", step_avg);
+            let draw_line = format!("TDraw: {:.2} ms (avg 5s)", draw_avg);
             let node_count = self.g.node_count();
             let edge_count = self.g.edge_count();
             let n_line = if node_count >= MAX_NODE_COUNT {
@@ -1389,12 +1458,12 @@ impl DemoApp {
 
             #[cfg(feature = "events")]
             {
-                format!("{fps_line}\n{n_line}\n{e_line}\n{steps_line}\n{zoom_line}\n{pan_line}")
+                format!("{fps_line}\n{step_line}\n{draw_line}\n{n_line}\n{e_line}\n{steps_line}\n{zoom_line}\n{pan_line}")
             }
             #[cfg(not(feature = "events"))]
             {
                 format!(
-                "{fps_line}\n{n_line}\n{e_line}\n{steps_line}\nZoom: enable events feature\nPan: enable events feature"
+                "{fps_line}\n{step_line}\n{draw_line}\n{n_line}\n{e_line}\n{steps_line}\nZoom: enable events feature\nPan: enable events feature"
             )
             }
         };
@@ -1891,9 +1960,6 @@ impl EventFilters {
         }
     }
     pub fn purge_disabled(&self, events: &mut Vec<String>) {
-        events.retain(|ev| match self.is_event_str_enabled(ev.as_str()) {
-            Some(enabled) => enabled,
-            None => true,
-        });
+        events.retain(|ev| self.is_event_str_enabled(ev.as_str()).unwrap_or(true));
     }
 }

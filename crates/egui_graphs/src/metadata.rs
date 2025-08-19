@@ -60,7 +60,10 @@ pub struct Metadata {
     pub pan: Vec2,
     /// Top left position of widget
     pub top_left: Pos2,
-
+    /// Last measured time to compute one layout step (milliseconds)
+    pub last_step_time_ms: f32,
+    /// Last measured time to draw the current frame, excluding the layout step (milliseconds)
+    pub last_draw_time_ms: f32,
     /// State of bounds iteration
     bounds: Bounds,
 }
@@ -72,6 +75,8 @@ impl Default for Metadata {
             zoom: 1.,
             pan: Vec2::default(),
             top_left: Pos2::default(),
+            last_step_time_ms: 0.0,
+            last_draw_time_ms: 0.0,
             bounds: Bounds::default(),
         }
     }
