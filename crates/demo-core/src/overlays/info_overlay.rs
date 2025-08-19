@@ -1,3 +1,4 @@
+use crate::ui_consts::{INFO_TEXT_SIZE, UI_MARGIN};
 use egui::{self, Align, Layout, RichText};
 
 pub fn render_info_overlay(ui: &mut egui::Ui) {
@@ -17,21 +18,20 @@ pub fn render_info_overlay(ui: &mut egui::Ui) {
         .unwrap_or("https://github.com/blitzarx1/egui_graphs");
 
     let panel_rect = ui.max_rect();
-    // Match the vertical level of the bottom-right buttons: bottom - UI_MARGIN(10) - btn_height(28)
-    const UI_MARGIN: f32 = 10.0;
+    // Match the vertical level of the bottom-right buttons: bottom - UI_MARGIN - btn_height
 
     // Pre-measure to compute centered position
     let label_galley = ui.fonts(|f| {
         f.layout_no_wrap(
             version_text.clone(),
-            egui::FontId::proportional(11.0),
+            egui::FontId::proportional(INFO_TEXT_SIZE),
             ui.style().visuals.text_color(),
         )
     });
     let link_galley = ui.fonts(|f| {
         f.layout_no_wrap(
             "code".into(),
-            egui::FontId::proportional(11.0),
+            egui::FontId::proportional(INFO_TEXT_SIZE),
             ui.visuals().hyperlink_color,
         )
     });
