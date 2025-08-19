@@ -1,5 +1,4 @@
 use core::cmp::Ordering;
-use core::time::Duration;
 use eframe::{App, CreationContext};
 use egui::{self, CollapsingHeader, Pos2, ScrollArea, Ui};
 use egui_graphs::{
@@ -11,12 +10,13 @@ use instant::Instant;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::Directed;
 use rand::Rng;
-use std::collections::VecDeque;
 #[cfg(all(feature = "events", target_arch = "wasm32"))]
 use std::{cell::RefCell, rc::Rc};
 
 mod event_filters;
 pub mod info_overlay;
+mod keybindings;
+mod metrics;
 
 pub const MAX_NODE_COUNT: usize = 2500;
 pub const MAX_EDGE_COUNT: usize = 5000;
@@ -27,6 +27,8 @@ const UI_MARGIN: f32 = 10.0;
 
 #[cfg(feature = "events")]
 use crate::event_filters::EventFilters;
+use crate::keybindings::{dispatch as dispatch_keybindings, Command};
+use crate::metrics::MetricsRecorder;
 #[cfg(feature = "events")]
 pub use crossbeam::channel::{unbounded, Receiver, Sender};
 #[cfg(feature = "events")]
@@ -47,16 +49,13 @@ pub struct DemoApp {
     pub settings_interaction: settings::SettingsInteraction,
     pub settings_navigation: settings::SettingsNavigation,
     pub settings_style: settings::SettingsStyle,
-    pub fps: f32,
-    pub last_update_time: Instant,
-    pub frames_last_time_span: usize,
+    metrics: MetricsRecorder,
     pub show_sidebar: bool,
     pub dark_mode: bool,
     pub show_debug_overlay: bool,
     pub show_keybindings_overlay: bool,
     pub keybindings_just_opened: bool,
     pub reset_requested: bool,
-    pub last_step_count: usize,
 
     // Layout selection for the demo UI
     pub selected_layout: DemoLayout,
@@ -76,10 +75,6 @@ pub struct DemoApp {
     pub events_buf: Rc<RefCell<Vec<Event>>>,
     #[cfg(feature = "events")]
     pub event_filters: EventFilters,
-
-    // Rolling 5s performance history for overlay averages
-    step_hist_5s: VecDeque<(Instant, f32)>,
-    draw_hist_5s: VecDeque<(Instant, f32)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,9 +102,7 @@ impl DemoApp {
                 labels_always: false,
                 edge_deemphasis: true,
             },
-            fps: 0.0,
-            last_update_time: Instant::now(),
-            frames_last_time_span: 0,
+            metrics: MetricsRecorder::new(),
             // Start with side panel hidden by default
             show_sidebar: false,
             #[cfg(not(feature = "events"))]
@@ -133,12 +126,7 @@ impl DemoApp {
             show_keybindings_overlay: false,
             keybindings_just_opened: false,
             reset_requested: false,
-            last_step_count: 0,
-
             selected_layout: DemoLayout::FruchtermanReingold,
-
-            step_hist_5s: VecDeque::new(),
-            draw_hist_5s: VecDeque::new(),
         }
     }
 
@@ -208,14 +196,7 @@ impl DemoApp {
     }
 
     pub fn update_fps(&mut self) {
-        self.frames_last_time_span += 1;
-        let now = Instant::now();
-        let elapsed = now.duration_since(self.last_update_time);
-        if elapsed.as_secs() >= 1 {
-            self.last_update_time = now;
-            self.fps = self.frames_last_time_span as f32 / elapsed.as_secs_f32();
-            self.frames_last_time_span = 0;
-        }
+        self.metrics.update_fps();
     }
 
     pub fn ui_graph_section(&mut self, ui: &mut Ui) {
@@ -302,7 +283,7 @@ impl DemoApp {
             self.zoom = 1.0;
             self.event_filters = EventFilters::default();
         }
-        self.fps = 0.0;
+        self.metrics.reset();
     }
 
     pub fn distribute_nodes_circle(g: &mut Graph<(), (), Directed, DefaultIx>) {
@@ -1142,9 +1123,10 @@ impl App for DemoApp {
                     FruchtermanReingoldWithCenterGravityState,
                     LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                 >::get_layout_state(ui);
-                self.last_step_count = state.base.step_count as usize;
+                self.metrics
+                    .set_last_step_count(state.base.step_count as usize);
             } else {
-                self.last_step_count = 0;
+                self.metrics.set_last_step_count(0);
             }
 
             // Record performance samples for 5s rolling average
@@ -1190,34 +1172,7 @@ impl DemoApp {
             >::get_metrics(ui),
         };
 
-        let now = Instant::now();
-        // Push
-        self.step_hist_5s.push_back((now, step_ms));
-        self.draw_hist_5s.push_back((now, draw_ms));
-        // Prune older than 5 seconds
-        let window = Duration::from_secs(5);
-        while let Some((t, _)) = self.step_hist_5s.front() {
-            if now.duration_since(*t) > window {
-                self.step_hist_5s.pop_front();
-            } else {
-                break;
-            }
-        }
-        while let Some((t, _)) = self.draw_hist_5s.front() {
-            if now.duration_since(*t) > window {
-                self.draw_hist_5s.pop_front();
-            } else {
-                break;
-            }
-        }
-    }
-
-    fn avg_5s(hist: &VecDeque<(Instant, f32)>) -> f32 {
-        if hist.is_empty() {
-            return 0.0;
-        }
-        let sum: f32 = hist.iter().map(|(_, v)| *v).sum();
-        sum / (hist.len() as f32)
+        self.metrics.record_sample(step_ms, draw_ms);
     }
     #[cfg(feature = "events")]
     fn consume_events(&mut self) {
@@ -1260,10 +1215,10 @@ impl DemoApp {
 
         // Compose overlay text
         let text = {
-            let fps_line = format!("FPS: {:.1}", self.fps);
+            let fps_line = format!("FPS: {:.1}", self.metrics.fps());
             // Averages over last 5 seconds
-            let step_avg = Self::avg_5s(&self.step_hist_5s);
-            let draw_avg = Self::avg_5s(&self.draw_hist_5s);
+            let step_avg = self.metrics.step_avg_5s();
+            let draw_avg = self.metrics.draw_avg_5s();
             let step_line = format!("TStep: {:.2} ms (avg 5s)", step_avg);
             let draw_line = format!("TDraw: {:.2} ms (avg 5s)", draw_avg);
             let node_count = self.g.node_count();
@@ -1278,7 +1233,7 @@ impl DemoApp {
             } else {
                 format!("E: {edge_count}")
             };
-            let steps_line = format!("Steps: {}", self.last_step_count);
+            let steps_line = format!("Steps: {}", self.metrics.last_step_count());
             #[cfg(feature = "events")]
             let zoom_line = if self.event_filters.zoom {
                 format!("Zoom: {:.3}", self.zoom)
@@ -1436,28 +1391,66 @@ impl DemoApp {
     }
     // Bottom instructional tips removed
     fn process_keybindings(&mut self, ctx: &egui::Context) {
-        // Toggle modal on 'h' or '?' and close on any interaction after open.
+        let cmds = dispatch_keybindings(ctx);
+        let mut open_modal = false;
+        let mut close_modal = false;
+        for c in cmds {
+            match c {
+                Command::ToggleSidebar => self.show_sidebar = !self.show_sidebar,
+                Command::ToggleDebug => self.show_debug_overlay = !self.show_debug_overlay,
+                Command::OpenKeybindings => {
+                    if self.show_keybindings_overlay {
+                        close_modal = true;
+                    } else {
+                        open_modal = true;
+                    }
+                }
+                Command::CloseKeybindings => self.show_keybindings_overlay = false,
+                Command::ResetAll => self.reset_requested = true,
+                Command::AddNodes(n) => {
+                    for _ in 0..n {
+                        self.add_random_node();
+                    }
+                }
+                Command::RemoveNodes(n) => {
+                    for _ in 0..n {
+                        self.remove_random_node();
+                    }
+                }
+                Command::SwapNodes(n) => {
+                    for _ in 0..n {
+                        self.remove_random_node();
+                        self.add_random_node();
+                    }
+                }
+                Command::AddEdges(n) => {
+                    for _ in 0..n {
+                        self.add_random_edge();
+                    }
+                }
+                Command::RemoveEdges(n) => {
+                    for _ in 0..n {
+                        self.remove_random_edge();
+                    }
+                }
+                Command::SwapEdges(n) => {
+                    for _ in 0..n {
+                        self.remove_random_edge();
+                        self.add_random_edge();
+                    }
+                }
+            }
+        }
+
+        // Detect any key/pointer press this frame to support "close on any interaction"
         let mut any_key_pressed = false;
         let mut any_pointer_pressed = false;
-        let mut pressed_h = false; // 'h' or 'H'
-        let mut pressed_shift_slash = false; // '?'
         ctx.input(|i| {
             for ev in &i.events {
                 match ev {
-                    egui::Event::Key {
-                        key,
-                        pressed,
-                        modifiers,
-                        ..
-                    } => {
+                    egui::Event::Key { pressed, .. } => {
                         if *pressed {
                             any_key_pressed = true;
-                        }
-                        if *pressed && !modifiers.any() && *key == egui::Key::H {
-                            pressed_h = true;
-                        }
-                        if *pressed && *key == egui::Key::Slash && modifiers.shift {
-                            pressed_shift_slash = true;
                         }
                     }
                     egui::Event::PointerButton { pressed, .. } => {
@@ -1465,27 +1458,11 @@ impl DemoApp {
                             any_pointer_pressed = true;
                         }
                     }
-                    egui::Event::Text(t) => {
-                        if t == "?" {
-                            pressed_shift_slash = true;
-                        }
-                        if t.eq_ignore_ascii_case("h") {
-                            pressed_h = true;
-                        }
-                    }
                     _ => {}
                 }
             }
         });
-        let mut open_modal = false;
-        let mut close_modal = false;
-        if pressed_h || pressed_shift_slash {
-            if self.show_keybindings_overlay {
-                close_modal = true;
-            } else {
-                open_modal = true;
-            }
-        }
+
         if open_modal {
             self.show_keybindings_overlay = true;
             self.keybindings_just_opened = true;
@@ -1494,111 +1471,11 @@ impl DemoApp {
             if !self.keybindings_just_opened && (any_key_pressed || any_pointer_pressed) {
                 close_modal = true;
             }
-            // Clear the "just opened" guard at the end of the frame
+            // Clear the guard at end of frame
             self.keybindings_just_opened = false;
         }
         if close_modal {
             self.show_keybindings_overlay = false;
         }
-
-        // Other shortcuts
-        ctx.input(|i| {
-            // Space: reset defaults
-            if i.key_pressed(egui::Key::Space) && !i.modifiers.any() {
-                self.reset_requested = true;
-            }
-            // Esc: close modal if open
-            if i.key_pressed(egui::Key::Escape) {
-                self.show_keybindings_overlay = false;
-            }
-            for ev in &i.events {
-                if let egui::Event::Key {
-                    key,
-                    pressed,
-                    modifiers,
-                    ..
-                } = ev
-                {
-                    if !pressed {
-                        continue;
-                    }
-                    match key {
-                        egui::Key::Tab => {
-                            if !modifiers.any() {
-                                self.show_sidebar = !self.show_sidebar;
-                            }
-                        }
-                        egui::Key::D => {
-                            if !modifiers.any() {
-                                self.show_debug_overlay = !self.show_debug_overlay;
-                            }
-                        }
-                        egui::Key::H => {}
-                        egui::Key::Slash => {}
-                        egui::Key::N => {
-                            if modifiers.ctrl && modifiers.shift {
-                                self.remove_random_node();
-                                self.add_random_node();
-                            } else if modifiers.shift {
-                                self.remove_random_node();
-                            } else {
-                                self.add_random_node();
-                            }
-                        }
-                        egui::Key::M => {
-                            if modifiers.ctrl && modifiers.shift {
-                                for _ in 0..10 {
-                                    self.remove_random_node();
-                                }
-                                for _ in 0..10 {
-                                    self.add_random_node();
-                                }
-                            } else if modifiers.shift {
-                                for _ in 0..10 {
-                                    self.remove_random_node();
-                                }
-                            } else {
-                                let remaining = MAX_NODE_COUNT.saturating_sub(self.g.node_count());
-                                let to_add = remaining.min(10);
-                                for _ in 0..to_add {
-                                    self.add_random_node();
-                                }
-                            }
-                        }
-                        egui::Key::E => {
-                            if modifiers.ctrl && modifiers.shift {
-                                self.remove_random_edge();
-                                self.add_random_edge();
-                            } else if modifiers.shift {
-                                self.remove_random_edge();
-                            } else {
-                                self.add_random_edge();
-                            }
-                        }
-                        egui::Key::R => {
-                            if modifiers.ctrl && modifiers.shift {
-                                for _ in 0..10 {
-                                    self.remove_random_edge();
-                                }
-                                for _ in 0..10 {
-                                    self.add_random_edge();
-                                }
-                            } else if modifiers.shift {
-                                for _ in 0..10 {
-                                    self.remove_random_edge();
-                                }
-                            } else {
-                                let remaining = MAX_EDGE_COUNT.saturating_sub(self.g.edge_count());
-                                let to_add = remaining.min(10);
-                                for _ in 0..to_add {
-                                    self.add_random_edge();
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        });
     }
 }
