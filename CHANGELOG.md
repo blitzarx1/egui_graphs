@@ -1,33 +1,5 @@
 # Changelog
 
-## v0.28.0 (23.08.2025)
-
-### 🚀Highlights
-
-#### 🆕 New Features
-
-- We are web now
-- File import and export in demo (will be added to core in the next releases)
-- Changelog added
-
-#### 🖥️  Demo
-
-- File import (in web demo for now... plan to move it to `egui_graphs` next release)
-  - User uploads
-    - JSON schema description
-      - only edges
-      - nodes and edges
-      - graph and layout properties
-  - Beautiful example graphs
-- File export
-  - Optional include of layout and graph settings
-
-#### 🛠️ Fixes & Robustness
-
-### MRs TODO:
-
-**Full increment**: TODO:
-
 ## v0.27.0 (16.08.2025)
 
 ### 🚀Highlights
