@@ -27,6 +27,7 @@ mod tabs;
 use std::{cell::RefCell, rc::Rc};
 use tabs::import_load::UserUpload;
 mod ui_consts;
+mod util;
 
 pub const MAX_NODE_COUNT: usize = 2500;
 pub const MAX_EDGE_COUNT: usize = 5000;
@@ -123,6 +124,8 @@ pub struct DemoApp {
     pub export_include_layout: bool,
     pub export_include_graph: bool,
     pub export_include_positions: bool,
+    pub export_destination: ExportDestination,
+    pub export_filename: String,
     // If an import provided a layout state, apply it on next UI frame
     pub pending_layout: Option<spec::PendingLayout>,
     // Right panel tabs
@@ -139,6 +142,12 @@ pub struct DemoApp {
 pub enum DemoLayout {
     FruchtermanReingold,
     Hierarchical,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportDestination {
+    File,
+    Clipboard,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -198,6 +207,8 @@ impl DemoApp {
             export_include_layout: true,
             export_include_graph: true,
             export_include_positions: false,
+            export_destination: ExportDestination::File,
+            export_filename: crate::util::default_export_filename(),
             pending_layout: None,
             right_tab: RightTab::Playground,
             user_uploads: Vec::new(),
@@ -1932,7 +1943,12 @@ impl DemoApp {
     }
     // Bottom instructional tips removed
     fn process_keybindings(&mut self, ctx: &egui::Context) {
-        let cmds = dispatch_keybindings(ctx);
+        // Don't process global keybindings while the UI has keyboard focus (e.g., typing in inputs)
+        let cmds = if ctx.wants_keyboard_input() {
+            Vec::new()
+        } else {
+            dispatch_keybindings(ctx)
+        };
         let mut open_modal = false;
         let mut close_modal = false;
         for c in cmds {

@@ -43,6 +43,22 @@ impl DemoApp {
                         );
                     });
                     ui.add_space(8.0);
+                    // Destination radio buttons
+                    ui.horizontal(|ui| {
+                        ui.label("Destination:");
+                        ui.selectable_value(&mut self.export_destination, crate::ExportDestination::File, "File");
+                        ui.selectable_value(&mut self.export_destination, crate::ExportDestination::Clipboard, "Clipboard");
+                    });
+                    ui.add_space(4.0);
+                    // Filename input (always visible; disabled when Clipboard)
+                    let is_file = matches!(self.export_destination, crate::ExportDestination::File);
+                    ui.horizontal(|ui| {
+                        ui.label("Filename:");
+                        ui.add_enabled_ui(is_file, |ui| {
+                            ui.text_edit_singleline(&mut self.export_filename);
+                        });
+                    });
+                    ui.add_space(4.0);
                     ui.horizontal(|ui| {
                         if ui.button("Cancel").clicked() {
                             self.show_export_modal = false;
@@ -110,27 +126,42 @@ impl DemoApp {
                             );
                             match serde_json::to_string_pretty(&spec) {
                                 Ok(json) => {
-                                    #[cfg(not(target_arch = "wasm32"))]
-                                    {
-                                        let file = rfd::FileDialog::new()
-                                            .add_filter("JSON", &["json"])
-                                            .set_file_name("graph_export.json")
-                                            .save_file();
-                                        if let Some(path) = file {
-                                            if let Err(e) = std::fs::write(&path, json.as_bytes()) {
-                                                self.status.push_error(format!("Export error: {}", e));
-                                            } else {
-                                                self.status.push_success(String::from("Exported to file"));
+                                    match self.export_destination {
+                                        crate::ExportDestination::File => {
+                                            #[cfg(not(target_arch = "wasm32"))]
+                                            {
+                                                let default_name = crate::util::sanitize_filename(&self.export_filename);
+                                                let file = rfd::FileDialog::new()
+                                                    .add_filter("JSON", &["json"])
+                                                    .set_file_name(&default_name)
+                                                    .save_file();
+                                                if let Some(path) = file {
+                            if let Err(e) = std::fs::write(&path, json.as_bytes()) {
+                                                        self.status.push_error(format!("Error exporting: {}", e));
+                                                    } else {
+                                                        self.status.push_success(format!(
+                                "Export to file {} was successfull",
+                                                            path.display()
+                                                        ));
+                                                    }
+                                                }
+                                            }
+                                            #[cfg(target_arch = "wasm32")]
+                                            {
+                                                let fname = crate::util::sanitize_filename(&self.export_filename);
+                                                match crate::util::download_json(&fname, &json) {
+                                                    Ok(()) => self.status.push_success(format!("Export to file {} was successfull", fname)),
+                                                    Err(e) => self.status.push_error(format!("Error exporting: {}", e)),
+                                                }
                                             }
                                         }
-                                    }
-                                    #[cfg(target_arch = "wasm32")]
-                                    {
-                                            ui.ctx().copy_text(json);
-                                        self.status.push_success(String::from("Export copied to clipboard"));
+                                        crate::ExportDestination::Clipboard => {
+                                            ui.ctx().copy_text(json.clone());
+                        self.status.push_success(String::from("Export to clipboard was successfull"));
+                                        }
                                     }
                                 }
-                                Err(e) => self.status.push_error(format!("Export serialize error: {}", e)),
+                                Err(e) => self.status.push_error(format!("Error exporting: {}", e)),
                             }
                             self.show_export_modal = false;
                         }
