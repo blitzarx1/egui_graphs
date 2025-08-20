@@ -57,9 +57,10 @@ fn main() {
                 if ext.eq_ignore_ascii_case("json") {
                     if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
                         // Use include_str! with absolute path to asset
-                        let abs = path.to_string_lossy().replace('"', "\\\"");
+                        // Use a raw string literal so Windows backslashes are not treated as escapes
+                        let abs = path.to_string_lossy();
                         entries.push(format!(
-                            "(\"{name}\", include_str!(\"{abs}\"))",
+                            "(\"{name}\", include_str!(r#\"{abs}\"#))",
                             name = file_name,
                             abs = abs,
                         ));
