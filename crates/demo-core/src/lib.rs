@@ -6,6 +6,7 @@ use egui_graphs::{
     FruchtermanReingoldWithCenterGravityState, Graph, LayoutForceDirected, LayoutHierarchical,
     LayoutHierarchicalOrientation, LayoutStateHierarchical,
 };
+#[cfg(not(feature = "events"))]
 use instant::Instant;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::{Directed, Undirected};
@@ -21,6 +22,8 @@ mod metrics;
 mod overlays;
 mod status;
 mod tabs;
+#[cfg(all(target_arch = "wasm32", not(feature = "events")))]
+use std::{cell::RefCell, rc::Rc};
 use tabs::import_load::UserUpload;
 mod ui_consts;
 
@@ -118,6 +121,8 @@ pub struct DemoApp {
     pub right_tab: RightTab,
     // Saved user uploads (JSON text)
     pub user_uploads: Vec<UserUpload>,
+    #[cfg(target_arch = "wasm32")]
+    pub web_upload_buf: Rc<RefCell<Vec<UserUpload>>>,
 }
 
 // (removed malformed early impl DemoApp)
@@ -183,6 +188,8 @@ impl DemoApp {
             selected_layout: DemoLayout::FruchtermanReingold,
             right_tab: RightTab::Playground,
             user_uploads: Vec::new(),
+            #[cfg(target_arch = "wasm32")]
+            web_upload_buf: Rc::new(RefCell::new(Vec::new())),
         }
     }
 
@@ -1275,6 +1282,9 @@ impl App for DemoApp {
 
             // Handle drops this frame (platform may provide bytes immediately or later). Process the first valid one.
             let mut maybe_text: Option<String> = None;
+            #[cfg(target_arch = "wasm32")]
+            let maybe_name: Option<String> = None;
+            #[cfg(not(target_arch = "wasm32"))]
             let mut maybe_name: Option<String> = None;
             ctx.input(|i| {
                 for f in &i.raw.dropped_files {

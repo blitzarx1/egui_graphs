@@ -1,10 +1,13 @@
 [package]
 name = "demo-core"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
 publish = false
 build = "build.rs"
-repository.workspace = true
 
 [dependencies]
 egui.workspace = true
@@ -21,6 +24,23 @@ instant.workspace = true
 crossbeam = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+rfd = "0.14"
+
+[target.wasm32-unknown-unknown.dependencies]
+wasm-bindgen-futures = "0.4"
+getrandom = { version = "0.3", features = ["wasm_js"] }
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = [
+  "Window",
+  "Document",
+  "HtmlInputElement",
+  "FileList",
+  "File",
+  "FileReader",
+  "EventTarget",
+  "ProgressEvent",
+  "HtmlElement",
+] }
 
 [features]
 # Enable events in this demo and pull in crossbeam for native channels
