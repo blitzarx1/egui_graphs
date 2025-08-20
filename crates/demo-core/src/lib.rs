@@ -119,6 +119,8 @@ pub struct DemoApp {
     pub drag_hover_graph: bool,
     pub status: StatusQueue,
     pub selected_layout: DemoLayout,
+    // Whether any text input is focused this frame (to disable global Tab handling)
+    pub typing_in_input: bool,
     // Export modal state
     pub show_export_modal: bool,
     pub export_include_layout: bool,
@@ -203,6 +205,7 @@ impl DemoApp {
             drag_hover_graph: false,
             status: StatusQueue::new(),
             selected_layout: DemoLayout::FruchtermanReingold,
+            typing_in_input: false,
             show_export_modal: false,
             export_include_layout: true,
             export_include_graph: true,
@@ -1260,6 +1263,8 @@ impl DemoApp {
 
 impl App for DemoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Reset typing flag each frame; UI code will set it when a text field has focus
+        self.typing_in_input = false;
         // Sync counts displayed on sliders with actual graph values
         self.sync_counts();
 
@@ -1943,8 +1948,38 @@ impl DemoApp {
     }
     // Bottom instructional tips removed
     fn process_keybindings(&mut self, ctx: &egui::Context) {
-        // Don't process global keybindings while the UI has keyboard focus (e.g., typing in inputs)
-        let cmds = if ctx.wants_keyboard_input() {
+        // Tab should always toggle the sidebar and never move focus.
+        // Handle it unconditionally and consume Tab/Shift+Tab every frame.
+        let mut toggle = false;
+        ctx.input(|i| {
+            if i.key_pressed(egui::Key::Tab) && !i.modifiers.any() {
+                toggle = true;
+            }
+        });
+        // Consume Tab / Shift+Tab and strip Tab events to disable focus traversal
+        let shifted = egui::Modifiers {
+            shift: true,
+            ..egui::Modifiers::default()
+        };
+        ctx.input_mut(|i| {
+            let _ = i.consume_key(egui::Modifiers::default(), egui::Key::Tab);
+            let _ = i.consume_key(shifted, egui::Key::Tab);
+            i.events.retain(|ev| match ev {
+                egui::Event::Key {
+                    key: egui::Key::Tab,
+                    ..
+                } => false,
+                egui::Event::Text(t) if t == "\t" => false,
+                _ => true,
+            });
+        });
+        if toggle {
+            self.show_sidebar = !self.show_sidebar;
+        }
+
+        // Other keybindings (still disabled while typing to avoid graph actions while editing text)
+        let typing = self.typing_in_input || ctx.wants_keyboard_input();
+        let cmds = if typing {
             Vec::new()
         } else {
             dispatch_keybindings(ctx)
@@ -1953,7 +1988,6 @@ impl DemoApp {
         let mut close_modal = false;
         for c in cmds {
             match c {
-                Command::ToggleSidebar => self.show_sidebar = !self.show_sidebar,
                 Command::ToggleDebug => self.show_debug_overlay = !self.show_debug_overlay,
                 Command::OpenKeybindings => {
                     if self.show_keybindings_overlay {

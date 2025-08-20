@@ -2,7 +2,6 @@ use egui::{Context, Key, Modifiers};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Command {
-    ToggleSidebar,
     ToggleDebug,
     OpenKeybindings,
     CloseKeybindings,
@@ -66,10 +65,7 @@ pub fn dispatch(ctx: &Context) -> Vec<Command> {
         if i.key_pressed(Key::Escape) {
             cmds.push(Command::CloseKeybindings);
         }
-        // Tab: toggle sidebar (no modifiers)
-        if i.key_pressed(Key::Tab) && !i.modifiers.any() {
-            cmds.push(Command::ToggleSidebar);
-        }
+        // Tab handled centrally in DemoApp::process_keybindings (consumed globally).
 
         for ev in &i.events {
             if let egui::Event::Key {
@@ -99,6 +95,8 @@ pub fn dispatch(ctx: &Context) -> Vec<Command> {
             }
         }
     });
+
+    // Tab is consumed and handled in DemoApp::process_keybindings
 
     if pressed_h || pressed_shift_slash {
         cmds.push(Command::OpenKeybindings);

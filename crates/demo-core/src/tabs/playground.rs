@@ -55,7 +55,11 @@ impl DemoApp {
                     ui.horizontal(|ui| {
                         ui.label("Filename:");
                         ui.add_enabled_ui(is_file, |ui| {
-                            ui.text_edit_singleline(&mut self.export_filename);
+                            let resp = ui.text_edit_singleline(&mut self.export_filename);
+                            if resp.has_focus() {
+                                // Signal to app that we're typing in an input this frame
+                                self.typing_in_input = true;
+                            }
                         });
                     });
                     ui.add_space(4.0);

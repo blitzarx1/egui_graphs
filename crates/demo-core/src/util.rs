@@ -36,6 +36,7 @@ pub fn download_json(filename: &str, content: &str) -> Result<(), String> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(dead_code)]
 pub fn download_json(_filename: &str, _content: &str) -> Result<(), String> {
     Err("not supported on native".to_string())
 }
