@@ -120,9 +120,8 @@ fn import_json_minimal(text: &str) -> Result<ImportResult, String> {
             g: ImportedGraph::Directed(g),
         })
     } else {
-        // Build Undirected graph (single undirected edge per unordered pair)
-        use std::cmp::{max, min};
-        use std::collections::{BTreeSet, HashMap};
+        // Build Undirected graph (no deduplication; allow parallel edges)
+        use std::collections::HashMap;
         let sg: petgraph::stable_graph::StableGraph<(), (), Undirected, DefaultIx> =
             petgraph::stable_graph::StableGraph::default();
         let mut g: Graph<(), (), Undirected, DefaultIx> = Graph::from(&sg);
@@ -132,14 +131,7 @@ fn import_json_minimal(text: &str) -> Result<ImportResult, String> {
             let idx = g.add_node(());
             id_to_idx.insert(*id, idx);
         }
-        let mut undirected_pairs: BTreeSet<(i64, i64)> = BTreeSet::new();
         for (a, b) in parsed.edges.into_iter() {
-            let (x, y) = (min(a, b), max(a, b));
-            if x != y {
-                undirected_pairs.insert((x, y));
-            }
-        }
-        for (a, b) in undirected_pairs.into_iter() {
             let ai = match id_to_idx.get(&a) {
                 Some(i) => *i,
                 None => {
@@ -156,7 +148,9 @@ fn import_json_minimal(text: &str) -> Result<ImportResult, String> {
                     i
                 }
             };
-            let _ = g.add_edge(ai, bi, ());
+            if ai != bi {
+                let _ = g.add_edge(ai, bi, ());
+            }
         }
         Ok(ImportResult {
             g: ImportedGraph::Undirected(g),
@@ -226,9 +220,9 @@ mod tests {
         let r = import_graph_from_str(s).expect("should import");
         match r.g {
             ImportedGraph::Undirected(g) => {
-                assert_eq!(g.node_count(), 2);
-                // Only one undirected pair {0,1}
-                assert_eq!(g.edge_count(), 1);
+                // Duplicates are preserved and self-loops are ignored
+                assert_eq!(g.node_count(), 3);
+                assert_eq!(g.edge_count(), 3);
             }
             _ => panic!("expected undirected graph"),
         }

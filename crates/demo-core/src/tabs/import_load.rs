@@ -21,31 +21,39 @@ impl DemoApp {
             .show(ui, |ui| {
                 if self.user_uploads.is_empty() {
                     ui.weak("No uploads yet. Drag & drop a JSON file into the graph area.");
-                    return;
+                } else {
+                    egui::Grid::new("uploads_grid")
+                        .striped(true)
+                        .show(ui, |ui| {
+                            let mut action: Option<(usize, bool)> = None; // (index, load=true/delete=false)
+                            for (i, up) in self.user_uploads.iter().enumerate() {
+                                ui.label(&up.name);
+                                if ui.button("Load").clicked() {
+                                    action = Some((i, true));
+                                }
+                                if ui.button("Delete").clicked() {
+                                    action = Some((i, false));
+                                }
+                                ui.end_row();
+                            }
+                            if let Some((i, do_load)) = action {
+                                if do_load {
+                                    let up = self.user_uploads[i].clone();
+                                    self.load_graph_from_str(&up.name, &up.data);
+                                } else {
+                                    self.user_uploads.remove(i);
+                                }
+                            }
+                        });
                 }
-                egui::Grid::new("uploads_grid")
-                    .striped(true)
-                    .show(ui, |ui| {
-                        let mut action: Option<(usize, bool)> = None; // (index, load=true/delete=false)
-                        for (i, up) in self.user_uploads.iter().enumerate() {
-                            ui.label(&up.name);
-                            if ui.button("Load").clicked() {
-                                action = Some((i, true));
-                            }
-                            if ui.button("Delete").clicked() {
-                                action = Some((i, false));
-                            }
-                            ui.end_row();
-                        }
-                        if let Some((i, do_load)) = action {
-                            if do_load {
-                                let up = self.user_uploads[i].clone();
-                                self.load_graph_from_str(&up.name, &up.data);
-                            } else {
-                                self.user_uploads.remove(i);
-                            }
-                        }
-                    });
+
+                ui.add_space(8.0);
+                ui.group(|ui| {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(200, 180, 40),
+                        "Tip: User uploads are only available in the current session and will be lost when the session ends.",
+                    );
+                });
             });
 
         // 2) Schema help (compact)
