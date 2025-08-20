@@ -9,6 +9,8 @@ pub fn render(
     node_count: usize,
     edge_count: usize,
     last_step_count: usize,
+    pan: Option<[f32; 2]>,
+    zoom: Option<f32>,
 ) {
     // Compose overlay text
     let text = {
@@ -28,7 +30,23 @@ pub fn render(
             format!("E: {edge_count}")
         };
         let steps_line = format!("Steps: {}", last_step_count);
-        format!("{fps_line}\n{step_line}\n{draw_line}\n{n_line}\n{e_line}\n{steps_line}")
+        let (pan_line, zoom_line) = match (pan, zoom) {
+            (Some(p), Some(z)) => (
+                Some(format!("Pan: [{:.1}, {:.1}]", p[0], p[1])),
+                Some(format!("Zoom: {:.2}", z)),
+            ),
+            (Some(p), None) => (Some(format!("Pan: [{:.1}, {:.1}]", p[0], p[1])), None),
+            (None, Some(z)) => (None, Some(format!("Zoom: {:.2}", z))),
+            (None, None) => (None, None),
+        };
+        let mut lines = vec![fps_line, step_line, draw_line, n_line, e_line, steps_line];
+        if let Some(pl) = pan_line {
+            lines.push(pl);
+        }
+        if let Some(zl) = zoom_line {
+            lines.push(zl);
+        }
+        lines.join("\n")
     };
 
     let text_color = ui.style().visuals.strong_text_color();

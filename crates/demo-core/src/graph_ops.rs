@@ -1,12 +1,10 @@
-use crate::{MAX_EDGE_COUNT, MAX_NODE_COUNT};
+use crate::{DemoGraph, MAX_EDGE_COUNT, MAX_NODE_COUNT};
 use egui::Pos2;
-use egui_graphs::Graph;
-use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
-use petgraph::Directed;
+use petgraph::stable_graph::{EdgeIndex, NodeIndex};
 use rand::Rng;
 
 pub struct GraphActions<'a> {
-    pub g: &'a mut Graph<(), (), Directed, DefaultIx>,
+    pub g: &'a mut DemoGraph,
 }
 
 impl GraphActions<'_> {
@@ -44,24 +42,44 @@ impl GraphActions<'_> {
     }
 
     pub fn add_random_node(&mut self) {
-        if self.g.node_count() >= MAX_NODE_COUNT {
+        let node_cnt = match self.g {
+            DemoGraph::Directed(ref g) => g.node_count(),
+            DemoGraph::Undirected(ref g) => g.node_count(),
+        };
+        if node_cnt >= MAX_NODE_COUNT {
             return;
         }
-        let base = if let Some(r) = self.random_node_idx() {
-            self.g.node(r).unwrap().location()
-        } else {
-            Pos2::new(0.0, 0.0)
+        let base = match self.random_node_idx() {
+            Some(r) => match self.g {
+                DemoGraph::Directed(ref g) => g.node(r).unwrap().location(),
+                DemoGraph::Undirected(ref g) => g.node(r).unwrap().location(),
+            },
+            None => Pos2::new(0.0, 0.0),
         };
         let mut rng = rand::rng();
         let loc = Pos2::new(
             base.x + rng.random_range(-150.0..150.0),
             base.y + rng.random_range(-150.0..150.0),
         );
-        self.g.add_node_with_location((), loc);
+        match self.g {
+            DemoGraph::Directed(ref mut g) => {
+                g.add_node_with_location((), loc);
+            }
+            DemoGraph::Undirected(ref mut g) => {
+                g.add_node_with_location((), loc);
+            }
+        }
     }
     pub fn remove_random_node(&mut self) {
         if let Some(i) = self.random_node_idx() {
-            self.g.remove_node(i);
+            match self.g {
+                DemoGraph::Directed(ref mut g) => {
+                    g.remove_node(i);
+                }
+                DemoGraph::Undirected(ref mut g) => {
+                    g.remove_node(i);
+                }
+            }
         }
     }
     pub fn add_random_edge(&mut self) {
@@ -70,38 +88,86 @@ impl GraphActions<'_> {
         }
     }
     pub fn add_edge(&mut self, a: NodeIndex, b: NodeIndex) {
-        if self.g.edge_count() < MAX_EDGE_COUNT {
-            self.g.add_edge(a, b, ());
+        let edge_cnt = match self.g {
+            DemoGraph::Directed(ref g) => g.edge_count(),
+            DemoGraph::Undirected(ref g) => g.edge_count(),
+        };
+        if edge_cnt >= MAX_EDGE_COUNT {
+            return;
+        }
+        match self.g {
+            DemoGraph::Directed(ref mut g) => {
+                g.add_edge(a, b, ());
+            }
+            DemoGraph::Undirected(ref mut g) => {
+                g.add_edge(a, b, ());
+            }
         }
     }
     pub fn remove_random_edge(&mut self) {
         if let Some(eidx) = self.random_edge_idx() {
-            if let Some((a, b)) = self.g.edge_endpoints(eidx) {
+            let endpoints = match self.g {
+                DemoGraph::Directed(ref g) => g.edge_endpoints(eidx),
+                DemoGraph::Undirected(ref g) => g.edge_endpoints(eidx),
+            };
+            if let Some((a, b)) = endpoints {
                 self.remove_edge(a, b);
             }
         }
     }
     pub fn remove_edge(&mut self, a: NodeIndex, b: NodeIndex) {
-        let edge_id_opt = self.g.edges_connecting(a, b).next().map(|(eid, _)| eid);
+        let edge_id_opt = match self.g {
+            DemoGraph::Directed(ref g) => g.edges_connecting(a, b).next().map(|(eid, _)| eid),
+            DemoGraph::Undirected(ref g) => g.edges_connecting(a, b).next().map(|(eid, _)| eid),
+        };
         if let Some(edge_id) = edge_id_opt {
-            self.g.remove_edge(edge_id);
+            match self.g {
+                DemoGraph::Directed(ref mut g) => {
+                    g.remove_edge(edge_id);
+                }
+                DemoGraph::Undirected(ref mut g) => {
+                    g.remove_edge(edge_id);
+                }
+            }
+        }
+    }
+    pub fn remove_node_by_idx(&mut self, idx: NodeIndex) {
+        match self.g {
+            DemoGraph::Directed(ref mut g) => {
+                g.remove_node(idx);
+            }
+            DemoGraph::Undirected(ref mut g) => {
+                g.remove_node(idx);
+            }
         }
     }
 
     fn random_node_idx(&self) -> Option<NodeIndex> {
-        let cnt = self.g.node_count();
+        let cnt = match self.g {
+            DemoGraph::Directed(ref g) => g.node_count(),
+            DemoGraph::Undirected(ref g) => g.node_count(),
+        };
         if cnt == 0 {
             return None;
         }
         let idx = rand::rng().random_range(0..cnt);
-        self.g.g().node_indices().nth(idx)
+        match self.g {
+            DemoGraph::Directed(ref g) => g.g().node_indices().nth(idx),
+            DemoGraph::Undirected(ref g) => g.g().node_indices().nth(idx),
+        }
     }
     fn random_edge_idx(&self) -> Option<EdgeIndex> {
-        let cnt = self.g.edge_count();
+        let cnt = match self.g {
+            DemoGraph::Directed(ref g) => g.edge_count(),
+            DemoGraph::Undirected(ref g) => g.edge_count(),
+        };
         if cnt == 0 {
             return None;
         }
         let idx = rand::rng().random_range(0..cnt);
-        self.g.g().edge_indices().nth(idx)
+        match self.g {
+            DemoGraph::Directed(ref g) => g.g().edge_indices().nth(idx),
+            DemoGraph::Undirected(ref g) => g.g().edge_indices().nth(idx),
+        }
     }
 }

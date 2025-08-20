@@ -10,8 +10,6 @@ description = "Interactive graph visualization widget for rust powered by egui"
 keywords = ["egui", "ui", "graph", "node-graph"]
 categories = ["gui", "visualization"]
 
- 
-
 [dependencies]
 egui = { workspace = true, default-features = false, features = [
   "persistence",
