@@ -9705,14 +9705,15 @@
         99
       ]
     ],
-    "directed": true
+    "directed": true,
+    "positions": null
   },
   "layout": {
     "type": "fruchtermanReingold",
     "running": true,
-    "dt": 0.05,
-    "epsilon": 0.001,
-    "damping": 0.3,
+    "dt": 0.06,
+    "epsilon": 0.0004,
+    "damping": 0.42,
     "max_step": 10.0,
     "k_scale": 3.0,
     "c_attract": 0.1,

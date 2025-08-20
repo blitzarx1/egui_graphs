@@ -6,7 +6,7 @@ pub fn download_json(filename: &str, content: &str) -> Result<(), String> {
     let window = window().ok_or_else(|| "no window".to_string())?;
     let document = window.document().ok_or_else(|| "no document".to_string())?;
 
-    let mut props = BlobPropertyBag::new();
+    let props = BlobPropertyBag::new();
     props.set_type("application/json;charset=utf-8");
     let parts = js_sys::Array::new();
     parts.push(&wasm_bindgen::JsValue::from_str(content));
