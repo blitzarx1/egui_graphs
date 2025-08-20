@@ -149,7 +149,7 @@ impl DemoApp {
 
         // 2) Load assets from bundled examples
         egui::CollapsingHeader::new("Example Graphs")
-            .default_open(false)
+            .default_open(true)
             .show(ui, |ui| {
                 egui::Grid::new("assets_grid").striped(true).show(ui, |ui| {
                     for (name, data) in assets_manifest::ASSETS.iter() {
