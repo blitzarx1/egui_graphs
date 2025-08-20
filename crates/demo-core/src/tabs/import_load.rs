@@ -1,6 +1,34 @@
 use crate::{DemoApp, DemoGraph};
 use egui::Ui;
 
+const SCHEMA_NODES: &str = r#"[
+    [0,1], [1,2], [2,0]
+]"#;
+const SCHEMA_OBJECT: &str = r#"{
+    "nodes": [0,1,2],
+    "edges": [[0,1],[1,2],[2,0]]
+}"#;
+const SCHEMA_OBJECT_WITH_POSITIONS: &str = r#"{
+    "nodes": [0,1,2],
+    "edges": [[0,1],[1,2],[2,0]],
+    "positions": [[0, 10.0, -5.0], [1, 0.0, 0.0], [2, 5.0, 12.5]]
+}"#;
+const SCHEMA_FULL: &str = r#"{
+    "version": 1,
+    "graph": { 
+        "nodes": [0,1,2], 
+        "edges": [[0,1],[1,2],[2,0]], 
+        "directed": true 
+    },
+    "layout": {
+        "type": "FruchtermanReingold",
+        "running": true,
+        "dt": 0.05,
+        "k_scale": 1.2,
+        "extras": [ { "type": "CenterGravity", "enabled": true, "c": 0.3 } ]
+    }
+}"#;
+
 #[derive(Debug, Clone)]
 pub struct UserUpload {
     pub name: String,
@@ -140,35 +168,21 @@ impl DemoApp {
         egui::CollapsingHeader::new("Schema Help (JSON)")
             .default_open(true)
             .show(ui, |ui| {
-                                ui.small("Supported minimal schemas:");
-                ui.add_space(4.0);
+                ui.add_space(8.0);
                 ui.monospace("Edges array (directed implied):");
-                ui.code("[[0,1],[1,2],[2,0]]");
-                ui.add_space(4.0);
-                                ui.monospace("Object form:");
-                                ui.code(r#"{ "nodes": [0,1,2], "edges": [[0,1],[1,2],[2,0]], "directed": false }"#);
-                ui.add_space(4.0);
-                                ui.small("Notes: nodes are integers; edges are pairs [1,2]; set directed=false for undirected graphs");
-                                ui.add_space(8.0);
-                                ui.small("Optional positions (id, x, y) can be included in the graph object:");
-                                ui.code(r#"{
-    "nodes": [0,1,2],
-    "edges": [[0,1],[1,2],[2,0]],
-    "positions": [[0, 10.0, -5.0], [1, 0.0, 0.0], [2, 5.0, 12.5]]
-}"#);
-                                ui.add_space(8.0);
-                                ui.small("Combined demo import (graph + layout) example:");
-                                ui.code(r#"{
-    "version": 1,
-    "graph": { "nodes": [0,1,2], "edges": [[0,1],[1,2],[2,0]], "directed": true },
-    "layout": {
-        "type": "FruchtermanReingold",
-        "running": true,
-        "dt": 0.05,
-        "k_scale": 1.2,
-        "extras": [ { "type": "CenterGravity", "enabled": true, "c": 0.3 } ]
-    }
-}"#);
+                ui.code(SCHEMA_NODES);
+
+                ui.add_space(8.0);
+                ui.monospace("Object form:");
+                ui.code(SCHEMA_OBJECT);
+
+                ui.add_space(8.0);
+                ui.monospace("Optional positions (id, x, y) can be included in the graph object:");
+                ui.code(SCHEMA_OBJECT_WITH_POSITIONS);
+
+                ui.add_space(8.0);
+                ui.monospace("Full schema with layout and graph options:");
+                ui.code(SCHEMA_FULL);
             });
         ui.add_space(6.0);
     }
