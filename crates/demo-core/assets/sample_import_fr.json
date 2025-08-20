@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "graph": {
+    "nodes": [0,1,2,3,4],
+    "edges": [[0,1],[1,2],[2,3],[3,4],[4,0]],
+    "directed": true
+  },
+  "layout": {
+    "type": "FruchtermanReingold",
+    "running": true,
+    "dt": 0.05,
+    "damping": 0.3,
+    "max_step": 10.0,
+    "k_scale": 1.1,
+    "c_attract": 1.0,
+    "c_repulse": 1.0,
+    "extras": [ { "type": "CenterGravity", "enabled": true, "c": 0.3 } ]
+  }
+}

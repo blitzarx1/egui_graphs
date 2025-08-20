@@ -20,6 +20,7 @@ mod import;
 mod keybindings;
 mod metrics;
 mod overlays;
+mod spec;
 mod status;
 mod tabs;
 #[cfg(all(target_arch = "wasm32", not(feature = "events")))]
@@ -117,6 +118,13 @@ pub struct DemoApp {
     pub drag_hover_graph: bool,
     pub status: StatusQueue,
     pub selected_layout: DemoLayout,
+    // Export modal state
+    pub show_export_modal: bool,
+    pub export_include_layout: bool,
+    pub export_include_graph: bool,
+    pub export_include_positions: bool,
+    // If an import provided a layout state, apply it on next UI frame
+    pub pending_layout: Option<spec::PendingLayout>,
     // Right panel tabs
     pub right_tab: RightTab,
     // Saved user uploads (JSON text)
@@ -186,6 +194,11 @@ impl DemoApp {
             drag_hover_graph: false,
             status: StatusQueue::new(),
             selected_layout: DemoLayout::FruchtermanReingold,
+            show_export_modal: false,
+            export_include_layout: true,
+            export_include_graph: true,
+            export_include_positions: false,
+            pending_layout: None,
             right_tab: RightTab::Playground,
             user_uploads: Vec::new(),
             #[cfg(target_arch = "wasm32")]
@@ -1282,9 +1295,6 @@ impl App for DemoApp {
 
             // Handle drops this frame (platform may provide bytes immediately or later). Process the first valid one.
             let mut maybe_text: Option<String> = None;
-            #[cfg(target_arch = "wasm32")]
-            let maybe_name: Option<String> = None;
-            #[cfg(not(target_arch = "wasm32"))]
             let mut maybe_name: Option<String> = None;
             ctx.input(|i| {
                 for f in &i.raw.dropped_files {
@@ -1293,10 +1303,16 @@ impl App for DemoApp {
                             maybe_text = Some(s.to_owned());
                             // Name (native path if available)
                             #[cfg(not(target_arch = "wasm32"))]
-                            if let Some(path) = &f.path {
-                                if let Some(fname) = path.file_name().and_then(|o| o.to_str()) {
-                                    maybe_name = Some(fname.to_owned());
+                            {
+                                if let Some(path) = &f.path {
+                                    if let Some(fname) = path.file_name().and_then(|o| o.to_str()) {
+                                        maybe_name = Some(fname.to_owned());
+                                    }
                                 }
+                            }
+                            // Fallback: if no path or on web, use provided display name
+                            if maybe_name.is_none() && !f.name.is_empty() {
+                                maybe_name = Some(f.name.clone());
                             }
                             break;
                         }
@@ -1313,21 +1329,42 @@ impl App for DemoApp {
                                 break;
                             }
                         }
+                    } else if maybe_name.is_none() && !f.name.is_empty() {
+                        // If platform provided only the name (no path), keep it for the uploads list
+                        maybe_name = Some(f.name.clone());
+                    }
+                    // On web or if no path/bytes-name captured yet, still try to capture the display name
+                    if maybe_name.is_none() && !f.name.is_empty() {
+                        maybe_name = Some(f.name.clone());
                     }
                 }
             });
             if let Some(text) = maybe_text.take() {
                 match crate::import::import_graph_from_str(&text) {
                     Ok(mut res) => {
+                        let applied_positions = res.positions_applied;
                         match &mut res.g {
                             crate::import::ImportedGraph::Directed(g) => {
-                                Self::distribute_nodes_circle_generic(g);
+                                if !applied_positions {
+                                    Self::distribute_nodes_circle_generic(g);
+                                }
                                 self.g = DemoGraph::Directed(g.clone());
                             }
                             crate::import::ImportedGraph::Undirected(g) => {
-                                Self::distribute_nodes_circle_generic(g);
+                                if !applied_positions {
+                                    Self::distribute_nodes_circle_generic(g);
+                                }
                                 self.g = DemoGraph::Undirected(g.clone());
                             }
+                        }
+                        // If a layout state was imported, apply it next frame and switch UI to that layout
+                        if let Some(pl) = res.pending_layout.take() {
+                            self.pending_layout = Some(pl);
+                            self.selected_layout = match self.pending_layout {
+                                Some(spec::PendingLayout::FR(_)) => DemoLayout::FruchtermanReingold,
+                                Some(spec::PendingLayout::Hier(_)) => DemoLayout::Hierarchical,
+                                None => self.selected_layout,
+                            };
                         }
                         self.sync_counts();
                         // Save to uploads list (cap to last 20)
@@ -1347,9 +1384,14 @@ impl App for DemoApp {
                                 ("undirected", g.node_count(), g.edge_count())
                             }
                         };
+                        let suffix = if applied_positions {
+                            " (positions applied)"
+                        } else {
+                            ""
+                        };
                         self.status.push_success(format!(
-                            "Loaded {} graph: {} nodes, {} edges",
-                            kind, n, e
+                            "Loaded {} graph: {} nodes, {} edges{}",
+                            kind, n, e, suffix
                         ));
                     }
                     Err(e) => {
@@ -1394,6 +1436,20 @@ impl App for DemoApp {
 
             match (&mut self.g, self.selected_layout) {
                 (DemoGraph::Directed(ref mut g), DemoLayout::FruchtermanReingold) => {
+                    if let Some(spec::PendingLayout::FR(st)) = self.pending_layout.take() {
+                        egui_graphs::GraphView::<
+                            (),
+                            (),
+                            petgraph::Directed,
+                            petgraph::stable_graph::DefaultIx,
+                            egui_graphs::DefaultNodeShape,
+                            egui_graphs::DefaultEdgeShape,
+                            egui_graphs::FruchtermanReingoldWithCenterGravityState,
+                            egui_graphs::LayoutForceDirected<
+                                egui_graphs::FruchtermanReingoldWithCenterGravity,
+                            >,
+                        >::set_layout_state(ui, st);
+                    }
                     let mut view = egui_graphs::GraphView::<
                         _,
                         _,
@@ -1421,6 +1477,20 @@ impl App for DemoApp {
                     ui.add(&mut view);
                 }
                 (DemoGraph::Undirected(ref mut g), DemoLayout::FruchtermanReingold) => {
+                    if let Some(spec::PendingLayout::FR(st)) = self.pending_layout.take() {
+                        egui_graphs::GraphView::<
+                            (),
+                            (),
+                            petgraph::Undirected,
+                            petgraph::stable_graph::DefaultIx,
+                            egui_graphs::DefaultNodeShape,
+                            egui_graphs::DefaultEdgeShape,
+                            egui_graphs::FruchtermanReingoldWithCenterGravityState,
+                            egui_graphs::LayoutForceDirected<
+                                egui_graphs::FruchtermanReingoldWithCenterGravity,
+                            >,
+                        >::set_layout_state(ui, st);
+                    }
                     let mut view = egui_graphs::GraphView::<
                         _,
                         _,
@@ -1448,6 +1518,18 @@ impl App for DemoApp {
                     ui.add(&mut view);
                 }
                 (DemoGraph::Directed(ref mut g), DemoLayout::Hierarchical) => {
+                    if let Some(spec::PendingLayout::Hier(st)) = self.pending_layout.take() {
+                        egui_graphs::GraphView::<
+                            (),
+                            (),
+                            petgraph::Directed,
+                            petgraph::stable_graph::DefaultIx,
+                            egui_graphs::DefaultNodeShape,
+                            egui_graphs::DefaultEdgeShape,
+                            egui_graphs::LayoutStateHierarchical,
+                            egui_graphs::LayoutHierarchical,
+                        >::set_layout_state(ui, st);
+                    }
                     let mut view = egui_graphs::GraphView::<
                         _,
                         _,
@@ -1475,6 +1557,18 @@ impl App for DemoApp {
                     ui.add(&mut view);
                 }
                 (DemoGraph::Undirected(ref mut g), DemoLayout::Hierarchical) => {
+                    if let Some(spec::PendingLayout::Hier(st)) = self.pending_layout.take() {
+                        egui_graphs::GraphView::<
+                            (),
+                            (),
+                            petgraph::Undirected,
+                            petgraph::stable_graph::DefaultIx,
+                            egui_graphs::DefaultNodeShape,
+                            egui_graphs::DefaultEdgeShape,
+                            egui_graphs::LayoutStateHierarchical,
+                            egui_graphs::LayoutHierarchical,
+                        >::set_layout_state(ui, st);
+                    }
                     let mut view = egui_graphs::GraphView::<
                         _,
                         _,

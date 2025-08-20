@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "graph": {
+    "nodes": [0,1,2,3,4,5],
+    "edges": [[0,1],[0,2],[1,3],[1,4],[2,5]],
+    "directed": true
+  },
+  "layout": {
+    "type": "Hierarchical",
+    "row_dist": 150.0,
+    "col_dist": 120.0,
+    "center_parent": true,
+    "orientation": "TopDown"
+  }
+}

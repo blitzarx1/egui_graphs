@@ -47,9 +47,9 @@ impl DemoApp {
                         });
                 }
 
-                // Upload button placed below the note/grid and above the tip
+                // Open button placed below the note/grid and above the tip
                 ui.add_space(6.0);
-                if ui.button("Upload").clicked() {
+                if ui.button("Open").clicked() {
                     #[cfg(target_arch = "wasm32")]
                     {
                         // Use a native browser file input to avoid rfd's intermediate dialog on web.
@@ -117,26 +117,11 @@ impl DemoApp {
                 });
             });
 
-        // 2) Schema help (compact)
-        egui::CollapsingHeader::new("Schema Help (JSON)")
-            .default_open(true)
-            .show(ui, |ui| {
-                ui.small("Supported minimal schemas:");
-                ui.add_space(4.0);
-                ui.monospace("Edges array (directed implied):");
-                ui.code("[[0,1],[1,2],[2,0]]");
-                ui.add_space(4.0);
-                ui.monospace("Object form:");
-                ui.code(r#"{ "nodes": [0,1,2], "edges": [[0,1],[1,2],[2,0]], "directed": false }"#);
-                ui.add_space(4.0);
-                ui.small("Notes: nodes are integers; edges are pairs [1,2]; set directed=false for undirected graphs");
-            });
-
         ui.add_space(6.0);
 
-        // 3) Load assets from bundled examples
+        // 2) Load assets from bundled examples
         egui::CollapsingHeader::new("Example Graphs")
-            .default_open(true)
+            .default_open(false)
             .show(ui, |ui| {
                 egui::Grid::new("assets_grid").striped(true).show(ui, |ui| {
                     for (name, data) in assets_manifest::ASSETS.iter() {
@@ -150,19 +135,84 @@ impl DemoApp {
             });
 
         ui.add_space(6.0);
+
+        // 3) Schema help (compact)
+        egui::CollapsingHeader::new("Schema Help (JSON)")
+            .default_open(true)
+            .show(ui, |ui| {
+                                ui.small("Supported minimal schemas:");
+                ui.add_space(4.0);
+                ui.monospace("Edges array (directed implied):");
+                ui.code("[[0,1],[1,2],[2,0]]");
+                ui.add_space(4.0);
+                                ui.monospace("Object form:");
+                                ui.code(r#"{ "nodes": [0,1,2], "edges": [[0,1],[1,2],[2,0]], "directed": false }"#);
+                ui.add_space(4.0);
+                                ui.small("Notes: nodes are integers; edges are pairs [1,2]; set directed=false for undirected graphs");
+                                ui.add_space(8.0);
+                                ui.small("Optional positions (id, x, y) can be included in the graph object:");
+                                ui.code(r#"{
+    "nodes": [0,1,2],
+    "edges": [[0,1],[1,2],[2,0]],
+    "positions": [[0, 10.0, -5.0], [1, 0.0, 0.0], [2, 5.0, 12.5]]
+}"#);
+                                ui.add_space(8.0);
+                                ui.small("Combined demo import (graph + layout) example:");
+                                ui.code(r#"{
+    "version": 1,
+    "graph": { "nodes": [0,1,2], "edges": [[0,1],[1,2],[2,0]], "directed": true },
+    "layout": {
+        "type": "FruchtermanReingold",
+        "running": true,
+        "dt": 0.05,
+        "k_scale": 1.2,
+        "extras": [ { "type": "CenterGravity", "enabled": true, "c": 0.3 } ]
+    }
+}"#);
+            });
+        ui.add_space(6.0);
     }
 
     pub fn load_graph_from_str(&mut self, name: &str, data: &str) {
         match crate::import::import_graph_from_str(data) {
             Ok(mut res) => {
+                let applied_positions = res.positions_applied;
                 match &mut res.g {
                     crate::import::ImportedGraph::Directed(g) => {
-                        Self::distribute_nodes_circle_generic(g);
+                        if !applied_positions {
+                            Self::distribute_nodes_circle_generic(g);
+                        }
                         self.g = DemoGraph::Directed(g.clone());
+                        if let Some(pl) = res.pending_layout.take() {
+                            self.pending_layout = Some(pl);
+                            self.selected_layout = match self.pending_layout {
+                                Some(crate::spec::PendingLayout::FR(_)) => {
+                                    crate::DemoLayout::FruchtermanReingold
+                                }
+                                Some(crate::spec::PendingLayout::Hier(_)) => {
+                                    crate::DemoLayout::Hierarchical
+                                }
+                                None => self.selected_layout,
+                            };
+                        }
                     }
                     crate::import::ImportedGraph::Undirected(g) => {
-                        Self::distribute_nodes_circle_generic(g);
+                        if !applied_positions {
+                            Self::distribute_nodes_circle_generic(g);
+                        }
                         self.g = DemoGraph::Undirected(g.clone());
+                        if let Some(pl) = res.pending_layout.take() {
+                            self.pending_layout = Some(pl);
+                            self.selected_layout = match self.pending_layout {
+                                Some(crate::spec::PendingLayout::FR(_)) => {
+                                    crate::DemoLayout::FruchtermanReingold
+                                }
+                                Some(crate::spec::PendingLayout::Hier(_)) => {
+                                    crate::DemoLayout::Hierarchical
+                                }
+                                None => self.selected_layout,
+                            };
+                        }
                     }
                 }
                 self.sync_counts();
@@ -170,8 +220,15 @@ impl DemoApp {
                     DemoGraph::Directed(g) => ("directed", g.node_count(), g.edge_count()),
                     DemoGraph::Undirected(g) => ("undirected", g.node_count(), g.edge_count()),
                 };
-                self.status
-                    .push_success(format!("Loaded {} graph: {} nodes, {} edges", kind, n, e));
+                let suffix = if applied_positions {
+                    " (positions applied)"
+                } else {
+                    ""
+                };
+                self.status.push_success(format!(
+                    "Loaded {} graph: {} nodes, {} edges{}",
+                    kind, n, e, suffix
+                ));
             }
             Err(err) => {
                 self.status
