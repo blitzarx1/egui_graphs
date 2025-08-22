@@ -1737,14 +1737,6 @@ impl DemoApp {
         self.status.push_info(msg);
     }
 
-    fn fmt_count(n: u32, singular: &str, plural: &str) -> String {
-        if n == 1 {
-            singular.to_string()
-        } else {
-            format!("{} {}", n, plural)
-        }
-    }
-
     fn notify_added(&mut self, singular: &str, plural: &str, n: u32) {
         let text = if n == 1 {
             format!("+1 {}", singular)
