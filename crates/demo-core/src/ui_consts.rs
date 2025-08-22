@@ -2,7 +2,7 @@
 pub const UI_MARGIN: f32 = 10.0;
 
 // Common spacing between grouped controls
-pub const SECTION_SPACING: f32 = 6.0;
+pub const SECTION_SPACING: f32 = 4.0;
 
 // Side panel sizing
 pub const SIDE_PANEL_WIDTH: f32 = 300.0;

@@ -597,187 +597,196 @@ impl DemoApp {
                         LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                     >::get_layout_state(ui);
 
-                    ui.horizontal(|ui| {
-                        ui.checkbox(&mut state.base.is_running, "running");
-                        info_icon(ui, "Run/pause the simulation. When paused node positions stay fixed.");
-                    });
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Slider::new(&mut state.base.dt, 0.001..=0.2).text("dt"));
-                        info_icon(ui, "Integration time step (Euler). Larger = faster movement but less stable.");
-                    });
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Slider::new(&mut state.base.damping, 0.0..=1.0).text("damping"));
-                        info_icon(ui, "Velocity damping per frame. 1 = no damping, 0 = immediate stop.");
-                    });
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Slider::new(&mut state.base.max_step, 0.1..=50.0).text("max_step"));
-                        info_icon(ui, "Maximum pixel displacement applied per frame to prevent explosions.");
-                    });
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Slider::new(&mut state.base.epsilon, 1e-5..=1e-1).logarithmic(true).text("epsilon"));
-                        info_icon(ui, "Minimum distance clamp to avoid division by zero in force calculations.");
-                    });
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Slider::new(&mut state.base.k_scale, 0.2..=3.0).text("k_scale"));
-                        info_icon(ui, "Scale ideal edge length k; >1 spreads the layout, <1 compacts it.");
-                    });
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Slider::new(&mut state.base.c_attract, 0.1..=3.0).text("c_attract"));
-                        info_icon(ui, "Multiplier for attractive force along edges (higher pulls connected nodes together).");
-                    });
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Slider::new(&mut state.base.c_repulse, 0.1..=3.0).text("c_repulse"));
-                        info_icon(ui, "Multiplier for repulsive force between nodes (higher pushes nodes apart).");
-                    });
-
-                    ui.add_space(SECTION_SPACING);
-                    ui.separator();
-                    ui.horizontal(|ui| {
-                        ui.label("Fast Forward");
-                        info_icon(ui, "Advance the simulation instantly by a fixed number of steps or within a frame-time budget.");
-                    });
-                    ui.vertical(|ui| {
-                        if ui.button("Fast-forward 100 steps").clicked() {
-                            match &mut self.g {
-                                DemoGraph::Directed(g) => {
-                                    egui_graphs::GraphView::<
-                                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::fast_forward_force_run(ui, g, 100);
-                                    state = egui_graphs::GraphView::<
-                                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::get_layout_state(ui);
-                                }
-                                DemoGraph::Undirected(g) => {
-                                    egui_graphs::GraphView::<
-                                        (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::fast_forward_force_run(ui, g, 100);
-                                    state = egui_graphs::GraphView::<
-                                        (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::get_layout_state(ui);
-                                }
-                            }
-                        }
-                        if ui.button("Fast-forward 1000 steps_budgeted (100ms)").clicked() {
-                            match &mut self.g {
-                                DemoGraph::Directed(g) => {
-                                    let _ = egui_graphs::GraphView::<
-                                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::fast_forward_budgeted_force_run(ui, g, 1000, 100);
-                                    state = egui_graphs::GraphView::<
-                                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::get_layout_state(ui);
-                                }
-                                DemoGraph::Undirected(g) => {
-                                    let _ = egui_graphs::GraphView::<
-                                        (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::fast_forward_budgeted_force_run(ui, g, 1000, 100);
-                                    state = egui_graphs::GraphView::<
-                                        (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::get_layout_state(ui);
-                                }
-                            }
-                        }
-                        if ui.button("Until stable (ε=0.01, ≤1000 steps)").clicked() {
-                            match &mut self.g {
-                                DemoGraph::Directed(g) => {
-                                    let _ = egui_graphs::GraphView::<
-                                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000);
-                                    state = egui_graphs::GraphView::<
-                                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::get_layout_state(ui);
-                                }
-                                DemoGraph::Undirected(g) => {
-                                    let _ = egui_graphs::GraphView::<
-                                        (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000);
-                                    state = egui_graphs::GraphView::<
-                                        (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::get_layout_state(ui);
-                                }
-                            }
-                        }
-                        if ui.button("Until stable_budgeted (ε=0.01, ≤10000 steps, 1000ms)").clicked() {
-                            match &mut self.g {
-                                DemoGraph::Directed(g) => {
-                                    let _ = egui_graphs::GraphView::<
-                                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000);
-                                    state = egui_graphs::GraphView::<
-                                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::get_layout_state(ui);
-                                }
-                                DemoGraph::Undirected(g) => {
-                                    let _ = egui_graphs::GraphView::<
-                                        (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000);
-                                    state = egui_graphs::GraphView::<
-                                        (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                        FruchtermanReingoldWithCenterGravityState,
-                                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                    >::get_layout_state(ui);
-                                }
-                            }
-                        }
-                    });
-
-                    ui.add_space(SECTION_SPACING);
-                    ui.separator();
-                    ui.label("Extras");
-                    ui.horizontal(|ui| {
-                        ui.checkbox(&mut state.extras.0.enabled, "center_gravity");
-                        info_icon(ui, "Enable/disable center gravity force.");
-                    });
-                    ui.add_enabled_ui(state.extras.0.enabled, |ui| {
+                    // Animation section
+                    CollapsingHeader::new("Animation").default_open(true).show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            ui.add(egui::Slider::new(&mut state.extras.0.params.c, 0.0..=2.0).text("center_strength"));
-                            info_icon(ui, "Coefficient for pull toward viewport/graph center.");
+                            ui.checkbox(&mut state.base.is_running, "running");
+                            info_icon(ui, "Run/pause the simulation. When paused node positions stay fixed.");
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(&mut state.base.dt, 0.001..=0.2).text("dt"));
+                            info_icon(ui, "Integration time step (Euler). Larger = faster movement but less stable.");
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(&mut state.base.damping, 0.0..=1.0).text("damping"));
+                            info_icon(ui, "Velocity damping per frame. 1 = no damping, 0 = immediate stop.");
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(&mut state.base.max_step, 0.1..=50.0).text("max_step"));
+                            info_icon(ui, "Maximum pixel displacement applied per frame to prevent explosions.");
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(&mut state.base.epsilon, 1e-5..=1e-1).logarithmic(true).text("epsilon"));
+                            info_icon(ui, "Minimum distance clamp to avoid division by zero in force calculations.");
+                        });
+
+                        ui.add_space(SECTION_SPACING);
+                        ui.separator();
+                        ui.horizontal(|ui| {
+                            ui.label("Fast Forward");
+                            info_icon(ui, "Advance the simulation instantly by a fixed number of steps or within a frame-time budget.");
+                        });
+                        ui.vertical(|ui| {
+                            if ui.button("Fast-forward 100 steps").clicked() {
+                                match &mut self.g {
+                                    DemoGraph::Directed(g) => {
+                                        egui_graphs::GraphView::<
+                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::fast_forward_force_run(ui, g, 100);
+                                        state = egui_graphs::GraphView::<
+                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::get_layout_state(ui);
+                                    }
+                                    DemoGraph::Undirected(g) => {
+                                        egui_graphs::GraphView::<
+                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::fast_forward_force_run(ui, g, 100);
+                                        state = egui_graphs::GraphView::<
+                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::get_layout_state(ui);
+                                    }
+                                }
+                            }
+                            if ui.button("Fast-forward 1000 steps_budgeted (100ms)").clicked() {
+                                match &mut self.g {
+                                    DemoGraph::Directed(g) => {
+                                        let _ = egui_graphs::GraphView::<
+                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::fast_forward_budgeted_force_run(ui, g, 1000, 100);
+                                        state = egui_graphs::GraphView::<
+                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::get_layout_state(ui);
+                                    }
+                                    DemoGraph::Undirected(g) => {
+                                        let _ = egui_graphs::GraphView::<
+                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::fast_forward_budgeted_force_run(ui, g, 1000, 100);
+                                        state = egui_graphs::GraphView::<
+                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::get_layout_state(ui);
+                                    }
+                                }
+                            }
+                            if ui.button("Until stable (ε=0.01, ≤1000 steps)").clicked() {
+                                match &mut self.g {
+                                    DemoGraph::Directed(g) => {
+                                        let _ = egui_graphs::GraphView::<
+                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000);
+                                        state = egui_graphs::GraphView::<
+                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::get_layout_state(ui);
+                                    }
+                                    DemoGraph::Undirected(g) => {
+                                        let _ = egui_graphs::GraphView::<
+                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000);
+                                        state = egui_graphs::GraphView::<
+                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::get_layout_state(ui);
+                                    }
+                                }
+                            }
+                            if ui.button("Until stable_budgeted (ε=0.01, ≤10000 steps, 1000ms)").clicked() {
+                                match &mut self.g {
+                                    DemoGraph::Directed(g) => {
+                                        let _ = egui_graphs::GraphView::<
+                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000);
+                                        state = egui_graphs::GraphView::<
+                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::get_layout_state(ui);
+                                    }
+                                    DemoGraph::Undirected(g) => {
+                                        let _ = egui_graphs::GraphView::<
+                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000);
+                                        state = egui_graphs::GraphView::<
+                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
+                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
+                                            FruchtermanReingoldWithCenterGravityState,
+                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
+                                        >::get_layout_state(ui);
+                                    }
+                                }
+                            }
+                        });
+                    });
+
+                    ui.add_space(SECTION_SPACING);
+
+                    // Forces section
+                    CollapsingHeader::new("Forces").default_open(true).show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(&mut state.base.k_scale, 0.2..=3.0).text("k_scale"));
+                            info_icon(ui, "Scale ideal edge length k; >1 spreads the layout, <1 compacts it.");
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(&mut state.base.c_attract, 0.1..=3.0).text("c_attract"));
+                            info_icon(ui, "Multiplier for attractive force along edges (higher pulls connected nodes together).");
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Slider::new(&mut state.base.c_repulse, 0.1..=3.0).text("c_repulse"));
+                            info_icon(ui, "Multiplier for repulsive force between nodes (higher pushes nodes apart).");
+                        });
+
+                        ui.add_space(SECTION_SPACING);
+                        ui.separator();
+                        ui.label("Extras");
+                        ui.horizontal(|ui| {
+                            ui.checkbox(&mut state.extras.0.enabled, "center_gravity");
+                            info_icon(ui, "Enable/disable center gravity force.");
+                        });
+                        ui.add_enabled_ui(state.extras.0.enabled, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.add(egui::Slider::new(&mut state.extras.0.params.c, 0.0..=2.0).text("center_strength"));
+                                info_icon(ui, "Coefficient for pull toward viewport/graph center.");
+                            });
                         });
                     });
 
