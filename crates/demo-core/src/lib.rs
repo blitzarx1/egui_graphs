@@ -136,6 +136,9 @@ pub struct DemoApp {
     pub user_uploads: Vec<UserUpload>,
     #[cfg(target_arch = "wasm32")]
     pub web_upload_buf: Rc<RefCell<Vec<UserUpload>>>,
+    // One-shot navigation actions
+    pub fit_to_screen_once_pending: bool,
+    pub pan_to_graph_pending: bool,
 }
 
 // (removed malformed early impl DemoApp)
@@ -217,6 +220,8 @@ impl DemoApp {
             user_uploads: Vec::new(),
             #[cfg(target_arch = "wasm32")]
             web_upload_buf: Rc::new(RefCell::new(Vec::new())),
+            fit_to_screen_once_pending: false,
+            pan_to_graph_pending: false,
         }
     }
 
@@ -1613,6 +1618,27 @@ impl App for DemoApp {
                 }
             }
 
+            // After rendering the view, handle pending one-shot navigation actions.
+            // 1) Pan to graph center without changing zoom
+            if self.pan_to_graph_pending {
+                let mut meta = egui_graphs::Metadata::load(ui);
+                let bounds = match &self.g {
+                    DemoGraph::Directed(g) => g.bounds(),
+                    DemoGraph::Undirected(g) => g.bounds(),
+                };
+                let graph_center = ((bounds.min.to_vec2() + bounds.max.to_vec2()) * 0.5).to_pos2();
+                let new_pan = ui.max_rect().center().to_vec2() - graph_center.to_vec2() * meta.zoom;
+                meta.pan = new_pan;
+                meta.save(ui);
+                self.pan_to_graph_pending = false;
+                self.notify_info("Fit to screen (no zoom)");
+            }
+            // 2) Fit to screen once: turn off the auto-fit after it has just been applied.
+            if self.fit_to_screen_once_pending && self.settings_navigation.fit_to_screen_enabled {
+                self.settings_navigation.fit_to_screen_enabled = false;
+                self.fit_to_screen_once_pending = false;
+            }
+
             #[cfg(feature = "events")]
             self.consume_events();
 
@@ -1702,6 +1728,48 @@ impl App for DemoApp {
 
         // Draw modal after main UI
         self.keybindings_modal(ctx);
+    }
+}
+
+// Small helper methods for consistent status notifications across actions
+impl DemoApp {
+    fn notify_info(&mut self, msg: impl Into<String>) {
+        self.status.push_info(msg);
+    }
+
+    fn fmt_count(n: u32, singular: &str, plural: &str) -> String {
+        if n == 1 {
+            singular.to_string()
+        } else {
+            format!("{} {}", n, plural)
+        }
+    }
+
+    fn notify_added(&mut self, singular: &str, plural: &str, n: u32) {
+        let text = if n == 1 {
+            format!("+1 {}", singular)
+        } else {
+            format!("+{} {}", n, plural)
+        };
+        self.status.push_success(text);
+    }
+
+    fn notify_removed(&mut self, singular: &str, plural: &str, n: u32) {
+        let text = if n == 1 {
+            format!("-1 {}", singular)
+        } else {
+            format!("-{} {}", n, plural)
+        };
+        self.status.push_success(text);
+    }
+
+    fn notify_swapped(&mut self, singular: &str, plural: &str, n: u32) {
+        let text = if n == 1 {
+            format!("Swap 1 {}", singular)
+        } else {
+            format!("Swap {} {}", n, plural)
+        };
+        self.status.push_success(text);
     }
 }
 
@@ -1856,14 +1924,14 @@ impl DemoApp {
             // Graph elements
             render_group(ui, "Graph elements",
                 &[
-                    ("n", "add 1 node"),
-                    ("Shift+n", "remove 1 node"),
-                    ("Ctrl+Shift+n", "swap 1 node (remove then add)"),
+                    ("n", "+1 node"),
+                    ("Shift+n", "-1 node"),
+                    ("Ctrl+Shift+n", "swap 1 node"),
                     ("m", "+10 nodes (up to max)"),
                     ("Shift+m", "-10 nodes"),
                     ("Ctrl+Shift+m", "swap 10 nodes"),
-                    ("e", "add 1 edge"),
-                    ("Shift+e", "remove 1 edge"),
+                    ("e", "+1 edge"),
+                    ("Shift+e", "-1 edge"),
                     ("Ctrl+Shift+e", "swap 1 edge"),
                     ("r", "+10 edges (up to max)"),
                     ("Shift+r", "-10 edges"),
@@ -1871,11 +1939,14 @@ impl DemoApp {
                 ],
                 "kb_group_elements");
 
-            // Graph actions
+        // Graph actions
             render_group(ui, "Graph actions",
                 &[
                     ("d", "toggle debug overlay"),
-                    ("Space", "reset all"),
+                    ("Backspace", "reset all"),
+            ("Ctrl+Space", "toggle zoom & pan / fit to screen"),
+            ("Ctrl+Shift+Space", "Fit to screen (no zoom)"),
+            ("Space", "Fit to screen"),
                 ],
                 "kb_group_actions");
 
@@ -1988,33 +2059,74 @@ impl DemoApp {
         let mut close_modal = false;
         for c in cmds {
             match c {
-                Command::ToggleDebug => self.show_debug_overlay = !self.show_debug_overlay,
+                Command::ToggleDebug => {
+                    self.show_debug_overlay = !self.show_debug_overlay;
+                    self.notify_info("Toggled debug overlay");
+                }
                 Command::OpenKeybindings => {
                     if self.show_keybindings_overlay {
                         close_modal = true;
+                        self.notify_info("Closed keybindings");
                     } else {
                         open_modal = true;
+                        self.notify_info("Opened keybindings");
                     }
                 }
-                Command::CloseKeybindings => self.show_keybindings_overlay = false,
-                Command::ResetAll => self.reset_requested = true,
+                Command::CloseKeybindings => {
+                    self.show_keybindings_overlay = false;
+                    self.notify_info("Closed keybindings");
+                }
+                Command::ResetAll => {
+                    self.reset_requested = true;
+                    self.notify_info("Reset all");
+                }
+                Command::ToggleNavMode => {
+                    // Switch zoom&pan and fit_to_screen (mutually exclusive)
+                    let enable_zoom_pan = !self.settings_navigation.zoom_and_pan_enabled;
+                    self.settings_navigation.zoom_and_pan_enabled = enable_zoom_pan;
+                    self.settings_navigation.fit_to_screen_enabled = !enable_zoom_pan;
+                    if enable_zoom_pan {
+                        self.notify_info("Toggle pan and zoom");
+                    } else {
+                        self.notify_info("Toggle fit to screen");
+                    }
+                }
+                Command::FitToScreenOnce => {
+                    // Enable fit_to_screen for a single frame then disable it after draw.
+                    // If already enabled, this is a noop per requirement.
+                    if !self.settings_navigation.fit_to_screen_enabled {
+                        self.settings_navigation.fit_to_screen_enabled = true;
+                        self.fit_to_screen_once_pending = true;
+                        self.notify_info("Fit to screen");
+                    }
+                }
+                Command::PanToGraph => {
+                    // Request a one-off pan to graph center; will be applied after draw this frame.
+                    self.pan_to_graph_pending = true;
+                }
                 Command::AddNodes(n) => {
                     GraphActions { g: &mut self.g }.add_nodes(n);
+                    self.notify_added("node", "nodes", n);
                 }
                 Command::RemoveNodes(n) => {
                     GraphActions { g: &mut self.g }.remove_nodes(n);
+                    self.notify_removed("node", "nodes", n);
                 }
                 Command::SwapNodes(n) => {
                     GraphActions { g: &mut self.g }.swap_nodes(n);
+                    self.notify_swapped("node", "nodes", n);
                 }
                 Command::AddEdges(n) => {
                     GraphActions { g: &mut self.g }.add_edges(n);
+                    self.notify_added("edge", "edges", n);
                 }
                 Command::RemoveEdges(n) => {
                     GraphActions { g: &mut self.g }.remove_edges(n);
+                    self.notify_removed("edge", "edges", n);
                 }
                 Command::SwapEdges(n) => {
                     GraphActions { g: &mut self.g }.swap_edges(n);
+                    self.notify_swapped("edge", "edges", n);
                 }
             }
         }
