@@ -172,7 +172,8 @@ impl DemoApp {
         #[cfg(all(feature = "events", target_arch = "wasm32"))]
         let events_buf: Rc<RefCell<Vec<Event>>> = Rc::new(RefCell::new(Vec::new()));
 
-        Self {
+        #[allow(unused_mut)]
+        let mut app = Self {
             g: DemoGraph::Directed(g),
             settings_graph,
             settings_interaction: settings::SettingsInteraction::default(),
@@ -222,7 +223,19 @@ impl DemoApp {
             web_upload_buf: Rc::new(RefCell::new(Vec::new())),
             fit_to_screen_once_pending: false,
             pan_to_graph_pending: false,
+        };
+
+        // Web: if URL hash contains g=<example_name>, load that example graph automatically
+        #[cfg(target_arch = "wasm32")]
+        {
+            if let Some(name) = crate::web_hash_get_param("g") {
+                if let Some(data) = crate::web_lookup_example_asset(&name) {
+                    app.load_graph_from_str(&name, data);
+                }
+            }
         }
+
+        app
     }
 
     pub fn random_node_idx(&self) -> Option<NodeIndex> {
@@ -483,6 +496,11 @@ impl DemoApp {
             self.pan = [0.0, 0.0];
             self.zoom = 1.0;
             self.event_filters = EventFilters::default();
+        }
+        // Web: clear URL hash (remove g param and any others)
+        #[cfg(target_arch = "wasm32")]
+        {
+            web_hash_clear();
         }
         self.metrics.reset();
     }
@@ -2174,4 +2192,131 @@ fn draw_drop_overlay(ui: &mut egui::Ui, rect: Rect) {
         font,
         Color32::WHITE,
     );
+}
+
+// --- Web-only helpers for URL hash params and bundled example lookup ---
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn web_hash_get_param(key: &str) -> Option<String> {
+    let window = web_sys::window()?;
+    let loc = window.location();
+    let hash = loc.hash().ok().unwrap_or_default();
+    let raw = hash.strip_prefix('#').unwrap_or(hash.as_str());
+    if raw.is_empty() {
+        return None;
+    }
+    for pair in raw.split('&') {
+        if pair.is_empty() {
+            continue;
+        }
+        let mut it = pair.splitn(2, '=');
+        let k = it.next().unwrap_or("");
+        let v = it.next().unwrap_or("");
+        if k == key {
+            let decoded = js_sys::decode_uri_component(v)
+                .ok()
+                .and_then(|js| js.as_string())
+                .unwrap_or_else(|| v.to_string());
+            return Some(decoded);
+        }
+    }
+    None
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn web_hash_set_param(key: &str, value: &str) {
+    let window = match web_sys::window() {
+        Some(w) => w,
+        None => return,
+    };
+    let loc = window.location();
+    let hash = loc.hash().unwrap_or_default();
+    let raw = hash.strip_prefix('#').unwrap_or(hash.as_str());
+    let mut params: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    if !raw.is_empty() {
+        for pair in raw.split('&') {
+            if pair.is_empty() {
+                continue;
+            }
+            let mut it = pair.splitn(2, '=');
+            let k = it.next().unwrap_or("");
+            let v = it.next().unwrap_or("");
+            if !k.is_empty() {
+                params.insert(k.to_string(), v.to_string());
+            }
+        }
+    }
+    params.insert(key.to_string(), value.to_string());
+    let new_hash_body = params
+        .iter()
+        .map(|(k, v)| format!("{}={}", k, v))
+        .collect::<Vec<_>>()
+        .join("&");
+
+    // Update hash via set_hash (works across browsers without extra web-sys features)
+    let _ = loc.set_hash(&new_hash_body);
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn web_lookup_example_asset(name: &str) -> Option<&'static str> {
+    #[allow(non_upper_case_globals)]
+    mod assets_manifest_for_hash {
+        include!(concat!(env!("OUT_DIR"), "/assets_manifest.rs"));
+    }
+    for (n, d) in assets_manifest_for_hash::ASSETS.iter() {
+        if *n == name {
+            return Some(*d);
+        }
+    }
+    None
+}
+
+// Build full page URL preserving current hash
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn web_build_share_url_current() -> Option<String> {
+    let window = web_sys::window()?;
+    window.location().href().ok()
+}
+
+// Build a shareable URL for a specific example (set g=name in hash and return href)
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn web_build_share_url_for_example(name: &str) -> Option<String> {
+    let window = web_sys::window()?;
+    let loc = window.location();
+    let href = loc.href().ok()?;
+    let base = match href.split_once('#') {
+        Some((b, _)) => b.to_string(),
+        None => href.clone(),
+    };
+    // Parse existing hash params without mutating the current URL
+    let hash = loc.hash().unwrap_or_default();
+    let raw = hash.strip_prefix('#').unwrap_or(hash.as_str());
+    let mut params: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    if !raw.is_empty() {
+        for pair in raw.split('&') {
+            if pair.is_empty() {
+                continue;
+            }
+            let mut it = pair.splitn(2, '=');
+            let k = it.next().unwrap_or("");
+            let v = it.next().unwrap_or("");
+            if !k.is_empty() {
+                params.insert(k.to_string(), v.to_string());
+            }
+        }
+    }
+    params.insert("g".to_string(), name.to_string());
+    let new_hash_body = params
+        .iter()
+        .map(|(k, v)| format!("{}={}", k, v))
+        .collect::<Vec<_>>()
+        .join("&");
+    Some(format!("{}#{}", base, new_hash_body))
+}
+
+// Clear the URL hash entirely (remove all params)
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn web_hash_clear() {
+    if let Some(window) = web_sys::window() {
+        let _ = window.location().set_hash("");
+    }
 }

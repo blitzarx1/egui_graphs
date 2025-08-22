@@ -156,6 +156,27 @@ impl DemoApp {
                         ui.label(*name);
                         if ui.button("Load").clicked() {
                             self.load_graph_from_str(name, data);
+                            #[cfg(target_arch = "wasm32")]
+                            {
+                                crate::web_hash_set_param("g", name);
+                            }
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            if ui
+                                .button("Share")
+                                .on_hover_text("Copy link with this example to clipboard")
+                                .clicked()
+                            {
+                                if let Some(url) = crate::web_build_share_url_for_example(name) {
+                                    ui.ctx().copy_text(url.clone());
+                                    self.status
+                                        .push_success(String::from("Link copied to clipboard"));
+                                } else {
+                                    self.status
+                                        .push_error(String::from("Failed to build share link"));
+                                }
+                            }
                         }
                         ui.end_row();
                     }
@@ -185,6 +206,8 @@ impl DemoApp {
                 ui.code(SCHEMA_FULL);
             });
         ui.add_space(6.0);
+
+        // (Web debug section removed)
     }
 
     pub fn load_graph_from_str(&mut self, name: &str, data: &str) {
