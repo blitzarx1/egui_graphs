@@ -9,6 +9,21 @@ impl DemoApp {
                 if ui.button("Export").on_hover_text("Export graph + optional layout to JSON").clicked() {
                     self.show_export_modal = true;
                 }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    if ui
+                        .button("Share")
+                        .on_hover_text("Copy link to current page (includes selected example)")
+                        .clicked()
+                    {
+                        if let Some(url) = crate::web_build_share_url_current() {
+                            ui.ctx().copy_text(url.clone());
+                            self.status.push_success(String::from("Link copied to clipboard"));
+                        } else {
+                            self.status.push_error(String::from("Failed to build share link"));
+                        }
+                    }
+                }
                 if ui
                     .button("Reset Defaults")
                 .on_hover_text("Reset ALL settings, graph, layout & view state (Space)")
