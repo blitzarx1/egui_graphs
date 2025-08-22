@@ -6,6 +6,9 @@ pub enum Command {
     OpenKeybindings,
     CloseKeybindings,
     ResetAll,
+    ToggleNavMode,
+    FitToScreenOnce,
+    PanToGraph,
     AddNodes(u32),
     RemoveNodes(u32),
     SwapNodes(u32),
@@ -57,9 +60,19 @@ pub fn dispatch(ctx: &Context) -> Vec<Command> {
             }
         }
 
-        // Space: reset defaults
-        if i.key_pressed(Key::Space) && !i.modifiers.any() {
+        // Backspace: reset defaults
+        if i.key_pressed(Key::Backspace) && !i.modifiers.any() {
             cmds.push(Command::ResetAll);
+        }
+        // Space family: navigation controls
+        if i.key_pressed(Key::Space) {
+            if i.modifiers.ctrl && i.modifiers.shift {
+                cmds.push(Command::PanToGraph);
+            } else if i.modifiers.ctrl {
+                cmds.push(Command::ToggleNavMode);
+            } else if !i.modifiers.any() {
+                cmds.push(Command::FitToScreenOnce);
+            }
         }
         // Esc: close modal if open
         if i.key_pressed(Key::Escape) {
@@ -84,6 +97,7 @@ pub fn dispatch(ctx: &Context) -> Vec<Command> {
                             cmds.push(Command::ToggleDebug);
                         }
                     }
+                    Key::G => {}
                     Key::H => {}
                     Key::Slash => {}
                     Key::N => push_node_cmds(&mut cmds, modifiers),
