@@ -1,8 +1,70 @@
 # Changelog
 
-## v0.27.0 (16.08.2025)
+## v0.28.0 (23.08.2025)
 
-### 🚀Highlights
+#### 🆕 New Features
+
+A lot of work done on Demo. The most important is that we are web now!
+
+— How to try it:
+
+1. Open the web demo and pick an example:
+   - [bipartite.json](https://blitzar-tech.github.io/egui_graphs/#g=bipartite.json)
+   - [tree_binary.json](https://blitzar-tech.github.io/egui_graphs/#g=tree_binary.json)
+2. Tweak Layout → Force-Directed/Hierarchical and play with Animation/Forces.
+3. Click Export (top of the right panel) → choose “Include Layout” and/or “Node Positions”, then save to File or copy to Clipboard.
+4. To import, go to the Import/Load tab → “Open” (or drag & drop a JSON file into the graph area). Your uploads appear under “User Uploads”.
+5. On web, use Share to copy a deep link to the selected example.
+
+- More useful keybindings were added (fit to screen (once), pan to graph)
+- File import and export — planned to migrate to `egui_graphs` core in upcoming releases
+
+Notes:
+
+- New import/export features are in the demo UI only (not yet in the `egui_graphs` crate). Core support is planned.
+- Positions are optional on import; if missing, nodes are placed in a circle initially.
+
+#### 🖥️  Demo
+
+- File import:
+  - User uploads with JSON schema support
+    - Edges-only
+    - Nodes and edges
+    - Graph plus layout properties
+  - Curated example graphs
+  - Shareable deep links (see Highlights above)
+- File export:
+  - Optional include of layout and graph settings
+- Demo UX improvements:
+  - Debug overlay and instructional messages queue
+  - Navigation keybindings and help button
+  - Hierarchical layout controls and perf metrics panel
+
+#### 🛠️ Fixes & Robustness
+
+- Do not send zero-diff events (core)
+
+### MRs:
+
+- Feature: web demo by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/272
+- Chore: update web demo link by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/273
+- Fix: enable events for web by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/274
+- Feature: demo debug overlay improvements by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/275
+- Feature: instructional messages queue for demo by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/276
+- Feature: help button in demo by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/277
+- Feature: hierarchical layout demo by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/278
+- Fix: redraw hierarchical layout on reset by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/279
+- Fix: do not send zero diff events by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/280
+- Feature: perf metrics for demo by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/281
+- Feature: info messages updates by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/282
+- Chore: refactor demo by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/283
+- Feature: file import for demo by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/284
+- Feature: navigation keybindings and notifications by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/285
+- Feature: url params and share in demo by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/286
+
+**Full increment**: https://github.com/blitzar-tech/egui_graphs/compare/v0.27.0...v0.28.0
+
+## v0.27.0 (16.08.2025)
 
 #### 🆕 New Features
 
@@ -51,8 +113,6 @@
 **Full increment**: https://github.com/blitzar-tech/egui_graphs/compare/v0.26.0...v0.27.0
 
 ## v0.26.0 (09.08.2025)
-
-### Highlights
 
 #### 🆕 New Features
 
