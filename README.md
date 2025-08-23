@@ -20,6 +20,19 @@ Check the [web-demo](https://blitzar-tech.github.io/egui_graphs/#g=bipartite.jso
 - [x] Dark/Light theme support via egui context styles;
 - [x] User stroke styling hooks (node & edge) for dynamic customization;
 
+## Table of Contents
+
+- [Status](#status)
+- [Examples](#examples)
+- [Repository organization](#repository-organization)
+- [Run locally](#run-locally)
+  - [Run the web demo (WASM)](#run-the-web-demo-wasm)
+  - [Run any native example](#run-any-native-example)
+- [Features](#features)
+  - [Layouts](#layouts)
+  - [Styling Hooks (Node & Edge Strokes)](#styling-hooks-node--edge-strokes)
+  - [Events](#events)
+
 ## Status
 
 The project is on track for a stable release v1.0.0. For the moment, breaking releases are very possible.
@@ -102,7 +115,7 @@ fn main() {
 }
 ```
 
-<img width="792" height="594" alt="Screenshot 2025-08-16 at 7 46 25 PM" src="https://github.com/user-attachments/assets/be2eaf6c-0c88-4450-9825-2d7640278d7f" />
+![Basic example screenshot](https://github.com/user-attachments/assets/be2eaf6c-0c88-4450-9825-2d7640278d7f)
 
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
 
