@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{node_size, DisplayNode, Node};
 
-const KEY: &str = "egui_graphs_metadata";
+const KEY_PREFIX: &str = "egui_graphs_metadata";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Bounds {
@@ -64,6 +64,8 @@ pub struct Metadata {
     pub last_step_time_ms: f32,
     /// Last measured time to draw the current frame, excluding the layout step (milliseconds)
     pub last_draw_time_ms: f32,
+    /// Custom key to identify the metadata
+    custom_key: Option<String>,
     /// State of bounds iteration
     bounds: Bounds,
 }
@@ -78,21 +80,29 @@ impl Default for Metadata {
             last_step_time_ms: 0.0,
             last_draw_time_ms: 0.0,
             bounds: Bounds::default(),
+            custom_key: None,
         }
     }
 }
 
 impl Metadata {
-    pub fn load(ui: &egui::Ui) -> Self {
+    pub fn new(custom_key: Option<String>) -> Self {
+        Self {
+            custom_key,
+            ..Default::default()
+        }
+    }
+
+    pub fn load(self, ui: &egui::Ui) -> Self {
         ui.data_mut(|data| {
-            data.get_persisted::<Metadata>(Id::new(KEY))
+            data.get_persisted::<Metadata>(Id::new(self.get_key()))
                 .unwrap_or_default()
         })
     }
 
     pub fn save(self, ui: &mut egui::Ui) {
         ui.data_mut(|data| {
-            data.insert_persisted(Id::new(KEY), self);
+            data.insert_persisted(Id::new(self.get_key()), self);
         });
     }
 
@@ -145,5 +155,11 @@ impl Metadata {
     /// Resets the bounds iterator.
     pub fn reset_bounds(&mut self) {
         self.bounds = Bounds::default();
+    }
+
+    fn get_key(&self) -> String {
+        let custom_key = self.custom_key.clone().unwrap_or_default();
+
+        format!("{KEY_PREFIX}_{custom_key}")
     }
 }

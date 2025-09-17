@@ -1646,9 +1646,11 @@ impl App for DemoApp {
             }
 
             // After rendering the view, handle pending one-shot navigation actions.
+
             // 1) Pan to graph center without changing zoom
             if self.pan_to_graph_pending {
-                let mut meta = egui_graphs::Metadata::load(ui);
+                // TODO: do we need to interact with metadata explicitly here
+                let mut meta = egui_graphs::Metadata::new(Some("".to_string())).load(ui);
                 let bounds = match &self.g {
                     DemoGraph::Directed(g) => g.bounds(),
                     DemoGraph::Undirected(g) => g.bounds(),
@@ -1660,6 +1662,7 @@ impl App for DemoApp {
                 self.pan_to_graph_pending = false;
                 self.notify_info("Fit to screen (no zoom)");
             }
+
             // 2) Fit to screen once: turn off the auto-fit after it has just been applied.
             if self.fit_to_screen_once_pending && self.settings_navigation.fit_to_screen_enabled {
                 self.settings_navigation.fit_to_screen_enabled = false;

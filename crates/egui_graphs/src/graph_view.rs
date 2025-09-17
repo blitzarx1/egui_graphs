@@ -241,7 +241,10 @@ where
         self.sync_layout(ui);
         let step_ms = t0.elapsed().as_secs_f32() * 1000.0;
 
-        let mut meta = Metadata::load(ui);
+        // TODO: propagate from the outside
+        let custom_key = Some("".to_string());
+
+        let mut meta = Metadata::new(custom_key).load(ui);
         self.sync_state(&mut meta);
 
         // Compute effective interactions once per frame
@@ -477,7 +480,10 @@ where
 
     /// Resets [`Metadata`] state
     pub fn reset_metadata(ui: &mut Ui) {
-        Metadata::default().save(ui);
+        // TODO: propagate from self
+        let custom_key = Some("".to_string());
+
+        Metadata::new(custom_key).save(ui);
     }
 
     /// Resets [`Layout`] state
@@ -497,7 +503,10 @@ where
 
     /// Returns the latest per-frame performance metrics stored in metadata.
     pub fn get_metrics(ui: &egui::Ui) -> (f32, f32) {
-        let m = Metadata::load(ui);
+        // TODO: propagate from the outside
+        let custom_key = Some("".to_string());
+
+        let m = Metadata::new(custom_key).load(ui);
         (m.last_step_time_ms, m.last_draw_time_ms)
     }
 
