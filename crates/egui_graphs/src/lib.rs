@@ -10,7 +10,9 @@ mod settings;
 pub use draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext};
 pub use elements::{Edge, EdgeProps, Node, NodeProps};
 pub use graph::Graph;
-pub use graph_view::{DefaultGraphView, GraphView};
+pub use graph_view::{
+    get_metrics, reset, reset_layout, reset_metadata, set_layout_state, get_layout_state, DefaultGraphView, GraphView,
+};
 #[allow(deprecated)]
 pub use helpers::{
     add_edge, add_edge_custom, add_node, add_node_custom, default_edge_transform,

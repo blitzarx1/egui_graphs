@@ -65,7 +65,7 @@ pub struct Metadata {
     /// Last measured time to draw the current frame, excluding the layout step (milliseconds)
     pub last_draw_time_ms: f32,
     /// Custom key to identify the metadata
-    custom_key: Option<String>,
+    key: String,
     /// State of bounds iteration
     bounds: Bounds,
 }
@@ -80,15 +80,15 @@ impl Default for Metadata {
             last_step_time_ms: 0.0,
             last_draw_time_ms: 0.0,
             bounds: Bounds::default(),
-            custom_key: None,
+            key: "".to_string(),
         }
     }
 }
 
 impl Metadata {
-    pub fn new(custom_key: Option<String>) -> Self {
+    pub fn new(key: String) -> Self {
         Self {
-            custom_key,
+            key,
             ..Default::default()
         }
     }
@@ -158,7 +158,7 @@ impl Metadata {
     }
 
     fn get_key(&self) -> String {
-        let custom_key = self.custom_key.clone().unwrap_or_default();
+        let custom_key = self.key.clone();
 
         format!("{KEY_PREFIX}_{custom_key}")
     }

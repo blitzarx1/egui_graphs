@@ -25,6 +25,7 @@ fn ff_steps_core<N, E, Ty, Ix, Dn, De, S, L, Pre, Post>(
     budget_millis: Option<u64>,
     pre_toggle: Pre,
     post_toggle: Post,
+    id: Option<String>,
 ) -> u32
 where
     N: Clone,
@@ -41,7 +42,7 @@ where
     if target_steps == 0 || g.node_count() == 0 {
         return 0;
     }
-    let mut state = GraphView::<N, E, Ty, Ix, Dn, De, S, L>::get_layout_state(ui);
+    let mut state = get_layout_state::<S>(ui, id.clone());
     let token = pre_toggle(&mut state);
     let mut layout = L::from_state(state);
     let start = Instant::now();
@@ -57,7 +58,7 @@ where
     }
     let mut new_state = layout.state();
     post_toggle(&mut new_state, token);
-    GraphView::<N, E, Ty, Ix, Dn, De, S, L>::set_layout_state(ui, new_state);
+    set_layout_state::<S>(ui, new_state, id);
     done
 }
 
@@ -71,6 +72,7 @@ fn ff_until_stable_core<N, E, Ty, Ix, Dn, De, S, L, Metric, Pre, Post>(
     metric: Metric,
     pre_toggle: Pre,
     post_toggle: Post,
+    id: Option<String>,
 ) -> (u32, f32)
 where
     N: Clone,
@@ -89,7 +91,7 @@ where
         return (0, 0.0);
     }
 
-    let mut state = GraphView::<N, E, Ty, Ix, Dn, De, S, L>::get_layout_state(ui);
+    let mut state = get_layout_state::<S>(ui, id.clone());
     let token = pre_toggle(&mut state);
     let mut layout = L::from_state(state);
 
@@ -137,7 +139,7 @@ where
 
     let mut new_state = layout.state();
     post_toggle(&mut new_state, token);
-    GraphView::<N, E, Ty, Ix, Dn, De, S, L>::set_layout_state(ui, new_state);
+    set_layout_state::<S>(ui, new_state, id);
     (
         steps_done,
         if last_avg.is_finite() { last_avg } else { 0.0 },
@@ -218,6 +220,8 @@ pub struct GraphView<
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
 
+    custom_id: Option<String>,
+
     #[cfg(feature = "events")]
     events_sink: Option<&'a dyn EventSink>,
 
@@ -241,10 +245,7 @@ where
         self.sync_layout(ui);
         let step_ms = t0.elapsed().as_secs_f32() * 1000.0;
 
-        // TODO: propagate from the outside
-        let custom_key = Some("".to_string());
-
-        let mut meta = Metadata::new(custom_key).load(ui);
+        let mut meta = Metadata::new(self.custom_id.clone().unwrap_or_default()).load(ui);
         self.sync_state(&mut meta);
 
         // Compute effective interactions once per frame
@@ -308,6 +309,8 @@ where
             settings_style: SettingsStyle::default(),
             settings_interaction: SettingsInteraction::default(),
             settings_navigation: SettingsNavigation::default(),
+
+            custom_id: None,
 
             #[cfg(feature = "events")]
             events_sink: Option::default(),
@@ -471,55 +474,20 @@ where
         self
     }
 
-    /// Helper to reset both [`Metadata`] and [`Layout`] cache. Can be useful when you want to change layout
-    /// in runtime
-    pub fn reset(ui: &mut Ui) {
-        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_metadata(ui);
-        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_layout(ui);
-    }
-
-    /// Resets [`Metadata`] state
-    pub fn reset_metadata(ui: &mut Ui) {
-        // TODO: propagate from self
-        let custom_key = Some("".to_string());
-
-        Metadata::new(custom_key).save(ui);
-    }
-
-    /// Resets [`Layout`] state
-    pub fn reset_layout(ui: &mut Ui) {
-        ui.data_mut(|data| {
-            data.insert_persisted(Id::new(KEY_LAYOUT), S::default());
-        });
-    }
-
-    /// Loads current persisted layout state (or default if none). Useful for external UI panels.
-    pub fn get_layout_state(ui: &egui::Ui) -> S {
-        ui.data_mut(|data| {
-            data.get_persisted::<S>(Id::new(KEY_LAYOUT))
-                .unwrap_or_default()
-        })
-    }
-
-    /// Returns the latest per-frame performance metrics stored in metadata.
-    pub fn get_metrics(ui: &egui::Ui) -> (f32, f32) {
-        // TODO: propagate from the outside
-        let custom_key = Some("".to_string());
-
-        let m = Metadata::new(custom_key).load(ui);
-        (m.last_step_time_ms, m.last_draw_time_ms)
-    }
-
-    /// Persists a new layout state so that on the next frame it will be applied.
-    pub fn set_layout_state(ui: &egui::Ui, state: S) {
-        ui.data_mut(|data| {
-            data.insert_persisted(Id::new(KEY_LAYOUT), state);
-        });
+    /// Sets a custom unique ID for this widget instance. Useful when you have multiple graph views
+    /// in the same UI and want to keep their state (layout, metadata) separate.
+    pub fn with_id(mut self, custom_id: Option<String>) -> Self {
+        self.custom_id = custom_id;
+        self
     }
 
     /// Advance the active layout simulation by a fixed number of steps immediately.
-    pub fn fast_forward(ui: &egui::Ui, g: &mut Graph<N, E, Ty, Ix, Dn, De>, steps: u32)
-    where
+    pub fn fast_forward(
+        ui: &egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        steps: u32,
+        id: Option<String>,
+    ) where
         N: Clone,
         E: Clone,
         Ty: EdgeType,
@@ -536,6 +504,7 @@ where
             None,
             |_s| None,
             |_s, _tok| {},
+            id,
         );
     }
 
@@ -546,6 +515,7 @@ where
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         target_steps: u32,
         max_millis: u64,
+        id: Option<String>,
     ) -> u32
     where
         N: Clone,
@@ -564,6 +534,7 @@ where
             Some(max_millis),
             |_s| None,
             |_s, _tok| {},
+            id,
         )
     }
 
@@ -574,6 +545,7 @@ where
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
+        id: Option<String>,
     ) -> (u32, f32)
     where
         N: Clone,
@@ -594,6 +566,7 @@ where
             |_s| None, // no internal metric available in general case
             |_s| None,
             |_s, _tok| {},
+            id,
         )
     }
 
@@ -604,6 +577,7 @@ where
         epsilon: f32,
         max_steps: u32,
         max_millis: u64,
+        id: Option<String>,
     ) -> (u32, f32)
     where
         N: Clone,
@@ -624,9 +598,9 @@ where
             |_s| None,
             |_s| None,
             |_s, _tok| {},
+            id,
         )
     }
-    // See a separate impl with an explicit lifetime for the `with_events` method.
 
     fn sync_layout(&mut self, ui: &mut Ui) {
         let state = ui.data_mut(|data| {
@@ -1131,7 +1105,12 @@ where
     L: Layout<S>,
 {
     /// Advance simulation even if paused by temporarily forcing `running = true`.
-    pub fn fast_forward_force_run(ui: &egui::Ui, g: &mut Graph<N, E, Ty, Ix, Dn, De>, steps: u32) {
+    pub fn fast_forward_force_run(
+        ui: &egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        steps: u32,
+        id: Option<String>,
+    ) {
         ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
             ui,
             g,
@@ -1147,6 +1126,7 @@ where
                     s.set_running(p);
                 }
             },
+            id,
         );
     }
 
@@ -1156,6 +1136,7 @@ where
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         target_steps: u32,
         max_millis: u64,
+        id: Option<String>,
     ) -> u32 {
         ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
             ui,
@@ -1172,6 +1153,7 @@ where
                     s.set_running(p);
                 }
             },
+            id,
         )
     }
 
@@ -1181,6 +1163,7 @@ where
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
+        id: Option<String>,
     ) -> (u32, f32) {
         ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
             ui,
@@ -1199,6 +1182,7 @@ where
                     s.set_running(p);
                 }
             },
+            id,
         )
     }
 
@@ -1209,6 +1193,7 @@ where
         epsilon: f32,
         max_steps: u32,
         max_millis: u64,
+        id: Option<String>,
     ) -> (u32, f32) {
         ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
             ui,
@@ -1227,6 +1212,51 @@ where
                     s.set_running(p);
                 }
             },
+            id,
         )
     }
+}
+
+/// Helper to reset both [`Metadata`] and [`Layout`] cache. Can be useful when you want to change layout
+/// in runtime
+pub fn reset<S: LayoutState>(ui: &mut Ui, id: Option<String>) {
+    reset_metadata(ui, id.clone());
+    reset_layout::<S>(ui, id.clone());
+}
+
+/// Resets [`Metadata`] state
+pub fn reset_metadata(ui: &mut Ui, id: Option<String>) {
+    Metadata::new(id.unwrap_or_default()).save(ui);
+}
+
+/// Returns the latest per-frame performance metrics stored in metadata.
+pub fn get_metrics(ui: &egui::Ui, id: Option<String>) -> (f32, f32) {
+    let m = Metadata::new(id.unwrap_or_default()).load(ui);
+    (m.last_step_time_ms, m.last_draw_time_ms)
+}
+
+/// Resets [`Layout`] state
+pub fn reset_layout<S: LayoutState>(ui: &mut Ui, id: Option<String>) {
+    ui.data_mut(|data| {
+        let key = id.unwrap_or_default();
+        data.insert_persisted(Id::new(format!("{KEY_LAYOUT}_{key}")), S::default());
+    });
+}
+
+/// Loads current persisted layout state (or default if none). Useful for external UI panels.
+pub fn get_layout_state<S: LayoutState>(ui: &egui::Ui, id: Option<String>) -> S {
+    let key = id.unwrap_or_default();
+
+    ui.data_mut(|data| {
+        data.get_persisted::<S>(Id::new(format!("{KEY_LAYOUT}_{key}")))
+            .unwrap_or_default()
+    })
+}
+
+/// Persists a new layout state so that on the next frame it will be applied.
+pub fn set_layout_state<S: LayoutState>(ui: &egui::Ui, state: S, id: Option<String>) {
+    let key = id.unwrap_or_default();
+    ui.data_mut(|data| {
+        data.insert_persisted(Id::new(format!("{KEY_LAYOUT}_{key}")), state);
+    });
 }
