@@ -11,7 +11,8 @@ pub use draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, Dra
 pub use elements::{Edge, EdgeProps, Node, NodeProps};
 pub use graph::Graph;
 pub use graph_view::{
-    get_metrics, reset, reset_layout, reset_metadata, set_layout_state, get_layout_state, DefaultGraphView, GraphView,
+    get_layout_state, get_metrics, reset, reset_layout, set_layout_state, DefaultGraphView,
+    GraphView,
 };
 #[allow(deprecated)]
 pub use helpers::{
@@ -32,7 +33,7 @@ pub use layouts::hierarchical::{
 };
 pub use layouts::random::{Random as LayoutRandom, State as LayoutStateRandom};
 pub use layouts::{Layout, LayoutState};
-pub use metadata::Metadata;
+pub use metadata::{reset_metadata, Metadata};
 pub use settings::{SettingsInteraction, SettingsNavigation, SettingsStyle};
 
 #[cfg(feature = "events")]

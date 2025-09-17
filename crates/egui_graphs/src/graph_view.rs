@@ -3,23 +3,22 @@ use std::marker::PhantomData;
 use crate::{
     draw::{drawer::Drawer, DefaultEdgeShape, DefaultNodeShape, DrawContext},
     layouts::{self, Layout, LayoutState},
+    metadata::reset_metadata,
     metadata::Metadata,
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
     DisplayEdge, DisplayNode, Graph,
 };
 
-use egui::{Id, PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use egui::{PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use instant::Instant;
 
 use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::{graph::IndexType, Directed};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
-const KEY_LAYOUT: &str = "egui_graphs_layout";
-
 // Shared cores to avoid duplication across general and force-run variants.
 fn ff_steps_core<N, E, Ty, Ix, Dn, De, S, L, Pre, Post>(
-    ui: &egui::Ui,
+    ui: &mut egui::Ui,
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     target_steps: u32,
     budget_millis: Option<u64>,
@@ -64,7 +63,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn ff_until_stable_core<N, E, Ty, Ix, Dn, De, S, L, Metric, Pre, Post>(
-    ui: &egui::Ui,
+    ui: &mut egui::Ui,
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     epsilon: f32,
     max_steps: u32,
@@ -483,7 +482,7 @@ where
 
     /// Advance the active layout simulation by a fixed number of steps immediately.
     pub fn fast_forward(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         steps: u32,
         id: Option<String>,
@@ -511,7 +510,7 @@ where
     /// Advance the active layout by up to `target_steps`, but stop early if `max_millis` has elapsed.
     /// Returns the number of steps actually performed.
     pub fn fast_forward_budgeted(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         target_steps: u32,
         max_millis: u64,
@@ -541,7 +540,7 @@ where
     /// Run simulation steps until the average node displacement drops below `epsilon`
     /// or `max_steps` is reached. Returns (`steps_done`, `last_avg_disp`).
     pub fn fast_forward_until_stable(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
@@ -572,7 +571,7 @@ where
 
     /// Budgeted variant of `fast_forward_until_stable`.
     pub fn fast_forward_until_stable_budgeted(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
@@ -603,18 +602,15 @@ where
     }
 
     fn sync_layout(&mut self, ui: &mut Ui) {
-        let state = ui.data_mut(|data| {
-            data.get_persisted::<S>(Id::new(KEY_LAYOUT))
-                .unwrap_or_default()
-        });
+        let key = self.custom_id.clone().unwrap_or_default();
+
+        let state = S::load(ui, key.clone());
 
         let mut layout = L::from_state(state);
         layout.next(self.g, ui);
         let new_state = layout.state();
 
-        ui.data_mut(|data| {
-            data.insert_persisted(Id::new(KEY_LAYOUT), new_state);
-        });
+        new_state.save(ui, key);
     }
 
     fn sync_state(&mut self, meta: &mut Metadata) {
@@ -1106,7 +1102,7 @@ where
 {
     /// Advance simulation even if paused by temporarily forcing `running = true`.
     pub fn fast_forward_force_run(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         steps: u32,
         id: Option<String>,
@@ -1132,7 +1128,7 @@ where
 
     /// Budgeted variant of `fast_forward_force_run`.
     pub fn fast_forward_budgeted_force_run(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         target_steps: u32,
         max_millis: u64,
@@ -1159,7 +1155,7 @@ where
 
     /// Until-stable variant that forces running during the operation.
     pub fn fast_forward_until_stable_force_run(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
@@ -1188,7 +1184,7 @@ where
 
     /// Budgeted until-stable variant with forced running.
     pub fn fast_forward_until_stable_budgeted_force_run(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
@@ -1217,16 +1213,10 @@ where
     }
 }
 
-/// Helper to reset both [`Metadata`] and [`Layout`] cache. Can be useful when you want to change layout
-/// in runtime
+/// Helper to reset both [`Metadata`] and [`Layout`] cache. Can be useful when you want to change layout in runtime
 pub fn reset<S: LayoutState>(ui: &mut Ui, id: Option<String>) {
     reset_metadata(ui, id.clone());
     reset_layout::<S>(ui, id.clone());
-}
-
-/// Resets [`Metadata`] state
-pub fn reset_metadata(ui: &mut Ui, id: Option<String>) {
-    Metadata::new(id.unwrap_or_default()).save(ui);
 }
 
 /// Returns the latest per-frame performance metrics stored in metadata.
@@ -1237,26 +1227,18 @@ pub fn get_metrics(ui: &egui::Ui, id: Option<String>) -> (f32, f32) {
 
 /// Resets [`Layout`] state
 pub fn reset_layout<S: LayoutState>(ui: &mut Ui, id: Option<String>) {
-    ui.data_mut(|data| {
-        let key = id.unwrap_or_default();
-        data.insert_persisted(Id::new(format!("{KEY_LAYOUT}_{key}")), S::default());
-    });
+    let key = id.unwrap_or_default();
+    S::default().save(ui, key);
 }
 
 /// Loads current persisted layout state (or default if none). Useful for external UI panels.
 pub fn get_layout_state<S: LayoutState>(ui: &egui::Ui, id: Option<String>) -> S {
     let key = id.unwrap_or_default();
-
-    ui.data_mut(|data| {
-        data.get_persisted::<S>(Id::new(format!("{KEY_LAYOUT}_{key}")))
-            .unwrap_or_default()
-    })
+    S::load(ui, key)
 }
 
 /// Persists a new layout state so that on the next frame it will be applied.
-pub fn set_layout_state<S: LayoutState>(ui: &egui::Ui, state: S, id: Option<String>) {
+pub fn set_layout_state<S: LayoutState>(ui: &mut egui::Ui, state: S, id: Option<String>) {
     let key = id.unwrap_or_default();
-    ui.data_mut(|data| {
-        data.insert_persisted(Id::new(format!("{KEY_LAYOUT}_{key}")), state);
-    });
+    state.save(ui, key);
 }

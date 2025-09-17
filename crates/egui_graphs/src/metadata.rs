@@ -1,4 +1,4 @@
-use egui::{Id, Pos2, Rect, Vec2};
+use egui::{Id, Pos2, Rect, Ui, Vec2};
 use petgraph::{stable_graph::IndexType, EdgeType};
 use serde::{Deserialize, Serialize};
 
@@ -162,4 +162,9 @@ impl Metadata {
 
         format!("{KEY_PREFIX}_{custom_key}")
     }
+}
+
+/// Resets [`Metadata`] state
+pub fn reset_metadata(ui: &mut Ui, id: Option<String>) {
+    Metadata::new(id.unwrap_or_default()).save(ui);
 }

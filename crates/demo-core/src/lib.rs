@@ -733,7 +733,8 @@ impl DemoApp {
     }
 
     pub fn ui_layout_force_directed(&mut self, ui: &mut Ui) {
-        let state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
+        let state =
+            egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
 
         egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, state, None);
     }
@@ -1344,7 +1345,9 @@ impl App for DemoApp {
             match (&mut self.g, self.selected_layout) {
                 (DemoGraph::Directed(ref mut g), DemoLayout::FruchtermanReingold) => {
                     if let Some(spec::PendingLayout::FR(st)) = self.pending_layout.take() {
-                        egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, st, None);
+                        egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(
+                            ui, st, None,
+                        );
                     }
                     let mut view = egui_graphs::GraphView::<
                         _,
@@ -1374,7 +1377,9 @@ impl App for DemoApp {
                 }
                 (DemoGraph::Undirected(ref mut g), DemoLayout::FruchtermanReingold) => {
                     if let Some(spec::PendingLayout::FR(st)) = self.pending_layout.take() {
-                        egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, st, None);
+                        egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(
+                            ui, st, None,
+                        );
                     }
                     let mut view = egui_graphs::GraphView::<
                         _,
@@ -1495,11 +1500,15 @@ impl App for DemoApp {
             if let DemoLayout::FruchtermanReingold = self.selected_layout {
                 let steps = match &self.g {
                     DemoGraph::Directed(_) => {
-                        let st = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
+                        let st = egui_graphs::get_layout_state::<
+                            FruchtermanReingoldWithCenterGravityState,
+                        >(ui, None);
                         st.base.step_count as usize
                     }
                     DemoGraph::Undirected(_) => {
-                        let st = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
+                        let st = egui_graphs::get_layout_state::<
+                            FruchtermanReingoldWithCenterGravityState,
+                        >(ui, None);
                         st.base.step_count as usize
                     }
                 };
