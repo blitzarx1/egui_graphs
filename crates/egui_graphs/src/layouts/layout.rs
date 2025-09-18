@@ -5,21 +5,21 @@ use std::fmt::Debug;
 use crate::{DisplayEdge, DisplayNode, Graph};
 
 const KEY_PREFIX: &str = "egui_graphs_layout";
-fn get_key(key: String) -> String {
-    format!("{KEY_PREFIX}_{key}")
+fn get_key(id: Option<String>) -> String {
+    format!("{KEY_PREFIX}_{}", id.unwrap_or_default())
 }
 
 pub trait LayoutState: SerializableAny + Default + Debug {
-    fn load(ui: &egui::Ui, key: String) -> Self {
+    fn load(ui: &egui::Ui, id: Option<String>) -> Self {
         ui.data_mut(|data| {
-            data.get_persisted::<Self>(egui::Id::new(get_key(key)))
+            data.get_persisted::<Self>(egui::Id::new(get_key(id)))
                 .unwrap_or_default()
         })
     }
 
-    fn save(self, ui: &mut egui::Ui, key: String) {
+    fn save(self, ui: &mut egui::Ui, id: Option<String>) {
         ui.data_mut(|data| {
-            data.insert_persisted(egui::Id::new(get_key(key)), self);
+            data.insert_persisted(egui::Id::new(get_key(id)), self);
         });
     }
 }

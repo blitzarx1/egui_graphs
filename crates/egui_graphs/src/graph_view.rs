@@ -244,7 +244,12 @@ where
         self.sync_layout(ui);
         let step_ms = t0.elapsed().as_secs_f32() * 1000.0;
 
-        let mut meta = Metadata::new(self.custom_id.clone().unwrap_or_default()).load(ui);
+        print!(
+            "loading metadata for id: {}\n",
+            self.custom_id.clone().unwrap_or_default()
+        );
+
+        let mut meta = Metadata::new(self.custom_id.clone()).load(ui);
         self.sync_state(&mut meta);
 
         // Compute effective interactions once per frame
@@ -279,6 +284,8 @@ where
         meta.last_draw_time_ms = draw_ms;
 
         meta.first_frame = false;
+
+        print!("saving metadata with id: {}\n", meta.get_key());
         meta.save(ui);
 
         ui.ctx().request_repaint();
@@ -602,15 +609,15 @@ where
     }
 
     fn sync_layout(&mut self, ui: &mut Ui) {
-        let key = self.custom_id.clone().unwrap_or_default();
+        let id = self.custom_id.clone();
 
-        let state = S::load(ui, key.clone());
+        let state = S::load(ui, id.clone());
 
         let mut layout = L::from_state(state);
         layout.next(self.g, ui);
         let new_state = layout.state();
 
-        new_state.save(ui, key);
+        new_state.save(ui, id);
     }
 
     fn sync_state(&mut self, meta: &mut Metadata) {
@@ -1221,24 +1228,21 @@ pub fn reset<S: LayoutState>(ui: &mut Ui, id: Option<String>) {
 
 /// Returns the latest per-frame performance metrics stored in metadata.
 pub fn get_metrics(ui: &egui::Ui, id: Option<String>) -> (f32, f32) {
-    let m = Metadata::new(id.unwrap_or_default()).load(ui);
+    let m = Metadata::new(id).load(ui);
     (m.last_step_time_ms, m.last_draw_time_ms)
 }
 
 /// Resets [`Layout`] state
 pub fn reset_layout<S: LayoutState>(ui: &mut Ui, id: Option<String>) {
-    let key = id.unwrap_or_default();
-    S::default().save(ui, key);
+    S::default().save(ui, id);
 }
 
 /// Loads current persisted layout state (or default if none). Useful for external UI panels.
 pub fn get_layout_state<S: LayoutState>(ui: &egui::Ui, id: Option<String>) -> S {
-    let key = id.unwrap_or_default();
-    S::load(ui, key)
+    S::load(ui, id)
 }
 
 /// Persists a new layout state so that on the next frame it will be applied.
 pub fn set_layout_state<S: LayoutState>(ui: &mut egui::Ui, state: S, id: Option<String>) {
-    let key = id.unwrap_or_default();
-    state.save(ui, key);
+    state.save(ui, id);
 }

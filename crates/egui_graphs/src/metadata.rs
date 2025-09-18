@@ -65,7 +65,7 @@ pub struct Metadata {
     /// Last measured time to draw the current frame, excluding the layout step (milliseconds)
     pub last_draw_time_ms: f32,
     /// Custom key to identify the metadata
-    key: String,
+    id: String,
     /// State of bounds iteration
     bounds: Bounds,
 }
@@ -80,28 +80,42 @@ impl Default for Metadata {
             last_step_time_ms: 0.0,
             last_draw_time_ms: 0.0,
             bounds: Bounds::default(),
-            key: "".to_string(),
+            id: "".to_string(),
         }
     }
 }
 
 impl Metadata {
-    pub fn new(key: String) -> Self {
+    pub fn new(id: Option<String>) -> Self {
         Self {
-            key,
+            id: id.unwrap_or_default(),
             ..Default::default()
         }
     }
 
     pub fn load(self, ui: &egui::Ui) -> Self {
-        ui.data_mut(|data| {
+        let meta = ui.data_mut(|data| {
             data.get_persisted::<Metadata>(Id::new(self.get_key()))
-                .unwrap_or_default()
-        })
+                .unwrap_or(self.clone())
+        });
+
+        print!(
+            "loaded metadata for key {}: {:?}\n",
+            self.get_key(),
+            meta.clone()
+        );
+
+        meta
     }
 
     pub fn save(self, ui: &mut egui::Ui) {
         ui.data_mut(|data| {
+            print!(
+                "saving metadata for key {}: {:?}\n",
+                self.get_key(),
+                self.clone()
+            );
+
             data.insert_persisted(Id::new(self.get_key()), self);
         });
     }
@@ -157,14 +171,13 @@ impl Metadata {
         self.bounds = Bounds::default();
     }
 
-    fn get_key(&self) -> String {
-        let custom_key = self.key.clone();
-
-        format!("{KEY_PREFIX}_{custom_key}")
+    /// Get key which is used to store metadata in egui cache.
+    pub fn get_key(&self) -> String {
+        format!("{KEY_PREFIX}_{}", self.id.clone())
     }
 }
 
 /// Resets [`Metadata`] state
 pub fn reset_metadata(ui: &mut Ui, id: Option<String>) {
-    Metadata::new(id.unwrap_or_default()).save(ui);
+    Metadata::new(id).save(ui);
 }
