@@ -1474,7 +1474,7 @@ impl App for DemoApp {
             // 1) Pan to graph center without changing zoom
             if self.pan_to_graph_pending {
                 // TODO: do we need to interact with metadata explicitly here
-                let mut meta = egui_graphs::Metadata::new(None).load(ui);
+                let mut meta = egui_graphs::MetadataFrame::new(None).load(ui);
                 let bounds = match &self.g {
                     DemoGraph::Directed(g) => g.bounds(),
                     DemoGraph::Undirected(g) => g.bounds(),

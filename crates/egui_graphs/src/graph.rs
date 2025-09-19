@@ -16,7 +16,7 @@ use crate::draw::{DisplayEdge, DisplayNode};
 use crate::{
     default_edge_transform, default_node_transform, to_graph, DefaultEdgeShape, DefaultNodeShape,
 };
-use crate::{metadata::Metadata, Edge, Node};
+use crate::{metadata::MetadataFrame, Edge, Node};
 
 type StableGraphType<N, E, Ty, Ix, Dn, De> =
     StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
@@ -84,7 +84,11 @@ where
     }
 
     /// Finds node by position. Can be optimized by using a spatial index like quad-tree if needed.
-    pub fn node_by_screen_pos(&self, meta: &Metadata, screen_pos: Pos2) -> Option<NodeIndex<Ix>> {
+    pub fn node_by_screen_pos(
+        &self,
+        meta: &MetadataFrame,
+        screen_pos: Pos2,
+    ) -> Option<NodeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, node) in self.nodes_iter() {
             let display = node.display();
@@ -97,7 +101,11 @@ where
 
     /// Finds edge by position.
     #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
-    pub fn edge_by_screen_pos(&self, meta: &Metadata, screen_pos: Pos2) -> Option<EdgeIndex<Ix>> {
+    pub fn edge_by_screen_pos(
+        &self,
+        meta: &MetadataFrame,
+        screen_pos: Pos2,
+    ) -> Option<EdgeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, e) in self.edges_iter() {
             let Some((idx_start, idx_end)) = self.g.edge_endpoints(e.id()) else {

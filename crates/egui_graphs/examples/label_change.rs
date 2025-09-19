@@ -104,7 +104,7 @@ impl LabelChangeApp {
             selected_edge: Option::default(),
         };
 
-        DefaultGraphView::reset(ui);
+        egui_graphs::reset::<egui_graphs::LayoutStateRandom>(ui, None);
     }
 }
 

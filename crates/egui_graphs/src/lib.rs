@@ -33,7 +33,7 @@ pub use layouts::hierarchical::{
 };
 pub use layouts::random::{Random as LayoutRandom, State as LayoutStateRandom};
 pub use layouts::{Layout, LayoutState};
-pub use metadata::{reset_metadata, Metadata};
+pub use metadata::{reset_metadata, MetadataFrame};
 pub use settings::{SettingsInteraction, SettingsNavigation, SettingsStyle};
 
 #[cfg(feature = "events")]

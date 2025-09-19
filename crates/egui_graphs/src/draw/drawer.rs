@@ -6,8 +6,9 @@ use petgraph::EdgeType;
 
 use crate::{
     layouts::{Layout, LayoutState},
+    metadata::MetadataFrame,
     settings::SettingsStyle,
-    Graph, Metadata,
+    Graph,
 };
 
 use super::{DisplayEdge, DisplayNode};
@@ -18,7 +19,7 @@ pub struct DrawContext<'a> {
     pub painter: &'a Painter,
     pub style: &'a SettingsStyle,
     pub is_directed: bool,
-    pub meta: &'a Metadata,
+    pub meta: &'a MetadataFrame,
 }
 
 pub(crate) struct Drawer<'a, N, E, Ty, Ix, Nd, Ed, S, L>
