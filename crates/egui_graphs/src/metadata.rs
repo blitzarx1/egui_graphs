@@ -90,12 +90,10 @@ impl MetadataFrame {
     }
 
     pub fn load(self, ui: &egui::Ui) -> Self {
-        let meta = ui.data_mut(|data| {
+        ui.data_mut(|data| {
             data.get_persisted::<MetadataFrame>(Id::new(self.get_key()))
                 .unwrap_or(self.clone())
-        });
-
-        meta
+        })
     }
 
     pub fn save(self, ui: &mut egui::Ui) {

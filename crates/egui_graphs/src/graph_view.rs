@@ -3,9 +3,7 @@ use std::marker::PhantomData;
 use crate::{
     draw::{drawer::Drawer, DefaultEdgeShape, DefaultNodeShape, DrawContext},
     layouts::{self, Layout, LayoutState},
-    metadata::reset_metadata,
-    metadata::MetadataFrame,
-    metadata::MetadataInstance,
+    metadata::{reset_metadata, MetadataFrame, MetadataInstance},
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
     DisplayEdge, DisplayNode, Graph,
 };
@@ -474,7 +472,7 @@ where
             None
         };
 
-        if let Some(_) = hovered_now {
+        if hovered_now.is_some() {
             // Claim ownership when actually hovering in this instance.
             view.sync.hover_owner = Some(view.instance_id.clone());
             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
@@ -896,14 +894,12 @@ where
                     view.sync.drag_owner = Some(view.instance_id.clone());
                 }
             }
-        } else if !resp.is_pointer_button_down_on() {
-            if self.g.dragged_node().is_some() && is_owner {
-                let dragged_idx = self.g.dragged_node().unwrap();
-                self.set_drag_end(dragged_idx);
-                self.g.set_dragged_node(None);
-                // Release ownership
-                view.sync.drag_owner = None;
-            }
+        } else if !resp.is_pointer_button_down_on() && self.g.dragged_node().is_some() && is_owner {
+            let dragged_idx = self.g.dragged_node().unwrap();
+            self.set_drag_end(dragged_idx);
+            self.g.set_dragged_node(None);
+            // Release ownership
+            view.sync.drag_owner = None;
         }
 
         // From here, only the owner continues to process drag deltas and compensation.
