@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use egui::{epaint::CubicBezierShape, Color32, Pos2, Shape, Stroke, Vec2};
 
-use crate::Metadata;
+use crate::metadata::MetadataFrame;
 
 enum EdgeShapeProps {
     Straight {
@@ -40,7 +40,7 @@ pub struct EdgeShapeBuilder<'a> {
     shape_props: EdgeShapeProps,
     tip: Option<&'a TipProps>,
     stroke: Stroke,
-    scaler: Option<&'a Metadata>,
+    scaler: Option<&'a MetadataFrame>,
 }
 
 impl<'a> EdgeShapeBuilder<'a> {
@@ -84,7 +84,7 @@ impl<'a> EdgeShapeBuilder<'a> {
         self
     }
 
-    pub fn with_scaler(mut self, scaler: &'a Metadata) -> Self {
+    pub fn with_scaler(mut self, scaler: &'a MetadataFrame) -> Self {
         self.scaler = Some(scaler);
 
         self

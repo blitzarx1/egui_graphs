@@ -187,16 +187,9 @@ impl LayoutSpec {
 // Export helpers (demo-only): read current UI layout state and build LayoutSpec
 impl PendingLayout {
     pub fn from_ui_fr_state(ui: &mut egui::Ui) -> LayoutSpec {
-        let st = egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Directed,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
+        let st = egui_graphs::get_layout_state::<
             egui_graphs::FruchtermanReingoldWithCenterGravityState,
-            egui_graphs::LayoutForceDirected<egui_graphs::FruchtermanReingoldWithCenterGravity>,
-        >::get_layout_state(ui);
+        >(ui, None);
         LayoutSpec::FruchtermanReingold {
             running: Some(st.base.is_running),
             dt: Some(st.base.dt),
@@ -214,16 +207,7 @@ impl PendingLayout {
     }
 
     pub fn from_ui_hier_state(ui: &mut egui::Ui) -> LayoutSpec {
-        let st = egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Directed,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
-            egui_graphs::LayoutStateHierarchical,
-            egui_graphs::LayoutHierarchical,
-        >::get_layout_state(ui);
+        let st = egui_graphs::get_layout_state::<egui_graphs::LayoutStateHierarchical>(ui, None);
         LayoutSpec::Hierarchical {
             row_dist: Some(st.row_dist),
             col_dist: Some(st.col_dist),

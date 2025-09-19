@@ -10,7 +10,10 @@ mod settings;
 pub use draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext};
 pub use elements::{Edge, EdgeProps, Node, NodeProps};
 pub use graph::Graph;
-pub use graph_view::{DefaultGraphView, GraphView};
+pub use graph_view::{
+    get_layout_state, get_metrics, reset, reset_layout, set_layout_state, DefaultGraphView,
+    GraphView,
+};
 #[allow(deprecated)]
 pub use helpers::{
     add_edge, add_edge_custom, add_node, add_node_custom, default_edge_transform,
@@ -30,7 +33,7 @@ pub use layouts::hierarchical::{
 };
 pub use layouts::random::{Random as LayoutRandom, State as LayoutStateRandom};
 pub use layouts::{Layout, LayoutState};
-pub use metadata::Metadata;
+pub use metadata::{reset_metadata, MetadataFrame};
 pub use settings::{SettingsInteraction, SettingsNavigation, SettingsStyle};
 
 #[cfg(feature = "events")]

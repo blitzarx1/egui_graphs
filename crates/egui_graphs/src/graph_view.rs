@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::{
     draw::{drawer::Drawer, DefaultEdgeShape, DefaultNodeShape, DrawContext},
     layouts::{self, Layout, LayoutState},
-    metadata::Metadata,
+    metadata::{reset_metadata, MetadataFrame, MetadataInstance},
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
     DisplayEdge, DisplayNode, Graph,
 };
@@ -15,16 +15,15 @@ use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::{graph::IndexType, Directed};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
-const KEY_LAYOUT: &str = "egui_graphs_layout";
-
 // Shared cores to avoid duplication across general and force-run variants.
 fn ff_steps_core<N, E, Ty, Ix, Dn, De, S, L, Pre, Post>(
-    ui: &egui::Ui,
+    ui: &mut egui::Ui,
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     target_steps: u32,
     budget_millis: Option<u64>,
     pre_toggle: Pre,
     post_toggle: Post,
+    id: Option<String>,
 ) -> u32
 where
     N: Clone,
@@ -41,7 +40,7 @@ where
     if target_steps == 0 || g.node_count() == 0 {
         return 0;
     }
-    let mut state = GraphView::<N, E, Ty, Ix, Dn, De, S, L>::get_layout_state(ui);
+    let mut state = get_layout_state::<S>(ui, id.clone());
     let token = pre_toggle(&mut state);
     let mut layout = L::from_state(state);
     let start = Instant::now();
@@ -57,13 +56,13 @@ where
     }
     let mut new_state = layout.state();
     post_toggle(&mut new_state, token);
-    GraphView::<N, E, Ty, Ix, Dn, De, S, L>::set_layout_state(ui, new_state);
+    set_layout_state::<S>(ui, new_state, id);
     done
 }
 
 #[allow(clippy::too_many_arguments)]
 fn ff_until_stable_core<N, E, Ty, Ix, Dn, De, S, L, Metric, Pre, Post>(
-    ui: &egui::Ui,
+    ui: &mut egui::Ui,
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     epsilon: f32,
     max_steps: u32,
@@ -71,6 +70,7 @@ fn ff_until_stable_core<N, E, Ty, Ix, Dn, De, S, L, Metric, Pre, Post>(
     metric: Metric,
     pre_toggle: Pre,
     post_toggle: Post,
+    id: Option<String>,
 ) -> (u32, f32)
 where
     N: Clone,
@@ -89,7 +89,7 @@ where
         return (0, 0.0);
     }
 
-    let mut state = GraphView::<N, E, Ty, Ix, Dn, De, S, L>::get_layout_state(ui);
+    let mut state = get_layout_state::<S>(ui, id.clone());
     let token = pre_toggle(&mut state);
     let mut layout = L::from_state(state);
 
@@ -137,7 +137,7 @@ where
 
     let mut new_state = layout.state();
     post_toggle(&mut new_state, token);
-    GraphView::<N, E, Ty, Ix, Dn, De, S, L>::set_layout_state(ui, new_state);
+    set_layout_state::<S>(ui, new_state, id);
     (
         steps_done,
         if last_avg.is_finite() { last_avg } else { 0.0 },
@@ -218,10 +218,46 @@ pub struct GraphView<
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
 
+    custom_id: Option<String>,
+
     #[cfg(feature = "events")]
     events_sink: Option<&'a dyn EventSink>,
 
     _marker: PhantomData<(Nd, Ed, L, S)>,
+}
+
+struct ViewState {
+    pub frame: MetadataFrame,
+    pub instance: MetadataInstance,
+    pub sync: crate::metadata::MetadataSync,
+    pub instance_id: String,
+}
+
+impl ViewState {
+    fn load(
+        ui: &mut Ui,
+        widget_id: Id,
+        custom_id: &Option<String>,
+        fallback_top_left: Pos2,
+    ) -> Self {
+        let frame = MetadataFrame::new(custom_id.clone()).load(ui);
+        let instance = MetadataInstance::load(ui, widget_id, custom_id, fallback_top_left);
+        let sync = crate::metadata::MetadataSync::load(ui, custom_id);
+        let instance_id =
+            crate::metadata::instance_key_string(widget_id, custom_id.clone(), "instance");
+        Self {
+            frame,
+            instance,
+            sync,
+            instance_id,
+        }
+    }
+
+    fn save(&self, ui: &mut Ui, widget_id: Id, custom_id: &Option<String>) {
+        self.frame.clone().save(ui);
+        self.instance.save(ui, widget_id, custom_id);
+        self.sync.save(ui, custom_id);
+    }
 }
 
 impl<N, E, Ty, Ix, Nd, Ed, S, L> Widget for &mut GraphView<'_, N, E, Ty, Ix, Nd, Ed, S, L>
@@ -241,30 +277,44 @@ where
         self.sync_layout(ui);
         let step_ms = t0.elapsed().as_secs_f32() * 1000.0;
 
-        let mut meta = Metadata::load(ui);
-        self.sync_state(&mut meta);
-
         // Compute effective interactions once per frame
         let eff = self.effective();
 
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+
+        // Load both shared (per custom_id) and local (per widget instance) state once
+        let mut view = ViewState::load(ui, resp.id, &self.custom_id, resp.rect.left_top());
+        self.sync_state(&mut view.frame);
+        // Apply per-instance pan compensation before hover so hit-testing uses the correct transform.
+        if view.instance.last_top_left != resp.rect.left_top() && !view.instance.first_frame_pending
+        {
+            view.frame.pan += resp.rect.left_top() - view.instance.last_top_left;
+        }
+        view.instance.last_top_left = resp.rect.left_top();
+
         // Hover detection and cursor update happens as early as possible using current input state
-        self.handle_hover(ui, &resp, &mut meta, eff);
-        self.handle_fit_to_screen(&resp, &mut meta);
+        self.handle_hover(ui, &resp, &mut view, eff);
+        self.handle_fit_to_screen(&resp, &mut view.frame, &mut view.instance);
+
         // Handle node drag before navigation so pan doesn't kick in on the first frame
         // when starting a node drag.
-        self.handle_node_drag(&resp, &mut meta, eff);
-        self.handle_navigation(ui, &resp, &mut meta, eff);
-        self.handle_click(&resp, &mut meta, eff);
+        self.handle_node_drag(&resp, &mut view, eff);
+
+        self.handle_navigation(ui, &resp, &mut view.frame, eff);
+        self.handle_click(&resp, &mut view.frame, eff);
 
         // Measure draw time (exclude layout step): start after layout, stop after draw
         let t_draw0 = Instant::now();
+        // Use a draw-time metadata adjusted to screen coordinates by adding the widget's top-left offset.
+        let mut meta_draw = view.frame.clone();
+        meta_draw.pan += resp.rect.left_top().to_vec2();
+
         Drawer::<N, E, Ty, Ix, Nd, Ed, S, L>::new(
             self.g,
             &DrawContext {
                 ctx: ui.ctx(),
                 painter: &p,
-                meta: &meta,
+                meta: &meta_draw,
                 is_directed: self.g.is_directed(),
                 style: &self.settings_style,
             },
@@ -272,11 +322,14 @@ where
         .draw();
         let draw_ms = t_draw0.elapsed().as_secs_f32() * 1000.0;
 
-        meta.last_step_time_ms = step_ms;
-        meta.last_draw_time_ms = draw_ms;
+        view.frame.last_step_time_ms = step_ms;
+        view.frame.last_draw_time_ms = draw_ms;
 
-        meta.first_frame = false;
-        meta.save(ui);
+        // Mark end of first frame for this instance
+        view.instance.first_frame_pending = false;
+
+        // Consolidated writes at the end of the frame
+        view.save(ui, resp.id, &self.custom_id);
 
         ui.ctx().request_repaint();
 
@@ -305,6 +358,8 @@ where
             settings_style: SettingsStyle::default(),
             settings_interaction: SettingsInteraction::default(),
             settings_navigation: SettingsNavigation::default(),
+
+            custom_id: None,
 
             #[cfg(feature = "events")]
             events_sink: Option::default(),
@@ -393,9 +448,11 @@ where
         &mut self,
         ui: &Ui,
         resp: &Response,
-        meta: &mut Metadata,
+        view: &mut ViewState,
         eff: EffectiveInteraction,
     ) {
+        let meta = &mut view.frame;
+
         if self.g.dragged_node().is_some() {
             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
         }
@@ -404,14 +461,27 @@ where
             return;
         }
 
+        // Synchronized hover: claim on hover, only owner can clear.
+        let is_owner =
+            matches!(view.sync.hover_owner.as_deref(), Some(owner) if owner == view.instance_id);
+
+        // Convert to widget-local coordinates for hit-testing.
         let hovered_now = if let Some(pos) = resp.hover_pos() {
-            self.g.node_by_screen_pos(meta, pos)
+            self.g.node_by_screen_pos(meta, self.local_pos(resp, pos))
         } else {
             None
         };
 
         if hovered_now.is_some() {
+            // Claim ownership when actually hovering in this instance.
+            view.sync.hover_owner = Some(view.instance_id.clone());
             ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
+        } else if !is_owner {
+            // Do not clear hover if we are not the owner.
+            return;
+        } else {
+            // We are the owner but no longer hovering: release ownership.
+            view.sync.hover_owner = None;
         }
 
         let prev = self.g.hovered_node();
@@ -468,49 +538,20 @@ where
         self
     }
 
-    /// Helper to reset both [`Metadata`] and [`Layout`] cache. Can be useful when you want to change layout
-    /// in runtime
-    pub fn reset(ui: &mut Ui) {
-        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_metadata(ui);
-        GraphView::<N, E, Ty, Ix, Dn, De, S, L>::reset_layout(ui);
-    }
-
-    /// Resets [`Metadata`] state
-    pub fn reset_metadata(ui: &mut Ui) {
-        Metadata::default().save(ui);
-    }
-
-    /// Resets [`Layout`] state
-    pub fn reset_layout(ui: &mut Ui) {
-        ui.data_mut(|data| {
-            data.insert_persisted(Id::new(KEY_LAYOUT), S::default());
-        });
-    }
-
-    /// Loads current persisted layout state (or default if none). Useful for external UI panels.
-    pub fn get_layout_state(ui: &egui::Ui) -> S {
-        ui.data_mut(|data| {
-            data.get_persisted::<S>(Id::new(KEY_LAYOUT))
-                .unwrap_or_default()
-        })
-    }
-
-    /// Returns the latest per-frame performance metrics stored in metadata.
-    pub fn get_metrics(ui: &egui::Ui) -> (f32, f32) {
-        let m = Metadata::load(ui);
-        (m.last_step_time_ms, m.last_draw_time_ms)
-    }
-
-    /// Persists a new layout state so that on the next frame it will be applied.
-    pub fn set_layout_state(ui: &egui::Ui, state: S) {
-        ui.data_mut(|data| {
-            data.insert_persisted(Id::new(KEY_LAYOUT), state);
-        });
+    /// Sets a custom unique ID for this widget instance. Useful when you have multiple graph views
+    /// in the same UI and want to keep their state (layout, metadata) separate.
+    pub fn with_id(mut self, custom_id: Option<String>) -> Self {
+        self.custom_id = custom_id;
+        self
     }
 
     /// Advance the active layout simulation by a fixed number of steps immediately.
-    pub fn fast_forward(ui: &egui::Ui, g: &mut Graph<N, E, Ty, Ix, Dn, De>, steps: u32)
-    where
+    pub fn fast_forward(
+        ui: &mut egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        steps: u32,
+        id: Option<String>,
+    ) where
         N: Clone,
         E: Clone,
         Ty: EdgeType,
@@ -527,16 +568,18 @@ where
             None,
             |_s| None,
             |_s, _tok| {},
+            id,
         );
     }
 
     /// Advance the active layout by up to `target_steps`, but stop early if `max_millis` has elapsed.
     /// Returns the number of steps actually performed.
     pub fn fast_forward_budgeted(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         target_steps: u32,
         max_millis: u64,
+        id: Option<String>,
     ) -> u32
     where
         N: Clone,
@@ -555,16 +598,18 @@ where
             Some(max_millis),
             |_s| None,
             |_s, _tok| {},
+            id,
         )
     }
 
     /// Run simulation steps until the average node displacement drops below `epsilon`
     /// or `max_steps` is reached. Returns (`steps_done`, `last_avg_disp`).
     pub fn fast_forward_until_stable(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
+        id: Option<String>,
     ) -> (u32, f32)
     where
         N: Clone,
@@ -585,16 +630,18 @@ where
             |_s| None, // no internal metric available in general case
             |_s| None,
             |_s, _tok| {},
+            id,
         )
     }
 
     /// Budgeted variant of `fast_forward_until_stable`.
     pub fn fast_forward_until_stable_budgeted(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
         max_millis: u64,
+        id: Option<String>,
     ) -> (u32, f32)
     where
         N: Clone,
@@ -615,26 +662,23 @@ where
             |_s| None,
             |_s| None,
             |_s, _tok| {},
+            id,
         )
     }
-    // See a separate impl with an explicit lifetime for the `with_events` method.
 
     fn sync_layout(&mut self, ui: &mut Ui) {
-        let state = ui.data_mut(|data| {
-            data.get_persisted::<S>(Id::new(KEY_LAYOUT))
-                .unwrap_or_default()
-        });
+        let id = self.custom_id.clone();
+
+        let state = S::load(ui, id.clone());
 
         let mut layout = L::from_state(state);
         layout.next(self.g, ui);
         let new_state = layout.state();
 
-        ui.data_mut(|data| {
-            data.insert_persisted(Id::new(KEY_LAYOUT), new_state);
-        });
+        new_state.save(ui, id);
     }
 
-    fn sync_state(&mut self, meta: &mut Metadata) {
+    fn sync_state(&mut self, meta: &mut MetadataFrame) {
         let mut selected_nodes = Vec::new();
         let mut selected_edges = Vec::new();
         let mut dragged = None;
@@ -672,15 +716,31 @@ where
 
     /// Fits the graph to the screen if it is the first frame or
     /// fit to screen setting is enabled;
-    fn handle_fit_to_screen(&self, r: &Response, meta: &mut Metadata) {
-        if !meta.first_frame && !self.settings_navigation.fit_to_screen_enabled {
+    fn handle_fit_to_screen(
+        &self,
+        r: &Response,
+        meta: &mut MetadataFrame,
+        instance: &mut MetadataInstance,
+    ) {
+        // Fit if this instance is on its first frame, or if the global setting is enabled.
+        if !(instance.first_frame_pending || self.settings_navigation.fit_to_screen_enabled) {
             return;
         }
 
-        self.fit_to_screen(&r.rect, meta);
+        // Use a local rect (origin at 0,0) for fit-to-screen calculations.
+        let local_rect = Rect::from_min_size(Pos2::ZERO, r.rect.size());
+        self.fit_to_screen(&local_rect, meta);
+
+        // Mark this instance as having completed its first-frame fit.
+        instance.first_frame_pending = false;
     }
 
-    fn handle_click(&mut self, resp: &Response, meta: &mut Metadata, eff: EffectiveInteraction) {
+    fn handle_click(
+        &mut self,
+        resp: &Response,
+        meta: &mut MetadataFrame,
+        eff: EffectiveInteraction,
+    ) {
         if !resp.clicked() && !resp.double_clicked() {
             return;
         }
@@ -699,8 +759,10 @@ where
         let Some(cursor_pos) = resp.hover_pos() else {
             return;
         };
-        let found_edge = self.g.edge_by_screen_pos(meta, cursor_pos);
-        let found_node = self.g.node_by_screen_pos(meta, cursor_pos);
+        // Convert to widget-local coordinates.
+        let local_pos = self.local_pos(resp, cursor_pos);
+        let found_edge = self.g.edge_by_screen_pos(meta, local_pos);
+        let found_node = self.g.node_by_screen_pos(meta, local_pos);
         if found_node.is_none() && found_edge.is_none() {
             // click on empty space
             let nodes_selectable = eff.node_selection || eff.node_selection_multi;
@@ -797,48 +859,52 @@ where
     fn handle_node_drag(
         &mut self,
         resp: &Response,
-        meta: &mut Metadata,
+        view: &mut ViewState,
         eff: EffectiveInteraction,
     ) {
+        let meta = &mut view.frame;
+
         if !eff.dragging {
+            return;
+        }
+
+        // Determine ownership of the drag for shared-id scenarios.
+        let is_owner =
+            matches!(view.sync.drag_owner.as_deref(), Some(owner) if owner == view.instance_id);
+
+        // If another instance owns the drag, ignore all drag handling in this instance.
+        if view.sync.drag_owner.is_some() && !is_owner {
             return;
         }
 
         // Immediately mark a node as dragged on pointer-down over it, and end on release.
         let node_hover_index = match resp.hover_pos() {
-            Some(hover_pos) => self.g.node_by_screen_pos(meta, hover_pos),
+            Some(hover_pos) => self
+                .g
+                .node_by_screen_pos(meta, self.local_pos(resp, hover_pos)),
             None => None,
         };
+
         if resp.is_pointer_button_down_on() {
             if self.g.dragged_node().is_none() {
                 if let Some(idx) = node_hover_index {
                     self.set_drag_start(idx);
                     self.g.set_dragged_node(Some(idx));
+                    // Acquire ownership for this instance
+                    view.sync.drag_owner = Some(view.instance_id.clone());
                 }
             }
-        } else if !resp.is_pointer_button_down_on() {
-            if let Some(dragged_idx) = self.g.dragged_node() {
-                self.set_drag_end(dragged_idx);
-                self.g.set_dragged_node(None);
-            }
+        } else if !resp.is_pointer_button_down_on() && self.g.dragged_node().is_some() && is_owner {
+            let dragged_idx = self.g.dragged_node().unwrap();
+            self.set_drag_end(dragged_idx);
+            self.g.set_dragged_node(None);
+            // Release ownership
+            view.sync.drag_owner = None;
         }
 
-        if !resp.dragged_by(PointerButton::Primary)
-            && !resp.drag_started_by(PointerButton::Primary)
-            && !resp.drag_stopped_by(PointerButton::Primary)
-        {
+        // From here, only the owner continues to process drag deltas and compensation.
+        if !matches!(view.sync.drag_owner.as_deref(), Some(owner) if owner == view.instance_id) {
             return;
-        }
-
-        // If a drag started and no node is currently marked as dragged (e.g., started outside a node),
-        // try to start dragging the node under the cursor once. Otherwise skip to avoid double-starting.
-        if resp.drag_started() && self.g.dragged_node().is_none() {
-            if let Some(pos) = resp.hover_pos() {
-                if let Some(idx) = self.g.node_by_screen_pos(meta, pos) {
-                    self.set_drag_start(idx);
-                    self.g.set_dragged_node(Some(idx));
-                }
-            }
         }
 
         // handle mouse drag
@@ -854,9 +920,10 @@ where
         // compensate movement of the node which is not caused by dragging
         if let Some(n_idx_dragged) = self.g.dragged_node() {
             if let Some(mouse_pos) = resp.hover_pos() {
+                let mouse_pos_local = self.local_pos(resp, mouse_pos);
                 if let Some(node) = self.g.node(n_idx_dragged) {
                     let node_pos = node.location() * meta.zoom + meta.pan;
-                    let delta = mouse_pos - node_pos;
+                    let delta = mouse_pos_local - node_pos;
 
                     self.move_node(n_idx_dragged, delta / meta.zoom);
                 }
@@ -866,10 +933,13 @@ where
         if resp.drag_stopped() && self.g.dragged_node().is_some() {
             let n_idx = self.g.dragged_node().unwrap();
             self.set_drag_end(n_idx);
+            self.g.set_dragged_node(None);
+            // Release ownership on drag stop
+            view.sync.drag_owner = None;
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, meta: &mut Metadata) {
+    fn fit_to_screen(&self, rect: &Rect, meta: &mut MetadataFrame) {
         let raw_bounds = meta.graph_bounds();
         let (mut min, mut max) = (raw_bounds.min, raw_bounds.max);
         let invalid_bounds = !min.x.is_finite()
@@ -907,14 +977,9 @@ where
         &self,
         ui: &Ui,
         resp: &Response,
-        meta: &mut Metadata,
+        meta: &mut MetadataFrame,
         eff: EffectiveInteraction,
     ) {
-        if !meta.first_frame {
-            meta.pan += resp.rect.left_top() - meta.top_left;
-        }
-        meta.top_left = resp.rect.left_top();
-
         self.handle_zoom(ui, resp, meta, eff);
         self.handle_pan(resp, meta, eff);
     }
@@ -923,7 +988,7 @@ where
         &self,
         ui: &Ui,
         resp: &Response,
-        meta: &mut Metadata,
+        meta: &mut MetadataFrame,
         _eff: EffectiveInteraction,
     ) {
         if !self.settings_navigation.zoom_and_pan_enabled {
@@ -937,11 +1002,14 @@ where
             }
 
             let step = self.settings_navigation.zoom_speed * (delta - 1.).signum();
-            self.zoom(&resp.rect, step, i.pointer.hover_pos(), meta);
+            let local_center = i.pointer.hover_pos().map(|p| self.local_pos(resp, p));
+            // Use a local rect (origin at 0,0) for zoom center math.
+            let local_rect = Rect::from_min_size(Pos2::ZERO, resp.rect.size());
+            self.zoom(&local_rect, step, local_center, meta);
         });
     }
 
-    fn handle_pan(&self, resp: &Response, meta: &mut Metadata, _eff: EffectiveInteraction) {
+    fn handle_pan(&self, resp: &Response, meta: &mut MetadataFrame, _eff: EffectiveInteraction) {
         if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
@@ -955,8 +1023,13 @@ where
         }
     }
 
+    /// Convert a screen-space position to widget-local position
+    fn local_pos(&self, resp: &Response, p: Pos2) -> Pos2 {
+        (p - resp.rect.left_top()).to_pos2()
+    }
+
     /// Zooms the graph by the given delta. It also compensates with pan to keep the zoom center in the same place.
-    fn zoom(&self, rect: &Rect, delta: f32, zoom_center: Option<Pos2>, meta: &mut Metadata) {
+    fn zoom(&self, rect: &Rect, delta: f32, zoom_center: Option<Pos2>, meta: &mut MetadataFrame) {
         let center_pos = zoom_center.unwrap_or(rect.center()).to_vec2();
         let graph_center_pos = (center_pos - meta.pan) / meta.zoom;
         let factor = 1. + delta;
@@ -1073,7 +1146,7 @@ where
     }
 
     #[allow(unused_variables, clippy::unused_self)]
-    fn set_pan(&self, new_pan: Vec2, meta: &mut Metadata) {
+    fn set_pan(&self, new_pan: Vec2, meta: &mut MetadataFrame) {
         let diff = new_pan - meta.pan;
         if diff == Vec2::ZERO {
             return;
@@ -1089,7 +1162,7 @@ where
     }
 
     #[allow(unused_variables, clippy::unused_self)]
-    fn set_zoom(&self, new_zoom: f32, meta: &mut Metadata) {
+    fn set_zoom(&self, new_zoom: f32, meta: &mut MetadataFrame) {
         let diff = new_zoom - meta.zoom;
         if diff == 0. {
             return;
@@ -1122,7 +1195,12 @@ where
     L: Layout<S>,
 {
     /// Advance simulation even if paused by temporarily forcing `running = true`.
-    pub fn fast_forward_force_run(ui: &egui::Ui, g: &mut Graph<N, E, Ty, Ix, Dn, De>, steps: u32) {
+    pub fn fast_forward_force_run(
+        ui: &mut egui::Ui,
+        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        steps: u32,
+        id: Option<String>,
+    ) {
         ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
             ui,
             g,
@@ -1138,15 +1216,17 @@ where
                     s.set_running(p);
                 }
             },
+            id,
         );
     }
 
     /// Budgeted variant of `fast_forward_force_run`.
     pub fn fast_forward_budgeted_force_run(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         target_steps: u32,
         max_millis: u64,
+        id: Option<String>,
     ) -> u32 {
         ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
             ui,
@@ -1163,15 +1243,17 @@ where
                     s.set_running(p);
                 }
             },
+            id,
         )
     }
 
     /// Until-stable variant that forces running during the operation.
     pub fn fast_forward_until_stable_force_run(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
+        id: Option<String>,
     ) -> (u32, f32) {
         ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
             ui,
@@ -1190,16 +1272,18 @@ where
                     s.set_running(p);
                 }
             },
+            id,
         )
     }
 
     /// Budgeted until-stable variant with forced running.
     pub fn fast_forward_until_stable_budgeted_force_run(
-        ui: &egui::Ui,
+        ui: &mut egui::Ui,
         g: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
         max_millis: u64,
+        id: Option<String>,
     ) -> (u32, f32) {
         ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
             ui,
@@ -1218,6 +1302,34 @@ where
                     s.set_running(p);
                 }
             },
+            id,
         )
     }
+}
+
+/// Helper to reset both [`MetadataFrame`] and [`Layout`] cache. Can be useful when you want to change layout in runtime
+pub fn reset<S: LayoutState>(ui: &mut Ui, id: Option<String>) {
+    reset_metadata(ui, id.clone());
+    reset_layout::<S>(ui, id.clone());
+}
+
+/// Returns the latest per-frame performance metrics stored in metadata.
+pub fn get_metrics(ui: &egui::Ui, id: Option<String>) -> (f32, f32) {
+    let m = MetadataFrame::new(id).load(ui);
+    (m.last_step_time_ms, m.last_draw_time_ms)
+}
+
+/// Resets [`Layout`] state
+pub fn reset_layout<S: LayoutState>(ui: &mut Ui, id: Option<String>) {
+    S::default().save(ui, id);
+}
+
+/// Loads current persisted layout state (or default if none). Useful for external UI panels.
+pub fn get_layout_state<S: LayoutState>(ui: &egui::Ui, id: Option<String>) -> S {
+    S::load(ui, id)
+}
+
+/// Persists a new layout state so that on the next frame it will be applied.
+pub fn set_layout_state<S: LayoutState>(ui: &mut egui::Ui, state: S, id: Option<String>) {
+    state.save(ui, id);
 }

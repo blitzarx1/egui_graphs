@@ -447,47 +447,8 @@ impl DemoApp {
         );
         Self::distribute_nodes_circle_generic(&mut g);
         self.g = DemoGraph::Directed(g);
-        // Reset layout caches for both directed and undirected specializations
-        egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Directed,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
-            FruchtermanReingoldWithCenterGravityState,
-            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-        >::reset(ui);
-        egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Undirected,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
-            FruchtermanReingoldWithCenterGravityState,
-            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-        >::reset(ui);
-        egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Directed,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
-            LayoutStateHierarchical,
-            LayoutHierarchical,
-        >::reset(ui);
-        egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Undirected,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
-            LayoutStateHierarchical,
-            LayoutHierarchical,
-        >::reset(ui);
+        egui_graphs::reset::<FruchtermanReingoldWithCenterGravityState>(ui, None);
+        egui_graphs::reset::<LayoutStateHierarchical>(ui, None);
         ui.ctx().set_visuals(egui::Visuals::dark());
         self.dark_mode = ui.ctx().style().visuals.dark_mode;
         #[cfg(feature = "events")]
@@ -572,17 +533,9 @@ impl DemoApp {
 
                 // If switched to Hierarchical, ensure it recomputes once with current params
                 if changed && matches!(self.selected_layout, DemoLayout::Hierarchical) {
-                    let mut st = egui_graphs::GraphView::<
-                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                        LayoutStateHierarchical, LayoutHierarchical,
-                    >::get_layout_state(ui);
+                    let mut st = egui_graphs::get_layout_state::<LayoutStateHierarchical>(ui, None);
                     st.triggered = false;
-                    egui_graphs::GraphView::<
-                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                        LayoutStateHierarchical, LayoutHierarchical,
-                    >::set_layout_state(ui, st);
+                    egui_graphs::set_layout_state::<LayoutStateHierarchical>(ui, st, None);
                 }
             });
 
@@ -590,12 +543,7 @@ impl DemoApp {
             // Inline settings for the selected layout
             match self.selected_layout {
                 DemoLayout::FruchtermanReingold => {
-                    let mut state = egui_graphs::GraphView::<
-                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                        FruchtermanReingoldWithCenterGravityState,
-                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                    >::get_layout_state(ui);
+                    let mut state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
 
                     // Animation section
                     CollapsingHeader::new("Animation").default_open(true).show(ui, |ui| {
@@ -635,13 +583,8 @@ impl DemoApp {
                                             egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::fast_forward_force_run(ui, g, 100);
-                                        state = egui_graphs::GraphView::<
-                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                            FruchtermanReingoldWithCenterGravityState,
-                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::get_layout_state(ui);
+                                        >::fast_forward_force_run(ui, g, 100, None);
+                                        state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
                                     }
                                     DemoGraph::Undirected(g) => {
                                         egui_graphs::GraphView::<
@@ -649,13 +592,8 @@ impl DemoApp {
                                             egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::fast_forward_force_run(ui, g, 100);
-                                        state = egui_graphs::GraphView::<
-                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                            FruchtermanReingoldWithCenterGravityState,
-                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::get_layout_state(ui);
+                                        >::fast_forward_force_run(ui, g, 100, None);
+                                        state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
                                     }
                                 }
                             }
@@ -667,13 +605,8 @@ impl DemoApp {
                                             egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::fast_forward_budgeted_force_run(ui, g, 1000, 100);
-                                        state = egui_graphs::GraphView::<
-                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                            FruchtermanReingoldWithCenterGravityState,
-                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::get_layout_state(ui);
+                                        >::fast_forward_budgeted_force_run(ui, g, 1000, 100, None);
+                                        state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
                                     }
                                     DemoGraph::Undirected(g) => {
                                         let _ = egui_graphs::GraphView::<
@@ -681,13 +614,8 @@ impl DemoApp {
                                             egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::fast_forward_budgeted_force_run(ui, g, 1000, 100);
-                                        state = egui_graphs::GraphView::<
-                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                            FruchtermanReingoldWithCenterGravityState,
-                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::get_layout_state(ui);
+                                        >::fast_forward_budgeted_force_run(ui, g, 1000, 100, None);
+                                        state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
                                     }
                                 }
                             }
@@ -699,13 +627,8 @@ impl DemoApp {
                                             egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000);
-                                        state = egui_graphs::GraphView::<
-                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                            FruchtermanReingoldWithCenterGravityState,
-                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::get_layout_state(ui);
+                                        >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000, None);
+                                        state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
                                     }
                                     DemoGraph::Undirected(g) => {
                                         let _ = egui_graphs::GraphView::<
@@ -713,13 +636,8 @@ impl DemoApp {
                                             egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000);
-                                        state = egui_graphs::GraphView::<
-                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                            FruchtermanReingoldWithCenterGravityState,
-                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::get_layout_state(ui);
+                                        >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000, None);
+                                        state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
                                     }
                                 }
                             }
@@ -731,13 +649,8 @@ impl DemoApp {
                                             egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000);
-                                        state = egui_graphs::GraphView::<
-                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                            FruchtermanReingoldWithCenterGravityState,
-                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::get_layout_state(ui);
+                                        >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000, None);
+                                        state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
                                     }
                                     DemoGraph::Undirected(g) => {
                                         let _ = egui_graphs::GraphView::<
@@ -745,13 +658,8 @@ impl DemoApp {
                                             egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000);
-                                        state = egui_graphs::GraphView::<
-                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                                            FruchtermanReingoldWithCenterGravityState,
-                                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                                        >::get_layout_state(ui);
+                                        >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000, None);
+                                        state = egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
                                     }
                                 }
                             }
@@ -790,19 +698,10 @@ impl DemoApp {
                         });
                     });
 
-                    egui_graphs::GraphView::<
-                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                        FruchtermanReingoldWithCenterGravityState,
-                        LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                    >::set_layout_state(ui, state);
+                    egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, state, None);
                 }
                 DemoLayout::Hierarchical => {
-                    let mut state = egui_graphs::GraphView::<
-                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                        LayoutStateHierarchical, LayoutHierarchical,
-                    >::get_layout_state(ui);
+                    let mut state = egui_graphs::get_layout_state::<LayoutStateHierarchical>(ui, None);
 
                     ui.horizontal(|ui| {
                         ui.add(egui::Slider::new(&mut state.row_dist, 10.0..=500.0).text("row_dist"));
@@ -827,51 +726,21 @@ impl DemoApp {
                         info_icon(ui, "Apply updated parameters and recompute positions once.");
                     });
 
-                    egui_graphs::GraphView::<
-                        (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                        egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
-                        LayoutStateHierarchical, LayoutHierarchical,
-                    >::set_layout_state(ui, state);
+                    egui_graphs::set_layout_state::<LayoutStateHierarchical>(ui, state, None);
                 }
             }
         });
     }
 
     pub fn ui_layout_force_directed(&mut self, ui: &mut Ui) {
-        let state = egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Directed,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
-            FruchtermanReingoldWithCenterGravityState,
-            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-        >::get_layout_state(ui);
+        let state =
+            egui_graphs::get_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, None);
 
-        egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Directed,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
-            FruchtermanReingoldWithCenterGravityState,
-            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-        >::set_layout_state(ui, state);
+        egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(ui, state, None);
     }
 
     pub fn ui_layout_hierarchical(&mut self, ui: &mut Ui) {
-        let mut state = egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Directed,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
-            LayoutStateHierarchical,
-            LayoutHierarchical,
-        >::get_layout_state(ui);
+        let mut state = egui_graphs::get_layout_state::<LayoutStateHierarchical>(ui, None);
 
         CollapsingHeader::new("Hierarchical Layout")
             .default_open(true)
@@ -924,16 +793,7 @@ impl DemoApp {
                 });
             });
 
-        egui_graphs::GraphView::<
-            (),
-            (),
-            petgraph::Directed,
-            petgraph::stable_graph::DefaultIx,
-            egui_graphs::DefaultNodeShape,
-            egui_graphs::DefaultEdgeShape,
-            LayoutStateHierarchical,
-            LayoutHierarchical,
-        >::set_layout_state(ui, state);
+        egui_graphs::set_layout_state::<LayoutStateHierarchical>(ui, state, None);
     }
 
     pub fn ui_interaction(&mut self, ui: &mut Ui) {
@@ -1485,18 +1345,9 @@ impl App for DemoApp {
             match (&mut self.g, self.selected_layout) {
                 (DemoGraph::Directed(ref mut g), DemoLayout::FruchtermanReingold) => {
                     if let Some(spec::PendingLayout::FR(st)) = self.pending_layout.take() {
-                        egui_graphs::GraphView::<
-                            (),
-                            (),
-                            petgraph::Directed,
-                            petgraph::stable_graph::DefaultIx,
-                            egui_graphs::DefaultNodeShape,
-                            egui_graphs::DefaultEdgeShape,
-                            egui_graphs::FruchtermanReingoldWithCenterGravityState,
-                            egui_graphs::LayoutForceDirected<
-                                egui_graphs::FruchtermanReingoldWithCenterGravity,
-                            >,
-                        >::set_layout_state(ui, st);
+                        egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(
+                            ui, st, None,
+                        );
                     }
                     let mut view = egui_graphs::GraphView::<
                         _,
@@ -1526,18 +1377,9 @@ impl App for DemoApp {
                 }
                 (DemoGraph::Undirected(ref mut g), DemoLayout::FruchtermanReingold) => {
                     if let Some(spec::PendingLayout::FR(st)) = self.pending_layout.take() {
-                        egui_graphs::GraphView::<
-                            (),
-                            (),
-                            petgraph::Undirected,
-                            petgraph::stable_graph::DefaultIx,
-                            egui_graphs::DefaultNodeShape,
-                            egui_graphs::DefaultEdgeShape,
-                            egui_graphs::FruchtermanReingoldWithCenterGravityState,
-                            egui_graphs::LayoutForceDirected<
-                                egui_graphs::FruchtermanReingoldWithCenterGravity,
-                            >,
-                        >::set_layout_state(ui, st);
+                        egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(
+                            ui, st, None,
+                        );
                     }
                     let mut view = egui_graphs::GraphView::<
                         _,
@@ -1567,16 +1409,7 @@ impl App for DemoApp {
                 }
                 (DemoGraph::Directed(ref mut g), DemoLayout::Hierarchical) => {
                     if let Some(spec::PendingLayout::Hier(st)) = self.pending_layout.take() {
-                        egui_graphs::GraphView::<
-                            (),
-                            (),
-                            petgraph::Directed,
-                            petgraph::stable_graph::DefaultIx,
-                            egui_graphs::DefaultNodeShape,
-                            egui_graphs::DefaultEdgeShape,
-                            egui_graphs::LayoutStateHierarchical,
-                            egui_graphs::LayoutHierarchical,
-                        >::set_layout_state(ui, st);
+                        egui_graphs::set_layout_state::<LayoutStateHierarchical>(ui, st, None);
                     }
                     let mut view = egui_graphs::GraphView::<
                         _,
@@ -1606,16 +1439,7 @@ impl App for DemoApp {
                 }
                 (DemoGraph::Undirected(ref mut g), DemoLayout::Hierarchical) => {
                     if let Some(spec::PendingLayout::Hier(st)) = self.pending_layout.take() {
-                        egui_graphs::GraphView::<
-                            (),
-                            (),
-                            petgraph::Undirected,
-                            petgraph::stable_graph::DefaultIx,
-                            egui_graphs::DefaultNodeShape,
-                            egui_graphs::DefaultEdgeShape,
-                            egui_graphs::LayoutStateHierarchical,
-                            egui_graphs::LayoutHierarchical,
-                        >::set_layout_state(ui, st);
+                        egui_graphs::set_layout_state::<LayoutStateHierarchical>(ui, st, None);
                     }
                     let mut view = egui_graphs::GraphView::<
                         _,
@@ -1646,9 +1470,11 @@ impl App for DemoApp {
             }
 
             // After rendering the view, handle pending one-shot navigation actions.
+
             // 1) Pan to graph center without changing zoom
             if self.pan_to_graph_pending {
-                let mut meta = egui_graphs::Metadata::load(ui);
+                // TODO: do we need to interact with metadata explicitly here
+                let mut meta = egui_graphs::MetadataFrame::new(None).load(ui);
                 let bounds = match &self.g {
                     DemoGraph::Directed(g) => g.bounds(),
                     DemoGraph::Undirected(g) => g.bounds(),
@@ -1660,6 +1486,7 @@ impl App for DemoApp {
                 self.pan_to_graph_pending = false;
                 self.notify_info("Fit to screen (no zoom)");
             }
+
             // 2) Fit to screen once: turn off the auto-fit after it has just been applied.
             if self.fit_to_screen_once_pending && self.settings_navigation.fit_to_screen_enabled {
                 self.settings_navigation.fit_to_screen_enabled = false;
@@ -1673,29 +1500,15 @@ impl App for DemoApp {
             if let DemoLayout::FruchtermanReingold = self.selected_layout {
                 let steps = match &self.g {
                     DemoGraph::Directed(_) => {
-                        let st = egui_graphs::GraphView::<
-                            (),
-                            (),
-                            petgraph::Directed,
-                            petgraph::stable_graph::DefaultIx,
-                            egui_graphs::DefaultNodeShape,
-                            egui_graphs::DefaultEdgeShape,
+                        let st = egui_graphs::get_layout_state::<
                             FruchtermanReingoldWithCenterGravityState,
-                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                        >::get_layout_state(ui);
+                        >(ui, None);
                         st.base.step_count as usize
                     }
                     DemoGraph::Undirected(_) => {
-                        let st = egui_graphs::GraphView::<
-                            (),
-                            (),
-                            petgraph::Undirected,
-                            petgraph::stable_graph::DefaultIx,
-                            egui_graphs::DefaultNodeShape,
-                            egui_graphs::DefaultEdgeShape,
+                        let st = egui_graphs::get_layout_state::<
                             FruchtermanReingoldWithCenterGravityState,
-                            LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                        >::get_layout_state(ui);
+                        >(ui, None);
                         st.base.step_count as usize
                     }
                 };
@@ -1802,46 +1615,10 @@ impl DemoApp {
     fn record_perf_sample(&mut self, ui: &mut egui::Ui) {
         let route = pick_metrics_route(&self.g, self.selected_layout);
         let (step_ms, draw_ms) = match route {
-            MetricsRoute::DirectedFR => egui_graphs::GraphView::<
-                (),
-                (),
-                petgraph::Directed,
-                petgraph::stable_graph::DefaultIx,
-                egui_graphs::DefaultNodeShape,
-                egui_graphs::DefaultEdgeShape,
-                FruchtermanReingoldWithCenterGravityState,
-                LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-            >::get_metrics(ui),
-            MetricsRoute::UndirectedFR => egui_graphs::GraphView::<
-                (),
-                (),
-                petgraph::Undirected,
-                petgraph::stable_graph::DefaultIx,
-                egui_graphs::DefaultNodeShape,
-                egui_graphs::DefaultEdgeShape,
-                FruchtermanReingoldWithCenterGravityState,
-                LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-            >::get_metrics(ui),
-            MetricsRoute::DirectedHier => egui_graphs::GraphView::<
-                (),
-                (),
-                petgraph::Directed,
-                petgraph::stable_graph::DefaultIx,
-                egui_graphs::DefaultNodeShape,
-                egui_graphs::DefaultEdgeShape,
-                LayoutStateHierarchical,
-                LayoutHierarchical,
-            >::get_metrics(ui),
-            MetricsRoute::UndirectedHier => egui_graphs::GraphView::<
-                (),
-                (),
-                petgraph::Undirected,
-                petgraph::stable_graph::DefaultIx,
-                egui_graphs::DefaultNodeShape,
-                egui_graphs::DefaultEdgeShape,
-                LayoutStateHierarchical,
-                LayoutHierarchical,
-            >::get_metrics(ui),
+            MetricsRoute::DirectedFR => egui_graphs::get_metrics(ui, None),
+            MetricsRoute::UndirectedFR => egui_graphs::get_metrics(ui, None),
+            MetricsRoute::DirectedHier => egui_graphs::get_metrics(ui, None),
+            MetricsRoute::UndirectedHier => egui_graphs::get_metrics(ui, None),
         };
 
         self.metrics.record_sample(step_ms, draw_ms);
