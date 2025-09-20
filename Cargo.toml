@@ -40,7 +40,7 @@ petgraph = { version = "0.8", default-features = false }
 serde = "1.0"
 serde_json = "1.0"
 rand = "0.9"
-instant = "0.1"
+instant = { version = "0.1", features = ["wasm-bindgen"] }
 crossbeam = "0.8"
 bevy = "0.16"
 bevy_egui = "0.36"
