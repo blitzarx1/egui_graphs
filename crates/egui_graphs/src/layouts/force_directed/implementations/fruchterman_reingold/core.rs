@@ -170,7 +170,7 @@ impl ForceAlgorithm for FruchtermanReingold {
             params.max_step,
         );
         self.state.last_avg_displacement = avg;
-        self.state.inc_step_count();
+        self.state.set_step_count(self.state.step_count + 1);
     }
 
     fn state(&self) -> Self::State {

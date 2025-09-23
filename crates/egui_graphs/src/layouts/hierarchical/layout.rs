@@ -81,8 +81,9 @@ impl Layout<State> for Hierarchical {
             if visited.contains(root) {
                 continue;
             }
-            let curr_max_col = build_tree(g, &mut visited, root, &self.state, 0, next_col);
-            next_col = curr_max_col.saturating_add(1);
+
+            let curr_max_col = layout_tree(g, &mut visited, root, &self.state, 0, next_col);
+            next_col = curr_max_col + 1;
         }
 
         // Fallback: if the graph has cycles or no formal roots, lay out any remaining components.
@@ -91,8 +92,9 @@ impl Layout<State> for Hierarchical {
             if visited.contains(n) {
                 continue;
             }
-            let curr_max_col = build_tree(g, &mut visited, n, &self.state, 0, next_col);
-            next_col = curr_max_col.saturating_add(1);
+
+            let curr_max_col = layout_tree(g, &mut visited, n, &self.state, 0, next_col);
+            next_col = curr_max_col + 1;
         }
 
         self.state.triggered = true;
@@ -107,7 +109,7 @@ impl Layout<State> for Hierarchical {
     }
 }
 
-fn build_tree<N, E, Ty, Ix, Dn, De>(
+fn layout_tree<N, E, Ty, Ix, Dn, De>(
     g: &mut Graph<N, E, Ty, Ix, Dn, De>,
     visited: &mut HashSet<NodeIndex<Ix>>,
     root_idx: &NodeIndex<Ix>,
@@ -128,21 +130,18 @@ where
         visited.insert(*root_idx);
     }
 
-    // Traverse children first to compute the horizontal span of this subtree.
-    let mut had_child = false;
-    let mut max_col = start_col;
-    let mut child_col = start_col;
-
     let children: Vec<NodeIndex<Ix>> = g.g().neighbors_directed(*root_idx, Outgoing).collect();
 
+    // Traverse children to compute the horizontal span of this subtree.
+    let mut max_col = start_col;
+    let mut child_col = start_col;
     for neighbour_idx in children.iter() {
         if visited.contains(neighbour_idx) {
             continue;
         }
         visited.insert(*neighbour_idx);
-        had_child = true;
 
-        let child_max_col = build_tree(g, visited, neighbour_idx, state, start_row + 1, child_col);
+        let child_max_col = layout_tree(g, visited, neighbour_idx, state, start_row + 1, child_col);
         if child_max_col > max_col {
             max_col = child_max_col;
         }
@@ -150,12 +149,7 @@ where
     }
 
     // Column where the current node will be placed.
-    let place_col = if state.center_parent && had_child {
-        // Center above/beside the span [start_col..=max_col]
-        (start_col + max_col) / 2
-    } else {
-        start_col
-    };
+    let place_col = start_col;
 
     // Compute actual coordinates based on orientation.
     let (x, y) = match state.orientation {

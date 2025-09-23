@@ -5,21 +5,19 @@ use std::fmt::Debug;
 use crate::{DisplayEdge, DisplayNode, Graph};
 
 const KEY_PREFIX: &str = "egui_graphs_layout";
-fn get_key(id: Option<String>) -> String {
-    format!("{KEY_PREFIX}_{}", id.unwrap_or_default())
+
+fn get_id(id: Option<String>) -> egui::Id {
+    egui::Id::new(format!("{KEY_PREFIX}_{}", id.unwrap_or_default()))
 }
 
 pub trait LayoutState: SerializableAny + Default + Debug {
     fn load(ui: &egui::Ui, id: Option<String>) -> Self {
-        ui.data_mut(|data| {
-            data.get_persisted::<Self>(egui::Id::new(get_key(id)))
-                .unwrap_or_default()
-        })
+        ui.data_mut(|data| data.get_persisted::<Self>(get_id(id)).unwrap_or_default())
     }
 
     fn save(self, ui: &mut egui::Ui, id: Option<String>) {
         ui.data_mut(|data| {
-            data.insert_persisted(egui::Id::new(get_key(id)), self);
+            data.insert_persisted(get_id(id), self);
         });
     }
 }
@@ -30,8 +28,8 @@ pub trait LayoutState: SerializableAny + Default + Debug {
 pub trait AnimatedState {
     fn is_running(&self) -> bool;
     fn set_running(&mut self, v: bool);
+
     /// Average per-node displacement from the last simulation step (graph units).
-    /// Default: None (not provided by the layout).
     fn last_avg_displacement(&self) -> Option<f32> {
         None
     }
@@ -42,17 +40,9 @@ pub trait AnimatedState {
     fn step_count(&self) -> u64 {
         0
     }
+
     /// Set total step count.
     fn set_step_count(&mut self, _v: u64) {}
-    /// Convenience: increment step count (saturating add).
-    fn inc_step_count(&mut self) {
-        let n = self.step_count();
-        self.set_step_count(n.saturating_add(1));
-    }
-    /// Convenience: reset step count to zero.
-    fn reset_step_count(&mut self) {
-        self.set_step_count(0);
-    }
 }
 
 // Note: Step counting is part of AnimatedState for animated layouts.

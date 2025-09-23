@@ -123,7 +123,9 @@ impl<E: ExtrasTuple> ForceAlgorithm for FruchtermanReingoldWithExtras<E> {
             base.max_step,
         );
         self.state.base.last_avg_displacement = avg;
-        self.state.base.inc_step_count();
+        self.state
+            .base
+            .set_step_count(self.state.base.step_count() + 1);
     }
 
     fn state(&self) -> Self::State {

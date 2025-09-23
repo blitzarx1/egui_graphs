@@ -91,14 +91,14 @@ impl MetadataFrame {
 
     pub fn load(self, ui: &egui::Ui) -> Self {
         ui.data_mut(|data| {
-            data.get_persisted::<MetadataFrame>(Id::new(self.get_key()))
+            data.get_persisted::<MetadataFrame>(Id::new(self.get_id()))
                 .unwrap_or(self.clone())
         })
     }
 
     pub fn save(self, ui: &mut egui::Ui) {
         ui.data_mut(|data| {
-            data.insert_persisted(Id::new(self.get_key()), self);
+            data.insert_persisted(Id::new(self.get_id()), self);
         });
     }
 
@@ -154,8 +154,8 @@ impl MetadataFrame {
     }
 
     /// Get key which is used to store metadata in egui cache.
-    pub fn get_key(&self) -> String {
-        format!("{KEY_PREFIX}_{}", self.id.clone())
+    pub fn get_id(&self) -> Id {
+        egui::Id::new(format!("{KEY_PREFIX}_{}", self.id.clone()))
     }
 }
 
