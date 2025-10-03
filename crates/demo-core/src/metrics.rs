@@ -1,5 +1,5 @@
 use core::time::Duration;
-use instant::Instant;
+use web_time::Instant;
 use std::collections::VecDeque;
 
 pub struct MetricsRecorder {

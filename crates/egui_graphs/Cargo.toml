@@ -22,7 +22,7 @@ petgraph = { workspace = true, default-features = false, features = [
   "serde-1",
 ] }
 serde = { workspace = true, features = ["derive"] }
-instant.workspace = true
+web-time.workspace = true
 
 crossbeam = { workspace = true, optional = true }
 

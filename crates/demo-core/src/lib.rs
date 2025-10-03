@@ -7,7 +7,7 @@ use egui_graphs::{
     LayoutHierarchicalOrientation, LayoutStateHierarchical,
 };
 #[cfg(not(feature = "events"))]
-use instant::Instant;
+use web_time::Instant;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::{Directed, Undirected};
 use rand::Rng;

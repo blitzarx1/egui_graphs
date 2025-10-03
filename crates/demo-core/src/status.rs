@@ -1,4 +1,4 @@
-use instant::Instant;
+use web_time::Instant;
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

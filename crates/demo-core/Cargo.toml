@@ -20,7 +20,7 @@ petgraph = { workspace = true, default-features = false, features = [
   "matrix_graph",
 ] }
 rand.workspace = true
-instant.workspace = true
+web-time.workspace = true
 crossbeam = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
