@@ -52,7 +52,7 @@ pub fn render(
     let text_color = ui.style().visuals.strong_text_color();
     let panel_rect: Rect = ui.max_rect();
     let font_id = FontId::monospace(DEBUG_MONO_FONT_SIZE);
-    let galley = ui.fonts(|f| f.layout_no_wrap(text.clone(), font_id, text_color));
+    let galley = ui.fonts_mut(|f| f.layout_no_wrap(text.clone(), font_id, text_color));
     let pos = Pos2::new(
         panel_rect.right() - UI_MARGIN - galley.size().x,
         panel_rect.top() + UI_MARGIN,
