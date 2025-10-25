@@ -207,7 +207,7 @@ mod node {
 
             // create label
             let color = ctx.ctx.style().visuals.text_color();
-            let galley = ctx.ctx.fonts(|f| {
+            let galley = ctx.ctx.fonts_mut(|f| {
                 f.layout_no_wrap(
                     self.label.clone(),
                     FontId::new(ctx.meta.canvas_to_screen_size(10.), FontFamily::Monospace),

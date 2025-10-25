@@ -195,7 +195,7 @@ impl DefaultEdgeShape {
             panic!("invalid shape type")
         };
         if label_visible {
-            let galley = ctx.ctx.fonts(|f| {
+            let galley = ctx.ctx.fonts_mut(|f| {
                 f.layout_no_wrap(
                     self.label_text.clone(),
                     FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
@@ -244,7 +244,7 @@ impl DefaultEdgeShape {
         res.extend(straight_shapes);
         if label_visible {
             let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
-            let galley = ctx.ctx.fonts(|f| {
+            let galley = ctx.ctx.fonts_mut(|f| {
                 f.layout_no_wrap(
                     self.label_text.clone(),
                     FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
@@ -302,7 +302,7 @@ impl DefaultEdgeShape {
             res.extend(curved_shapes.clone());
             if label_visible {
                 let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
-                let galley = ctx.ctx.fonts(|f| {
+                let galley = ctx.ctx.fonts_mut(|f| {
                     f.layout_no_wrap(
                         self.label_text.clone(),
                         FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
