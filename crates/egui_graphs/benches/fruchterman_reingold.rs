@@ -1,7 +1,8 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use egui::{Pos2, Rect};
 use egui_graphs::{to_graph, DefaultEdgeShape, DefaultNodeShape, Graph};
 use petgraph::stable_graph::StableGraph;
+use std::hint::black_box;
 use std::time::Duration;
 
 use egui_graphs::ForceAlgorithm;
