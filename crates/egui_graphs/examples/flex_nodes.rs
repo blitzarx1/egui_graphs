@@ -1,8 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::{CentralPanel, Context, SidePanel, TextEdit};
-use egui_graphs::{
-    generate_simple_digraph, DefaultGraphView, Graph, GraphView, SettingsInteraction,
-};
+use egui_graphs::{generate_simple_digraph, Graph, GraphView, SettingsInteraction};
 use node::NodeShapeFlex;
 use petgraph::{
     stable_graph::{DefaultIx, EdgeIndex, NodeIndex},
@@ -169,7 +167,7 @@ mod node {
             let color = ctx.ctx.style().visuals.text_color();
 
             // create label
-            let galley = ctx.ctx.fonts(|f| {
+            let galley = ctx.ctx.fonts_mut(|f| {
                 f.layout_no_wrap(
                     self.label.clone(),
                     FontId::new(ctx.meta.canvas_to_screen_size(10.), FontFamily::Monospace),

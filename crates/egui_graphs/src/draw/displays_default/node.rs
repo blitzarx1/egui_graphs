@@ -133,7 +133,7 @@ impl DefaultNodeShape {
         radius: f32,
         color: Color32,
     ) -> std::sync::Arc<egui::Galley> {
-        ctx.ctx.fonts(|f| {
+        ctx.ctx.fonts_mut(|f| {
             f.layout_no_wrap(
                 self.label_text.clone(),
                 FontId::new(radius, FontFamily::Monospace),

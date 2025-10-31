@@ -21,14 +21,14 @@ pub fn render_info_overlay(ui: &mut egui::Ui) {
     // Match the vertical level of the bottom-right buttons: bottom - UI_MARGIN - btn_height
 
     // Pre-measure to compute centered position
-    let label_galley = ui.fonts(|f| {
+    let label_galley = ui.fonts_mut(|f| {
         f.layout_no_wrap(
             version_text.clone(),
             egui::FontId::proportional(INFO_TEXT_SIZE),
             ui.style().visuals.text_color(),
         )
     });
-    let link_galley = ui.fonts(|f| {
+    let link_galley = ui.fonts_mut(|f| {
         f.layout_no_wrap(
             "code".into(),
             egui::FontId::proportional(INFO_TEXT_SIZE),

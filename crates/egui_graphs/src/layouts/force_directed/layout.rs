@@ -29,7 +29,7 @@ impl<A: ForceAlgorithm> Layout<A::State> for ForceDirected<A> {
             return;
         }
 
-        self.alg.step(g, ui.ctx().screen_rect());
+        self.alg.step(g, ui.ctx().content_rect());
     }
 
     fn state(&self) -> A::State {
