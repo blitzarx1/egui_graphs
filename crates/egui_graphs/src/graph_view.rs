@@ -9,7 +9,7 @@ use crate::{
 };
 
 use egui::{Id, PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
-use instant::Instant;
+use web_time::Instant;
 
 use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::{graph::IndexType, Directed};

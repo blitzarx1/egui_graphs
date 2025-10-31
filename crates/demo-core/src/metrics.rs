@@ -1,6 +1,6 @@
 use core::time::Duration;
-use instant::Instant;
 use std::collections::VecDeque;
+use web_time::Instant;
 
 pub struct MetricsRecorder {
     fps: f32,

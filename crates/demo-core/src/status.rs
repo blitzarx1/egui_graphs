@@ -1,5 +1,5 @@
-use instant::Instant;
 use std::collections::VecDeque;
+use web_time::Instant;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusKind {
