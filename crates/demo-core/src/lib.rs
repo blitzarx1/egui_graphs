@@ -6,13 +6,13 @@ use egui_graphs::{
     FruchtermanReingoldWithCenterGravityState, Graph, LayoutForceDirected, LayoutHierarchical,
     LayoutHierarchicalOrientation, LayoutStateHierarchical,
 };
-#[cfg(not(feature = "events"))]
-use web_time::Instant;
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::{Directed, Undirected};
 use rand::Rng;
 #[cfg(all(feature = "events", target_arch = "wasm32"))]
 use std::{cell::RefCell, rc::Rc};
+#[cfg(not(feature = "events"))]
+use web_time::Instant;
 
 mod event_filters;
 mod graph_ops;
