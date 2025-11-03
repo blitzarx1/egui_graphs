@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.29.0 (31.10.2025)
+
+### MRs
+* Feature: custom egui ids by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/292
+* Fix: enable instant/wasm-bindgen at workspace level and remove from demo by @blitzarx1 in https://github.com/blitzar-tech/egui_graphs/pull/293
+* Update egui to 0.33 (and update bevy, ureq, and criterion) by @oscargus in https://github.com/blitzar-tech/egui_graphs/pull/298
+* Fix: replace 'instant' dependency with 'web-time' by @WaffleSoul4 in https://github.com/blitzar-tech/egui_graphs/pull/296
+
+### New Contributors
+* @oscargus made their first contribution in https://github.com/blitzar-tech/egui_graphs/pull/298
+* @WaffleSoul4 made their first contribution in https://github.com/blitzar-tech/egui_graphs/pull/296
+
+**Full Increment**: https://github.com/blitzar-tech/egui_graphs/compare/v0.28.0...v0.29.0
+
 ## v0.28.0 (23.08.2025)
 
 #### 🆕 New Features
