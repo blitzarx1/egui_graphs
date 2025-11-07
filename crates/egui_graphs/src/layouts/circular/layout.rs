@@ -16,8 +16,7 @@ pub struct State {
 impl LayoutState for State {}
 
 /// Sort order for circular layout nodes
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub enum SortOrder {
     /// Alphabetical by label (ascending)
     #[default]
@@ -27,7 +26,6 @@ pub enum SortOrder {
     /// No sorting - preserve insertion order
     None,
 }
-
 
 /// Configuration for spacing/radius of the circular layout
 #[derive(Debug, Clone)]
@@ -78,14 +76,12 @@ impl SpacingConfig {
 /// - Spacing (auto-scaling or fixed radius)
 ///
 /// The layout applies once and preserves the circular arrangement.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Circular {
     state: State,
     sort_order: SortOrder,
     spacing: SpacingConfig,
 }
-
 
 impl Circular {
     /// Create a new circular layout with default configuration
