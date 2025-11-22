@@ -47,3 +47,10 @@ bevy = "0.17"
 bevy_egui = "0.38"
 ureq = { version = "3", default-features = true }
 criterion = { version = "0.7", features = ["html_reports"] }
+
+[profile.release]
+opt-level = "z"      # Size optimization
+lto = true           # Link-time optimization
+codegen-units = 1    # Better optimization
+panic = "abort"      # Smaller binary
+strip = true         # Remove debug symbols
