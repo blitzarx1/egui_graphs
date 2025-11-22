@@ -36,7 +36,8 @@ mod code_analyzer {
     use egui::{Color32, FontFamily, FontId, Pos2, Rect, Shape, Stroke, Vec2};
     use egui_graphs::{
         DisplayEdge, DisplayNode, DrawContext, EdgeProps, Graph, GraphView, Node, NodeProps,
-        SettingsInteraction, SettingsNavigation, SettingsStyle,
+        SettingsInteraction, SettingsNavigation, SettingsStyle, FruchtermanReingoldState,
+        get_layout_state, set_layout_state,
     };
     use petgraph::{stable_graph::{NodeIndex, StableGraph}, Directed};
     use std::collections::HashMap;
@@ -356,6 +357,9 @@ mod code_analyzer {
         edge_selected_color: [u8; 3],
         background_color: [u8; 3],
         
+        // Simulation settings
+        simulation_running: bool,
+        
         // UI settings
         hover_window_size: f32,
         show_side_panel: bool,
@@ -390,6 +394,7 @@ mod code_analyzer {
                 fit_to_screen_padding: 0.1,
                 zoom_speed: 0.1,
                 labels_always: true,
+                simulation_running: true,
                 node_color: [100, 150, 200],
                 node_hover_color: [150, 150, 200],
                 node_selected_color: [100, 200, 255],
@@ -650,6 +655,35 @@ mod code_analyzer {
                                     self.auto_save_config = auto_save;
                                     self.save_config(ctx);
                                 }
+                            });
+                        }
+
+                        // Simulation/Layout Settings
+                        if matches("simulation") || matches("layout") || matches("force") || matches("animate") {
+                            ui.collapsing("⚡ Simulation/Layout Settings", |ui| {
+                                ui.label("💡 Force-Directed Layout:");
+                                ui.label("  The graph uses Fruchterman-Reingold algorithm");
+                                ui.label("  for automatic node positioning.");
+                                ui.separator();
+                                
+                                ui.label("⚙️ Available Parameters:");
+                                ui.label("  • dt: Time step (default: 0.05)");
+                                ui.label("  • damping: Velocity damping (default: 0.3)");
+                                ui.label("  • max_step: Max displacement per step (default: 10.0)");
+                                ui.label("  • k_scale: Spring constant scale (default: 1.0)");
+                                ui.label("  • c_attract: Attraction force (default: 1.0)");
+                                ui.label("  • c_repulse: Repulsion force (default: 1.0)");
+                                ui.separator();
+                                
+                                ui.label("📋 Layout Types:");
+                                ui.label("  • Force-Directed (current)");
+                                ui.label("  • Random");
+                                ui.label("  • Hierarchical");
+                                ui.separator();
+                                
+                                ui.label("❗ Note: Interactive simulation controls");
+                                ui.label("require access to the layout state.");
+                                ui.label("Advanced controls coming in future update!");
                             });
                         }
 
@@ -993,6 +1027,17 @@ mod code_analyzer {
                                 });
                                 
                                 ui.separator();
+                                
+                                // Prominent stop button if rotation is active
+                                if self.config.auto_rotate {
+                                    if ui.button("⏹ Stop Rotation").clicked() {
+                                        self.config.auto_rotate = false;
+                                        if self.auto_save_config {
+                                            self.save_config(ctx);
+                                        }
+                                    }
+                                }
+                                
                                 if ui.checkbox(&mut self.config.auto_rotate, "Auto Rotate").changed() {
                                     if self.auto_save_config {
                                         self.save_config(ctx);
@@ -1036,6 +1081,40 @@ mod code_analyzer {
                                         }
                                     }
                                 });
+                            });
+                            
+                            // Simulation Control
+                            ui.collapsing("⚙️ Simulation Control", |ui| {
+                                ui.label("Control the force-directed layout simulation:");
+                                ui.separator();
+                                
+                                ui.horizontal(|ui| {
+                                    if self.config.simulation_running {
+                                        if ui.button("⏸ Pause Simulation").clicked() {
+                                            self.config.simulation_running = false;
+                                            if self.auto_save_config {
+                                                self.save_config(ctx);
+                                            }
+                                        }
+                                    } else {
+                                        if ui.button("▶ Resume Simulation").clicked() {
+                                            self.config.simulation_running = true;
+                                            if self.auto_save_config {
+                                                self.save_config(ctx);
+                                            }
+                                        }
+                                    }
+                                });
+                                
+                                ui.label(if self.config.simulation_running {
+                                    "✓ Simulation is running - nodes will move to optimal positions"
+                                } else {
+                                    "⏸ Simulation is paused - nodes will stay in place"
+                                });
+                                
+                                ui.separator();
+                                ui.label("💡 Tip: Pause the simulation to manually arrange nodes,");
+                                ui.label("   then resume to let them settle into stable positions.");
                             });
                             
                             // Visual Effects Settings
@@ -1089,6 +1168,7 @@ mod code_analyzer {
                                     self.config.depth_fade_strength = defaults.depth_fade_strength;
                                     self.config.depth_scale_enabled = defaults.depth_scale_enabled;
                                     self.config.depth_scale_strength = defaults.depth_scale_strength;
+                                    self.config.simulation_running = defaults.simulation_running;
                                     if self.auto_save_config {
                                         self.save_config(ctx);
                                     }
@@ -1126,13 +1206,15 @@ mod code_analyzer {
                 });
             }
 
-            // Auto-rotation in 3D mode
-            if self.config.visualization_mode == VisualizationMode::ThreeD && self.config.auto_rotate {
-                self.config.rotation_y += self.config.rotation_speed * 0.5;
-                if self.config.rotation_y > 180.0 {
-                    self.config.rotation_y -= 360.0;
+            // Auto-rotation in 3D mode (only when explicitly enabled)
+            if self.config.visualization_mode == VisualizationMode::ThreeD {
+                if self.config.auto_rotate {
+                    self.config.rotation_y += self.config.rotation_speed * 0.5;
+                    if self.config.rotation_y > 180.0 {
+                        self.config.rotation_y -= 360.0;
+                    }
+                    ctx.request_repaint();
                 }
-                ctx.request_repaint();
             }
 
             // Update node and edge colors from config, and apply 3D positioning
@@ -1167,6 +1249,11 @@ mod code_analyzer {
             }
 
             egui::CentralPanel::default().show(ctx, |ui| {
+                // Control simulation based on user setting - do this FIRST
+                let mut layout_state: FruchtermanReingoldState = get_layout_state(ui, None);
+                layout_state.is_running = self.config.simulation_running;
+                set_layout_state(ui, layout_state, None);
+                
                 let settings_interaction = SettingsInteraction::new()
                     .with_dragging_enabled(self.config.dragging_enabled)
                     .with_hover_enabled(self.config.hover_enabled)
@@ -1185,7 +1272,7 @@ mod code_analyzer {
 
                 let settings_style = SettingsStyle::new()
                     .with_labels_always(self.config.labels_always);
-
+                
                 ui.add(
                     &mut GraphView::<_, _, _, _, CodeNode, CodeEdge>::new(&mut self.graph)
                         .with_interactions(&settings_interaction)
