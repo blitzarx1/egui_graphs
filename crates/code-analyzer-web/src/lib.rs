@@ -1,29 +1,34 @@
 use eframe::wasm_bindgen::{self, prelude::*};
 
-#[wasm_bindgen]
-pub struct WebHandle {
-    runner: eframe::WebRunner,
-}
+#[wasm_bindgen(start)]
+pub fn start() -> Result<(), JsValue> {
+    console_error_panic_hook::set_once();
 
-#[wasm_bindgen]
-impl WebHandle {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        Self {
-            runner: eframe::WebRunner::new(),
-        }
-    }
-
-    #[wasm_bindgen]
-    pub async fn start(&self, canvas_id: &str) -> Result<(), wasm_bindgen::JsValue> {
-        self.runner
+    wasm_bindgen_futures::spawn_local(async {
+        let document = web_sys::window()
+            .expect("no global window exists")
+            .document()
+            .expect("should have a document on window");
+        
+        let canvas = document
+            .get_element_by_id("canvas")
+            .expect("no canvas element with id 'canvas'")
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .expect("element with id 'canvas' is not a canvas");
+        
+        let web_options = eframe::WebOptions::default();
+        
+        eframe::WebRunner::new()
             .start(
-                canvas_id,
-                eframe::WebOptions::default(),
+                canvas,
+                web_options,
                 Box::new(|cc| Ok(Box::new(code_analyzer::CodeAnalyzerApp::new(cc)))),
             )
             .await
-    }
+            .expect("failed to start eframe");
+    });
+
+    Ok(())
 }
 
 mod code_analyzer {

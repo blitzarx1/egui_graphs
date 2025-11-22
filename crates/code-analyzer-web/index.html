@@ -86,19 +86,36 @@
     </div>
 
     <script type="module">
-        import init, { WebHandle } from './code_analyzer_web.js';
+        import init from './code_analyzer_web.js';
 
         async function run() {
             try {
-                // Initialize WASM module
+                // Initialize WASM module - this will auto-start the app
                 await init();
                 
-                // Create and start the app
-                const handle = new WebHandle();
-                await handle.start("canvas");
+                // Wait a bit for the canvas to be initialized
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                }, 500);
                 
-                // Hide loading indicator
-                document.getElementById('loading').style.display = 'none';
+                // Also hide loading when canvas receives first draw
+                const canvas = document.getElementById('canvas');
+                const observer = new MutationObserver(() => {
+                    document.getElementById('loading').style.display = 'none';
+                    observer.disconnect();
+                });
+                
+                // Watch for any changes to canvas (indicating it's being used)
+                observer.observe(canvas, { 
+                    attributes: true, 
+                    attributeOldValue: true 
+                });
+                
+                // Fallback: hide after canvas gets focus or interaction
+                canvas.addEventListener('focus', () => {
+                    document.getElementById('loading').style.display = 'none';
+                }, { once: true });
+                
             } catch (error) {
                 console.error('Failed to start application:', error);
                 
