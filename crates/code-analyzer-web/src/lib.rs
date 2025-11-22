@@ -78,6 +78,7 @@ mod code_analyzer {
         node_color: [u8; 3],
         hover_color: [u8; 3],
         selected_color: [u8; 3],
+        use_sphere_rendering: bool,
     }
 
     impl From<NodeProps<ClassInfo>> for CodeNode {
@@ -94,6 +95,7 @@ mod code_analyzer {
                 node_color: default_config.node_color,
                 hover_color: default_config.node_hover_color,
                 selected_color: default_config.node_selected_color,
+                use_sphere_rendering: false,
             }
         }
     }
@@ -134,15 +136,64 @@ mod code_analyzer {
                 Stroke::new(1.0, Color32::GRAY)
             };
 
-            shapes.push(
-                egui::epaint::CircleShape {
-                    center: screen_pos,
-                    radius: adjusted_radius,
-                    fill: adjusted_color,
-                    stroke,
+            if self.use_sphere_rendering {
+                // Render as a shaded sphere with gradient
+                let light_dir_raw = Vec2::new(-0.5, -0.7);
+                let light_len = (light_dir_raw.x * light_dir_raw.x + light_dir_raw.y * light_dir_raw.y).sqrt();
+                let light_dir = light_dir_raw / light_len; // Normalized light from top-left
+                let num_layers = 8;
+                
+                for i in 0..num_layers {
+                    let t = (i as f32) / (num_layers as f32);
+                    let layer_radius = adjusted_radius * (1.0 - t * 0.6);
+                    
+                    // Calculate lighting based on distance from center
+                    let brightness = 1.0 - t * 0.7;
+                    let shaded_color = Color32::from_rgb(
+                        (adjusted_color.r() as f32 * brightness) as u8,
+                        (adjusted_color.g() as f32 * brightness) as u8,
+                        (adjusted_color.b() as f32 * brightness) as u8,
+                    );
+                    
+                    // Offset the highlight based on light direction
+                    let offset = light_dir * adjusted_radius * 0.2 * (1.0 - t);
+                    let layer_center = screen_pos + offset;
+                    
+                    shapes.push(
+                        egui::epaint::CircleShape {
+                            center: layer_center,
+                            radius: layer_radius,
+                            fill: shaded_color,
+                            stroke: Stroke::NONE,
+                        }
+                        .into(),
+                    );
                 }
-                .into(),
-            );
+                
+                // Add rim highlight
+                if self.selected {
+                    shapes.push(
+                        egui::epaint::CircleShape {
+                            center: screen_pos,
+                            radius: adjusted_radius,
+                            fill: Color32::TRANSPARENT,
+                            stroke: Stroke::new(2.0, Color32::WHITE),
+                        }
+                        .into(),
+                    );
+                }
+            } else {
+                // Flat circle rendering
+                shapes.push(
+                    egui::epaint::CircleShape {
+                        center: screen_pos,
+                        radius: adjusted_radius,
+                        fill: adjusted_color,
+                        stroke,
+                    }
+                    .into(),
+                );
+            }
 
             let font_size = (adjusted_radius * 0.4).max(8.0).min(16.0);
             let galley = ctx.ctx.fonts_mut(|f| {
@@ -329,6 +380,7 @@ mod code_analyzer {
         depth_fade_strength: f32,
         depth_scale_enabled: bool,
         depth_scale_strength: f32,
+        use_sphere_rendering: bool,
         
         // Interaction settings
         dragging_enabled: bool,
@@ -381,6 +433,7 @@ mod code_analyzer {
                 depth_fade_strength: 0.0005,
                 depth_scale_enabled: true,
                 depth_scale_strength: 0.001,
+                use_sphere_rendering: false,
                 dragging_enabled: true,
                 hover_enabled: true,
                 node_clicking_enabled: false,
@@ -1004,6 +1057,7 @@ mod code_analyzer {
                                 ui.horizontal(|ui| {
                                     ui.label("X Axis:");
                                     if ui.add(egui::Slider::new(&mut self.config.rotation_x, -180.0..=180.0).suffix("°")).changed() {
+                                        ctx.request_repaint();
                                         if self.auto_save_config {
                                             self.save_config(ctx);
                                         }
@@ -1012,6 +1066,7 @@ mod code_analyzer {
                                 ui.horizontal(|ui| {
                                     ui.label("Y Axis:");
                                     if ui.add(egui::Slider::new(&mut self.config.rotation_y, -180.0..=180.0).suffix("°")).changed() {
+                                        ctx.request_repaint();
                                         if self.auto_save_config {
                                             self.save_config(ctx);
                                         }
@@ -1020,6 +1075,7 @@ mod code_analyzer {
                                 ui.horizontal(|ui| {
                                     ui.label("Z Axis:");
                                     if ui.add(egui::Slider::new(&mut self.config.rotation_z, -180.0..=180.0).suffix("°")).changed() {
+                                        ctx.request_repaint();
                                         if self.auto_save_config {
                                             self.save_config(ctx);
                                         }
@@ -1150,6 +1206,18 @@ mod code_analyzer {
                                         }
                                     });
                                 }
+                                
+                                ui.separator();
+                                if ui.checkbox(&mut self.config.use_sphere_rendering, "Render as Spheres (3D)").changed() {
+                                    if self.auto_save_config {
+                                        self.save_config(ctx);
+                                    }
+                                }
+                                if self.config.use_sphere_rendering {
+                                    ui.label("    Nodes are rendered as shaded 3D spheres");
+                                } else {
+                                    ui.label("    Nodes are rendered as flat circles");
+                                }
                             });
                             
                             ui.separator();
@@ -1168,6 +1236,7 @@ mod code_analyzer {
                                     self.config.depth_fade_strength = defaults.depth_fade_strength;
                                     self.config.depth_scale_enabled = defaults.depth_scale_enabled;
                                     self.config.depth_scale_strength = defaults.depth_scale_strength;
+                                    self.config.use_sphere_rendering = defaults.use_sphere_rendering;
                                     self.config.simulation_running = defaults.simulation_running;
                                     if self.auto_save_config {
                                         self.save_config(ctx);
@@ -1224,6 +1293,7 @@ mod code_analyzer {
                     node.display_mut().node_color = self.config.node_color;
                     node.display_mut().hover_color = self.config.node_hover_color;
                     node.display_mut().selected_color = self.config.node_selected_color;
+                    node.display_mut().use_sphere_rendering = self.config.use_sphere_rendering;
                     
                     // Apply Z-position for 3D effect
                     if self.config.visualization_mode == VisualizationMode::ThreeD {
