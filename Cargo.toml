@@ -3,6 +3,7 @@ members = [
   "crates/egui_graphs",
   "crates/demo-core",
   "crates/demo-web",
+  "crates/code-analyzer-web",
 ]
 resolver = "2"
 

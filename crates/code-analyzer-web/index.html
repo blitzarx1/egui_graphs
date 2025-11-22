@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Analyzer - Class Relationship Visualizer</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #error {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #ffebee;
+            border: 2px solid #f44336;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 500px;
+            color: #c62828;
+        }
+
+        #error h2 {
+            margin-top: 0;
+            color: #f44336;
+        }
+
+        #error pre {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Loading Code Analyzer...</p>
+    </div>
+
+    <div id="error">
+        <h2>Error Loading Application</h2>
+        <p id="error-message"></p>
+        <pre id="error-details"></pre>
+    </div>
+
+    <script type="module">
+        import init, { WebHandle } from './code_analyzer_web.js';
+
+        async function run() {
+            try {
+                // Initialize WASM module
+                await init();
+                
+                // Create and start the app
+                const handle = new WebHandle();
+                await handle.start("canvas");
+                
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                console.error('Failed to start application:', error);
+                
+                // Show error message
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error-message').textContent = error.message || 'Unknown error occurred';
+                document.getElementById('error-details').textContent = error.stack || '';
+            }
+        }
+
+        run();
+    </script>
+</body>
+</html>

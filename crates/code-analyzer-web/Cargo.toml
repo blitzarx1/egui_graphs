@@ -1,0 +1,24 @@
+[package]
+name = "code-analyzer-web"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+console_error_panic_hook = "0.1"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement"] }
+egui = "0.33"
+eframe = { version = "0.33", features = ["wgpu"] }
+egui_graphs = { path = "../egui_graphs" }
+petgraph = "0.8"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false

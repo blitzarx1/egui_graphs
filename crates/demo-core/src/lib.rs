@@ -178,10 +178,7 @@ impl DemoApp {
             settings_graph,
             settings_interaction: settings::SettingsInteraction::default(),
             settings_navigation: settings::SettingsNavigation::default(),
-            settings_style: settings::SettingsStyle {
-                labels_always: false,
-                edge_deemphasis: true,
-            },
+            settings_style: settings::SettingsStyle::default(),
             metrics: MetricsRecorder::new(),
             // Start with side panel hidden by default
             show_sidebar: false,
@@ -435,10 +432,7 @@ impl DemoApp {
         self.settings_graph = settings::SettingsGraph::default();
         self.settings_interaction = settings::SettingsInteraction::default();
         self.settings_navigation = settings::SettingsNavigation::default();
-        self.settings_style = settings::SettingsStyle {
-            labels_always: false,
-            edge_deemphasis: true,
-        };
+        self.settings_style = settings::SettingsStyle::default();
         self.show_debug_overlay = true;
         self.show_keybindings_overlay = false;
         let mut g = generate_random_graph(
@@ -943,6 +937,98 @@ impl DemoApp {
                 ui.checkbox(&mut self.settings_style.edge_deemphasis, "edge_deemphasis");
                 info_icon(ui, "Dim non-selected edges to highlight current selection.");
             });
+            
+            ui.add_space(4.0);
+            ui.separator();
+            ui.label("Custom Colors");
+            
+            // Node color controls
+            ui.horizontal(|ui| {
+                let mut use_node_color = self.settings_style.custom_node_color.is_some();
+                if ui.checkbox(&mut use_node_color, "Custom node color").changed() {
+                    self.settings_style.custom_node_color = if use_node_color {
+                        Some(Color32::from_rgb(100, 150, 250))
+                    } else {
+                        None
+                    };
+                }
+                if let Some(ref mut color) = self.settings_style.custom_node_color {
+                    ui.color_edit_button_srgba(color);
+                }
+                info_icon(ui, "Set a custom color for all nodes. Overrides theme defaults.");
+            });
+            
+            // Node hex input
+            if self.settings_style.custom_node_color.is_some() {
+                ui.horizontal(|ui| {
+                    ui.label("Hex:");
+                    let current_hex = if let Some(c) = self.settings_style.custom_node_color {
+                        format!("{:02X}{:02X}{:02X}", c.r(), c.g(), c.b())
+                    } else {
+                        String::new()
+                    };
+                    let mut hex_input = current_hex.clone();
+                    let resp = ui.add(
+                        egui::TextEdit::singleline(&mut hex_input)
+                            .desired_width(70.0)
+                            .char_limit(6)
+                    );
+                    if resp.has_focus() {
+                        self.typing_in_input = true;
+                    }
+                    if resp.lost_focus() && hex_input != current_hex {
+                        if let Ok(rgb) = parse_hex_color(&hex_input) {
+                            self.settings_style.custom_node_color = Some(Color32::from_rgb(rgb.0, rgb.1, rgb.2));
+                        }
+                    }
+                    ui.small_button("ℹ").on_hover_text("Enter 6-digit hex color code (e.g., FF5733)");
+                });
+            }
+            
+            ui.add_space(2.0);
+            
+            // Edge color controls
+            ui.horizontal(|ui| {
+                let mut use_edge_color = self.settings_style.custom_edge_color.is_some();
+                if ui.checkbox(&mut use_edge_color, "Custom edge color").changed() {
+                    self.settings_style.custom_edge_color = if use_edge_color {
+                        Some(Color32::from_rgb(150, 150, 150))
+                    } else {
+                        None
+                    };
+                }
+                if let Some(ref mut color) = self.settings_style.custom_edge_color {
+                    ui.color_edit_button_srgba(color);
+                }
+                info_icon(ui, "Set a custom color for all edges. Overrides theme defaults.");
+            });
+            
+            // Edge hex input
+            if self.settings_style.custom_edge_color.is_some() {
+                ui.horizontal(|ui| {
+                    ui.label("Hex:");
+                    let current_hex = if let Some(c) = self.settings_style.custom_edge_color {
+                        format!("{:02X}{:02X}{:02X}", c.r(), c.g(), c.b())
+                    } else {
+                        String::new()
+                    };
+                    let mut hex_input = current_hex.clone();
+                    let resp = ui.add(
+                        egui::TextEdit::singleline(&mut hex_input)
+                            .desired_width(70.0)
+                            .char_limit(6)
+                    );
+                    if resp.has_focus() {
+                        self.typing_in_input = true;
+                    }
+                    if resp.lost_focus() && hex_input != current_hex {
+                        if let Ok(rgb) = parse_hex_color(&hex_input) {
+                            self.settings_style.custom_edge_color = Some(Color32::from_rgb(rgb.0, rgb.1, rgb.2));
+                        }
+                    }
+                    ui.small_button("ℹ").on_hover_text("Enter 6-digit hex color code (e.g., 969696)");
+                });
+            }
         });
     }
 
@@ -1325,20 +1411,49 @@ impl App for DemoApp {
                 .with_fit_to_screen_enabled(self.settings_navigation.fit_to_screen_enabled)
                 .with_zoom_speed(self.settings_navigation.zoom_speed)
                 .with_fit_to_screen_padding(self.settings_navigation.fit_to_screen_padding);
+            // Apply custom node colors by setting them directly on the graph
+            if let Some(node_color) = self.settings_style.custom_node_color {
+                match &mut self.g {
+                    DemoGraph::Directed(g) => {
+                        let indices: Vec<_> = g.g().node_indices().collect();
+                        for idx in indices {
+                            if let Some(node) = g.g_mut().node_weight_mut(idx) {
+                                node.set_color(node_color);
+                            }
+                        }
+                    }
+                    DemoGraph::Undirected(g) => {
+                        let indices: Vec<_> = g.g().node_indices().collect();
+                        for idx in indices {
+                            if let Some(node) = g.g_mut().node_weight_mut(idx) {
+                                node.set_color(node_color);
+                            }
+                        }
+                    }
+                }
+            }
+            
             let mut style_builder = egui_graphs::SettingsStyle::new()
                 .with_labels_always(self.settings_style.labels_always);
-            if self.settings_style.edge_deemphasis {
-                style_builder =
-                    style_builder.with_edge_stroke_hook(|selected, _order, stroke, _style| {
-                        let mut s = stroke;
-                        if !selected {
-                            let c = s.color;
+            
+            // Apply edge styling with optional custom color and deemphasis
+            let edge_custom_color = self.settings_style.custom_edge_color;
+            let edge_deemphasis = self.settings_style.edge_deemphasis;
+            if edge_custom_color.is_some() || edge_deemphasis {
+                style_builder = style_builder.with_edge_stroke_hook(
+                    move |selected, _order, mut stroke, _style| {
+                        if let Some(custom_color) = edge_custom_color {
+                            stroke.color = custom_color;
+                        }
+                        if edge_deemphasis && !selected {
+                            let c = stroke.color;
                             let new_a = (f32::from(c.a()) * 0.5) as u8;
-                            s.color =
+                            stroke.color =
                                 egui::Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), new_a);
                         }
-                        s
-                    });
+                        stroke
+                    },
+                );
             }
             let settings_style = &style_builder;
 
@@ -1978,6 +2093,17 @@ fn draw_drop_overlay(ui: &mut egui::Ui, rect: Rect) {
         font,
         Color32::WHITE,
     );
+}
+
+fn parse_hex_color(hex: &str) -> Result<(u8, u8, u8), ()> {
+    let hex = hex.trim().trim_start_matches('#');
+    if hex.len() != 6 {
+        return Err(());
+    }
+    let r = u8::from_str_radix(&hex[0..2], 16).map_err(|_| ())?;
+    let g = u8::from_str_radix(&hex[2..4], 16).map_err(|_| ())?;
+    let b = u8::from_str_radix(&hex[4..6], 16).map_err(|_| ())?;
+    Ok((r, g, b))
 }
 
 // --- Web-only helpers for URL hash params and bundled example lookup ---

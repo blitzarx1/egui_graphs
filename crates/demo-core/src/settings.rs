@@ -28,10 +28,22 @@ impl Default for SettingsInteraction {
 }
 
 // Visual style toggles specific to the demo
-#[derive(Default)]
 pub struct SettingsStyle {
     pub labels_always: bool,
     pub edge_deemphasis: bool,
+    pub custom_node_color: Option<egui::Color32>,
+    pub custom_edge_color: Option<egui::Color32>,
+}
+
+impl Default for SettingsStyle {
+    fn default() -> Self {
+        Self {
+            labels_always: false,
+            edge_deemphasis: true,
+            custom_node_color: None,
+            custom_edge_color: None,
+        }
+    }
 }
 
 // Navigation & viewport parameters
