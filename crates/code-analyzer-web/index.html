@@ -19,31 +19,6 @@
             height: 100%;
         }
 
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            font-size: 18px;
-            color: #666;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         #error {
             display: none;
             position: absolute;
@@ -73,11 +48,6 @@
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    
-    <div id="loading">
-        <div class="spinner"></div>
-        <p>Loading Code Analyzer...</p>
-    </div>
 
     <div id="error">
         <h2>Error Loading Application</h2>
@@ -92,35 +62,10 @@
             try {
                 // Initialize WASM module - this will auto-start the app
                 await init();
-                
-                // Wait a bit for the canvas to be initialized
-                setTimeout(() => {
-                    document.getElementById('loading').style.display = 'none';
-                }, 500);
-                
-                // Also hide loading when canvas receives first draw
-                const canvas = document.getElementById('canvas');
-                const observer = new MutationObserver(() => {
-                    document.getElementById('loading').style.display = 'none';
-                    observer.disconnect();
-                });
-                
-                // Watch for any changes to canvas (indicating it's being used)
-                observer.observe(canvas, { 
-                    attributes: true, 
-                    attributeOldValue: true 
-                });
-                
-                // Fallback: hide after canvas gets focus or interaction
-                canvas.addEventListener('focus', () => {
-                    document.getElementById('loading').style.display = 'none';
-                }, { once: true });
-                
             } catch (error) {
                 console.error('Failed to start application:', error);
                 
                 // Show error message
-                document.getElementById('loading').style.display = 'none';
                 document.getElementById('error').style.display = 'block';
                 document.getElementById('error-message').textContent = error.message || 'Unknown error occurred';
                 document.getElementById('error-details').textContent = error.stack || '';

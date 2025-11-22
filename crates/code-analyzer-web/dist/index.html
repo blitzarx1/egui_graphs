@@ -19,31 +19,6 @@
             height: 100%;
         }
 
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            font-size: 18px;
-            color: #666;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         #error {
             display: none;
             position: absolute;
@@ -70,14 +45,9 @@
             overflow-x: auto;
         }
     </style>
-<link rel="modulepreload" href="/code-analyzer-web-7f0a84c7ccb889a2.js" crossorigin="anonymous" integrity="sha384-QkJ5MYyNBG6OuKFpsQMxZIsJwHmN19b2IceCq6fjkJXNb3PzVYdcfFP8MwRfUoaf"><link rel="preload" href="/code-analyzer-web-7f0a84c7ccb889a2_bg.wasm" crossorigin="anonymous" integrity="sha384-aboXu/G2XvpfDTw0IH+f8s/lKy+VsKpgq6BtAjrUJIadGfDEQmcnEcNHDue18Jrq" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/code-analyzer-web-7f0a84c7ccb889a2.js" crossorigin="anonymous" integrity="sha384-yeO6L4OeVvVFJvZ9TDRN7hfn8kJtYYkkdppq6GXfcf4Rdy93o2N7gvhUeNKquuP9"><link rel="preload" href="/code-analyzer-web-7f0a84c7ccb889a2_bg.wasm" crossorigin="anonymous" integrity="sha384-5jh+EesZ1Rf2eAvhUes7DCzhs7RxiSQVxar11sIRqPnabnyS8PEiSdnZ9iNukOP4" as="fetch" type="application/wasm"></head>
 <body>
     <canvas id="canvas"></canvas>
-    
-    <div id="loading">
-        <div class="spinner"></div>
-        <p>Loading Code Analyzer...</p>
-    </div>
 
     <div id="error">
         <h2>Error Loading Application</h2>
@@ -92,14 +62,10 @@
             try {
                 // Initialize WASM module - this will auto-start the app
                 await init();
-                
-                // Hide loading indicator
-                document.getElementById('loading').style.display = 'none';
             } catch (error) {
                 console.error('Failed to start application:', error);
                 
                 // Show error message
-                document.getElementById('loading').style.display = 'none';
                 document.getElementById('error').style.display = 'block';
                 document.getElementById('error-message').textContent = error.message || 'Unknown error occurred';
                 document.getElementById('error-details').textContent = error.stack || '';
