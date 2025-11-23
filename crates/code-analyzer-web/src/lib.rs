@@ -49,7 +49,7 @@ mod code_analyzer {
         fields: Vec<String>,
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Copy, Debug)]
     enum Relationship {
         OneToOne,
         OneToMany,
@@ -409,6 +409,10 @@ mod code_analyzer {
         edge_selected_color: [u8; 3],
         background_color: [u8; 3],
         
+        // Graph generation settings
+        num_nodes: usize,
+        num_edges: usize,
+        
         // Simulation settings
         simulation_running: bool,
         
@@ -447,6 +451,8 @@ mod code_analyzer {
                 fit_to_screen_padding: 0.1,
                 zoom_speed: 0.1,
                 labels_always: true,
+                num_nodes: 4,
+                num_edges: 4,
                 simulation_running: true,
                 node_color: [100, 150, 200],
                 node_hover_color: [150, 150, 200],
@@ -590,6 +596,90 @@ mod code_analyzer {
                 config_search: String::new(),
                 auto_save_config: auto_save,
                 show_color_picker: false,
+            }
+        }
+
+        fn regenerate_graph(&mut self, num_nodes: usize, num_edges: usize) {
+            let mut pg = StableGraph::<ClassInfo, Relationship, Directed>::new();
+            self.class_details.clear();
+
+            // Dictionary with synthetic data for nodes
+            let node_names = vec![
+                "User", "Order", "Product", "Payment", "Invoice", "Shipment",
+                "Customer", "Supplier", "Category", "Review", "Cart", "Warehouse",
+                "Address", "Discount", "Notification", "Log", "Account", "Transaction",
+                "Profile", "Setting", "Report", "Dashboard", "Analytics", "Session",
+                "Token", "Permission", "Role", "Group", "Team", "Department",
+                "Project", "Task", "Milestone", "Document", "File", "Folder",
+                "Message", "Comment", "Thread", "Channel", "Event", "Calendar",
+                "Contact", "Lead", "Opportunity", "Deal", "Quote", "Contract",
+                "Subscription", "License", "Plan", "Feature", "Module", "Component",
+                "Service", "API", "Endpoint", "Request", "Response", "Error",
+                "Database", "Table", "Schema", "Query", "Index", "Backup",
+                "Server", "Node", "Cluster", "Network", "LoadBalancer", "Gateway",
+                "Security", "Auth", "OAuth", "JWT", "Certificate", "Key",
+                "Encryption", "Hash", "Salt", "Signature", "Verification", "Audit",
+                "Monitor", "Alert", "Metric", "HealthCheck", "Status", "Uptime",
+                "Cache", "Redis", "Queue", "Job", "Worker", "Scheduler",
+                "Email", "SMS", "Push", "Webhook", "Integration", "Plugin"
+            ];
+            
+            let mut node_indices = Vec::new();
+            for i in 0..num_nodes.max(1) {
+                let name_idx = i % node_names.len();
+                let node_name = if i < node_names.len() {
+                    node_names[name_idx].to_string()
+                } else {
+                    format!("{}{}", node_names[name_idx], i / node_names.len())
+                };
+                let node_idx = pg.add_node(ClassInfo {
+                    name: node_name.clone(),
+                    methods: vec![
+                        format!("get{}()", node_name),
+                        format!("set{}()", node_name),
+                        "update()".to_string(),
+                    ],
+                    fields: vec![
+                        "id: int".to_string(),
+                        format!("name: string"),
+                        format!("timestamp: datetime"),
+                    ],
+                });
+                node_indices.push(node_idx);
+                
+                if let Some(node) = pg.node_weight(node_idx) {
+                    self.class_details.insert(node_idx, node.clone());
+                }
+            }
+
+            // Generate edges with varied relationships (no limits)
+            let relationships = [Relationship::OneToOne, Relationship::OneToMany, Relationship::ManyToMany];
+            let actual_edges = num_edges;
+            
+            for i in 0..actual_edges {
+                let from_idx = i % node_indices.len();
+                let to_idx = (i + 1 + i / node_indices.len()) % node_indices.len();
+                
+                if from_idx != to_idx {
+                    let rel = relationships[i % relationships.len()];
+                    pg.add_edge(node_indices[from_idx], node_indices[to_idx], rel);
+                }
+            }
+
+            // Create new graph from petgraph
+            self.graph = Graph::<ClassInfo, Relationship, Directed, u32, CodeNode, CodeEdge>::from(&pg);
+
+            // Set initial random positions
+            let radius = 200.0;
+            for (i, idx) in node_indices.iter().enumerate() {
+                if let Some(node) = self.graph.node_mut(*idx) {
+                    let angle = (i as f32) * std::f32::consts::TAU / (node_indices.len() as f32);
+                    let pos = Pos2::new(
+                        radius * angle.cos(),
+                        radius * angle.sin()
+                    );
+                    node.set_location(pos);
+                }
             }
         }
 
@@ -740,6 +830,46 @@ mod code_analyzer {
                             });
                         }
 
+                        // Graph Generation Settings
+                        if matches("graph") || matches("nodes") || matches("edges") || matches("vertices") || matches("generate") {
+                            ui.collapsing("🔨 Graph Generation", |ui| {
+                                let mut changed = false;
+                                let old_nodes = config.num_nodes;
+                                let old_edges = config.num_edges;
+                                
+                                ui.horizontal(|ui| {
+                                    ui.label("Number of Nodes:");
+                                    changed |= ui.add(egui::Slider::new(&mut config.num_nodes, 1..=200).suffix(" nodes")).changed();
+                                    changed |= ui.add(egui::DragValue::new(&mut config.num_nodes).range(1..=1000)).changed();
+                                });
+                                
+                                ui.horizontal(|ui| {
+                                    ui.label("Number of Edges:");
+                                    changed |= ui.add(egui::Slider::new(&mut config.num_edges, 0..=400).suffix(" edges")).changed();
+                                    changed |= ui.add(egui::DragValue::new(&mut config.num_edges).range(0..=2000)).changed();
+                                });
+                                
+                                if changed {
+                                    self.config = config.clone();
+                                    if auto_save {
+                                        self.auto_save_config = auto_save;
+                                        self.save_config(ctx);
+                                    }
+                                    
+                                    // Regenerate graph if values changed
+                                    if old_nodes != config.num_nodes || old_edges != config.num_edges {
+                                        self.regenerate_graph(config.num_nodes, config.num_edges);
+                                    }
+                                }
+                                
+                                ui.separator();
+                                if ui.button("🔄 Regenerate Graph").clicked() {
+                                    self.regenerate_graph(config.num_nodes, config.num_edges);
+                                }
+                                ui.label("💡 Adjust sliders or click to regenerate with new structure");
+                            });
+                        }
+
                         // Navigation Settings
                         if matches("navigation") || matches("zoom") || matches("pan") || matches("fit") {
                             ui.collapsing("🧭 Navigation Settings", |ui| {
@@ -752,12 +882,18 @@ mod code_analyzer {
                                     changed |= ui.checkbox(&mut config.zoom_and_pan_enabled, "Enable Zoom & Pan").changed();
                                 }
                                 if matches("padding") || matches("fit") {
-                                    ui.label("Fit to Screen Padding:");
-                                    changed |= ui.add(egui::Slider::new(&mut config.fit_to_screen_padding, 0.0..=0.5).suffix("x")).changed();
+                                    ui.horizontal(|ui| {
+                                        ui.label("Fit to Screen Padding:");
+                                        changed |= ui.add(egui::Slider::new(&mut config.fit_to_screen_padding, 0.0..=0.5).suffix("x")).changed();
+                                        changed |= ui.add(egui::DragValue::new(&mut config.fit_to_screen_padding).range(0.0..=0.5).speed(0.01)).changed();
+                                    });
                                 }
                                 if matches("zoom") || matches("speed") {
-                                    ui.label("Zoom Speed:");
-                                    changed |= ui.add(egui::Slider::new(&mut config.zoom_speed, 0.01..=1.0).logarithmic(true)).changed();
+                                    ui.horizontal(|ui| {
+                                        ui.label("Zoom Speed:");
+                                        changed |= ui.add(egui::Slider::new(&mut config.zoom_speed, 0.01..=1.0).logarithmic(true)).changed();
+                                        changed |= ui.add(egui::DragValue::new(&mut config.zoom_speed).range(0.01..=1.0).speed(0.01)).changed();
+                                    });
                                 }
                                 
                                 if changed && auto_save {
@@ -854,7 +990,8 @@ mod code_analyzer {
                                 if matches("popup") || matches("window") || matches("hover") {
                                     ui.label("Hover Popup Size:");
                                     let mut size_percent = (config.hover_window_size * 100.0) as i32;
-                                    if ui.add(egui::Slider::new(&mut size_percent, 5..=50).suffix("%")).changed() {
+                                    if ui.add(egui::Slider::new(&mut size_percent, 5..=50).suffix("%")).changed() || 
+                                       ui.add(egui::DragValue::new(&mut size_percent).range(5..=50).suffix("%")).changed() {
                                         config.hover_window_size = size_percent as f32 / 100.0;
                                         changed = true;
                                     }
@@ -1056,7 +1193,8 @@ mod code_analyzer {
                             ui.collapsing("🔄 Rotation", |ui| {
                                 ui.horizontal(|ui| {
                                     ui.label("X Axis:");
-                                    if ui.add(egui::Slider::new(&mut self.config.rotation_x, -180.0..=180.0).suffix("°")).changed() {
+                                    if ui.add(egui::Slider::new(&mut self.config.rotation_x, -180.0..=180.0).suffix("°")).changed() ||
+                                       ui.add(egui::DragValue::new(&mut self.config.rotation_x).range(-180.0..=180.0).suffix("°").speed(1.0)).changed() {
                                         ctx.request_repaint();
                                         if self.auto_save_config {
                                             self.save_config(ctx);
@@ -1065,7 +1203,8 @@ mod code_analyzer {
                                 });
                                 ui.horizontal(|ui| {
                                     ui.label("Y Axis:");
-                                    if ui.add(egui::Slider::new(&mut self.config.rotation_y, -180.0..=180.0).suffix("°")).changed() {
+                                    if ui.add(egui::Slider::new(&mut self.config.rotation_y, -180.0..=180.0).suffix("°")).changed() ||
+                                       ui.add(egui::DragValue::new(&mut self.config.rotation_y).range(-180.0..=180.0).suffix("°").speed(1.0)).changed() {
                                         ctx.request_repaint();
                                         if self.auto_save_config {
                                             self.save_config(ctx);
@@ -1074,7 +1213,8 @@ mod code_analyzer {
                                 });
                                 ui.horizontal(|ui| {
                                     ui.label("Z Axis:");
-                                    if ui.add(egui::Slider::new(&mut self.config.rotation_z, -180.0..=180.0).suffix("°")).changed() {
+                                    if ui.add(egui::Slider::new(&mut self.config.rotation_z, -180.0..=180.0).suffix("°")).changed() ||
+                                       ui.add(egui::DragValue::new(&mut self.config.rotation_z).range(-180.0..=180.0).suffix("°").speed(1.0)).changed() {
                                         ctx.request_repaint();
                                         if self.auto_save_config {
                                             self.save_config(ctx);
@@ -1102,7 +1242,8 @@ mod code_analyzer {
                                 if self.config.auto_rotate {
                                     ui.horizontal(|ui| {
                                         ui.label("Speed:");
-                                        if ui.add(egui::Slider::new(&mut self.config.rotation_speed, 0.1..=5.0).logarithmic(true)).changed() {
+                                        if ui.add(egui::Slider::new(&mut self.config.rotation_speed, 0.1..=5.0).logarithmic(true)).changed() ||
+                                           ui.add(egui::DragValue::new(&mut self.config.rotation_speed).range(0.1..=5.0).speed(0.1)).changed() {
                                             if self.auto_save_config {
                                                 self.save_config(ctx);
                                             }
@@ -1115,7 +1256,8 @@ mod code_analyzer {
                             ui.collapsing("📐 Positioning", |ui| {
                                 ui.horizontal(|ui| {
                                     ui.label("Layer Spacing:");
-                                    if ui.add(egui::Slider::new(&mut self.config.z_spacing, 10.0..=500.0).suffix(" units")).changed() {
+                                    if ui.add(egui::Slider::new(&mut self.config.z_spacing, 10.0..=500.0).suffix(" units")).changed() ||
+                                       ui.add(egui::DragValue::new(&mut self.config.z_spacing).range(10.0..=500.0).suffix(" units").speed(5.0)).changed() {
                                         if self.auto_save_config {
                                             self.save_config(ctx);
                                         }
@@ -1123,7 +1265,8 @@ mod code_analyzer {
                                 });
                                 ui.horizontal(|ui| {
                                     ui.label("Layer Offset:");
-                                    if ui.add(egui::Slider::new(&mut self.config.layer_offset, -200.0..=200.0).suffix(" units")).changed() {
+                                    if ui.add(egui::Slider::new(&mut self.config.layer_offset, -200.0..=200.0).suffix(" units")).changed() ||
+                                       ui.add(egui::DragValue::new(&mut self.config.layer_offset).range(-200.0..=200.0).suffix(" units").speed(5.0)).changed() {
                                         if self.auto_save_config {
                                             self.save_config(ctx);
                                         }
@@ -1131,7 +1274,8 @@ mod code_analyzer {
                                 });
                                 ui.horizontal(|ui| {
                                     ui.label("Perspective:");
-                                    if ui.add(egui::Slider::new(&mut self.config.perspective_strength, 0.0..=0.01).logarithmic(true)).changed() {
+                                    if ui.add(egui::Slider::new(&mut self.config.perspective_strength, 0.0..=0.01).logarithmic(true)).changed() ||
+                                       ui.add(egui::DragValue::new(&mut self.config.perspective_strength).range(0.0..=0.01).speed(0.0001)).changed() {
                                         if self.auto_save_config {
                                             self.save_config(ctx);
                                         }
@@ -1183,7 +1327,8 @@ mod code_analyzer {
                                 if self.config.depth_fade_enabled {
                                     ui.horizontal(|ui| {
                                         ui.label("    Strength:");
-                                        if ui.add(egui::Slider::new(&mut self.config.depth_fade_strength, 0.0..=0.005).logarithmic(true)).changed() {
+                                        if ui.add(egui::Slider::new(&mut self.config.depth_fade_strength, 0.0..=0.005).logarithmic(true)).changed() ||
+                                           ui.add(egui::DragValue::new(&mut self.config.depth_fade_strength).range(0.0..=0.005).speed(0.0001)).changed() {
                                             if self.auto_save_config {
                                                 self.save_config(ctx);
                                             }
@@ -1199,7 +1344,8 @@ mod code_analyzer {
                                 if self.config.depth_scale_enabled {
                                     ui.horizontal(|ui| {
                                         ui.label("    Strength:");
-                                        if ui.add(egui::Slider::new(&mut self.config.depth_scale_strength, 0.0..=0.01).logarithmic(true)).changed() {
+                                        if ui.add(egui::Slider::new(&mut self.config.depth_scale_strength, 0.0..=0.01).logarithmic(true)).changed() ||
+                                           ui.add(egui::DragValue::new(&mut self.config.depth_scale_strength).range(0.0..=0.01).speed(0.0001)).changed() {
                                             if self.auto_save_config {
                                                 self.save_config(ctx);
                                             }
