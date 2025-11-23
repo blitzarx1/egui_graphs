@@ -826,6 +826,11 @@ mod code_analyzer {
         // UI settings
         hover_window_size: f32,
         show_side_panel: bool,
+        
+        // Grid and axes settings
+        show_grid: bool,
+        show_axes: bool,
+        grid_spacing: f32,
     }
 
     impl Default for AppConfig {
@@ -870,6 +875,9 @@ mod code_analyzer {
                 hover_window_size: 0.0625,
                 show_side_panel: true,
                 nn_config: NeuralNetworkConfig::default(),
+                show_grid: true,
+                show_axes: true,
+                grid_spacing: 100.0,
             }
         }
     }
@@ -927,6 +935,8 @@ mod code_analyzer {
         neural_network: Option<Graph<NeuronState, f32, Directed, u32, NeuronNode, SynapseEdge>>,
         neuron_states: HashMap<NodeIndex<u32>, NeuronState>,
         nn_last_fire_time: f64,
+        // Fit to screen tracking
+        fit_to_screen_counter: u32,
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1035,10 +1045,10 @@ mod code_analyzer {
             let mut graph = Graph::<ClassInfo, Relationship, Directed, u32, CodeNode, CodeEdge>::from(&pg);
 
             let positions = vec![
-                Pos2::new(0.0, 100.0),
-                Pos2::new(200.0, 0.0),
-                Pos2::new(200.0, 200.0),
-                Pos2::new(400.0, 100.0),
+                Pos2::new(100.0, 100.0),
+                Pos2::new(300.0, 50.0),
+                Pos2::new(300.0, 150.0),
+                Pos2::new(500.0, 100.0),
             ];
 
             for (idx, pos) in pg.node_indices().zip(positions.iter()) {
@@ -1075,6 +1085,7 @@ mod code_analyzer {
                 neural_network: None,
                 neuron_states: HashMap::new(),
                 nn_last_fire_time: 0.0,
+                fit_to_screen_counter: 3, // Start with counter for initial centering
             }
         }
 
@@ -1669,6 +1680,164 @@ mod code_analyzer {
             }
         }
 
+        fn draw_grid_and_axes(&self, ui: &mut egui::Ui) {
+            if !self.config.show_grid && !self.config.show_axes {
+                return;
+            }
+
+            let painter = ui.painter();
+            let rect = ui.max_rect();
+            let center = rect.center();
+            
+            // Grid settings
+            let spacing = self.config.grid_spacing;
+            let grid_color = Color32::from_rgba_unmultiplied(100, 100, 100, 150);
+            let axis_color_x = Color32::from_rgb(255, 100, 100); // Red for X
+            let axis_color_y = Color32::from_rgb(100, 255, 100); // Green for Y
+            let axis_color_z = Color32::from_rgb(100, 100, 255); // Blue for Z
+            let origin_color = Color32::from_rgb(255, 255, 0); // Yellow for origin
+            
+            // Draw grid lines
+            if self.config.show_grid {
+                // Vertical grid lines (parallel to Y axis)
+                let start_x = (rect.min.x / spacing).floor() * spacing;
+                let mut x = start_x;
+                while x <= rect.max.x {
+                    painter.line_segment(
+                        [Pos2::new(x, rect.min.y), Pos2::new(x, rect.max.y)],
+                        egui::Stroke::new(1.0, grid_color),
+                    );
+                    x += spacing;
+                }
+                
+                // Horizontal grid lines (parallel to X axis)
+                let start_y = (rect.min.y / spacing).floor() * spacing;
+                let mut y = start_y;
+                while y <= rect.max.y {
+                    painter.line_segment(
+                        [Pos2::new(rect.min.x, y), Pos2::new(rect.max.x, y)],
+                        egui::Stroke::new(1.0, grid_color),
+                    );
+                    y += spacing;
+                }
+            }
+            
+            // Draw axes at fixed position in bottom-left corner
+            if self.config.show_axes {
+                let axis_length = 60.0;
+                let arrow_size = 8.0;
+                let origin_pos = Pos2::new(rect.min.x + 80.0, rect.max.y - 80.0);
+                
+                if self.config.visualization_mode == VisualizationMode::TwoD {
+                    // 2D mode: X and Y axes
+                    
+                    // X axis (horizontal, red)
+                    let x_end = Pos2::new(origin_pos.x + axis_length, origin_pos.y);
+                    painter.line_segment(
+                        [origin_pos, x_end],
+                        egui::Stroke::new(3.0, axis_color_x),
+                    );
+                    // X arrow
+                    painter.line_segment(
+                        [x_end, Pos2::new(x_end.x - arrow_size, x_end.y - arrow_size / 2.0)],
+                        egui::Stroke::new(3.0, axis_color_x),
+                    );
+                    painter.line_segment(
+                        [x_end, Pos2::new(x_end.x - arrow_size, x_end.y + arrow_size / 2.0)],
+                        egui::Stroke::new(3.0, axis_color_x),
+                    );
+                    // X label
+                    painter.text(
+                        Pos2::new(x_end.x + 10.0, x_end.y),
+                        egui::Align2::LEFT_CENTER,
+                        "X",
+                        egui::FontId::proportional(16.0),
+                        axis_color_x,
+                    );
+                    
+                    // Y axis (vertical, green)
+                    let y_end = Pos2::new(origin_pos.x, origin_pos.y - axis_length);
+                    painter.line_segment(
+                        [origin_pos, y_end],
+                        egui::Stroke::new(3.0, axis_color_y),
+                    );
+                    // Y arrow
+                    painter.line_segment(
+                        [y_end, Pos2::new(y_end.x - arrow_size / 2.0, y_end.y + arrow_size)],
+                        egui::Stroke::new(3.0, axis_color_y),
+                    );
+                    painter.line_segment(
+                        [y_end, Pos2::new(y_end.x + arrow_size / 2.0, y_end.y + arrow_size)],
+                        egui::Stroke::new(3.0, axis_color_y),
+                    );
+                    // Y label
+                    painter.text(
+                        Pos2::new(y_end.x, y_end.y - 10.0),
+                        egui::Align2::CENTER_BOTTOM,
+                        "Y",
+                        egui::FontId::proportional(16.0),
+                        axis_color_y,
+                    );
+                } else {
+                    // 3D mode: X, Y, and Z axes with perspective
+                    let angle = self.config.rotation_y.to_radians();
+                    
+                    // X axis (red)
+                    let x_end = Pos2::new(origin_pos.x + axis_length * angle.cos(), origin_pos.y);
+                    painter.line_segment(
+                        [origin_pos, x_end],
+                        egui::Stroke::new(3.0, axis_color_x),
+                    );
+                    painter.text(
+                        Pos2::new(x_end.x + 10.0, x_end.y),
+                        egui::Align2::LEFT_CENTER,
+                        "X",
+                        egui::FontId::proportional(16.0),
+                        axis_color_x,
+                    );
+                    
+                    // Y axis (green)
+                    let y_end = Pos2::new(origin_pos.x, origin_pos.y - axis_length);
+                    painter.line_segment(
+                        [origin_pos, y_end],
+                        egui::Stroke::new(3.0, axis_color_y),
+                    );
+                    painter.text(
+                        Pos2::new(y_end.x, y_end.y - 10.0),
+                        egui::Align2::CENTER_BOTTOM,
+                        "Y",
+                        egui::FontId::proportional(16.0),
+                        axis_color_y,
+                    );
+                    
+                    // Z axis (blue, angled based on rotation)
+                    let z_end = Pos2::new(origin_pos.x - axis_length * angle.sin(), origin_pos.y + axis_length * 0.3);
+                    painter.line_segment(
+                        [origin_pos, z_end],
+                        egui::Stroke::new(3.0, axis_color_z),
+                    );
+                    painter.text(
+                        Pos2::new(z_end.x - 10.0, z_end.y + 10.0),
+                        egui::Align2::RIGHT_CENTER,
+                        "Z",
+                        egui::FontId::proportional(16.0),
+                        axis_color_z,
+                    );
+                }
+                
+                // Draw origin point and label
+                painter.circle_filled(origin_pos, 5.0, origin_color);
+                painter.circle_stroke(origin_pos, 5.0, egui::Stroke::new(2.0, origin_color));
+                painter.text(
+                    Pos2::new(origin_pos.x - 15.0, origin_pos.y + 15.0),
+                    egui::Align2::RIGHT_TOP,
+                    "Origin",
+                    egui::FontId::proportional(14.0),
+                    origin_color,
+                );
+            }
+        }
+
         fn draw_hover_popup(&self, ui: &mut egui::Ui, node_idx: NodeIndex<u32>) {
             if let Some(class_info) = self.class_details.get(&node_idx) {
                 let screen_size = ui.ctx().content_rect().size();
@@ -1897,6 +2066,38 @@ mod code_analyzer {
                                 
                                 if matches("label") {
                                     changed |= ui.checkbox(&mut config.labels_always, "Always Show Labels").changed();
+                                }
+                                
+                                if changed && auto_save {
+                                    self.config = config.clone();
+                                    self.auto_save_config = auto_save;
+                                    self.save_config(ctx);
+                                }
+                            });
+                        }
+
+                        // Grid and Axes Settings
+                        if matches("grid") || matches("axis") || matches("axes") || matches("origin") || matches("reference") {
+                            ui.collapsing("📐 Grid & Axes", |ui| {
+                                let mut changed = false;
+                                
+                                if matches("grid") {
+                                    changed |= ui.checkbox(&mut config.show_grid, "Show Grid").changed();
+                                    if config.show_grid {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Grid Spacing:");
+                                            changed |= ui.add(egui::Slider::new(&mut config.grid_spacing, 20.0..=200.0)).changed();
+                                        });
+                                    }
+                                }
+                                
+                                if matches("axis") || matches("axes") || matches("origin") {
+                                    changed |= ui.checkbox(&mut config.show_axes, "Show Axes & Origin").changed();
+                                    ui.label("  🔴 X axis (red)   🟢 Y axis (green)");
+                                    if config.visualization_mode == VisualizationMode::ThreeD {
+                                        ui.label("  🔵 Z axis (blue) - 3D mode");
+                                    }
+                                    ui.label("  🟡 Origin point (0,0)");
                                 }
                                 
                                 if changed && auto_save {
@@ -2920,7 +3121,16 @@ mod code_analyzer {
                     
                     if ui.button("🎯 Center Graph").clicked() {
                         self.config.fit_to_screen_enabled = true;
+                        self.fit_to_screen_counter = 3; // Keep enabled for 3 frames
+                        ctx.request_repaint();
                     }
+                    
+                    ui.separator();
+                    ui.label("📐 View Options:");
+                    ui.checkbox(&mut self.config.show_grid, "Show Grid");
+                    ui.checkbox(&mut self.config.show_axes, "Show Axes & Origin");
+                    
+                    ui.separator();
                     
                     if ui.button("⚙️ Settings").clicked() {
                         self.show_config_window = true;
@@ -3013,6 +3223,15 @@ mod code_analyzer {
                                 .with_navigations(&settings_navigation)
                                 .with_styles(&settings_style),
                         );
+                        
+                        // Reset fit_to_screen after counter expires
+                        if self.config.fit_to_screen_enabled && self.fit_to_screen_counter > 0 {
+                            self.fit_to_screen_counter -= 1;
+                            if self.fit_to_screen_counter == 0 {
+                                self.config.fit_to_screen_enabled = false;
+                            }
+                            ctx.request_repaint();
+                        }
                     } else {
                         ui.centered_and_justified(|ui| {
                             ui.label("Neural network not initialized. Configure and generate in the sidebar.");
@@ -3045,11 +3264,52 @@ mod code_analyzer {
                         .with_labels_always(self.config.labels_always);
                     
                     ui.add(
-                        &mut GraphView::<_, _, _, _, CodeNode, CodeEdge>::new(&mut self.graph)
+                        &mut GraphView::<_, _, _,_, CodeNode, CodeEdge>::new(&mut self.graph)
                             .with_interactions(&settings_interaction)
                             .with_navigations(&settings_navigation)
                             .with_styles(&settings_style),
                     );
+                    
+                    // Reset fit_to_screen after counter expires
+                    if self.config.fit_to_screen_enabled && self.fit_to_screen_counter > 0 {
+                        self.fit_to_screen_counter -= 1;
+                        if self.fit_to_screen_counter == 0 {
+                            self.config.fit_to_screen_enabled = false;
+                        }
+                        ctx.request_repaint();
+                    }
+                }
+                
+                // Draw grid and axes as overlay on top of graph
+                self.draw_grid_and_axes(ui);
+                
+                // Draw info overlay
+                let painter = ui.painter();
+                let rect = ui.max_rect();
+                
+                if self.current_tab == AppTab::Graph {
+                    let node_count = self.graph.g().node_count();
+                    let edge_count = self.graph.g().edge_count();
+                    
+                    let info_text = format!("Graph: {} nodes, {} edges | Zoom & Pan enabled | Click Center Graph to fit", node_count, edge_count);
+                    painter.text(
+                        Pos2::new(rect.min.x + 10.0, rect.min.y + 10.0),
+                        egui::Align2::LEFT_TOP,
+                        info_text,
+                        egui::FontId::proportional(14.0),
+                        Color32::from_rgb(180, 180, 180),
+                    );
+                } else if self.current_tab == AppTab::NeuralNetwork {
+                    if self.neural_network.is_some() {
+                        let info_text = "Neural Network | Use mouse to pan";
+                        painter.text(
+                            Pos2::new(rect.min.x + 10.0, rect.min.y + 10.0),
+                            egui::Align2::LEFT_TOP,
+                            info_text,
+                            egui::FontId::proportional(14.0),
+                            Color32::from_rgb(180, 180, 180),
+                        );
+                    }
                 }
 
                 // Only show hover popup for main graph
@@ -3070,11 +3330,6 @@ mod code_analyzer {
                     }
                 }
             });
-            
-            // Reset fit to screen after one frame
-            if self.config.fit_to_screen_enabled {
-                self.config.fit_to_screen_enabled = false;
-            }
         }
         
         fn save(&mut self, storage: &mut dyn eframe::Storage) {
