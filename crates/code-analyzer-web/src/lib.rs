@@ -39,7 +39,7 @@ mod code_analyzer {
         SettingsInteraction, SettingsNavigation, SettingsStyle, FruchtermanReingoldState,
         get_layout_state, set_layout_state,
     };
-    use petgraph::{stable_graph::{NodeIndex, StableGraph}, Directed};
+    use petgraph::{stable_graph::{NodeIndex, StableGraph}, Directed, visit::EdgeRef};
     use std::collections::{HashMap, VecDeque};
 
     #[derive(Clone, Debug)]
@@ -54,6 +54,7 @@ mod code_analyzer {
         Graph,
         StressTest,
         Logs,
+        NeuralNetwork,
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -140,6 +141,7 @@ mod code_analyzer {
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
+    #[allow(dead_code)]
     enum LogLevel {
         Info,
         Warning,
@@ -171,6 +173,82 @@ mod code_analyzer {
     struct ThroughputDataPoint {
         time: f64,
         value: f64,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum NeuronType {
+        Input,
+        Hidden,
+        Output,
+    }
+
+    #[derive(Clone, Debug)]
+    struct NeuronState {
+        neuron_type: NeuronType,
+        #[allow(dead_code)]
+        layer: usize,
+        #[allow(dead_code)]
+        position_in_layer: usize,
+        activation: f32,
+        is_firing: bool,
+        fire_time: Option<f64>,
+        #[allow(dead_code)]
+        fire_duration: f32,
+    }
+
+    impl Default for NeuronState {
+        fn default() -> Self {
+            Self {
+                neuron_type: NeuronType::Hidden,
+                layer: 0,
+                position_in_layer: 0,
+                activation: 0.0,
+                is_firing: false,
+                fire_time: None,
+                fire_duration: 0.3,
+            }
+        }
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    struct NeuralNetworkConfig {
+        input_layers: usize,
+        hidden_layers: usize,
+        output_layers: usize,
+        neurons_per_input_layer: usize,
+        neurons_per_hidden_layer: usize,
+        neurons_per_output_layer: usize,
+        fire_rate: f32,
+        fire_propagation_speed: f32,
+        neuron_inactive_color: [u8; 3],
+        neuron_firing_color: [u8; 3],
+        input_neuron_color: [u8; 3],
+        output_neuron_color: [u8; 3],
+        synapse_color: [u8; 3],
+        synapse_active_color: [u8; 3],
+        show_neuron_values: bool,
+    }
+
+    impl Default for NeuralNetworkConfig {
+        fn default() -> Self {
+            Self {
+                input_layers: 1,
+                hidden_layers: 2,
+                output_layers: 1,
+                neurons_per_input_layer: 3,
+                neurons_per_hidden_layer: 5,
+                neurons_per_output_layer: 2,
+                fire_rate: 2.0,
+                fire_propagation_speed: 0.5,
+                neuron_inactive_color: [100, 100, 150],
+                neuron_firing_color: [255, 200, 50],
+                input_neuron_color: [100, 200, 100],
+                output_neuron_color: [200, 100, 200],
+                synapse_color: [80, 80, 80],
+                synapse_active_color: [255, 150, 0],
+                show_neuron_values: true,
+            }
+        }
     }
 
     #[derive(Clone, Copy, Debug)]
@@ -467,6 +545,208 @@ mod code_analyzer {
         }
     }
 
+    // Neural Network Display Nodes and Edges
+    #[derive(Clone, Debug)]
+    struct NeuronNode {
+        pos: Pos2,
+        selected: bool,
+        dragged: bool,
+        hovered: bool,
+        neuron_type: NeuronType,
+        is_firing: bool,
+        activation: f32,
+        radius: f32,
+        show_values: bool,
+    }
+
+    impl From<NodeProps<NeuronState>> for NeuronNode {
+        fn from(node_props: NodeProps<NeuronState>) -> Self {
+            Self {
+                pos: node_props.location(),
+                selected: node_props.selected,
+                dragged: node_props.dragged,
+                hovered: node_props.hovered,
+                neuron_type: node_props.payload.neuron_type,
+                is_firing: node_props.payload.is_firing,
+                activation: node_props.payload.activation,
+                radius: 25.0,
+                show_values: true,
+            }
+        }
+    }
+
+    impl DisplayNode<NeuronState, f32, Directed, petgraph::graph::DefaultIx> for NeuronNode {
+        fn is_inside(&self, pos: Pos2) -> bool {
+            let dir = pos - self.pos;
+            dir.length() <= self.radius
+        }
+
+        fn closest_boundary_point(&self, dir: Vec2) -> Pos2 {
+            self.pos + dir.normalized() * self.radius
+        }
+
+        fn shapes(&mut self, ctx: &DrawContext) -> Vec<Shape> {
+            let mut shapes = Vec::new();
+            let screen_pos = ctx.meta.canvas_to_screen_pos(self.pos);
+            let screen_radius = ctx.meta.canvas_to_screen_size(self.radius);
+
+            // Get colors from context (we'll pass config through update)
+            let color = if self.is_firing {
+                Color32::from_rgb(255, 200, 50)
+            } else {
+                match self.neuron_type {
+                    NeuronType::Input => Color32::from_rgb(100, 200, 100),
+                    NeuronType::Hidden => Color32::from_rgb(100, 100, 150),
+                    NeuronType::Output => Color32::from_rgb(200, 100, 200),
+                }
+            };
+
+            let border_color = if self.selected {
+                Color32::from_rgb(255, 255, 255)
+            } else if self.hovered {
+                Color32::from_rgb(200, 200, 200)
+            } else {
+                Color32::from_rgb(80, 80, 80)
+            };
+
+            shapes.push(egui::epaint::Shape::circle_filled(screen_pos, screen_radius, color));
+            shapes.push(egui::epaint::Shape::circle_stroke(
+                screen_pos,
+                screen_radius,
+                Stroke::new(2.0, border_color),
+            ));
+
+            // Draw activation level as inner circle
+            if self.activation > 0.1 {
+                let activation_radius = screen_radius * self.activation;
+                shapes.push(egui::epaint::Shape::circle_filled(
+                    screen_pos,
+                    activation_radius,
+                    Color32::from_rgba_premultiplied(255, 255, 255, 100),
+                ));
+            }
+            
+            // Draw activation value text in center (if enabled)
+            if self.show_values {
+                let activation_text = format!("{:.2}", self.activation);
+                let galley = ctx.ctx.fonts_mut(|f| {
+                    f.layout_no_wrap(
+                        activation_text,
+                        FontId::new(10.0, FontFamily::Monospace),
+                        Color32::WHITE,
+                    )
+                });
+                
+                let text_pos = Pos2::new(
+                    screen_pos.x - galley.size().x / 2.0,
+                    screen_pos.y - galley.size().y / 2.0,
+                );
+                
+                shapes.push(egui::epaint::Shape::text(
+                    ctx.ctx,
+                    text_pos,
+                    egui::Align2::LEFT_TOP,
+                    activation_text,
+                    FontId::new(10.0, FontFamily::Monospace),
+                    Color32::WHITE,
+                ));
+            }
+
+            shapes
+        }
+
+        fn update(&mut self, state: &NodeProps<NeuronState>) {
+            self.pos = state.location();
+            self.selected = state.selected;
+            self.dragged = state.dragged;
+            self.hovered = state.hovered;
+            self.is_firing = state.payload.is_firing;
+            self.activation = state.payload.activation;
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct SynapseEdge {
+        order: usize,
+        selected: bool,
+        weight: f32,
+        is_active: bool,
+    }
+
+    impl From<EdgeProps<f32>> for SynapseEdge {
+        fn from(edge_props: EdgeProps<f32>) -> Self {
+            Self {
+                order: edge_props.order,
+                selected: edge_props.selected,
+                weight: edge_props.payload,
+                is_active: false,
+            }
+        }
+    }
+
+    impl DisplayEdge<NeuronState, f32, Directed, petgraph::graph::DefaultIx, NeuronNode>
+        for SynapseEdge
+    {
+        fn is_inside(
+            &self,
+            start: &Node<NeuronState, f32, Directed, petgraph::graph::DefaultIx, NeuronNode>,
+            end: &Node<NeuronState, f32, Directed, petgraph::graph::DefaultIx, NeuronNode>,
+            pos: Pos2,
+        ) -> bool {
+            let start_pos = start.location();
+            let end_pos = end.location();
+            let radius = 3.0;
+            let line_vec = end_pos - start_pos;
+            let point_vec = pos - start_pos;
+            let line_len = line_vec.length();
+            if line_len < 0.001 {
+                return false;
+            }
+            let proj = point_vec.dot(line_vec) / line_len;
+            if proj < 0.0 || proj > line_len {
+                return false;
+            }
+            let closest = start_pos + line_vec.normalized() * proj;
+            (pos - closest).length() <= radius
+        }
+
+        fn shapes(
+            &mut self,
+            start: &Node<NeuronState, f32, Directed, petgraph::graph::DefaultIx, NeuronNode>,
+            end: &Node<NeuronState, f32, Directed, petgraph::graph::DefaultIx, NeuronNode>,
+            ctx: &DrawContext,
+        ) -> Vec<Shape> {
+            let start_pos = start.location();
+            let end_pos = end.location();
+
+            let dir = (end_pos - start_pos).normalized();
+            let start_boundary = start.display().closest_boundary_point(dir);
+            let end_boundary = end.display().closest_boundary_point(-dir);
+            
+            let screen_start = ctx.meta.canvas_to_screen_pos(start_boundary);
+            let screen_end = ctx.meta.canvas_to_screen_pos(end_boundary);
+
+            let is_source_firing = start.payload().is_firing;
+            let color = if is_source_firing || self.is_active {
+                Color32::from_rgb(255, 150, 0)
+            } else {
+                let alpha = (self.weight.abs() * 255.0).min(255.0) as u8;
+                Color32::from_rgba_premultiplied(80, 80, 80, alpha)
+            };
+
+            let width = if is_source_firing { 3.0 } else { 1.5 };
+            let stroke = Stroke::new(width, color);
+
+            vec![egui::epaint::Shape::line_segment([screen_start, screen_end], stroke)]
+        }
+
+        fn update(&mut self, state: &EdgeProps<f32>) {
+            self.order = state.order;
+            self.selected = state.selected;
+            self.weight = state.payload;
+        }
+    }
+
     #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
     enum VisualizationMode {
         TwoD,
@@ -533,6 +813,9 @@ mod code_analyzer {
         edge_selected_color: [u8; 3],
         background_color: [u8; 3],
         
+        // Neural network settings
+        nn_config: NeuralNetworkConfig,
+        
         // Graph generation settings
         num_nodes: usize,
         num_edges: usize,
@@ -586,6 +869,7 @@ mod code_analyzer {
                 background_color: [30, 30, 30],
                 hover_window_size: 0.0625,
                 show_side_panel: true,
+                nn_config: NeuralNetworkConfig::default(),
             }
         }
     }
@@ -635,9 +919,14 @@ mod code_analyzer {
         // File operations
         show_file_dialog: bool,
         file_dialog_message: String,
-        loaded_file_name: Option<String>,
         show_export_dialog: bool,
         export_format: ExportFormat,
+        #[allow(dead_code)]
+        loaded_file_name: Option<String>,
+        // Neural network fields
+        neural_network: Option<Graph<NeuronState, f32, Directed, u32, NeuronNode, SynapseEdge>>,
+        neuron_states: HashMap<NodeIndex<u32>, NeuronState>,
+        nn_last_fire_time: f64,
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -648,6 +937,7 @@ mod code_analyzer {
     }
 
     impl ExportFormat {
+        #[allow(dead_code)]
         fn name(&self) -> &str {
             match self {
                 ExportFormat::Json => "JSON",
@@ -668,7 +958,7 @@ mod code_analyzer {
     impl CodeAnalyzerApp {
         pub fn new(cc: &eframe::CreationContext) -> Self {
             // Load config from storage if available
-            let config = cc
+            let mut config: AppConfig = cc
                 .storage
                 .and_then(|s| eframe::get_value(s, "app_config"))
                 .unwrap_or_default();
@@ -677,6 +967,9 @@ mod code_analyzer {
                 .storage
                 .and_then(|s| eframe::get_value(s, "auto_save_config"))
                 .unwrap_or(true);
+            
+            config.fit_to_screen_enabled = true; // Center graph on initial load
+            
             let mut pg = StableGraph::<ClassInfo, Relationship, Directed>::new();
             let mut class_details = HashMap::new();
 
@@ -753,7 +1046,7 @@ mod code_analyzer {
                     node.set_location(*pos);
                 }
             }
-
+            
             Self {
                 graph,
                 class_details,
@@ -779,6 +1072,9 @@ mod code_analyzer {
                 loaded_file_name: None,
                 show_export_dialog: false,
                 export_format: ExportFormat::Json,
+                neural_network: None,
+                neuron_states: HashMap::new(),
+                nn_last_fire_time: 0.0,
             }
         }
 
@@ -877,6 +1173,215 @@ mod code_analyzer {
             
             if self.logs.len() > self.max_log_entries {
                 self.logs.pop_back();
+            }
+        }
+
+        fn generate_neural_network(&mut self) {
+            let nn_cfg = &self.config.nn_config;
+            let mut pg = StableGraph::<NeuronState, f32, Directed>::new();
+            let mut neuron_states = HashMap::new();
+            
+            let total_layers = nn_cfg.input_layers + nn_cfg.hidden_layers + nn_cfg.output_layers;
+            let mut layer_nodes: Vec<Vec<NodeIndex<u32>>> = vec![Vec::new(); total_layers];
+            
+            let mut current_layer = 0;
+            
+            // Create input layers
+            for _layer_idx in 0..nn_cfg.input_layers {
+                for pos in 0..nn_cfg.neurons_per_input_layer {
+                    let state = NeuronState {
+                        neuron_type: NeuronType::Input,
+                        layer: current_layer,
+                        position_in_layer: pos,
+                        activation: 0.0,
+                        is_firing: false,
+                        fire_time: None,
+                        fire_duration: 0.3,
+                    };
+                    let idx = pg.add_node(state.clone());
+                    neuron_states.insert(idx, state);
+                    layer_nodes[current_layer].push(idx);
+                }
+                current_layer += 1;
+            }
+            
+            // Create hidden layers
+            for _layer_idx in 0..nn_cfg.hidden_layers {
+                for pos in 0..nn_cfg.neurons_per_hidden_layer {
+                    let state = NeuronState {
+                        neuron_type: NeuronType::Hidden,
+                        layer: current_layer,
+                        position_in_layer: pos,
+                        activation: 0.0,
+                        is_firing: false,
+                        fire_time: None,
+                        fire_duration: 0.3,
+                    };
+                    let idx = pg.add_node(state.clone());
+                    neuron_states.insert(idx, state);
+                    layer_nodes[current_layer].push(idx);
+                }
+                current_layer += 1;
+            }
+            
+            // Create output layers
+            for _layer_idx in 0..nn_cfg.output_layers {
+                for pos in 0..nn_cfg.neurons_per_output_layer {
+                    let state = NeuronState {
+                        neuron_type: NeuronType::Output,
+                        layer: current_layer,
+                        position_in_layer: pos,
+                        activation: 0.0,
+                        is_firing: false,
+                        fire_time: None,
+                        fire_duration: 0.3,
+                    };
+                    let idx = pg.add_node(state.clone());
+                    neuron_states.insert(idx, state);
+                    layer_nodes[current_layer].push(idx);
+                }
+                current_layer += 1;
+            }
+            
+            // Create synaptic connections between adjacent layers
+            for layer_idx in 0..(total_layers - 1) {
+                let current_layer_nodes = &layer_nodes[layer_idx];
+                let next_layer_nodes = &layer_nodes[layer_idx + 1];
+                
+                for &source in current_layer_nodes {
+                    for &target in next_layer_nodes {
+                        // Random weight between -1.0 and 1.0
+                        let weight = (js_sys::Math::random() as f32) * 2.0 - 1.0;
+                        pg.add_edge(source, target, weight);
+                    }
+                }
+            }
+            
+            // Create graph and apply neural network layout
+            let mut graph = Graph::<NeuronState, f32, Directed, u32, NeuronNode, SynapseEdge>::from(&pg);
+            self.layout_neural_network(&mut graph, &layer_nodes);
+            
+            self.neural_network = Some(graph);
+            self.neuron_states = neuron_states;
+        }
+        
+        fn layout_neural_network(&self, graph: &mut Graph<NeuronState, f32, Directed, u32, NeuronNode, SynapseEdge>, layer_nodes: &[Vec<NodeIndex<u32>>]) {
+            let total_layers = layer_nodes.len();
+            if total_layers == 0 {
+                return;
+            }
+            
+            // Calculate spacing
+            let horizontal_spacing = 300.0;
+            let base_x = -(total_layers as f32 * horizontal_spacing) / 2.0;
+            
+            for (layer_idx, nodes) in layer_nodes.iter().enumerate() {
+                let nodes_in_layer = nodes.len();
+                if nodes_in_layer == 0 {
+                    continue;
+                }
+                
+                let vertical_spacing = if nodes_in_layer == 1 { 0.0 } else { 400.0 / (nodes_in_layer - 1) as f32 };
+                let base_y = -(nodes_in_layer as f32 * vertical_spacing) / 2.0;
+                
+                let x = base_x + (layer_idx as f32 * horizontal_spacing);
+                
+                for (pos_idx, &node_idx) in nodes.iter().enumerate() {
+                    let y = base_y + (pos_idx as f32 * vertical_spacing);
+                    if let Some(node) = graph.node_mut(node_idx) {
+                        node.set_location(Pos2::new(x, y));
+                    }
+                }
+            }
+        }
+        
+        fn simulate_neural_network(&mut self, ctx: &egui::Context) {
+            if self.neural_network.is_none() {
+                return;
+            }
+            
+            let current_time = ctx.input(|i| i.time);
+            let fire_rate = self.config.nn_config.fire_rate;
+            let fire_duration = 0.3;
+            
+            // Randomly fire input neurons
+            if current_time - self.nn_last_fire_time > 1.0 / fire_rate as f64 {
+                self.nn_last_fire_time = current_time;
+                
+                // Fire a random input neuron
+                let input_neurons: Vec<NodeIndex<u32>> = self.neuron_states
+                    .iter()
+                    .filter(|(_, state)| state.neuron_type == NeuronType::Input)
+                    .map(|(idx, _)| *idx)
+                    .collect();
+                
+                if !input_neurons.is_empty() {
+                    let random_idx = (js_sys::Math::random() * input_neurons.len() as f64) as usize % input_neurons.len();
+                    let neuron_idx = input_neurons[random_idx];
+                    
+                    if let Some(state) = self.neuron_states.get_mut(&neuron_idx) {
+                        state.is_firing = true;
+                        state.fire_time = Some(current_time);
+                        state.activation = 1.0;
+                    }
+                }
+            }
+            
+            // Update neuron states and propagate signals
+            let mut neurons_to_update = Vec::new();
+            
+            for (idx, state) in self.neuron_states.iter() {
+                if state.is_firing {
+                    if let Some(fire_time) = state.fire_time {
+                        // Check if fire duration has elapsed
+                        if current_time - fire_time > fire_duration as f64 {
+                            neurons_to_update.push((*idx, false, 0.0));
+                        } else {
+                            // Propagate signal to connected neurons
+                            if let Some(ref graph) = self.neural_network {
+                                let g = graph.g();
+                                for edge in g.edges(*idx) {
+                                    let target = edge.target();
+                                    let weight = *edge.weight().payload();
+                                    
+                                    // Activate target neuron based on weight
+                                    if let Some(target_state) = self.neuron_states.get(&target) {
+                                        if !target_state.is_firing {
+                                            let activation = (weight.abs() * state.activation).min(1.0);
+                                            if activation > 0.5 {
+                                                neurons_to_update.push((target, true, activation));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Apply updates
+            for (idx, is_firing, activation) in neurons_to_update {
+                if let Some(state) = self.neuron_states.get_mut(&idx) {
+                    if is_firing && !state.is_firing {
+                        state.is_firing = true;
+                        state.fire_time = Some(current_time);
+                        state.activation = activation;
+                    } else if !is_firing {
+                        state.is_firing = false;
+                        state.fire_time = None;
+                        state.activation = 0.0;
+                    }
+                }
+            }
+            
+            // Update graph node states
+            if let Some(ref mut graph) = self.neural_network {
+                for (idx, state) in &self.neuron_states {
+                    if let Some(node) = graph.node_mut(*idx) {
+                        *node.payload_mut() = state.clone();
+                    }
+                }
             }
         }
 
@@ -1031,104 +1536,58 @@ mod code_analyzer {
         }
 
         fn trigger_file_upload(&mut self) {
-            self.file_dialog_message = "Click 'Choose File' button to load a JSON graph file".to_string();
+            self.file_dialog_message = "File upload from browser is a restricted operation.\nUse 'Load Example Graph' instead.".to_string();
             self.show_file_dialog = true;
         }
 
-        fn load_graph_from_json(&mut self, json_str: &str) -> Result<(), String> {
-            #[derive(serde::Deserialize)]
-            struct GraphData {
-                nodes: Vec<NodeData>,
-                edges: Vec<EdgeData>,
-            }
-
-            #[derive(serde::Deserialize)]
-            struct NodeData {
-                name: String,
-                methods: Vec<String>,
-                fields: Vec<String>,
-            }
-
-            #[derive(serde::Deserialize)]
-            struct EdgeData {
-                from: usize,
-                to: usize,
-                relationship: String,
-            }
-
-            let graph_data: GraphData = serde_json::from_str(json_str)
-                .map_err(|e| format!("Failed to parse JSON: {}", e))?;
-
-            let mut pg = StableGraph::<ClassInfo, Relationship, Directed>::new();
-            self.class_details.clear();
-
-            let mut node_indices = Vec::new();
-            for node_data in graph_data.nodes {
-                let idx = pg.add_node(ClassInfo {
-                    name: node_data.name.clone(),
-                    methods: node_data.methods,
-                    fields: node_data.fields,
-                });
-                node_indices.push(idx);
-                if let Some(node) = pg.node_weight(idx) {
-                    self.class_details.insert(idx, node.clone());
-                }
-            }
-
-            for edge_data in graph_data.edges {
-                if edge_data.from < node_indices.len() && edge_data.to < node_indices.len() {
-                    let relationship = match edge_data.relationship.as_str() {
-                        "1:1" => Relationship::OneToOne,
-                        "1:N" => Relationship::OneToMany,
-                        "N:N" => Relationship::ManyToMany,
-                        _ => Relationship::OneToMany,
-                    };
-                    pg.add_edge(node_indices[edge_data.from], node_indices[edge_data.to], relationship);
-                }
-            }
-
-            self.graph = Graph::<ClassInfo, Relationship, Directed, u32, CodeNode, CodeEdge>::from(&pg);
-            
-            // Set initial positions in a circle
-            let radius = 200.0;
-            for (i, idx) in node_indices.iter().enumerate() {
-                if let Some(node) = self.graph.node_mut(*idx) {
-                    let angle = (i as f32) * std::f32::consts::TAU / (node_indices.len() as f32);
-                    let pos = Pos2::new(radius * angle.cos(), radius * angle.sin());
-                    node.set_location(pos);
-                }
-            }
-
-            Ok(())
-        }
-
         fn export_graph_json(&self) -> String {
-            use serde_json::json;
-
-            let nodes: Vec<_> = self.class_details.iter()
-                .map(|(_, info)| json!({
-                    "name": info.name,
-                    "methods": info.methods,
-                    "fields": info.fields,
-                }))
-                .collect();
-
-            let edges: Vec<_> = self.graph.g().edge_indices()
-                .filter_map(|edge_idx| {
-                    let edge = self.graph.g().edge_endpoints(edge_idx)?;
-                    let relationship = self.graph.g().edge_weight(edge_idx)?;
-                    Some(json!({
-                        "from": edge.0.index(),
-                        "to": edge.1.index(),
-                        "relationship": relationship.label(),
-                    }))
-                })
-                .collect();
-
-            json!({
-                "nodes": nodes,
-                "edges": edges,
-            }).to_string()
+            let mut json = String::from("{\n  \"nodes\": [\n");
+            
+            let node_count = self.class_details.len();
+            for (i, (_, info)) in self.class_details.iter().enumerate() {
+                json.push_str("    {\n");
+                json.push_str(&format!("      \"name\": \"{}\",\n", info.name));
+                json.push_str("      \"methods\": [");
+                for (j, method) in info.methods.iter().enumerate() {
+                    json.push_str(&format!("\"{}\"", method));
+                    if j < info.methods.len() - 1 {
+                        json.push_str(", ");
+                    }
+                }
+                json.push_str("],\n");
+                json.push_str("      \"fields\": [");
+                for (j, field) in info.fields.iter().enumerate() {
+                    json.push_str(&format!("\"{}\"", field));
+                    if j < info.fields.len() - 1 {
+                        json.push_str(", ");
+                    }
+                }
+                json.push_str("]\n");
+                json.push_str("    }");
+                if i < node_count - 1 {
+                    json.push_str(",");
+                }
+                json.push_str("\n");
+            }
+            
+            json.push_str("  ],\n  \"edges\": [\n");
+            
+            let edges: Vec<_> = self.graph.g().edge_indices().collect();
+            for (i, edge_idx) in edges.iter().enumerate() {
+                if let Some(edge) = self.graph.g().edge_endpoints(*edge_idx) {
+                    if let Some(relationship) = self.graph.g().edge_weight(*edge_idx) {
+                        json.push_str(&format!("    {{\"from\": {}, \"to\": {}, \"relationship\": \"{}\"}}", 
+                            edge.0.index(), edge.1.index(), relationship.label()));
+                        if i < edges.len() - 1 {
+                            json.push_str(",");
+                        }
+                        json.push_str("\n");
+                    }
+                }
+            }
+            
+            json.push_str("  ]\n}");
+            json
         }
 
         fn export_graph_csv(&self) -> String {
@@ -1196,7 +1655,7 @@ mod code_analyzer {
                     if let Ok(blob) = web_sys::Blob::new_with_str_sequence(&array) {
                         // Create download link
                         if let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob) {
-                            if let Ok(Some(element)) = document.create_element("a") {
+                            if let Ok(element) = document.create_element("a") {
                                 if let Ok(link) = element.dyn_into::<web_sys::HtmlAnchorElement>() {
                                     link.set_href(&url);
                                     link.set_download(filename);
@@ -1771,6 +2230,169 @@ mod code_analyzer {
             );
         }
 
+        fn draw_neural_network_tab(&mut self, ui: &mut egui::Ui) {
+            ui.heading("🧠 Neural Network Simulator");
+            ui.separator();
+            
+            ui.label("Configure the neural network architecture:");
+            ui.add_space(10.0);
+            
+            ui.horizontal(|ui| {
+                ui.label("Input Layers:");
+                ui.add(egui::Slider::new(&mut self.config.nn_config.input_layers, 1..=3));
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Neurons per Input Layer:");
+                ui.add(egui::Slider::new(&mut self.config.nn_config.neurons_per_input_layer, 1..=10));
+            });
+            
+            ui.add_space(5.0);
+            
+            ui.horizontal(|ui| {
+                ui.label("Hidden Layers:");
+                ui.add(egui::Slider::new(&mut self.config.nn_config.hidden_layers, 1..=5));
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Neurons per Hidden Layer:");
+                ui.add(egui::Slider::new(&mut self.config.nn_config.neurons_per_hidden_layer, 2..=12));
+            });
+            
+            ui.add_space(5.0);
+            
+            ui.horizontal(|ui| {
+                ui.label("Output Layers:");
+                ui.add(egui::Slider::new(&mut self.config.nn_config.output_layers, 1..=3));
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Neurons per Output Layer:");
+                ui.add(egui::Slider::new(&mut self.config.nn_config.neurons_per_output_layer, 1..=10));
+            });
+            
+            ui.separator();
+            ui.heading("Simulation Settings");
+            
+            ui.horizontal(|ui| {
+                ui.label("Fire Rate (Hz):");
+                ui.add(egui::Slider::new(&mut self.config.nn_config.fire_rate, 0.1..=10.0));
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Propagation Speed:");
+                ui.add(egui::Slider::new(&mut self.config.nn_config.fire_propagation_speed, 0.1..=2.0));
+            });
+            
+            ui.separator();
+            ui.heading("Color Settings");
+            
+            ui.horizontal(|ui| {
+                ui.label("Inactive Neuron:");
+                let mut color = Color32::from_rgb(
+                    self.config.nn_config.neuron_inactive_color[0],
+                    self.config.nn_config.neuron_inactive_color[1],
+                    self.config.nn_config.neuron_inactive_color[2],
+                );
+                if ui.color_edit_button_srgba(&mut color).changed() {
+                    self.config.nn_config.neuron_inactive_color = [color.r(), color.g(), color.b()];
+                }
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Firing Neuron:");
+                let mut color = Color32::from_rgb(
+                    self.config.nn_config.neuron_firing_color[0],
+                    self.config.nn_config.neuron_firing_color[1],
+                    self.config.nn_config.neuron_firing_color[2],
+                );
+                if ui.color_edit_button_srgba(&mut color).changed() {
+                    self.config.nn_config.neuron_firing_color = [color.r(), color.g(), color.b()];
+                }
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Input Neuron:");
+                let mut color = Color32::from_rgb(
+                    self.config.nn_config.input_neuron_color[0],
+                    self.config.nn_config.input_neuron_color[1],
+                    self.config.nn_config.input_neuron_color[2],
+                );
+                if ui.color_edit_button_srgba(&mut color).changed() {
+                    self.config.nn_config.input_neuron_color = [color.r(), color.g(), color.b()];
+                }
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Output Neuron:");
+                let mut color = Color32::from_rgb(
+                    self.config.nn_config.output_neuron_color[0],
+                    self.config.nn_config.output_neuron_color[1],
+                    self.config.nn_config.output_neuron_color[2],
+                );
+                if ui.color_edit_button_srgba(&mut color).changed() {
+                    self.config.nn_config.output_neuron_color = [color.r(), color.g(), color.b()];
+                }
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Synapse:");
+                let mut color = Color32::from_rgb(
+                    self.config.nn_config.synapse_color[0],
+                    self.config.nn_config.synapse_color[1],
+                    self.config.nn_config.synapse_color[2],
+                );
+                if ui.color_edit_button_srgba(&mut color).changed() {
+                    self.config.nn_config.synapse_color = [color.r(), color.g(), color.b()];
+                }
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Active Synapse:");
+                let mut color = Color32::from_rgb(
+                    self.config.nn_config.synapse_active_color[0],
+                    self.config.nn_config.synapse_active_color[1],
+                    self.config.nn_config.synapse_active_color[2],
+                );
+                if ui.color_edit_button_srgba(&mut color).changed() {
+                    self.config.nn_config.synapse_active_color = [color.r(), color.g(), color.b()];
+                }
+            });
+            
+            ui.separator();
+            
+            ui.checkbox(&mut self.config.nn_config.show_neuron_values, "Show Neuron Values");
+            
+            ui.separator();
+            ui.add_space(10.0);
+            
+            if ui.button("🔄 Generate Neural Network").clicked() {
+                self.generate_neural_network();
+                self.config.fit_to_screen_enabled = true;
+            }
+            
+            ui.add_space(10.0);
+            
+            if self.neural_network.is_some() {
+                ui.label(format!(
+                    "Network: {} input, {} hidden, {} output layers",
+                    self.config.nn_config.input_layers,
+                    self.config.nn_config.hidden_layers,
+                    self.config.nn_config.output_layers
+                ));
+                
+                let total_neurons: usize = 
+                    self.config.nn_config.input_layers * self.config.nn_config.neurons_per_input_layer +
+                    self.config.nn_config.hidden_layers * self.config.nn_config.neurons_per_hidden_layer +
+                    self.config.nn_config.output_layers * self.config.nn_config.neurons_per_output_layer;
+                
+                ui.label(format!("Total Neurons: {}", total_neurons));
+                
+                let firing_count = self.neuron_states.values().filter(|s| s.is_firing).count();
+                ui.label(format!("Firing: {}", firing_count));
+            }
+        }
+
         fn draw_logs_tab(&self, ui: &mut egui::Ui) {
             ui.heading("📋 System Logs");
             ui.separator();
@@ -1987,8 +2609,8 @@ mod code_analyzer {
                         ui.separator();
                         
                         if ui.button("📄 Paste JSON").clicked() {
-                            // Request clipboard access
-                            ctx.output_mut(|o| o.copied_text = String::new());
+                            // Clipboard paste not available in WASM
+                            self.file_dialog_message = "Clipboard paste not available in web. Use file upload instead.".to_string();
                         }
                         
                         ui.horizontal(|ui| {
@@ -2259,6 +2881,7 @@ mod code_analyzer {
                         ui.selectable_value(&mut self.current_tab, AppTab::Graph, "📊 Graph");
                         ui.selectable_value(&mut self.current_tab, AppTab::StressTest, "🚨 Stress Test");
                         ui.selectable_value(&mut self.current_tab, AppTab::Logs, "📋 Logs");
+                        ui.selectable_value(&mut self.current_tab, AppTab::NeuralNetwork, "🧠 Neural Net");
                     });
                     ui.separator();
 
@@ -2285,6 +2908,11 @@ mod code_analyzer {
                         AppTab::Logs => {
                             self.draw_logs_tab(ui);
                         },
+                        AppTab::NeuralNetwork => {
+                            egui::ScrollArea::vertical().show(ui, |ui| {
+                                self.draw_neural_network_tab(ui);
+                            });
+                        },
                     }
                     
                     ui.separator();
@@ -2303,6 +2931,11 @@ mod code_analyzer {
             // Run stress test simulation
             if self.stress_active {
                 self.simulate_stress_test(ctx);
+            }
+            
+            // Run neural network simulation
+            if self.current_tab == AppTab::NeuralNetwork && self.neural_network.is_some() {
+                self.simulate_neural_network(ctx);
             }
 
             // Auto-rotation in 3D mode (only when explicitly enabled)
@@ -2349,52 +2982,99 @@ mod code_analyzer {
             }
 
             egui::CentralPanel::default().show(ctx, |ui| {
-                // Control simulation based on user setting - do this FIRST
-                let mut layout_state: FruchtermanReingoldState = get_layout_state(ui, None);
-                layout_state.is_running = self.config.simulation_running;
-                set_layout_state(ui, layout_state, None);
-                
-                let settings_interaction = SettingsInteraction::new()
-                    .with_dragging_enabled(self.config.dragging_enabled)
-                    .with_hover_enabled(self.config.hover_enabled)
-                    .with_node_clicking_enabled(self.config.node_clicking_enabled)
-                    .with_node_selection_enabled(self.config.node_selection_enabled)
-                    .with_node_selection_multi_enabled(self.config.node_selection_multi_enabled)
-                    .with_edge_clicking_enabled(self.config.edge_clicking_enabled)
-                    .with_edge_selection_enabled(self.config.edge_selection_enabled)
-                    .with_edge_selection_multi_enabled(self.config.edge_selection_multi_enabled);
+                if self.current_tab == AppTab::NeuralNetwork {
+                    // Render neural network
+                    if let Some(ref mut nn_graph) = self.neural_network {
+                        // Update show_values setting for all neural network nodes
+                        let node_indices: Vec<_> = nn_graph.g().node_indices().collect();
+                        for idx in node_indices {
+                            if let Some(node) = nn_graph.node_mut(idx) {
+                                node.display_mut().show_values = self.config.nn_config.show_neuron_values;
+                            }
+                        }
+                        
+                        let settings_interaction = SettingsInteraction::new()
+                            .with_dragging_enabled(false)
+                            .with_hover_enabled(true)
+                            .with_node_clicking_enabled(false)
+                            .with_node_selection_enabled(false);
 
-                let settings_navigation = SettingsNavigation::new()
-                    .with_zoom_and_pan_enabled(self.config.zoom_and_pan_enabled)
-                    .with_fit_to_screen_enabled(self.config.fit_to_screen_enabled)
-                    .with_fit_to_screen_padding(self.config.fit_to_screen_padding)
-                    .with_zoom_speed(self.config.zoom_speed);
+                        let settings_navigation = SettingsNavigation::new()
+                            .with_zoom_and_pan_enabled(true)
+                            .with_fit_to_screen_enabled(self.config.fit_to_screen_enabled)
+                            .with_zoom_speed(self.config.zoom_speed);
 
-                let settings_style = SettingsStyle::new()
-                    .with_labels_always(self.config.labels_always);
-                
-                ui.add(
-                    &mut GraphView::<_, _, _, _, CodeNode, CodeEdge>::new(&mut self.graph)
-                        .with_interactions(&settings_interaction)
-                        .with_navigations(&settings_navigation)
-                        .with_styles(&settings_style),
-                );
+                        let settings_style = SettingsStyle::new()
+                            .with_labels_always(false);
+                        
+                        ui.add(
+                            &mut GraphView::<_, _, _, _, NeuronNode, SynapseEdge>::new(nn_graph)
+                                .with_interactions(&settings_interaction)
+                                .with_navigations(&settings_navigation)
+                                .with_styles(&settings_style),
+                        );
+                    } else {
+                        ui.centered_and_justified(|ui| {
+                            ui.label("Neural network not initialized. Configure and generate in the sidebar.");
+                        });
+                    }
+                } else {
+                    // Render main graph
+                    // Control simulation based on user setting - do this FIRST
+                    let mut layout_state: FruchtermanReingoldState = get_layout_state(ui, None);
+                    layout_state.is_running = self.config.simulation_running;
+                    set_layout_state(ui, layout_state, None);
+                    
+                    let settings_interaction = SettingsInteraction::new()
+                        .with_dragging_enabled(self.config.dragging_enabled)
+                        .with_hover_enabled(self.config.hover_enabled)
+                        .with_node_clicking_enabled(self.config.node_clicking_enabled)
+                        .with_node_selection_enabled(self.config.node_selection_enabled)
+                        .with_node_selection_multi_enabled(self.config.node_selection_multi_enabled)
+                        .with_edge_clicking_enabled(self.config.edge_clicking_enabled)
+                        .with_edge_selection_enabled(self.config.edge_selection_enabled)
+                        .with_edge_selection_multi_enabled(self.config.edge_selection_multi_enabled);
 
-                let mut new_hovered = None;
-                for idx in self.graph.g().node_indices() {
-                    if let Some(node) = self.graph.node(idx) {
-                        if node.hovered() {
-                            new_hovered = Some(idx);
-                            break;
+                    let settings_navigation = SettingsNavigation::new()
+                        .with_zoom_and_pan_enabled(self.config.zoom_and_pan_enabled)
+                        .with_fit_to_screen_enabled(self.config.fit_to_screen_enabled)
+                        .with_fit_to_screen_padding(self.config.fit_to_screen_padding)
+                        .with_zoom_speed(self.config.zoom_speed);
+
+                    let settings_style = SettingsStyle::new()
+                        .with_labels_always(self.config.labels_always);
+                    
+                    ui.add(
+                        &mut GraphView::<_, _, _, _, CodeNode, CodeEdge>::new(&mut self.graph)
+                            .with_interactions(&settings_interaction)
+                            .with_navigations(&settings_navigation)
+                            .with_styles(&settings_style),
+                    );
+                }
+
+                // Only show hover popup for main graph
+                if self.current_tab == AppTab::Graph {
+                    let mut new_hovered = None;
+                    for idx in self.graph.g().node_indices() {
+                        if let Some(node) = self.graph.node(idx) {
+                            if node.hovered() {
+                                new_hovered = Some(idx);
+                                break;
+                            }
                         }
                     }
-                }
-                self.hovered_node = new_hovered;
+                    self.hovered_node = new_hovered;
 
-                if let Some(node_idx) = self.hovered_node {
-                    self.draw_hover_popup(ui, node_idx);
+                    if let Some(node_idx) = self.hovered_node {
+                        self.draw_hover_popup(ui, node_idx);
+                    }
                 }
             });
+            
+            // Reset fit to screen after one frame
+            if self.config.fit_to_screen_enabled {
+                self.config.fit_to_screen_enabled = false;
+            }
         }
         
         fn save(&mut self, storage: &mut dyn eframe::Storage) {

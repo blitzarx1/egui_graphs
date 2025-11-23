@@ -12,6 +12,35 @@ The project implements a Widget for the egui framework, enabling easy visualizat
 
 Check the [web-demo](https://blitzar-tech.github.io/egui_graphs/#g=bipartite.json) for the comprehensive overview of the widget possibilities.
 
+## 🚀 Enhanced Demo Application
+
+This repository includes a comprehensive **code-analyzer-web** demo application showcasing advanced graph visualization features:
+
+### Features
+
+- **📊 Graph Visualization**: Interactive 2D/3D graph visualization with customizable nodes and edges
+- **🚨 DDoS Stress Test Simulator**: Real-time network attack simulation with 5 attack patterns
+  - Monitor metrics: requests, read/write operations, throughput, response times
+  - Live throughput graphs with gradient visualization
+  - Comprehensive logging system with 4 severity levels
+- **🧠 Neural Network Simulator**: Interactive neural network visualization with live signal propagation
+  - Configurable architecture (input/hidden/output layers)
+  - Real-time neuron firing animation
+  - Weighted synapse visualization
+  - Customizable colors for all neuron types and synapses
+  - Adjustable fire rate and propagation speed
+- **📋 System Logs**: Timestamped log viewer with color-coded severity levels
+- **💾 Import/Export**: JSON, CSV, and Graphviz DOT format support
+- **🎨 Full Customization**: Colors, rendering modes, interaction settings
+
+### Run the Enhanced Demo
+
+```bash
+cd crates/code-analyzer-web
+trunk serve --release
+# Opens http://127.0.0.1:8080
+```
+
 - [x] Build wasm or native;
 - [x] Layouts and custom layout mechanism;
 - [x] Zooming and panning;
