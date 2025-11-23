@@ -40,13 +40,137 @@ mod code_analyzer {
         get_layout_state, set_layout_state,
     };
     use petgraph::{stable_graph::{NodeIndex, StableGraph}, Directed};
-    use std::collections::HashMap;
+    use std::collections::{HashMap, VecDeque};
 
     #[derive(Clone, Debug)]
     pub struct ClassInfo {
         name: String,
         methods: Vec<String>,
         fields: Vec<String>,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum AppTab {
+        Graph,
+        StressTest,
+        Logs,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum AttackPattern {
+        Flood,
+        SlowLoris,
+        SynFlood,
+        UdpFlood,
+        HttpFlood,
+    }
+
+    impl AttackPattern {
+        fn name(&self) -> &str {
+            match self {
+                AttackPattern::Flood => "Flood Attack",
+                AttackPattern::SlowLoris => "Slowloris",
+                AttackPattern::SynFlood => "SYN Flood",
+                AttackPattern::UdpFlood => "UDP Flood",
+                AttackPattern::HttpFlood => "HTTP Flood",
+            }
+        }
+
+        fn description(&self) -> &str {
+            match self {
+                AttackPattern::Flood => "High volume request spam",
+                AttackPattern::SlowLoris => "Slow connection exhaustion",
+                AttackPattern::SynFlood => "TCP handshake overflow",
+                AttackPattern::UdpFlood => "UDP packet bombardment",
+                AttackPattern::HttpFlood => "Application layer saturation",
+            }
+        }
+
+        fn all() -> Vec<AttackPattern> {
+            vec![
+                AttackPattern::Flood,
+                AttackPattern::SlowLoris,
+                AttackPattern::SynFlood,
+                AttackPattern::UdpFlood,
+                AttackPattern::HttpFlood,
+            ]
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct StressMetrics {
+        total_requests: u64,
+        successful_requests: u64,
+        failed_requests: u64,
+        read_operations: u64,
+        write_operations: u64,
+        bytes_sent: u64,
+        bytes_received: u64,
+        peak_throughput: f64,
+        current_throughput: f64,
+        avg_response_time: f64,
+        start_time: Option<f64>,
+        elapsed_time: f64,
+    }
+
+    impl Default for StressMetrics {
+        fn default() -> Self {
+            Self {
+                total_requests: 0,
+                successful_requests: 0,
+                failed_requests: 0,
+                read_operations: 0,
+                write_operations: 0,
+                bytes_sent: 0,
+                bytes_received: 0,
+                peak_throughput: 0.0,
+                current_throughput: 0.0,
+                avg_response_time: 0.0,
+                start_time: None,
+                elapsed_time: 0.0,
+            }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct LogEntry {
+        timestamp: f64,
+        level: LogLevel,
+        message: String,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum LogLevel {
+        Info,
+        Warning,
+        Error,
+        Critical,
+    }
+
+    impl LogLevel {
+        fn color(&self) -> Color32 {
+            match self {
+                LogLevel::Info => Color32::from_rgb(100, 200, 255),
+                LogLevel::Warning => Color32::from_rgb(255, 200, 100),
+                LogLevel::Error => Color32::from_rgb(255, 100, 100),
+                LogLevel::Critical => Color32::from_rgb(255, 50, 50),
+            }
+        }
+
+        fn prefix(&self) -> &str {
+            match self {
+                LogLevel::Info => "[INFO]",
+                LogLevel::Warning => "[WARN]",
+                LogLevel::Error => "[ERROR]",
+                LogLevel::Critical => "[CRIT]",
+            }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    struct ThroughputDataPoint {
+        time: f64,
+        value: f64,
     }
 
     #[derive(Clone, Copy, Debug)]
@@ -496,6 +620,49 @@ mod code_analyzer {
         config_search: String,
         auto_save_config: bool,
         show_color_picker: bool,
+        // Stress test fields
+        current_tab: AppTab,
+        stress_active: bool,
+        stress_metrics: StressMetrics,
+        attack_pattern: AttackPattern,
+        attack_intensity: f32,
+        max_requests_per_sec: u32,
+        logs: VecDeque<LogEntry>,
+        max_log_entries: usize,
+        throughput_history: VecDeque<ThroughputDataPoint>,
+        max_throughput_points: usize,
+        last_update_time: Option<f64>,
+        // File operations
+        show_file_dialog: bool,
+        file_dialog_message: String,
+        loaded_file_name: Option<String>,
+        show_export_dialog: bool,
+        export_format: ExportFormat,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum ExportFormat {
+        Json,
+        Csv,
+        Graphviz,
+    }
+
+    impl ExportFormat {
+        fn name(&self) -> &str {
+            match self {
+                ExportFormat::Json => "JSON",
+                ExportFormat::Csv => "CSV",
+                ExportFormat::Graphviz => "Graphviz DOT",
+            }
+        }
+
+        fn extension(&self) -> &str {
+            match self {
+                ExportFormat::Json => "json",
+                ExportFormat::Csv => "csv",
+                ExportFormat::Graphviz => "dot",
+            }
+        }
     }
 
     impl CodeAnalyzerApp {
@@ -596,6 +763,22 @@ mod code_analyzer {
                 config_search: String::new(),
                 auto_save_config: auto_save,
                 show_color_picker: false,
+                current_tab: AppTab::Graph,
+                stress_active: false,
+                stress_metrics: StressMetrics::default(),
+                attack_pattern: AttackPattern::Flood,
+                attack_intensity: 50.0,
+                max_requests_per_sec: 1000,
+                logs: VecDeque::new(),
+                max_log_entries: 1000,
+                throughput_history: VecDeque::new(),
+                max_throughput_points: 100,
+                last_update_time: None,
+                show_file_dialog: false,
+                file_dialog_message: String::new(),
+                loaded_file_name: None,
+                show_export_dialog: false,
+                export_format: ExportFormat::Json,
             }
         }
 
@@ -679,6 +862,350 @@ mod code_analyzer {
                         radius * angle.sin()
                     );
                     node.set_location(pos);
+                }
+            }
+        }
+
+        fn add_log(&mut self, level: LogLevel, message: String, current_time: f64) {
+            let entry = LogEntry {
+                timestamp: current_time,
+                level,
+                message,
+            };
+            
+            self.logs.push_front(entry);
+            
+            if self.logs.len() > self.max_log_entries {
+                self.logs.pop_back();
+            }
+        }
+
+        fn simulate_stress_test(&mut self, ctx: &egui::Context) {
+            if !self.stress_active {
+                return;
+            }
+
+            let current_time = ctx.input(|i| i.time);
+            
+            // Initialize start time
+            if self.stress_metrics.start_time.is_none() {
+                self.stress_metrics.start_time = Some(current_time);
+                self.last_update_time = Some(current_time);
+                self.add_log(LogLevel::Info, format!("🚨 Stress test started: {} at intensity {:.0}%", 
+                    self.attack_pattern.name(), self.attack_intensity), current_time);
+            }
+
+            let start_time = self.stress_metrics.start_time.unwrap();
+            self.stress_metrics.elapsed_time = current_time - start_time;
+
+            // Calculate requests per frame based on pattern and intensity
+            let base_rps = (self.max_requests_per_sec as f32 * (self.attack_intensity / 100.0)) as u64;
+            let delta_time = current_time - self.last_update_time.unwrap_or(current_time);
+            
+            if delta_time <= 0.0 {
+                return;
+            }
+
+            let requests_this_frame = match self.attack_pattern {
+                AttackPattern::Flood => {
+                    // Continuous high volume
+                    (base_rps as f64 * delta_time) as u64
+                },
+                AttackPattern::SlowLoris => {
+                    // Many slow connections (lower request rate but sustained)
+                    ((base_rps / 2) as f64 * delta_time) as u64
+                },
+                AttackPattern::SynFlood => {
+                    // Burst pattern
+                    let cycle = (current_time % 2.0) / 2.0;
+                    if cycle < 0.3 {
+                        (base_rps as f64 * delta_time * 3.0) as u64
+                    } else {
+                        (base_rps as f64 * delta_time * 0.5) as u64
+                    }
+                },
+                AttackPattern::UdpFlood => {
+                    // Very high volume, lower reliability
+                    (base_rps as f64 * delta_time * 1.5) as u64
+                },
+                AttackPattern::HttpFlood => {
+                    // Application layer - moderate volume
+                    ((base_rps as f64 * 0.8) * delta_time) as u64
+                },
+            };
+
+            // Simulate request processing
+            let success_rate = match self.attack_pattern {
+                AttackPattern::Flood => 0.85,
+                AttackPattern::SlowLoris => 0.70,
+                AttackPattern::SynFlood => 0.60,
+                AttackPattern::UdpFlood => 0.50,
+                AttackPattern::HttpFlood => 0.75,
+            };
+
+            let successful = (requests_this_frame as f64 * success_rate) as u64;
+            let failed = requests_this_frame - successful;
+
+            self.stress_metrics.total_requests += requests_this_frame;
+            self.stress_metrics.successful_requests += successful;
+            self.stress_metrics.failed_requests += failed;
+
+            // Simulate read/write operations
+            let read_ops = (requests_this_frame as f64 * 1.5) as u64;
+            let write_ops = (requests_this_frame as f64 * 0.3) as u64;
+            self.stress_metrics.read_operations += read_ops;
+            self.stress_metrics.write_operations += write_ops;
+
+            // Simulate bandwidth (bytes)
+            let avg_request_size = 512; // bytes
+            let avg_response_size = 2048; // bytes
+            self.stress_metrics.bytes_sent += requests_this_frame * avg_request_size;
+            self.stress_metrics.bytes_received += successful * avg_response_size;
+
+            // Calculate throughput (MB/s)
+            let throughput_bytes = (self.stress_metrics.bytes_sent + self.stress_metrics.bytes_received) as f64;
+            self.stress_metrics.current_throughput = (throughput_bytes / self.stress_metrics.elapsed_time) / (1024.0 * 1024.0);
+            
+            if self.stress_metrics.current_throughput > self.stress_metrics.peak_throughput {
+                self.stress_metrics.peak_throughput = self.stress_metrics.current_throughput;
+            }
+
+            // Update avg response time (simulated)
+            let base_response_time = match self.attack_pattern {
+                AttackPattern::Flood => 150.0,
+                AttackPattern::SlowLoris => 5000.0,
+                AttackPattern::SynFlood => 200.0,
+                AttackPattern::UdpFlood => 100.0,
+                AttackPattern::HttpFlood => 300.0,
+            };
+            let load_factor = (self.stress_metrics.total_requests as f64 / 1000.0).min(10.0);
+            self.stress_metrics.avg_response_time = base_response_time * (1.0 + load_factor * 0.1);
+
+            // Add throughput data point
+            self.throughput_history.push_back(ThroughputDataPoint {
+                time: self.stress_metrics.elapsed_time,
+                value: self.stress_metrics.current_throughput,
+            });
+            
+            if self.throughput_history.len() > self.max_throughput_points {
+                self.throughput_history.pop_front();
+            }
+
+            // Log critical events
+            if self.stress_metrics.total_requests % 10000 == 0 && self.stress_metrics.total_requests > 0 {
+                self.add_log(LogLevel::Warning, 
+                    format!("⚠️ {} requests processed, {:.1}% success rate", 
+                        self.stress_metrics.total_requests,
+                        (self.stress_metrics.successful_requests as f64 / self.stress_metrics.total_requests as f64) * 100.0
+                    ), current_time);
+            }
+
+            if self.stress_metrics.current_throughput > 100.0 {
+                if self.stress_metrics.total_requests % 5000 == 0 {
+                    self.add_log(LogLevel::Critical, 
+                        format!("🔥 High throughput detected: {:.2} MB/s", self.stress_metrics.current_throughput), 
+                        current_time);
+                }
+            }
+
+            self.last_update_time = Some(current_time);
+            ctx.request_repaint();
+        }
+
+        fn stop_stress_test(&mut self, current_time: f64) {
+            if self.stress_active {
+                self.stress_active = false;
+                self.add_log(LogLevel::Info, 
+                    format!("✅ Stress test stopped. Total requests: {}, Duration: {:.1}s", 
+                        self.stress_metrics.total_requests,
+                        self.stress_metrics.elapsed_time
+                    ), current_time);
+            }
+        }
+
+        fn reset_stress_metrics(&mut self, current_time: f64) {
+            self.stress_metrics = StressMetrics::default();
+            self.throughput_history.clear();
+            self.last_update_time = None;
+            self.add_log(LogLevel::Info, "🔄 Metrics reset".to_string(), current_time);
+        }
+
+        fn trigger_file_upload(&mut self) {
+            self.file_dialog_message = "Click 'Choose File' button to load a JSON graph file".to_string();
+            self.show_file_dialog = true;
+        }
+
+        fn load_graph_from_json(&mut self, json_str: &str) -> Result<(), String> {
+            #[derive(serde::Deserialize)]
+            struct GraphData {
+                nodes: Vec<NodeData>,
+                edges: Vec<EdgeData>,
+            }
+
+            #[derive(serde::Deserialize)]
+            struct NodeData {
+                name: String,
+                methods: Vec<String>,
+                fields: Vec<String>,
+            }
+
+            #[derive(serde::Deserialize)]
+            struct EdgeData {
+                from: usize,
+                to: usize,
+                relationship: String,
+            }
+
+            let graph_data: GraphData = serde_json::from_str(json_str)
+                .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+            let mut pg = StableGraph::<ClassInfo, Relationship, Directed>::new();
+            self.class_details.clear();
+
+            let mut node_indices = Vec::new();
+            for node_data in graph_data.nodes {
+                let idx = pg.add_node(ClassInfo {
+                    name: node_data.name.clone(),
+                    methods: node_data.methods,
+                    fields: node_data.fields,
+                });
+                node_indices.push(idx);
+                if let Some(node) = pg.node_weight(idx) {
+                    self.class_details.insert(idx, node.clone());
+                }
+            }
+
+            for edge_data in graph_data.edges {
+                if edge_data.from < node_indices.len() && edge_data.to < node_indices.len() {
+                    let relationship = match edge_data.relationship.as_str() {
+                        "1:1" => Relationship::OneToOne,
+                        "1:N" => Relationship::OneToMany,
+                        "N:N" => Relationship::ManyToMany,
+                        _ => Relationship::OneToMany,
+                    };
+                    pg.add_edge(node_indices[edge_data.from], node_indices[edge_data.to], relationship);
+                }
+            }
+
+            self.graph = Graph::<ClassInfo, Relationship, Directed, u32, CodeNode, CodeEdge>::from(&pg);
+            
+            // Set initial positions in a circle
+            let radius = 200.0;
+            for (i, idx) in node_indices.iter().enumerate() {
+                if let Some(node) = self.graph.node_mut(*idx) {
+                    let angle = (i as f32) * std::f32::consts::TAU / (node_indices.len() as f32);
+                    let pos = Pos2::new(radius * angle.cos(), radius * angle.sin());
+                    node.set_location(pos);
+                }
+            }
+
+            Ok(())
+        }
+
+        fn export_graph_json(&self) -> String {
+            use serde_json::json;
+
+            let nodes: Vec<_> = self.class_details.iter()
+                .map(|(_, info)| json!({
+                    "name": info.name,
+                    "methods": info.methods,
+                    "fields": info.fields,
+                }))
+                .collect();
+
+            let edges: Vec<_> = self.graph.g().edge_indices()
+                .filter_map(|edge_idx| {
+                    let edge = self.graph.g().edge_endpoints(edge_idx)?;
+                    let relationship = self.graph.g().edge_weight(edge_idx)?;
+                    Some(json!({
+                        "from": edge.0.index(),
+                        "to": edge.1.index(),
+                        "relationship": relationship.label(),
+                    }))
+                })
+                .collect();
+
+            json!({
+                "nodes": nodes,
+                "edges": edges,
+            }).to_string()
+        }
+
+        fn export_graph_csv(&self) -> String {
+            let mut csv = String::from("Type,Name,Methods,Fields,From,To,Relationship\n");
+            
+            for (_, info) in &self.class_details {
+                csv.push_str(&format!("Node,\"{}\",\"{}\",\"{}\",,,\n",
+                    info.name,
+                    info.methods.join("; "),
+                    info.fields.join("; ")
+                ));
+            }
+
+            for edge_idx in self.graph.g().edge_indices() {
+                if let Some(edge) = self.graph.g().edge_endpoints(edge_idx) {
+                    if let Some(relationship) = self.graph.g().edge_weight(edge_idx) {
+                        csv.push_str(&format!("Edge,,,,{},{},{}\n",
+                            edge.0.index(),
+                            edge.1.index(),
+                            relationship.label()
+                        ));
+                    }
+                }
+            }
+
+            csv
+        }
+
+        fn export_graph_graphviz(&self) -> String {
+            let mut dot = String::from("digraph G {\n");
+            dot.push_str("  rankdir=LR;\n");
+            dot.push_str("  node [shape=box];\n\n");
+
+            for (idx, info) in &self.class_details {
+                dot.push_str(&format!("  {} [label=\"{}\"];\n", idx.index(), info.name));
+            }
+
+            dot.push_str("\n");
+
+            for edge_idx in self.graph.g().edge_indices() {
+                if let Some(edge) = self.graph.g().edge_endpoints(edge_idx) {
+                    if let Some(relationship) = self.graph.g().edge_weight(edge_idx) {
+                        dot.push_str(&format!("  {} -> {} [label=\"{}\"];\n",
+                            edge.0.index(),
+                            edge.1.index(),
+                            relationship.label()
+                        ));
+                    }
+                }
+            }
+
+            dot.push_str("}\n");
+            dot
+        }
+
+        fn download_file(&self, filename: &str, content: &str) {
+            use wasm_bindgen::JsCast;
+            
+            if let Some(window) = web_sys::window() {
+                if let Some(document) = window.document() {
+                    // Create blob
+                    let array = js_sys::Array::new();
+                    array.push(&wasm_bindgen::JsValue::from_str(content));
+                    
+                    if let Ok(blob) = web_sys::Blob::new_with_str_sequence(&array) {
+                        // Create download link
+                        if let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob) {
+                            if let Ok(Some(element)) = document.create_element("a") {
+                                if let Ok(link) = element.dyn_into::<web_sys::HtmlAnchorElement>() {
+                                    link.set_href(&url);
+                                    link.set_download(filename);
+                                    let _ = link.click();
+                                    web_sys::Url::revoke_object_url(&url).ok();
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1017,6 +1544,252 @@ mod code_analyzer {
                 });
             self.show_config_window = show_window;
         }
+
+        fn draw_stress_test_tab(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+            let current_time = ctx.input(|i| i.time);
+            
+            ui.heading("🚨 DDoS Stress Test Simulator");
+            ui.separator();
+            
+            ui.horizontal(|ui| {
+                ui.label("Attack Pattern:");
+                egui::ComboBox::from_id_salt("attack_pattern")
+                    .selected_text(self.attack_pattern.name())
+                    .show_ui(ui, |ui| {
+                        for pattern in AttackPattern::all() {
+                            ui.selectable_value(&mut self.attack_pattern, pattern, pattern.name());
+                        }
+                    });
+            });
+            
+            ui.label(format!("Description: {}", self.attack_pattern.description()));
+            ui.separator();
+            
+            ui.horizontal(|ui| {
+                ui.label("Intensity:");
+                ui.add(egui::Slider::new(&mut self.attack_intensity, 1.0..=100.0).suffix("%"));
+                ui.add(egui::DragValue::new(&mut self.attack_intensity).range(1.0..=100.0).suffix("%"));
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Max Requests/sec:");
+                ui.add(egui::Slider::new(&mut self.max_requests_per_sec, 100..=10000).suffix(" req/s"));
+                ui.add(egui::DragValue::new(&mut self.max_requests_per_sec).range(100..=50000));
+            });
+            
+            ui.separator();
+            
+            ui.horizontal(|ui| {
+                if self.stress_active {
+                    if ui.button("⏸ Stop Attack").clicked() {
+                        self.stop_stress_test(current_time);
+                    }
+                } else {
+                    if ui.button("▶ Start Attack").clicked() {
+                        self.stress_active = true;
+                        self.stress_metrics.start_time = None; // Will be set on first update
+                        self.add_log(LogLevel::Info, format!("🎯 Preparing {} attack...", self.attack_pattern.name()), current_time);
+                    }
+                }
+                
+                if ui.button("🔄 Reset Metrics").clicked() {
+                    self.reset_stress_metrics(current_time);
+                }
+            });
+            
+            ui.separator();
+            ui.heading("📊 Real-Time Statistics");
+            ui.separator();
+            
+            egui::Grid::new("metrics_grid")
+                .num_columns(2)
+                .spacing([40.0, 8.0])
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("⏱️ Elapsed Time:");
+                    ui.label(format!("{:.1} seconds", self.stress_metrics.elapsed_time));
+                    ui.end_row();
+                    
+                    ui.label("📨 Total Requests:");
+                    ui.label(format!("{}", self.stress_metrics.total_requests));
+                    ui.end_row();
+                    
+                    ui.label("✅ Successful:");
+                    ui.colored_label(Color32::from_rgb(100, 255, 100), 
+                        format!("{} ({:.1}%)", 
+                            self.stress_metrics.successful_requests,
+                            if self.stress_metrics.total_requests > 0 {
+                                (self.stress_metrics.successful_requests as f64 / self.stress_metrics.total_requests as f64) * 100.0
+                            } else { 0.0 }
+                        )
+                    );
+                    ui.end_row();
+                    
+                    ui.label("❌ Failed:");
+                    ui.colored_label(Color32::from_rgb(255, 100, 100), 
+                        format!("{} ({:.1}%)", 
+                            self.stress_metrics.failed_requests,
+                            if self.stress_metrics.total_requests > 0 {
+                                (self.stress_metrics.failed_requests as f64 / self.stress_metrics.total_requests as f64) * 100.0
+                            } else { 0.0 }
+                        )
+                    );
+                    ui.end_row();
+                    
+                    ui.label("📖 Read Operations:");
+                    ui.label(format!("{}", self.stress_metrics.read_operations));
+                    ui.end_row();
+                    
+                    ui.label("✏️ Write Operations:");
+                    ui.label(format!("{}", self.stress_metrics.write_operations));
+                    ui.end_row();
+                    
+                    ui.label("📤 Bytes Sent:");
+                    ui.label(format!("{:.2} MB", self.stress_metrics.bytes_sent as f64 / (1024.0 * 1024.0)));
+                    ui.end_row();
+                    
+                    ui.label("📥 Bytes Received:");
+                    ui.label(format!("{:.2} MB", self.stress_metrics.bytes_received as f64 / (1024.0 * 1024.0)));
+                    ui.end_row();
+                    
+                    ui.label("📊 Current Throughput:");
+                    ui.colored_label(
+                        if self.stress_metrics.current_throughput > 100.0 { Color32::from_rgb(255, 100, 100) }
+                        else if self.stress_metrics.current_throughput > 50.0 { Color32::from_rgb(255, 200, 100) }
+                        else { Color32::from_rgb(100, 255, 100) },
+                        format!("{:.2} MB/s", self.stress_metrics.current_throughput)
+                    );
+                    ui.end_row();
+                    
+                    ui.label("🔥 Peak Throughput:");
+                    ui.label(format!("{:.2} MB/s", self.stress_metrics.peak_throughput));
+                    ui.end_row();
+                    
+                    ui.label("⏰ Avg Response Time:");
+                    ui.label(format!("{:.1} ms", self.stress_metrics.avg_response_time));
+                    ui.end_row();
+                });
+            
+            ui.separator();
+            ui.heading("📈 Throughput Graph");
+            ui.separator();
+            
+            self.draw_throughput_graph(ui);
+        }
+
+        fn draw_throughput_graph(&self, ui: &mut egui::Ui) {
+            let desired_size = Vec2::new(ui.available_width(), 200.0);
+            let (response, painter) = ui.allocate_painter(desired_size, egui::Sense::hover());
+            
+            let rect = response.rect;
+            
+            // Draw background
+            painter.rect_filled(rect, 0.0, Color32::from_rgb(20, 20, 25));
+            
+            // Draw border
+            painter.rect_stroke(rect, 0.0, Stroke::new(1.0, Color32::from_rgb(60, 60, 70)), egui::StrokeKind::Outside);
+            
+            if self.throughput_history.len() < 2 {
+                painter.text(
+                    rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    "Waiting for data...",
+                    FontId::proportional(14.0),
+                    Color32::from_rgb(150, 150, 150),
+                );
+                return;
+            }
+            
+            // Find min/max for scaling
+            let max_throughput = self.throughput_history
+                .iter()
+                .map(|p| p.value)
+                .fold(0.0f64, |a, b| a.max(b))
+                .max(1.0);
+            
+            let max_time = self.throughput_history
+                .back()
+                .map(|p| p.time)
+                .unwrap_or(1.0);
+            
+            // Draw grid lines
+            for i in 0..5 {
+                let y = rect.min.y + (rect.height() * i as f32 / 4.0);
+                painter.line_segment(
+                    [Pos2::new(rect.min.x, y), Pos2::new(rect.max.x, y)],
+                    Stroke::new(0.5, Color32::from_rgb(40, 40, 50)),
+                );
+                
+                let value = max_throughput * (4.0 - i as f64) / 4.0;
+                painter.text(
+                    Pos2::new(rect.min.x + 5.0, y),
+                    egui::Align2::LEFT_CENTER,
+                    format!("{:.1}", value),
+                    FontId::proportional(10.0),
+                    Color32::from_rgb(150, 150, 150),
+                );
+            }
+            
+            // Draw line graph
+            let points: Vec<Pos2> = self.throughput_history
+                .iter()
+                .map(|p| {
+                    let x = rect.min.x + (p.time / max_time) as f32 * rect.width();
+                    let y = rect.max.y - (p.value / max_throughput) as f32 * rect.height();
+                    Pos2::new(x, y)
+                })
+                .collect();
+            
+            // Draw filled area under the line
+            if points.len() >= 2 {
+                let mut fill_points = points.clone();
+                fill_points.push(Pos2::new(points.last().unwrap().x, rect.max.y));
+                fill_points.push(Pos2::new(points[0].x, rect.max.y));
+                
+                painter.add(Shape::convex_polygon(
+                    fill_points,
+                    Color32::from_rgba_unmultiplied(100, 200, 255, 30),
+                    Stroke::NONE,
+                ));
+            }
+            
+            // Draw the line
+            for i in 0..points.len().saturating_sub(1) {
+                painter.line_segment(
+                    [points[i], points[i + 1]],
+                    Stroke::new(2.0, Color32::from_rgb(100, 200, 255)),
+                );
+            }
+            
+            // Draw labels
+            painter.text(
+                Pos2::new(rect.center().x, rect.max.y + 10.0),
+                egui::Align2::CENTER_TOP,
+                format!("Time (seconds) - Max: {:.1} MB/s", max_throughput),
+                FontId::proportional(12.0),
+                Color32::from_rgb(200, 200, 200),
+            );
+        }
+
+        fn draw_logs_tab(&self, ui: &mut egui::Ui) {
+            ui.heading("📋 System Logs");
+            ui.separator();
+            
+            ui.label(format!("Total entries: {} (max: {})", self.logs.len(), self.max_log_entries));
+            ui.separator();
+            
+            egui::ScrollArea::vertical()
+                .max_height(ui.available_height())
+                .show(ui, |ui| {
+                    for entry in &self.logs {
+                        ui.horizontal(|ui| {
+                            ui.colored_label(entry.level.color(), entry.level.prefix());
+                            ui.label(format!("[{:.2}s]", entry.timestamp));
+                            ui.label(&entry.message);
+                        });
+                    }
+                });
+        }
     }
 
     impl App for CodeAnalyzerApp {
@@ -1036,20 +1809,22 @@ mod code_analyzer {
                     ui.separator();
                     
                     ui.menu_button("📁 File", |ui| {
+                        if ui.button("📂 Import Graph (JSON)").clicked() {
+                            self.trigger_file_upload();
+                            ui.close();
+                        }
+                        if ui.button("💾 Export Graph").clicked() {
+                            self.show_export_dialog = true;
+                            ui.close();
+                        }
+                        ui.separator();
                         if ui.button("💾 Save Configuration").clicked() {
                             self.save_config(ctx);
                             ui.close();
                         }
-                        if ui.button("📂 Open File...").clicked() {
-                            // Placeholder for future file opening functionality
-                            ui.close();
-                        }
-                        if ui.button("📁 Open Folder...").clicked() {
-                            // Placeholder for future folder opening functionality
-                            ui.close();
-                        }
                         ui.separator();
-                        if ui.button("❌ Close").clicked() {
+                        if ui.button("🔄 Load Example Graph").clicked() {
+                            self.regenerate_graph(6, 8);
                             ui.close();
                         }
                     });
@@ -1179,6 +1954,87 @@ mod code_analyzer {
                 
                 self.config = config;
                 self.show_color_picker = show_picker;
+            }
+
+            // File upload dialog
+            if self.show_file_dialog {
+                let mut show_dialog = self.show_file_dialog;
+                egui::Window::new("📂 Import Graph")
+                    .open(&mut show_dialog)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        ui.label(&self.file_dialog_message);
+                        ui.separator();
+                        
+                        ui.label("Expected JSON format:");
+                        ui.code(r#"{
+  "nodes": [
+    {
+      "name": "ClassName",
+      "methods": ["method1()", "method2()"],
+      "fields": ["field1: type", "field2: type"]
+    }
+  ],
+  "edges": [
+    {
+      "from": 0,
+      "to": 1,
+      "relationship": "1:N"
+    }
+  ]
+}"#);
+                        
+                        ui.separator();
+                        
+                        if ui.button("📄 Paste JSON").clicked() {
+                            // Request clipboard access
+                            ctx.output_mut(|o| o.copied_text = String::new());
+                        }
+                        
+                        ui.horizontal(|ui| {
+                            if ui.button("❌ Cancel").clicked() {
+                                self.show_file_dialog = false;
+                            }
+                        });
+                    });
+                self.show_file_dialog = show_dialog;
+            }
+
+            // Export dialog
+            if self.show_export_dialog {
+                let mut show_dialog = self.show_export_dialog;
+                egui::Window::new("💾 Export Graph")
+                    .open(&mut show_dialog)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        ui.label("Select export format:");
+                        ui.separator();
+                        
+                        ui.radio_value(&mut self.export_format, ExportFormat::Json, "📄 JSON - JavaScript Object Notation");
+                        ui.radio_value(&mut self.export_format, ExportFormat::Csv, "📊 CSV - Comma Separated Values");
+                        ui.radio_value(&mut self.export_format, ExportFormat::Graphviz, "🔷 Graphviz DOT - Graph Description Language");
+                        
+                        ui.separator();
+                        
+                        ui.horizontal(|ui| {
+                            if ui.button("💾 Export").clicked() {
+                                let content = match self.export_format {
+                                    ExportFormat::Json => self.export_graph_json(),
+                                    ExportFormat::Csv => self.export_graph_csv(),
+                                    ExportFormat::Graphviz => self.export_graph_graphviz(),
+                                };
+                                
+                                let filename = format!("graph_export.{}", self.export_format.extension());
+                                self.download_file(&filename, &content);
+                                self.show_export_dialog = false;
+                            }
+                            
+                            if ui.button("❌ Cancel").clicked() {
+                                self.show_export_dialog = false;
+                            }
+                        });
+                    });
+                self.show_export_dialog = show_dialog;
             }
 
             // 3D Controls panel (only show in 3D mode)
@@ -1396,29 +2252,57 @@ mod code_analyzer {
                     });
             }
 
-            // Side panel
+            // Side panel with tabs
             if self.config.show_side_panel {
-                egui::SidePanel::right("side_panel").show(ctx, |ui| {
-                    ui.heading("📊 Classes");
+                egui::SidePanel::right("side_panel").min_width(250.0).show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.current_tab, AppTab::Graph, "📊 Graph");
+                        ui.selectable_value(&mut self.current_tab, AppTab::StressTest, "🚨 Stress Test");
+                        ui.selectable_value(&mut self.current_tab, AppTab::Logs, "📋 Logs");
+                    });
                     ui.separator();
 
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        for (idx, info) in &self.class_details {
-                            if ui.button(&info.name).clicked() {
-                                if let Some(node) = self.graph.node_mut(*idx) {
-                                    node.set_selected(true);
+                    match self.current_tab {
+                        AppTab::Graph => {
+                            ui.heading("📊 Classes");
+                            ui.separator();
+
+                            egui::ScrollArea::vertical().show(ui, |ui| {
+                                for (idx, info) in &self.class_details {
+                                    if ui.button(&info.name).clicked() {
+                                        if let Some(node) = self.graph.node_mut(*idx) {
+                                            node.set_selected(true);
+                                        }
+                                    }
                                 }
-                            }
-                        }
-                    });
+                            });
+                        },
+                        AppTab::StressTest => {
+                            egui::ScrollArea::vertical().show(ui, |ui| {
+                                self.draw_stress_test_tab(ctx, ui);
+                            });
+                        },
+                        AppTab::Logs => {
+                            self.draw_logs_tab(ui);
+                        },
+                    }
                     
                     ui.separator();
                     ui.add_space(10.0);
+                    
+                    if ui.button("🎯 Center Graph").clicked() {
+                        self.config.fit_to_screen_enabled = true;
+                    }
                     
                     if ui.button("⚙️ Settings").clicked() {
                         self.show_config_window = true;
                     }
                 });
+            }
+
+            // Run stress test simulation
+            if self.stress_active {
+                self.simulate_stress_test(ctx);
             }
 
             // Auto-rotation in 3D mode (only when explicitly enabled)
