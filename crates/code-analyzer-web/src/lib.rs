@@ -37,7 +37,7 @@ mod code_analyzer {
     use egui_graphs::{
         DisplayEdge, DisplayNode, DrawContext, EdgeProps, Graph, GraphView, Node, NodeProps,
         SettingsInteraction, SettingsNavigation, SettingsStyle, FruchtermanReingoldState,
-        get_layout_state, set_layout_state,
+        MetadataFrame, get_layout_state, set_layout_state,
     };
     use petgraph::{stable_graph::{NodeIndex, StableGraph}, Directed, visit::EdgeRef};
     use std::collections::{HashMap, VecDeque};
@@ -642,12 +642,9 @@ mod code_analyzer {
                     screen_pos.y - galley.size().y / 2.0,
                 );
                 
-                shapes.push(egui::epaint::Shape::text(
-                    ctx.ctx,
+                shapes.push(egui::epaint::Shape::galley(
                     text_pos,
-                    egui::Align2::LEFT_TOP,
-                    activation_text,
-                    FontId::new(10.0, FontFamily::Monospace),
+                    galley,
                     Color32::WHITE,
                 ));
             }
@@ -964,6 +961,9 @@ mod code_analyzer {
             }
         }
     }
+
+    const GRAPH_VIEW_ID: &str = "code_analyzer_graph";
+    const NEURAL_VIEW_ID: &str = "code_analyzer_neural";
 
     impl CodeAnalyzerApp {
         pub fn new(cc: &eframe::CreationContext) -> Self {
@@ -1680,161 +1680,114 @@ mod code_analyzer {
             }
         }
 
-        fn draw_grid_and_axes(&self, ui: &mut egui::Ui) {
+        fn draw_grid_and_axes(&self, ui: &mut egui::Ui, view_id: Option<&'static str>) {
             if !self.config.show_grid && !self.config.show_axes {
                 return;
             }
 
-            let painter = ui.painter();
+            let Some(view_id) = view_id else {
+                return;
+            };
+
             let rect = ui.max_rect();
-            let center = rect.center();
-            
-            // Grid settings
-            let spacing = self.config.grid_spacing;
-            let grid_color = Color32::from_rgba_unmultiplied(100, 100, 100, 150);
-            let axis_color_x = Color32::from_rgb(255, 100, 100); // Red for X
-            let axis_color_y = Color32::from_rgb(100, 255, 100); // Green for Y
-            let axis_color_z = Color32::from_rgb(100, 100, 255); // Blue for Z
-            let origin_color = Color32::from_rgb(255, 255, 0); // Yellow for origin
-            
-            // Draw grid lines
+            if rect.width() <= 0.0 || rect.height() <= 0.0 {
+                return;
+            }
+
+            let painter = ui.painter();
+            let meta = MetadataFrame::new(Some(view_id.to_string())).load(ui);
+
+            let spacing = self.config.grid_spacing.max(1.0);
+            let grid_color = Color32::from_rgba_unmultiplied(100, 100, 100, 140);
+            let axis_color_x = Color32::from_rgb(255, 100, 100);
+            let axis_color_y = Color32::from_rgb(100, 255, 100);
+            let axis_color_z = Color32::from_rgb(100, 100, 255);
+            let origin_color = Color32::from_rgb(255, 255, 0);
+
+            let zoom = meta.zoom.max(0.001);
+            let pan = meta.pan + rect.left_top().to_vec2();
+
+            let screen_to_canvas = |pos: Pos2| -> Pos2 { ((pos.to_vec2() - pan) / zoom).to_pos2() };
+            let canvas_min = screen_to_canvas(rect.min);
+            let canvas_max = screen_to_canvas(rect.max);
+
             if self.config.show_grid {
-                // Vertical grid lines (parallel to Y axis)
-                let start_x = (rect.min.x / spacing).floor() * spacing;
-                let mut x = start_x;
-                while x <= rect.max.x {
+                let mut x = (canvas_min.x / spacing).floor() * spacing;
+                let max_x = (canvas_max.x / spacing).ceil() * spacing;
+                let mut guard = 0;
+                while x <= max_x && guard < 1024 {
+                    let x_screen = x * zoom + pan.x;
                     painter.line_segment(
-                        [Pos2::new(x, rect.min.y), Pos2::new(x, rect.max.y)],
+                        [Pos2::new(x_screen, rect.min.y), Pos2::new(x_screen, rect.max.y)],
                         egui::Stroke::new(1.0, grid_color),
                     );
                     x += spacing;
+                    guard += 1;
                 }
-                
-                // Horizontal grid lines (parallel to X axis)
-                let start_y = (rect.min.y / spacing).floor() * spacing;
-                let mut y = start_y;
-                while y <= rect.max.y {
+
+                let mut y = (canvas_min.y / spacing).floor() * spacing;
+                let max_y = (canvas_max.y / spacing).ceil() * spacing;
+                guard = 0;
+                while y <= max_y && guard < 1024 {
+                    let y_screen = y * zoom + pan.y;
                     painter.line_segment(
-                        [Pos2::new(rect.min.x, y), Pos2::new(rect.max.x, y)],
+                        [Pos2::new(rect.min.x, y_screen), Pos2::new(rect.max.x, y_screen)],
                         egui::Stroke::new(1.0, grid_color),
                     );
                     y += spacing;
+                    guard += 1;
                 }
             }
-            
-            // Draw axes at fixed position in bottom-left corner
+
             if self.config.show_axes {
-                let axis_length = 60.0;
-                let arrow_size = 8.0;
-                let origin_pos = Pos2::new(rect.min.x + 80.0, rect.max.y - 80.0);
-                
-                if self.config.visualization_mode == VisualizationMode::TwoD {
-                    // 2D mode: X and Y axes
-                    
-                    // X axis (horizontal, red)
-                    let x_end = Pos2::new(origin_pos.x + axis_length, origin_pos.y);
+                let origin_screen = Pos2::new(pan.x, pan.y);
+
+                if origin_screen.y >= rect.min.y && origin_screen.y <= rect.max.y {
                     painter.line_segment(
-                        [origin_pos, x_end],
-                        egui::Stroke::new(3.0, axis_color_x),
+                        [Pos2::new(rect.min.x, origin_screen.y), Pos2::new(rect.max.x, origin_screen.y)],
+                        egui::Stroke::new(2.0, axis_color_x),
                     );
-                    // X arrow
+                }
+
+                if origin_screen.x >= rect.min.x && origin_screen.x <= rect.max.x {
                     painter.line_segment(
-                        [x_end, Pos2::new(x_end.x - arrow_size, x_end.y - arrow_size / 2.0)],
-                        egui::Stroke::new(3.0, axis_color_x),
+                        [Pos2::new(origin_screen.x, rect.min.y), Pos2::new(origin_screen.x, rect.max.y)],
+                        egui::Stroke::new(2.0, axis_color_y),
                     );
-                    painter.line_segment(
-                        [x_end, Pos2::new(x_end.x - arrow_size, x_end.y + arrow_size / 2.0)],
-                        egui::Stroke::new(3.0, axis_color_x),
-                    );
-                    // X label
+                }
+
+                if rect.contains(origin_screen) {
+                    painter.circle_filled(origin_screen, 4.0, origin_color);
                     painter.text(
-                        Pos2::new(x_end.x + 10.0, x_end.y),
-                        egui::Align2::LEFT_CENTER,
+                        origin_screen + egui::vec2(8.0, -8.0),
+                        egui::Align2::LEFT_BOTTOM,
                         "X",
-                        egui::FontId::proportional(16.0),
+                        egui::FontId::proportional(14.0),
                         axis_color_x,
                     );
-                    
-                    // Y axis (vertical, green)
-                    let y_end = Pos2::new(origin_pos.x, origin_pos.y - axis_length);
-                    painter.line_segment(
-                        [origin_pos, y_end],
-                        egui::Stroke::new(3.0, axis_color_y),
-                    );
-                    // Y arrow
-                    painter.line_segment(
-                        [y_end, Pos2::new(y_end.x - arrow_size / 2.0, y_end.y + arrow_size)],
-                        egui::Stroke::new(3.0, axis_color_y),
-                    );
-                    painter.line_segment(
-                        [y_end, Pos2::new(y_end.x + arrow_size / 2.0, y_end.y + arrow_size)],
-                        egui::Stroke::new(3.0, axis_color_y),
-                    );
-                    // Y label
                     painter.text(
-                        Pos2::new(y_end.x, y_end.y - 10.0),
-                        egui::Align2::CENTER_BOTTOM,
+                        origin_screen + egui::vec2(-8.0, -12.0),
+                        egui::Align2::RIGHT_BOTTOM,
                         "Y",
-                        egui::FontId::proportional(16.0),
+                        egui::FontId::proportional(14.0),
                         axis_color_y,
                     );
-                } else {
-                    // 3D mode: X, Y, and Z axes with perspective
-                    let angle = self.config.rotation_y.to_radians();
-                    
-                    // X axis (red)
-                    let x_end = Pos2::new(origin_pos.x + axis_length * angle.cos(), origin_pos.y);
+                }
+
+                if self.config.visualization_mode == VisualizationMode::ThreeD {
+                    let z_dir = egui::Vec2::new(40.0, -40.0);
                     painter.line_segment(
-                        [origin_pos, x_end],
-                        egui::Stroke::new(3.0, axis_color_x),
+                        [origin_screen, origin_screen + z_dir],
+                        egui::Stroke::new(2.0, axis_color_z),
                     );
                     painter.text(
-                        Pos2::new(x_end.x + 10.0, x_end.y),
-                        egui::Align2::LEFT_CENTER,
-                        "X",
-                        egui::FontId::proportional(16.0),
-                        axis_color_x,
-                    );
-                    
-                    // Y axis (green)
-                    let y_end = Pos2::new(origin_pos.x, origin_pos.y - axis_length);
-                    painter.line_segment(
-                        [origin_pos, y_end],
-                        egui::Stroke::new(3.0, axis_color_y),
-                    );
-                    painter.text(
-                        Pos2::new(y_end.x, y_end.y - 10.0),
-                        egui::Align2::CENTER_BOTTOM,
-                        "Y",
-                        egui::FontId::proportional(16.0),
-                        axis_color_y,
-                    );
-                    
-                    // Z axis (blue, angled based on rotation)
-                    let z_end = Pos2::new(origin_pos.x - axis_length * angle.sin(), origin_pos.y + axis_length * 0.3);
-                    painter.line_segment(
-                        [origin_pos, z_end],
-                        egui::Stroke::new(3.0, axis_color_z),
-                    );
-                    painter.text(
-                        Pos2::new(z_end.x - 10.0, z_end.y + 10.0),
-                        egui::Align2::RIGHT_CENTER,
+                        origin_screen + z_dir + egui::vec2(4.0, -4.0),
+                        egui::Align2::LEFT_BOTTOM,
                         "Z",
-                        egui::FontId::proportional(16.0),
+                        egui::FontId::proportional(14.0),
                         axis_color_z,
                     );
                 }
-                
-                // Draw origin point and label
-                painter.circle_filled(origin_pos, 5.0, origin_color);
-                painter.circle_stroke(origin_pos, 5.0, egui::Stroke::new(2.0, origin_color));
-                painter.text(
-                    Pos2::new(origin_pos.x - 15.0, origin_pos.y + 15.0),
-                    egui::Align2::RIGHT_TOP,
-                    "Origin",
-                    egui::FontId::proportional(14.0),
-                    origin_color,
-                );
             }
         }
 
@@ -3219,6 +3172,7 @@ mod code_analyzer {
                         
                         ui.add(
                             &mut GraphView::<_, _, _, _, NeuronNode, SynapseEdge>::new(nn_graph)
+                                .with_id(Some(NEURAL_VIEW_ID.to_string()))
                                 .with_interactions(&settings_interaction)
                                 .with_navigations(&settings_navigation)
                                 .with_styles(&settings_style),
@@ -3265,6 +3219,7 @@ mod code_analyzer {
                     
                     ui.add(
                         &mut GraphView::<_, _, _,_, CodeNode, CodeEdge>::new(&mut self.graph)
+                            .with_id(Some(GRAPH_VIEW_ID.to_string()))
                             .with_interactions(&settings_interaction)
                             .with_navigations(&settings_navigation)
                             .with_styles(&settings_style),
@@ -3281,7 +3236,12 @@ mod code_analyzer {
                 }
                 
                 // Draw grid and axes as overlay on top of graph
-                self.draw_grid_and_axes(ui);
+                let overlay_view_id = match self.current_tab {
+                    AppTab::Graph => Some(GRAPH_VIEW_ID),
+                    AppTab::NeuralNetwork if self.neural_network.is_some() => Some(NEURAL_VIEW_ID),
+                    _ => None,
+                };
+                self.draw_grid_and_axes(ui, overlay_view_id);
                 
                 // Draw info overlay
                 let painter = ui.painter();
