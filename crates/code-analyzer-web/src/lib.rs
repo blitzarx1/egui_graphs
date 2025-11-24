@@ -34,13 +34,16 @@ pub fn start() -> Result<(), JsValue> {
 mod code_analyzer {
     use eframe::App;
     use egui::{Color32, FontFamily, FontId, Pos2, Rect, Shape, Stroke, Vec2};
-    use egui_graphs::{
+    use egui_graphs{
         DisplayEdge, DisplayNode, DrawContext, EdgeProps, Graph, GraphView, Node, NodeProps,
         SettingsInteraction, SettingsNavigation, SettingsStyle, FruchtermanReingoldState,
         MetadataFrame, get_layout_state, set_layout_state,
     };
     use petgraph::{stable_graph::{NodeIndex, StableGraph}, Directed, visit::EdgeRef};
-    use std::collections::{HashMap, VecDeque};
+    use std::{
+        cmp::Ordering,
+        collections::{HashMap, VecDeque},
+    };
 
     #[derive(Clone, Debug)]
     pub struct ClassInfo {
@@ -1742,51 +1745,116 @@ mod code_analyzer {
             if self.config.show_axes {
                 let origin_screen = Pos2::new(pan.x, pan.y);
 
-                if origin_screen.y >= rect.min.y && origin_screen.y <= rect.max.y {
-                    painter.line_segment(
-                        [Pos2::new(rect.min.x, origin_screen.y), Pos2::new(rect.max.x, origin_screen.y)],
-                        egui::Stroke::new(2.0, axis_color_x),
-                    );
-                }
+                if self.config.visualization_mode == VisualizationMode::ThreeD {
+                    let axis_eps = 1e-4;
+                    let axes = [
+                        ("X", axis_color_x, Pos2::new(1.0, 0.0), 0.0),
+                        ("Y", axis_color_y, Pos2::new(0.0, 1.0), 0.0),
+                        ("Z", axis_color_z, Pos2::new(0.0, 0.0), 1.0),
+                    ];
 
-                if origin_screen.x >= rect.min.x && origin_screen.x <= rect.max.x {
-                    painter.line_segment(
-                        [Pos2::new(origin_screen.x, rect.min.y), Pos2::new(origin_screen.x, rect.max.y)],
-                        egui::Stroke::new(2.0, axis_color_y),
-                    );
+                    for (label, color, axis_pos, axis_z) in axes {
+                        let projected = project_3d_to_2d(axis_pos, axis_z, self.config.rotation_x, self.config.rotation_y);
+                        let dir_canvas = projected.to_vec2();
+                        let dir_screen = dir_canvas * zoom;
+
+                        if dir_screen.length_sq() <= axis_eps {
+                            continue;
+                        }
+
+                        let mut intersections: Vec<(f32, Pos2)> = Vec::new();
+
+                        if dir_screen.x.abs() > axis_eps {
+                            let t_min = (rect.min.x - origin_screen.x) / dir_screen.x;
+                            let y_at_min = origin_screen.y + dir_screen.y * t_min;
+                            if y_at_min >= rect.min.y - 1.0 && y_at_min <= rect.max.y + 1.0 {
+                                intersections.push((t_min, Pos2::new(rect.min.x, y_at_min)));
+                            }
+
+                            let t_max = (rect.max.x - origin_screen.x) / dir_screen.x;
+                            let y_at_max = origin_screen.y + dir_screen.y * t_max;
+                            if y_at_max >= rect.min.y - 1.0 && y_at_max <= rect.max.y + 1.0 {
+                                intersections.push((t_max, Pos2::new(rect.max.x, y_at_max)));
+                            }
+                        }
+
+                        if dir_screen.y.abs() > axis_eps {
+                            let t_min = (rect.min.y - origin_screen.y) / dir_screen.y;
+                            let x_at_min = origin_screen.x + dir_screen.x * t_min;
+                            if x_at_min >= rect.min.x - 1.0 && x_at_min <= rect.max.x + 1.0 {
+                                intersections.push((t_min, Pos2::new(x_at_min, rect.min.y)));
+                            }
+
+                            let t_max = (rect.max.y - origin_screen.y) / dir_screen.y;
+                            let x_at_max = origin_screen.x + dir_screen.x * t_max;
+                            if x_at_max >= rect.min.x - 1.0 && x_at_max <= rect.max.x + 1.0 {
+                                intersections.push((t_max, Pos2::new(x_at_max, rect.max.y)));
+                            }
+                        }
+
+                        if intersections.len() < 2 {
+                            continue;
+                        }
+
+                        intersections.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+                        intersections.dedup_by(|a, b| (a.1.distance_sq(b.1) < 0.25));
+
+                        if intersections.len() < 2 {
+                            continue;
+                        }
+
+                        let start = intersections.first().unwrap().1;
+                        let end = intersections.last().unwrap().1;
+                        painter.line_segment([start, end], egui::Stroke::new(2.0, color));
+
+                        let dir_length = dir_screen.length();
+                        if dir_length > axis_eps {
+                            let dir_norm = dir_screen / dir_length;
+                            let label_pos = origin_screen + dir_norm * 60.0;
+                            painter.text(
+                                label_pos,
+                                egui::Align2::CENTER_CENTER,
+                                label,
+                                egui::FontId::proportional(14.0),
+                                color,
+                            );
+                        }
+                    }
+                } else {
+                    if origin_screen.y >= rect.min.y && origin_screen.y <= rect.max.y {
+                        painter.line_segment(
+                            [Pos2::new(rect.min.x, origin_screen.y), Pos2::new(rect.max.x, origin_screen.y)],
+                            egui::Stroke::new(2.0, axis_color_x),
+                        );
+                    }
+
+                    if origin_screen.x >= rect.min.x && origin_screen.x <= rect.max.x {
+                        painter.line_segment(
+                            [Pos2::new(origin_screen.x, rect.min.y), Pos2::new(origin_screen.x, rect.max.y)],
+                            egui::Stroke::new(2.0, axis_color_y),
+                        );
+                    }
                 }
 
                 if rect.contains(origin_screen) {
                     painter.circle_filled(origin_screen, 4.0, origin_color);
-                    painter.text(
-                        origin_screen + egui::vec2(8.0, -8.0),
-                        egui::Align2::LEFT_BOTTOM,
-                        "X",
-                        egui::FontId::proportional(14.0),
-                        axis_color_x,
-                    );
-                    painter.text(
-                        origin_screen + egui::vec2(-8.0, -12.0),
-                        egui::Align2::RIGHT_BOTTOM,
-                        "Y",
-                        egui::FontId::proportional(14.0),
-                        axis_color_y,
-                    );
-                }
 
-                if self.config.visualization_mode == VisualizationMode::ThreeD {
-                    let z_dir = egui::Vec2::new(40.0, -40.0);
-                    painter.line_segment(
-                        [origin_screen, origin_screen + z_dir],
-                        egui::Stroke::new(2.0, axis_color_z),
-                    );
-                    painter.text(
-                        origin_screen + z_dir + egui::vec2(4.0, -4.0),
-                        egui::Align2::LEFT_BOTTOM,
-                        "Z",
-                        egui::FontId::proportional(14.0),
-                        axis_color_z,
-                    );
+                    if self.config.visualization_mode != VisualizationMode::ThreeD {
+                        painter.text(
+                            origin_screen + egui::vec2(8.0, -8.0),
+                            egui::Align2::LEFT_BOTTOM,
+                            "X",
+                            egui::FontId::proportional(14.0),
+                            axis_color_x,
+                        );
+                        painter.text(
+                            origin_screen + egui::vec2(-8.0, -12.0),
+                            egui::Align2::RIGHT_BOTTOM,
+                            "Y",
+                            egui::FontId::proportional(14.0),
+                            axis_color_y,
+                        );
+                    }
                 }
             }
         }
