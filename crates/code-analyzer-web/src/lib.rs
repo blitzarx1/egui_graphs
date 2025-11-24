@@ -40,10 +40,7 @@ mod code_analyzer {
         MetadataFrame, get_layout_state, set_layout_state,
     };
     use petgraph::{stable_graph::{NodeIndex, StableGraph}, Directed, visit::EdgeRef};
-    use std::{
-        cmp::Ordering,
-        collections::{HashMap, VecDeque},
-    };
+    use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
     #[derive(Clone, Debug)]
     pub struct ClassInfo {
@@ -763,6 +760,7 @@ mod code_analyzer {
     }
 
     #[derive(Clone, serde::Serialize, serde::Deserialize)]
+    #[serde(default)]
     struct AppConfig {
         // Visualization mode
         visualization_mode: VisualizationMode,
@@ -831,6 +829,8 @@ mod code_analyzer {
         show_grid: bool,
         show_axes: bool,
         grid_spacing: f32,
+        hierarchical_row_spacing: f32,
+        hierarchical_column_spacing: f32,
     }
 
     impl Default for AppConfig {
@@ -878,29 +878,47 @@ mod code_analyzer {
                 show_grid: true,
                 show_axes: true,
                 grid_spacing: 100.0,
+                hierarchical_row_spacing: 150.0,
+                hierarchical_column_spacing: 180.0,
             }
         }
     }
 
     // Helper function for 3D to 2D projection with all rotation axes
-    fn project_3d_to_2d(pos: Pos2, z: f32, rotation_x: f32, rotation_y: f32) -> Pos2 {
+    fn project_3d_to_2d(
+        pos: Pos2,
+        pivot: Pos2,
+        z: f32,
+        rotation_x: f32,
+        rotation_y: f32,
+        rotation_z: f32,
+        perspective_strength: f32,
+    ) -> Pos2 {
         let rx = rotation_x.to_radians();
         let ry = rotation_y.to_radians();
+        let rz = rotation_z.to_radians();
+
+        let mut x0 = pos.x - pivot.x;
+        let mut y0 = pos.y - pivot.y;
+        let mut z0 = z;
         
         // Apply rotation around X axis
-        let y1 = pos.y * rx.cos() - z * rx.sin();
-        let z1 = pos.y * rx.sin() + z * rx.cos();
+        let y1 = y0 * rx.cos() - z0 * rx.sin();
+        let z1 = y0 * rx.sin() + z0 * rx.cos();
         
         // Apply rotation around Y axis
-        let x2 = pos.x * ry.cos() + z1 * ry.sin();
-        let z2 = -pos.x * ry.sin() + z1 * ry.cos();
+        let x2 = x0 * ry.cos() + z1 * ry.sin();
+        let z2 = -x0 * ry.sin() + z1 * ry.cos();
         
-        // Note: Z-axis rotation would be applied to x2, y1 here if needed
-        // but it's less useful for graph visualization
+        // Apply rotation around Z axis
+        let x3 = x2 * rz.cos() - y1 * rz.sin();
+        let y2 = x2 * rz.sin() + y1 * rz.cos();
         
         // Perspective projection - depth affects scale
-        let scale = 1.0 / (1.0 + z2 * 0.001);
-        Pos2::new(x2 * scale, y1 * scale)
+        let denom = 1.0 + z2 * perspective_strength;
+        let scale = if denom.abs() < 0.000_1 { 1.0 } else { 1.0 / denom };
+        let projected_local = Pos2::new(x3 * scale, y2 * scale);
+        pivot + projected_local.to_vec2()
     }
 
     pub struct CodeAnalyzerApp {
@@ -924,6 +942,7 @@ mod code_analyzer {
         throughput_history: VecDeque<ThroughputDataPoint>,
         max_throughput_points: usize,
         last_update_time: Option<f64>,
+        graph_pivot: Pos2,
         // File operations
         show_file_dialog: bool,
         file_dialog_message: String,
@@ -1080,6 +1099,7 @@ mod code_analyzer {
                 throughput_history: VecDeque::new(),
                 max_throughput_points: 100,
                 last_update_time: None,
+                graph_pivot: Pos2::ZERO,
                 show_file_dialog: false,
                 file_dialog_message: String::new(),
                 loaded_file_name: None,
@@ -1683,7 +1703,12 @@ mod code_analyzer {
             }
         }
 
-        fn draw_grid_and_axes(&self, ui: &mut egui::Ui, view_id: Option<&'static str>) {
+        fn draw_grid_and_axes(
+            &self,
+            ui: &mut egui::Ui,
+            view_id: Option<&'static str>,
+            view_rect: Option<egui::Rect>,
+        ) {
             if !self.config.show_grid && !self.config.show_axes {
                 return;
             }
@@ -1692,151 +1717,159 @@ mod code_analyzer {
                 return;
             };
 
-            let rect = ui.max_rect();
-            if rect.width() <= 0.0 || rect.height() <= 0.0 {
+            let paint_rect = view_rect.unwrap_or_else(|| ui.max_rect());
+            if paint_rect.width() <= 0.0 || paint_rect.height() <= 0.0 {
                 return;
             }
 
-            let painter = ui.painter();
-            let meta = MetadataFrame::new(Some(view_id.to_string())).load(ui);
+            let painter = ui.painter_at(paint_rect);
+            let mut draw_meta = MetadataFrame::new(Some(view_id.to_string())).load(ui);
+            draw_meta.pan += paint_rect.left_top().to_vec2();
 
-            let spacing = self.config.grid_spacing.max(1.0);
-            let grid_color = Color32::from_rgba_unmultiplied(100, 100, 100, 140);
+            let zoom = draw_meta.zoom.max(0.001);
+            let pan = draw_meta.pan;
+
+            let base_spacing = self.config.grid_spacing.max(1.0);
+            let mut spacing = base_spacing;
+            let min_screen_spacing = 24.0;
+            let max_screen_spacing = 120.0;
+            while spacing * zoom < min_screen_spacing {
+                spacing *= 2.0;
+                if spacing > 1_000_000.0 {
+                    break;
+                }
+            }
+            while spacing * zoom > max_screen_spacing && spacing > base_spacing {
+                spacing *= 0.5;
+            }
+
+            let fine_spacing = (spacing * 0.25).max(base_spacing);
+            let fine_screen_spacing = fine_spacing * zoom;
+            let fine_stroke = egui::Stroke::new(1.0, Color32::from_rgba_unmultiplied(100, 100, 100, 70));
+            let coarse_stroke = egui::Stroke::new(1.0, Color32::from_rgba_unmultiplied(100, 100, 100, 140));
             let axis_color_x = Color32::from_rgb(255, 100, 100);
             let axis_color_y = Color32::from_rgb(100, 255, 100);
             let axis_color_z = Color32::from_rgb(100, 100, 255);
             let origin_color = Color32::from_rgb(255, 255, 0);
 
-            let zoom = meta.zoom.max(0.001);
-            let pan = meta.pan + rect.left_top().to_vec2();
-
-            let screen_to_canvas = |pos: Pos2| -> Pos2 { ((pos.to_vec2() - pan) / zoom).to_pos2() };
-            let canvas_min = screen_to_canvas(rect.min);
-            let canvas_max = screen_to_canvas(rect.max);
+            let canvas_min = draw_meta.screen_to_canvas_pos(paint_rect.min);
+            let canvas_max = draw_meta.screen_to_canvas_pos(paint_rect.max);
 
             if self.config.show_grid {
-                let mut x = (canvas_min.x / spacing).floor() * spacing;
-                let max_x = (canvas_max.x / spacing).ceil() * spacing;
-                let mut guard = 0;
-                while x <= max_x && guard < 1024 {
-                    let x_screen = x * zoom + pan.x;
-                    painter.line_segment(
-                        [Pos2::new(x_screen, rect.min.y), Pos2::new(x_screen, rect.max.y)],
-                        egui::Stroke::new(1.0, grid_color),
-                    );
-                    x += spacing;
-                    guard += 1;
-                }
+                let mut draw_grid = |grid_spacing: f32, stroke: egui::Stroke| {
+                    let mut x = (canvas_min.x / grid_spacing).floor() * grid_spacing;
+                    let max_x = (canvas_max.x / grid_spacing).ceil() * grid_spacing;
+                    let mut guard = 0;
+                    while x <= max_x && guard < 2048 {
+                        let x_screen = x * zoom + pan.x;
+                        painter.line_segment(
+                            [Pos2::new(x_screen, paint_rect.top()), Pos2::new(x_screen, paint_rect.bottom())],
+                            stroke,
+                        );
+                        x += grid_spacing;
+                        guard += 1;
+                    }
 
-                let mut y = (canvas_min.y / spacing).floor() * spacing;
-                let max_y = (canvas_max.y / spacing).ceil() * spacing;
-                guard = 0;
-                while y <= max_y && guard < 1024 {
-                    let y_screen = y * zoom + pan.y;
-                    painter.line_segment(
-                        [Pos2::new(rect.min.x, y_screen), Pos2::new(rect.max.x, y_screen)],
-                        egui::Stroke::new(1.0, grid_color),
-                    );
-                    y += spacing;
-                    guard += 1;
+                    let mut y = (canvas_min.y / grid_spacing).floor() * grid_spacing;
+                    let max_y = (canvas_max.y / grid_spacing).ceil() * grid_spacing;
+                    guard = 0;
+                    while y <= max_y && guard < 2048 {
+                        let y_screen = y * zoom + pan.y;
+                        painter.line_segment(
+                            [Pos2::new(paint_rect.left(), y_screen), Pos2::new(paint_rect.right(), y_screen)],
+                            stroke,
+                        );
+                        y += grid_spacing;
+                        guard += 1;
+                    }
+                };
+
+                if fine_screen_spacing >= 6.0 && fine_spacing < spacing {
+                    draw_grid(fine_spacing, fine_stroke);
                 }
+                draw_grid(spacing, coarse_stroke);
             }
 
             if self.config.show_axes {
-                let origin_screen = Pos2::new(pan.x, pan.y);
+                let pivot = if self.graph.g().node_count() == 0 {
+                    Pos2::ZERO
+                } else {
+                    self.graph_pivot
+                };
+
+                let projected_origin_canvas = if self.config.visualization_mode == VisualizationMode::ThreeD {
+                    project_3d_to_2d(
+                        pivot,
+                        pivot,
+                        0.0,
+                        self.config.rotation_x,
+                        self.config.rotation_y,
+                        self.config.rotation_z,
+                        self.config.perspective_strength,
+                    )
+                } else {
+                    Pos2::ZERO
+                };
+
+                let origin_screen = draw_meta.canvas_to_screen_pos(projected_origin_canvas);
 
                 if self.config.visualization_mode == VisualizationMode::ThreeD {
                     let axis_eps = 1e-4;
+                    let axis_length = (spacing * 0.75).clamp(40.0, 600.0);
                     let axes = [
-                        ("X", axis_color_x, Pos2::new(1.0, 0.0), 0.0),
-                        ("Y", axis_color_y, Pos2::new(0.0, 1.0), 0.0),
-                        ("Z", axis_color_z, Pos2::new(0.0, 0.0), 1.0),
+                        ("X", axis_color_x, Pos2::new(pivot.x + axis_length, pivot.y), 0.0),
+                        ("Y", axis_color_y, Pos2::new(pivot.x, pivot.y + axis_length), 0.0),
+                        ("Z", axis_color_z, pivot, axis_length),
                     ];
 
-                    for (label, color, axis_pos, axis_z) in axes {
-                        let projected = project_3d_to_2d(axis_pos, axis_z, self.config.rotation_x, self.config.rotation_y);
-                        let dir_canvas = projected.to_vec2();
-                        let dir_screen = dir_canvas * zoom;
+                    for (label, color, axis_point, axis_z) in axes {
+                        let projected = project_3d_to_2d(
+                            axis_point,
+                            pivot,
+                            axis_z,
+                            self.config.rotation_x,
+                            self.config.rotation_y,
+                            self.config.rotation_z,
+                            self.config.perspective_strength,
+                        );
+                        let axis_screen = draw_meta.canvas_to_screen_pos(projected);
 
-                        if dir_screen.length_sq() <= axis_eps {
+                        if (axis_screen - origin_screen).length_sq() <= axis_eps {
                             continue;
                         }
 
-                        let mut intersections: Vec<(f32, Pos2)> = Vec::new();
+                        painter.line_segment(
+                            [origin_screen, axis_screen],
+                            egui::Stroke::new(2.0, color),
+                        );
 
-                        if dir_screen.x.abs() > axis_eps {
-                            let t_min = (rect.min.x - origin_screen.x) / dir_screen.x;
-                            let y_at_min = origin_screen.y + dir_screen.y * t_min;
-                            if y_at_min >= rect.min.y - 1.0 && y_at_min <= rect.max.y + 1.0 {
-                                intersections.push((t_min, Pos2::new(rect.min.x, y_at_min)));
-                            }
-
-                            let t_max = (rect.max.x - origin_screen.x) / dir_screen.x;
-                            let y_at_max = origin_screen.y + dir_screen.y * t_max;
-                            if y_at_max >= rect.min.y - 1.0 && y_at_max <= rect.max.y + 1.0 {
-                                intersections.push((t_max, Pos2::new(rect.max.x, y_at_max)));
-                            }
-                        }
-
-                        if dir_screen.y.abs() > axis_eps {
-                            let t_min = (rect.min.y - origin_screen.y) / dir_screen.y;
-                            let x_at_min = origin_screen.x + dir_screen.x * t_min;
-                            if x_at_min >= rect.min.x - 1.0 && x_at_min <= rect.max.x + 1.0 {
-                                intersections.push((t_min, Pos2::new(x_at_min, rect.min.y)));
-                            }
-
-                            let t_max = (rect.max.y - origin_screen.y) / dir_screen.y;
-                            let x_at_max = origin_screen.x + dir_screen.x * t_max;
-                            if x_at_max >= rect.min.x - 1.0 && x_at_max <= rect.max.x + 1.0 {
-                                intersections.push((t_max, Pos2::new(x_at_max, rect.max.y)));
-                            }
-                        }
-
-                        if intersections.len() < 2 {
-                            continue;
-                        }
-
-                        intersections.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
-                        intersections.dedup_by(|a, b| (a.1.distance_sq(b.1) < 0.25));
-
-                        if intersections.len() < 2 {
-                            continue;
-                        }
-
-                        let start = intersections.first().unwrap().1;
-                        let end = intersections.last().unwrap().1;
-                        painter.line_segment([start, end], egui::Stroke::new(2.0, color));
-
-                        let dir_length = dir_screen.length();
-                        if dir_length > axis_eps {
-                            let dir_norm = dir_screen / dir_length;
-                            let label_pos = origin_screen + dir_norm * 60.0;
-                            painter.text(
-                                label_pos,
-                                egui::Align2::CENTER_CENTER,
-                                label,
-                                egui::FontId::proportional(14.0),
-                                color,
-                            );
-                        }
+                        let mut label_dir = axis_screen - origin_screen;
+                        label_dir = label_dir.normalized() * 16.0;
+                        painter.text(
+                            axis_screen + label_dir,
+                            egui::Align2::CENTER_CENTER,
+                            label,
+                            egui::FontId::proportional(14.0),
+                            color,
+                        );
                     }
                 } else {
-                    if origin_screen.y >= rect.min.y && origin_screen.y <= rect.max.y {
+                    if origin_screen.y >= paint_rect.top() && origin_screen.y <= paint_rect.bottom() {
                         painter.line_segment(
-                            [Pos2::new(rect.min.x, origin_screen.y), Pos2::new(rect.max.x, origin_screen.y)],
+                            [Pos2::new(paint_rect.left(), origin_screen.y), Pos2::new(paint_rect.right(), origin_screen.y)],
                             egui::Stroke::new(2.0, axis_color_x),
                         );
                     }
 
-                    if origin_screen.x >= rect.min.x && origin_screen.x <= rect.max.x {
+                    if origin_screen.x >= paint_rect.left() && origin_screen.x <= paint_rect.right() {
                         painter.line_segment(
-                            [Pos2::new(origin_screen.x, rect.min.y), Pos2::new(origin_screen.x, rect.max.y)],
+                            [Pos2::new(origin_screen.x, paint_rect.top()), Pos2::new(origin_screen.x, paint_rect.bottom())],
                             egui::Stroke::new(2.0, axis_color_y),
                         );
                     }
                 }
 
-                if rect.contains(origin_screen) {
+                if paint_rect.contains(origin_screen) {
                     painter.circle_filled(origin_screen, 4.0, origin_color);
 
                     if self.config.visualization_mode != VisualizationMode::ThreeD {
@@ -1854,6 +1887,85 @@ mod code_analyzer {
                             egui::FontId::proportional(14.0),
                             axis_color_y,
                         );
+                    }
+                }
+            }
+        }
+
+        fn apply_hierarchical_layout(&mut self) {
+            use petgraph::Direction::{Incoming, Outgoing};
+
+            let graph_ref = self.graph.g();
+            let node_indices: Vec<_> = graph_ref.node_indices().collect();
+            if node_indices.is_empty() {
+                return;
+            }
+
+            let mut indegree: HashMap<NodeIndex<u32>, usize> = HashMap::new();
+            for idx in &node_indices {
+                let count = graph_ref.neighbors_directed(*idx, Incoming).count();
+                indegree.insert(*idx, count);
+            }
+
+            let mut depth: HashMap<NodeIndex<u32>, usize> = HashMap::new();
+            let mut queue: VecDeque<_> = node_indices
+                .iter()
+                .copied()
+                .filter(|idx| indegree.get(idx).copied().unwrap_or(0) == 0)
+                .collect();
+            if queue.is_empty() {
+                queue = node_indices.iter().copied().collect();
+            }
+
+            let mut visited = HashSet::new();
+            while let Some(node_idx) = queue.pop_front() {
+                let current_layer = *depth.get(&node_idx).unwrap_or(&0);
+                visited.insert(node_idx);
+
+                for neighbor in graph_ref.neighbors_directed(node_idx, Outgoing) {
+                    let entry = indegree.entry(neighbor).or_insert(0);
+                    if *entry > 0 {
+                        *entry -= 1;
+                    }
+                    depth
+                        .entry(neighbor)
+                        .and_modify(|layer| *layer = (*layer).max(current_layer + 1))
+                        .or_insert(current_layer + 1);
+                    if *entry == 0 && !visited.contains(&neighbor) {
+                        queue.push_back(neighbor);
+                    }
+                }
+            }
+
+            let mut max_depth = depth.values().copied().max().unwrap_or(0);
+            for idx in &node_indices {
+                depth.entry(*idx).or_insert_with(|| {
+                    max_depth += 1;
+                    max_depth
+                });
+            }
+
+            let mut layers: BTreeMap<usize, Vec<NodeIndex<u32>>> = BTreeMap::new();
+            for idx in &node_indices {
+                let layer = depth.get(idx).copied().unwrap_or(0);
+                layers.entry(layer).or_default().push(*idx);
+            }
+
+            let row_spacing = self.config.hierarchical_row_spacing.max(10.0);
+            let col_spacing = self.config.hierarchical_column_spacing.max(40.0);
+
+            for (layer, mut nodes) in layers {
+                nodes.sort_unstable_by_key(|idx| idx.index());
+                let width = if nodes.len() > 1 {
+                    (nodes.len() - 1) as f32 * col_spacing
+                } else {
+                    0.0
+                };
+                let y = layer as f32 * row_spacing;
+                for (i, idx) in nodes.iter().enumerate() {
+                    if let Some(node) = self.graph.node_mut(*idx) {
+                        let x = -width / 2.0 + i as f32 * col_spacing;
+                        node.set_location(Pos2::new(x, y));
                     }
                 }
             }
@@ -3150,6 +3262,17 @@ mod code_analyzer {
                     ui.label("📐 View Options:");
                     ui.checkbox(&mut self.config.show_grid, "Show Grid");
                     ui.checkbox(&mut self.config.show_axes, "Show Axes & Origin");
+                    let hier_button = egui::Button::new("↳ Arrange Hierarchically")
+                        .on_disabled_hover_text("Available only in 2D view");
+                    if ui
+                        .add_enabled(self.config.visualization_mode == VisualizationMode::TwoD, hier_button)
+                        .clicked()
+                    {
+                        self.apply_hierarchical_layout();
+                        self.config.fit_to_screen_enabled = true;
+                        self.fit_to_screen_counter = 3;
+                        ctx.request_repaint();
+                    }
                     
                     ui.separator();
                     
@@ -3182,6 +3305,24 @@ mod code_analyzer {
 
             // Update node and edge colors from config, and apply 3D positioning
             let node_indices: Vec<_> = self.graph.g().node_indices().collect();
+            let pivot = if node_indices.is_empty() {
+                self.graph_pivot
+            } else {
+                let mut sum = egui::Vec2::ZERO;
+                let mut count = 0.0f32;
+                for idx in &node_indices {
+                    if let Some(node) = self.graph.node(*idx) {
+                        sum += node.location().to_vec2();
+                        count += 1.0;
+                    }
+                }
+                if count > 0.0 {
+                    (sum / count).to_pos2()
+                } else {
+                    self.graph_pivot
+                }
+            };
+            self.graph_pivot = pivot;
             for (layer_idx, idx) in node_indices.iter().enumerate() {
                 if let Some(node) = self.graph.node_mut(*idx) {
                     node.display_mut().node_color = self.config.node_color;
@@ -3196,7 +3337,15 @@ mod code_analyzer {
                         
                         // Apply 3D projection to node position
                         let original_pos = node.location();
-                        let projected = project_3d_to_2d(original_pos, z_offset, self.config.rotation_x, self.config.rotation_y);
+                        let projected = project_3d_to_2d(
+                            original_pos,
+                            pivot,
+                            z_offset,
+                            self.config.rotation_x,
+                            self.config.rotation_y,
+                            self.config.rotation_z,
+                            self.config.perspective_strength,
+                        );
                         node.set_location(projected);
                     } else {
                         node.display_mut().z_pos = 0.0;
@@ -3213,6 +3362,7 @@ mod code_analyzer {
             }
 
             egui::CentralPanel::default().show(ctx, |ui| {
+                let mut active_view_rect: Option<egui::Rect> = None;
                 if self.current_tab == AppTab::NeuralNetwork {
                     // Render neural network
                     if let Some(ref mut nn_graph) = self.neural_network {
@@ -3238,13 +3388,14 @@ mod code_analyzer {
                         let settings_style = SettingsStyle::new()
                             .with_labels_always(false);
                         
-                        ui.add(
+                        let response = ui.add(
                             &mut GraphView::<_, _, _, _, NeuronNode, SynapseEdge>::new(nn_graph)
                                 .with_id(Some(NEURAL_VIEW_ID.to_string()))
                                 .with_interactions(&settings_interaction)
                                 .with_navigations(&settings_navigation)
                                 .with_styles(&settings_style),
                         );
+                        active_view_rect = Some(response.rect);
                         
                         // Reset fit_to_screen after counter expires
                         if self.config.fit_to_screen_enabled && self.fit_to_screen_counter > 0 {
@@ -3285,13 +3436,14 @@ mod code_analyzer {
                     let settings_style = SettingsStyle::new()
                         .with_labels_always(self.config.labels_always);
                     
-                    ui.add(
+                    let response = ui.add(
                         &mut GraphView::<_, _, _,_, CodeNode, CodeEdge>::new(&mut self.graph)
                             .with_id(Some(GRAPH_VIEW_ID.to_string()))
                             .with_interactions(&settings_interaction)
                             .with_navigations(&settings_navigation)
                             .with_styles(&settings_style),
                     );
+                    active_view_rect = Some(response.rect);
                     
                     // Reset fit_to_screen after counter expires
                     if self.config.fit_to_screen_enabled && self.fit_to_screen_counter > 0 {
@@ -3309,7 +3461,12 @@ mod code_analyzer {
                     AppTab::NeuralNetwork if self.neural_network.is_some() => Some(NEURAL_VIEW_ID),
                     _ => None,
                 };
-                self.draw_grid_and_axes(ui, overlay_view_id);
+                let overlay_rect = if overlay_view_id.is_some() {
+                    active_view_rect
+                } else {
+                    None
+                };
+                self.draw_grid_and_axes(ui, overlay_view_id, overlay_rect);
                 
                 // Draw info overlay
                 let painter = ui.painter();
