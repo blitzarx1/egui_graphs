@@ -1172,7 +1172,7 @@ mod code_analyzer {
                 graph_metrics: GraphMetrics::default(),
                 show_metrics_overlay: false,
                 highlight_triangles: false,
-                highlight_communities: false,
+                highlight_communities: true, // Enable community coloring by default
                 community_colors: HashMap::new(),
             };
             
@@ -3983,7 +3983,20 @@ mod code_analyzer {
             self.graph_pivot = pivot;
             for (layer_idx, idx) in node_indices.iter().enumerate() {
                 if let Some(node) = self.graph.node_mut(*idx) {
-                    node.display_mut().node_color = self.config.node_color;
+                    // Apply community color if enabled, otherwise use config color
+                    if self.highlight_communities {
+                        if let Some(&community) = self.graph_metrics.communities.get(idx) {
+                            if let Some(&color) = self.community_colors.get(&community) {
+                                node.display_mut().node_color = color;
+                            } else {
+                                node.display_mut().node_color = self.config.node_color;
+                            }
+                        } else {
+                            node.display_mut().node_color = self.config.node_color;
+                        }
+                    } else {
+                        node.display_mut().node_color = self.config.node_color;
+                    }
                     node.display_mut().hover_color = self.config.node_hover_color;
                     node.display_mut().selected_color = self.config.node_selected_color;
                     node.display_mut().use_sphere_rendering = self.config.use_sphere_rendering;
@@ -4011,11 +4024,42 @@ mod code_analyzer {
                 }
             }
             
-            let edge_indices: Vec<_> = self.graph.g().edge_indices().collect();
-            for edge_idx in edge_indices {
-                if let Some(edge) = self.graph.edge_mut(edge_idx) {
-                    edge.display_mut().edge_color = self.config.edge_color;
-                    edge.display_mut().selected_color = self.config.edge_selected_color;
+            // Apply triangle highlighting to edges if enabled
+            if self.highlight_triangles {
+                // Build set of edges that are part of triangles
+                let mut triangle_edges: HashSet<(usize, usize)> = HashSet::new();
+                for (a, b, c) in &self.graph_metrics.triangles {
+                    let edges_in_tri = [
+                        (a.index().min(b.index()), a.index().max(b.index())),
+                        (b.index().min(c.index()), b.index().max(c.index())),
+                        (a.index().min(c.index()), a.index().max(c.index())),
+                    ];
+                    for edge in edges_in_tri {
+                        triangle_edges.insert(edge);
+                    }
+                }
+                
+                let edge_indices: Vec<_> = self.graph.g().edge_indices().collect();
+                for edge_idx in edge_indices {
+                    if let Some((source, target)) = self.graph.g().edge_endpoints(edge_idx) {
+                        let edge_key = (source.index().min(target.index()), source.index().max(target.index()));
+                        if let Some(edge) = self.graph.edge_mut(edge_idx) {
+                            if triangle_edges.contains(&edge_key) {
+                                edge.display_mut().edge_color = [255, 165, 0]; // Orange for triangle edges
+                            } else {
+                                edge.display_mut().edge_color = self.config.edge_color;
+                            }
+                            edge.display_mut().selected_color = self.config.edge_selected_color;
+                        }
+                    }
+                }
+            } else {
+                let edge_indices: Vec<_> = self.graph.g().edge_indices().collect();
+                for edge_idx in edge_indices {
+                    if let Some(edge) = self.graph.edge_mut(edge_idx) {
+                        edge.display_mut().edge_color = self.config.edge_color;
+                        edge.display_mut().selected_color = self.config.edge_selected_color;
+                    }
                 }
             }
 
