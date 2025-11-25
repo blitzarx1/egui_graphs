@@ -3537,28 +3537,32 @@ mod code_analyzer {
                             // Get metadata for coordinate transformation
                             let meta = MetadataFrame::new(Some(GRAPH_VIEW_ID.to_string())).load(ui);
                             let screen_pos = meta.canvas_to_screen_pos(node_pos);
+                            let node_radius = meta.canvas_to_screen_size(30.0);
                             
                             // Track whether to finish editing
                             let mut finish_editing = false;
                             let mut save_changes = false;
                             
-                            // Create inline text edit at node position
+                            // Calculate text width for centering
+                            let text_width = (self.edit_text.len() as f32 * 8.0).max(80.0).min(200.0);
+                            
+                            // Create inline text edit centered on the node
                             egui::Area::new(egui::Id::new("inline_node_edit"))
-                                .fixed_pos(Pos2::new(screen_pos.x - 60.0, screen_pos.y - 10.0))
+                                .fixed_pos(Pos2::new(screen_pos.x - text_width / 2.0 - 12.0, screen_pos.y - 12.0))
                                 .order(egui::Order::Foreground)
                                 .show(ctx, |ui| {
-                                    // Add a frame around the input for visibility
+                                    // Solid background frame that covers the node text
                                     egui::Frame::new()
-                                        .fill(Color32::from_rgba_unmultiplied(40, 40, 40, 220))
-                                        .stroke(Stroke::new(2.0, Color32::from_rgb(100, 150, 255)))
-                                        .corner_radius(4.0)
-                                        .inner_margin(egui::Margin::symmetric(8, 4))
+                                        .fill(Color32::from_rgb(50, 50, 60))
+                                        .stroke(Stroke::new(2.0, Color32::from_rgb(100, 180, 255)))
+                                        .corner_radius(6.0)
+                                        .inner_margin(egui::Margin::symmetric(10, 6))
                                         .show(ui, |ui| {
-                                            // Style the text input to look integrated
                                             let text_edit = egui::TextEdit::singleline(&mut self.edit_text)
-                                                .desired_width(120.0)
+                                                .desired_width(text_width)
                                                 .font(egui::FontId::proportional(14.0))
                                                 .text_color(Color32::WHITE)
+                                                .horizontal_align(egui::Align::Center)
                                                 .cursor_at_end(true);
                                             
                                             let response = ui.add(text_edit);
@@ -3569,7 +3573,7 @@ mod code_analyzer {
                                             }
                                             
                                             // Handle Enter to confirm
-                                            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                            if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                                                 save_changes = true;
                                                 finish_editing = true;
                                             }
@@ -3578,23 +3582,22 @@ mod code_analyzer {
                                             if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                                                 finish_editing = true;
                                             }
-                                            
-                                            // Also confirm if clicked outside (lost focus without escape)
-                                            if response.lost_focus() && !ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-                                                save_changes = true;
-                                                finish_editing = true;
-                                            }
                                         });
                                 });
                             
                             // Apply changes outside the closure to avoid borrow conflicts
                             if save_changes {
                                 let new_name = self.edit_text.clone();
+                                
+                                // Update class_details (for sidebar)
                                 if let Some(class_info) = self.class_details.get_mut(&editing_idx) {
                                     class_info.name = new_name.clone();
                                 }
+                                
+                                // Update the node's payload in the graph - this is the source of truth
+                                // The DisplayNode::update() method reads from payload.name
                                 if let Some(node) = self.graph.node_mut(editing_idx) {
-                                    node.display_mut().set_class_name(new_name);
+                                    node.payload_mut().name = new_name;
                                 }
                             }
                             if finish_editing {
