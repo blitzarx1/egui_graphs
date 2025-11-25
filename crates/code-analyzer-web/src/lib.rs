@@ -60,6 +60,12 @@ mod code_analyzer {
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
+    enum CentralityType {
+        Degree,
+        Clustering,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
     enum AttackPattern {
         Flood,
         SlowLoris,
@@ -971,6 +977,37 @@ mod code_analyzer {
         popup_sizes: HashMap<NodeIndex<u32>, Vec2>,
         // Markdown cache for rendering
         markdown_cache: CommonMarkCache,
+        // Graph metrics
+        graph_metrics: GraphMetrics,
+        show_metrics_overlay: bool,
+        highlight_triangles: bool,
+        highlight_communities: bool,
+        community_colors: HashMap<usize, [u8; 3]>,
+    }
+
+    #[derive(Clone, Debug, Default)]
+    struct GraphMetrics {
+        // Basic metrics
+        node_count: usize,
+        edge_count: usize,
+        density: f64,
+        // Clustering
+        clustering_coefficients: HashMap<NodeIndex<u32>, f64>,
+        average_clustering: f64,
+        // Triangles
+        triangles: Vec<(NodeIndex<u32>, NodeIndex<u32>, NodeIndex<u32>)>,
+        triangle_count: usize,
+        // Communities (detected by Louvain-like algorithm)
+        communities: HashMap<NodeIndex<u32>, usize>,
+        community_count: usize,
+        modularity: f64,
+        // Centrality
+        degree_centrality: HashMap<NodeIndex<u32>, f64>,
+        betweenness_centrality: HashMap<NodeIndex<u32>, f64>,
+        // Cycles
+        cycle_count: usize,
+        // Crossing estimation
+        estimated_crossings: usize,
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1098,7 +1135,7 @@ mod code_analyzer {
                 }
             }
             
-            Self {
+            let mut app = Self {
                 graph,
                 class_details,
                 hovered_node: None,
@@ -1132,7 +1169,17 @@ mod code_analyzer {
                 edit_text: String::new(),
                 popup_sizes: HashMap::new(),
                 markdown_cache: CommonMarkCache::default(),
-            }
+                graph_metrics: GraphMetrics::default(),
+                show_metrics_overlay: false,
+                highlight_triangles: false,
+                highlight_communities: false,
+                community_colors: HashMap::new(),
+            };
+            
+            // Calculate initial metrics
+            app.calculate_graph_metrics();
+            
+            app
         }
 
         fn regenerate_graph(&mut self, num_nodes: usize, num_edges: usize) {
@@ -1217,6 +1264,410 @@ mod code_analyzer {
                     );
                     node.set_location(pos);
                 }
+            }
+            
+            // Calculate metrics after regenerating
+            self.calculate_graph_metrics();
+        }
+
+        /// Calculate all graph metrics
+        fn calculate_graph_metrics(&mut self) {
+            let g = self.graph.g();
+            let node_indices: Vec<_> = g.node_indices().collect();
+            let edge_indices: Vec<_> = g.edge_indices().collect();
+            
+            let n = node_indices.len();
+            let m = edge_indices.len();
+            
+            // Basic metrics
+            self.graph_metrics.node_count = n;
+            self.graph_metrics.edge_count = m;
+            self.graph_metrics.density = if n > 1 {
+                (2.0 * m as f64) / (n as f64 * (n as f64 - 1.0))
+            } else {
+                0.0
+            };
+            
+            // Build adjacency set for efficient neighbor lookup
+            let mut adjacency: HashMap<NodeIndex<u32>, HashSet<NodeIndex<u32>>> = HashMap::new();
+            for idx in &node_indices {
+                adjacency.insert(*idx, HashSet::new());
+            }
+            for edge_idx in &edge_indices {
+                if let Some((source, target)) = g.edge_endpoints(*edge_idx) {
+                    adjacency.get_mut(&source).map(|s| s.insert(target));
+                    adjacency.get_mut(&target).map(|s| s.insert(source));
+                }
+            }
+            
+            // Calculate clustering coefficient and find triangles
+            self.graph_metrics.clustering_coefficients.clear();
+            self.graph_metrics.triangles.clear();
+            let mut found_triangles: HashSet<(usize, usize, usize)> = HashSet::new();
+            
+            for idx in &node_indices {
+                let neighbors: Vec<_> = adjacency.get(idx).map(|s| s.iter().copied().collect()).unwrap_or_default();
+                let k = neighbors.len();
+                
+                if k < 2 {
+                    self.graph_metrics.clustering_coefficients.insert(*idx, 0.0);
+                    continue;
+                }
+                
+                // Count triangles involving this node
+                let mut triangle_count = 0;
+                for i in 0..neighbors.len() {
+                    for j in (i + 1)..neighbors.len() {
+                        let ni = neighbors[i];
+                        let nj = neighbors[j];
+                        if adjacency.get(&ni).map(|s| s.contains(&nj)).unwrap_or(false) {
+                            triangle_count += 1;
+                            
+                            // Add triangle (sorted indices to avoid duplicates)
+                            let mut tri = [idx.index(), ni.index(), nj.index()];
+                            tri.sort();
+                            if found_triangles.insert((tri[0], tri[1], tri[2])) {
+                                self.graph_metrics.triangles.push((
+                                    NodeIndex::new(tri[0]),
+                                    NodeIndex::new(tri[1]),
+                                    NodeIndex::new(tri[2])
+                                ));
+                            }
+                        }
+                    }
+                }
+                
+                let max_triangles = k * (k - 1) / 2;
+                let cc = triangle_count as f64 / max_triangles as f64;
+                self.graph_metrics.clustering_coefficients.insert(*idx, cc);
+            }
+            
+            self.graph_metrics.triangle_count = self.graph_metrics.triangles.len();
+            
+            // Average clustering coefficient
+            if !self.graph_metrics.clustering_coefficients.is_empty() {
+                let sum: f64 = self.graph_metrics.clustering_coefficients.values().sum();
+                self.graph_metrics.average_clustering = sum / self.graph_metrics.clustering_coefficients.len() as f64;
+            } else {
+                self.graph_metrics.average_clustering = 0.0;
+            }
+            
+            // Degree centrality
+            self.graph_metrics.degree_centrality.clear();
+            for idx in &node_indices {
+                let degree = adjacency.get(idx).map(|s| s.len()).unwrap_or(0);
+                let centrality = if n > 1 {
+                    degree as f64 / (n as f64 - 1.0)
+                } else {
+                    0.0
+                };
+                self.graph_metrics.degree_centrality.insert(*idx, centrality);
+            }
+            
+            // Simple community detection using label propagation
+            self.detect_communities(&adjacency, &node_indices);
+            
+            // Estimate crossing number (simplified heuristic)
+            self.estimate_crossings();
+            
+            // Generate community colors
+            self.generate_community_colors();
+        }
+        
+        /// Simple community detection using label propagation algorithm
+        fn detect_communities(&mut self, adjacency: &HashMap<NodeIndex<u32>, HashSet<NodeIndex<u32>>>, node_indices: &[NodeIndex<u32>]) {
+            // Initialize each node with its own community
+            let mut labels: HashMap<NodeIndex<u32>, usize> = HashMap::new();
+            for (i, idx) in node_indices.iter().enumerate() {
+                labels.insert(*idx, i);
+            }
+            
+            // Iterate until convergence (max iterations to prevent infinite loop)
+            let max_iterations = 10;
+            for _ in 0..max_iterations {
+                let mut changed = false;
+                
+                for idx in node_indices {
+                    let neighbors = adjacency.get(idx);
+                    if let Some(neighbors) = neighbors {
+                        if neighbors.is_empty() {
+                            continue;
+                        }
+                        
+                        // Count neighbor labels
+                        let mut label_counts: HashMap<usize, usize> = HashMap::new();
+                        for neighbor in neighbors {
+                            if let Some(&label) = labels.get(neighbor) {
+                                *label_counts.entry(label).or_insert(0) += 1;
+                            }
+                        }
+                        
+                        // Find most common label
+                        if let Some((&best_label, _)) = label_counts.iter().max_by_key(|(_, &count)| count) {
+                            let current_label = labels.get(idx).copied().unwrap_or(0);
+                            if best_label != current_label {
+                                labels.insert(*idx, best_label);
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+                
+                if !changed {
+                    break;
+                }
+            }
+            
+            // Renumber communities to be consecutive
+            let unique_labels: HashSet<_> = labels.values().copied().collect();
+            let label_map: HashMap<usize, usize> = unique_labels.iter().enumerate()
+                .map(|(new, &old)| (old, new))
+                .collect();
+            
+            self.graph_metrics.communities.clear();
+            for (idx, label) in labels {
+                let new_label = label_map.get(&label).copied().unwrap_or(0);
+                self.graph_metrics.communities.insert(idx, new_label);
+            }
+            
+            self.graph_metrics.community_count = unique_labels.len();
+            
+            // Calculate modularity (simplified)
+            self.calculate_modularity(adjacency);
+        }
+        
+        fn calculate_modularity(&mut self, adjacency: &HashMap<NodeIndex<u32>, HashSet<NodeIndex<u32>>>) {
+            let m = self.graph_metrics.edge_count as f64;
+            if m == 0.0 {
+                self.graph_metrics.modularity = 0.0;
+                return;
+            }
+            
+            let mut q = 0.0;
+            for (i, community_i) in &self.graph_metrics.communities {
+                for (j, community_j) in &self.graph_metrics.communities {
+                    if community_i != community_j {
+                        continue;
+                    }
+                    
+                    let aij = if adjacency.get(i).map(|s| s.contains(j)).unwrap_or(false) { 1.0 } else { 0.0 };
+                    let ki = adjacency.get(i).map(|s| s.len()).unwrap_or(0) as f64;
+                    let kj = adjacency.get(j).map(|s| s.len()).unwrap_or(0) as f64;
+                    
+                    q += aij - (ki * kj) / (2.0 * m);
+                }
+            }
+            
+            self.graph_metrics.modularity = q / (2.0 * m);
+        }
+        
+        fn estimate_crossings(&mut self) {
+            // Use a heuristic based on edge density and graph structure
+            // The crossing number is NP-hard to compute exactly
+            let n = self.graph_metrics.node_count;
+            let m = self.graph_metrics.edge_count;
+            
+            if n < 4 || m < 4 {
+                self.graph_metrics.estimated_crossings = 0;
+                return;
+            }
+            
+            // Crossing lemma lower bound: cr(G) >= m^3 / (64 * n^2) for m >= 4n
+            let crossing_estimate = if m >= 4 * n {
+                ((m * m * m) as f64 / (64.0 * n as f64 * n as f64)) as usize
+            } else {
+                // Simple heuristic for sparser graphs
+                let excess_edges = m.saturating_sub(3 * n - 6);
+                excess_edges * excess_edges / 4
+            };
+            
+            self.graph_metrics.estimated_crossings = crossing_estimate;
+        }
+        
+        fn generate_community_colors(&mut self) {
+            self.community_colors.clear();
+            
+            // Generate distinct colors for each community
+            let colors = [
+                [66, 133, 244],   // Blue
+                [234, 67, 53],    // Red
+                [251, 188, 5],    // Yellow
+                [52, 168, 83],    // Green
+                [255, 112, 67],   // Orange
+                [156, 39, 176],   // Purple
+                [0, 188, 212],    // Cyan
+                [255, 193, 7],    // Amber
+                [121, 85, 72],    // Brown
+                [96, 125, 139],   // Blue Grey
+                [233, 30, 99],    // Pink
+                [63, 81, 181],    // Indigo
+            ];
+            
+            for i in 0..self.graph_metrics.community_count {
+                let color = colors[i % colors.len()];
+                self.community_colors.insert(i, color);
+            }
+        }
+        
+        /// Apply triangle highlighting to edges
+        fn apply_triangle_highlighting(&mut self) {
+            if !self.highlight_triangles {
+                // Reset edge colors
+                let edge_indices: Vec<_> = self.graph.g().edge_indices().collect();
+                for edge_idx in edge_indices {
+                    if let Some(edge) = self.graph.edge_mut(edge_idx) {
+                        edge.display_mut().edge_color = self.config.edge_color;
+                    }
+                }
+                return;
+            }
+            
+            // Build set of edges that are part of triangles
+            let mut triangle_edges: HashSet<(usize, usize)> = HashSet::new();
+            for (a, b, c) in &self.graph_metrics.triangles {
+                let edges = [
+                    (a.index().min(b.index()), a.index().max(b.index())),
+                    (b.index().min(c.index()), b.index().max(c.index())),
+                    (a.index().min(c.index()), a.index().max(c.index())),
+                ];
+                for edge in edges {
+                    triangle_edges.insert(edge);
+                }
+            }
+            
+            // Color edges based on whether they're part of triangles
+            let edge_indices: Vec<_> = self.graph.g().edge_indices().collect();
+            for edge_idx in edge_indices {
+                if let Some((source, target)) = self.graph.g().edge_endpoints(edge_idx) {
+                    let edge_key = (source.index().min(target.index()), source.index().max(target.index()));
+                    if let Some(edge) = self.graph.edge_mut(edge_idx) {
+                        if triangle_edges.contains(&edge_key) {
+                            edge.display_mut().edge_color = [255, 165, 0]; // Orange for triangle edges
+                        } else {
+                            edge.display_mut().edge_color = self.config.edge_color;
+                        }
+                    }
+                }
+            }
+        }
+        
+        /// Apply community colors to nodes
+        fn apply_community_colors(&mut self) {
+            if !self.highlight_communities {
+                // Reset node colors
+                let node_indices: Vec<_> = self.graph.g().node_indices().collect();
+                for idx in node_indices {
+                    if let Some(node) = self.graph.node_mut(idx) {
+                        node.display_mut().node_color = self.config.node_color;
+                    }
+                }
+                return;
+            }
+            
+            // Apply community colors
+            let communities = self.graph_metrics.communities.clone();
+            for (idx, community) in communities {
+                if let Some(color) = self.community_colors.get(&community) {
+                    if let Some(node) = self.graph.node_mut(idx) {
+                        node.display_mut().node_color = *color;
+                    }
+                }
+            }
+        }
+        
+        /// Apply node sizing based on centrality metric
+        fn apply_centrality_sizing(&mut self, centrality_type: CentralityType) {
+            let node_indices: Vec<_> = self.graph.g().node_indices().collect();
+            
+            for idx in node_indices {
+                let value = match centrality_type {
+                    CentralityType::Degree => {
+                        self.graph_metrics.degree_centrality.get(&idx).copied().unwrap_or(0.0)
+                    },
+                    CentralityType::Clustering => {
+                        self.graph_metrics.clustering_coefficients.get(&idx).copied().unwrap_or(0.0)
+                    },
+                };
+                
+                // Scale size based on centrality (20 to 60 range)
+                let size = 20.0 + value as f32 * 40.0;
+                
+                if let Some(node) = self.graph.node_mut(idx) {
+                    node.display_mut().radius = size;
+                }
+            }
+        }
+        
+        /// Reset node sizes to default
+        fn reset_node_sizes(&mut self) {
+            let node_indices: Vec<_> = self.graph.g().node_indices().collect();
+            for idx in node_indices {
+                if let Some(node) = self.graph.node_mut(idx) {
+                    node.display_mut().radius = 30.0; // Default size
+                }
+            }
+        }
+        
+        /// Draw metrics overlay on the graph
+        fn draw_metrics_overlay(&self, ui: &mut egui::Ui, rect: Rect) {
+            let painter = ui.painter();
+            
+            // Background panel
+            let panel_rect = Rect::from_min_size(
+                Pos2::new(rect.min.x + 10.0, rect.min.y + 10.0),
+                Vec2::new(200.0, 180.0)
+            );
+            
+            painter.rect_filled(
+                panel_rect,
+                5.0,
+                Color32::from_rgba_unmultiplied(30, 30, 40, 220)
+            );
+            // Draw border using line segments
+            let border_color = Color32::from_rgb(80, 80, 100);
+            let stroke = Stroke::new(1.0, border_color);
+            painter.line_segment([panel_rect.left_top(), panel_rect.right_top()], stroke);
+            painter.line_segment([panel_rect.right_top(), panel_rect.right_bottom()], stroke);
+            painter.line_segment([panel_rect.right_bottom(), panel_rect.left_bottom()], stroke);
+            painter.line_segment([panel_rect.left_bottom(), panel_rect.left_top()], stroke);
+            
+            let text_color = Color32::from_rgb(220, 220, 220);
+            let highlight_color = Color32::from_rgb(100, 200, 255);
+            let mut y = panel_rect.min.y + 15.0;
+            let x = panel_rect.min.x + 10.0;
+            let line_height = 18.0;
+            
+            // Title
+            painter.text(
+                Pos2::new(x, y),
+                egui::Align2::LEFT_TOP,
+                "📈 Graph Metrics",
+                FontId::proportional(14.0),
+                highlight_color
+            );
+            y += line_height + 5.0;
+            
+            // Metrics
+            let metrics = [
+                format!("Nodes: {}", self.graph_metrics.node_count),
+                format!("Edges: {}", self.graph_metrics.edge_count),
+                format!("Density: {:.4}", self.graph_metrics.density),
+                format!("Triangles: {}", self.graph_metrics.triangle_count),
+                format!("Avg Clustering: {:.3}", self.graph_metrics.average_clustering),
+                format!("Communities: {}", self.graph_metrics.community_count),
+                format!("Modularity: {:.3}", self.graph_metrics.modularity),
+                format!("Est. Crossings: {}", self.graph_metrics.estimated_crossings),
+            ];
+            
+            for metric in &metrics {
+                painter.text(
+                    Pos2::new(x, y),
+                    egui::Align2::LEFT_TOP,
+                    metric,
+                    FontId::proportional(12.0),
+                    text_color
+                );
+                y += line_height;
             }
         }
 
@@ -3316,17 +3767,128 @@ mod code_analyzer {
 
                     match self.current_tab {
                         AppTab::Graph => {
-                            ui.heading("📊 Classes");
-                            ui.separator();
-
                             egui::ScrollArea::vertical().show(ui, |ui| {
-                                for (idx, info) in &self.class_details {
-                                    if ui.button(&info.name).clicked() {
-                                        if let Some(node) = self.graph.node_mut(*idx) {
-                                            node.set_selected(true);
-                                        }
+                                // Classes section
+                                ui.collapsing("📊 Classes", |ui| {
+                                    for (idx, info) in &self.class_details.clone() {
+                                        ui.horizontal(|ui| {
+                                            // Show community color indicator if communities are highlighted
+                                            if self.highlight_communities {
+                                                if let Some(&community) = self.graph_metrics.communities.get(idx) {
+                                                    if let Some(&color) = self.community_colors.get(&community) {
+                                                        let color32 = Color32::from_rgb(color[0], color[1], color[2]);
+                                                        let (rect, _) = ui.allocate_exact_size(Vec2::new(8.0, 16.0), egui::Sense::hover());
+                                                        ui.painter().rect_filled(rect, 2.0, color32);
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Show clustering coefficient
+                                            if let Some(&cc) = self.graph_metrics.clustering_coefficients.get(idx) {
+                                                let cc_color = if cc > 0.5 {
+                                                    Color32::from_rgb(100, 200, 100)
+                                                } else if cc > 0.2 {
+                                                    Color32::from_rgb(200, 200, 100)
+                                                } else {
+                                                    Color32::from_rgb(150, 150, 150)
+                                                };
+                                                ui.colored_label(cc_color, format!("{:.2}", cc));
+                                            }
+                                            
+                                            if ui.button(&info.name).clicked() {
+                                                if let Some(node) = self.graph.node_mut(*idx) {
+                                                    node.set_selected(true);
+                                                }
+                                            }
+                                        });
                                     }
-                                }
+                                });
+                                
+                                ui.separator();
+                                
+                                // Graph Metrics Section
+                                ui.collapsing("📈 Graph Metrics", |ui| {
+                                    // Button to recalculate
+                                    if ui.button("🔄 Recalculate Metrics").clicked() {
+                                        self.calculate_graph_metrics();
+                                    }
+                                    
+                                    ui.separator();
+                                    
+                                    // Basic stats
+                                    ui.label(format!("📍 Nodes: {}", self.graph_metrics.node_count));
+                                    ui.label(format!("🔗 Edges: {}", self.graph_metrics.edge_count));
+                                    ui.label(format!("📊 Density: {:.4}", self.graph_metrics.density));
+                                    
+                                    ui.separator();
+                                    
+                                    // Clustering
+                                    ui.label(format!("🔺 Triangles: {}", self.graph_metrics.triangle_count));
+                                    ui.label(format!("📐 Avg Clustering: {:.4}", self.graph_metrics.average_clustering));
+                                    
+                                    ui.separator();
+                                    
+                                    // Communities
+                                    ui.label(format!("👥 Communities: {}", self.graph_metrics.community_count));
+                                    ui.label(format!("📊 Modularity: {:.4}", self.graph_metrics.modularity));
+                                    
+                                    ui.separator();
+                                    
+                                    // Crossings
+                                    ui.label(format!("❌ Est. Crossings: {}", self.graph_metrics.estimated_crossings));
+                                });
+                                
+                                ui.separator();
+                                
+                                // Visualization Options
+                                ui.collapsing("🎨 Metric Visualization", |ui| {
+                                    ui.checkbox(&mut self.show_metrics_overlay, "📊 Show Metrics Overlay");
+                                    
+                                    ui.separator();
+                                    
+                                    if ui.checkbox(&mut self.highlight_triangles, "🔺 Highlight Triangles").changed() {
+                                        // Apply triangle highlighting to edges
+                                        self.apply_triangle_highlighting();
+                                    }
+                                    if self.highlight_triangles {
+                                        ui.label(format!("   Found {} triangles", self.graph_metrics.triangle_count));
+                                    }
+                                    
+                                    ui.separator();
+                                    
+                                    if ui.checkbox(&mut self.highlight_communities, "👥 Color by Community").changed() {
+                                        // Apply community colors to nodes
+                                        self.apply_community_colors();
+                                    }
+                                    if self.highlight_communities {
+                                        ui.label(format!("   {} communities detected", self.graph_metrics.community_count));
+                                        
+                                        // Show community legend
+                                        ui.horizontal_wrapped(|ui| {
+                                            for (community_id, color) in &self.community_colors {
+                                                let color32 = Color32::from_rgb(color[0], color[1], color[2]);
+                                                let (rect, _) = ui.allocate_exact_size(Vec2::new(12.0, 12.0), egui::Sense::hover());
+                                                ui.painter().rect_filled(rect, 2.0, color32);
+                                                ui.label(format!("C{}", community_id));
+                                            }
+                                        });
+                                    }
+                                    
+                                    ui.separator();
+                                    
+                                    ui.label("🔴 Node Size by Centrality:");
+                                    ui.horizontal(|ui| {
+                                        if ui.button("Degree").clicked() {
+                                            self.apply_centrality_sizing(CentralityType::Degree);
+                                        }
+                                        if ui.button("Clustering").clicked() {
+                                            self.apply_centrality_sizing(CentralityType::Clustering);
+                                        }
+                                        if ui.button("Reset").clicked() {
+                                            self.reset_node_sizes();
+                                        }
+                                    });
+                                });
                             });
                         },
                         AppTab::StressTest => {
@@ -3598,6 +4160,11 @@ mod code_analyzer {
                         egui::FontId::proportional(14.0),
                         Color32::from_rgb(180, 180, 180),
                     );
+                    
+                    // Draw metrics overlay if enabled
+                    if self.show_metrics_overlay {
+                        self.draw_metrics_overlay(ui, rect);
+                    }
                 } else if self.current_tab == AppTab::NeuralNetwork {
                     if self.neural_network.is_some() {
                         let info_text = "Neural Network | Use mouse to pan";
