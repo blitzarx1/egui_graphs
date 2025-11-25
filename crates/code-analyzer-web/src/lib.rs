@@ -39,6 +39,7 @@ mod code_analyzer {
         SettingsInteraction, SettingsNavigation, SettingsStyle, FruchtermanReingoldState,
         MetadataFrame, get_layout_state, set_layout_state,
     };
+    use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
     use petgraph::{stable_graph::{NodeIndex, StableGraph}, Directed, visit::EdgeRef};
     use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
@@ -47,6 +48,7 @@ mod code_analyzer {
         name: String,
         methods: Vec<String>,
         fields: Vec<String>,
+        description: String,
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -965,6 +967,10 @@ mod code_analyzer {
         // Node text editing
         editing_node: Option<NodeIndex<u32>>,
         edit_text: String,
+        // Popup window sizes per node
+        popup_sizes: HashMap<NodeIndex<u32>, Vec2>,
+        // Markdown cache for rendering
+        markdown_cache: CommonMarkCache,
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1026,6 +1032,7 @@ mod code_analyzer {
                     "username: string".to_string(),
                     "email: string".to_string(),
                 ],
+                description: String::new(),
             });
 
             let order = pg.add_node(ClassInfo {
@@ -1040,6 +1047,7 @@ mod code_analyzer {
                     "total: float".to_string(),
                     "status: string".to_string(),
                 ],
+                description: String::new(),
             });
 
             let product = pg.add_node(ClassInfo {
@@ -1050,6 +1058,7 @@ mod code_analyzer {
                     "name: string".to_string(),
                     "price: float".to_string(),
                 ],
+                description: String::new(),
             });
 
             let payment = pg.add_node(ClassInfo {
@@ -1060,6 +1069,7 @@ mod code_analyzer {
                     "amount: float".to_string(),
                     "method: string".to_string(),
                 ],
+                description: String::new(),
             });
 
             for idx in pg.node_indices() {
@@ -1120,6 +1130,8 @@ mod code_analyzer {
                 fit_to_screen_counter: 3, // Start with counter for initial centering
                 editing_node: None,
                 edit_text: String::new(),
+                popup_sizes: HashMap::new(),
+                markdown_cache: CommonMarkCache::default(),
             }
         }
 
@@ -1168,6 +1180,7 @@ mod code_analyzer {
                         format!("name: string"),
                         format!("timestamp: datetime"),
                     ],
+                    description: String::new(),
                 });
                 node_indices.push(node_idx);
                 
@@ -1982,30 +1995,101 @@ mod code_analyzer {
             }
         }
 
-        fn draw_hover_popup(&self, ui: &mut egui::Ui, node_idx: NodeIndex<u32>) {
-            if let Some(class_info) = self.class_details.get(&node_idx) {
-                let screen_size = ui.ctx().content_rect().size();
-                let popup_size = Vec2::new(
-                    screen_size.x * self.config.hover_window_size,
-                    screen_size.y * self.config.hover_window_size,
-                );
-
-                egui::Window::new(&class_info.name)
-                    .fixed_size(popup_size)
-                    .collapsible(false)
+        fn draw_hover_popup(&mut self, ui: &mut egui::Ui, node_idx: NodeIndex<u32>) {
+            if let Some(class_info) = self.class_details.get(&node_idx).cloned() {
+                // Get or create default size for this popup
+                let default_size = Vec2::new(280.0, 350.0);
+                let current_size = self.popup_sizes.get(&node_idx).copied().unwrap_or(default_size);
+                
+                let window_id = egui::Id::new(format!("node_popup_{}", node_idx.index()));
+                
+                let mut updated_description: Option<String> = None;
+                let description_to_render = class_info.description.clone();
+                let cache = &mut self.markdown_cache;
+                
+                let window_response = egui::Window::new(format!("📦 {}", &class_info.name))
+                    .id(window_id)
+                    .default_size(current_size)
+                    .min_width(200.0)
+                    .min_height(150.0)
+                    .resizable(true)
+                    .collapsible(true)
                     .show(ui.ctx(), |ui| {
-                        egui::ScrollArea::vertical().show(ui, |ui| {
-                            ui.heading("Fields:");
-                            for field in &class_info.fields {
-                                ui.label(format!("  • {}", field));
-                            }
-                            ui.add_space(8.0);
-                            ui.heading("Methods:");
-                            for method in &class_info.methods {
-                                ui.label(format!("  • {}", method));
-                            }
+                        // Use the full available rect for scrolling
+                        let available_height = ui.available_height().max(100.0);
+                        
+                        egui::ScrollArea::vertical()
+                            .max_height(available_height)
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
+                            // Fields section
+                            ui.collapsing("📋 Fields", |ui| {
+                                for field in &class_info.fields {
+                                    ui.horizontal(|ui| {
+                                        ui.label("•");
+                                        ui.monospace(field);
+                                    });
+                                }
+                                if class_info.fields.is_empty() {
+                                    ui.weak("No fields defined");
+                                }
+                            });
+                            
+                            ui.add_space(4.0);
+                            
+                            // Methods section
+                            ui.collapsing("⚡ Methods", |ui| {
+                                for method in &class_info.methods {
+                                    ui.horizontal(|ui| {
+                                        ui.label("•");
+                                        ui.monospace(method);
+                                    });
+                                }
+                                if class_info.methods.is_empty() {
+                                    ui.weak("No methods defined");
+                                }
+                            });
+                            
+                            ui.add_space(4.0);
+                            ui.separator();
+                            
+                            // Editable description with markdown
+                            ui.collapsing("📝 Description", |ui| {
+                                let mut description = description_to_render.clone();
+                                let text_edit = egui::TextEdit::multiline(&mut description)
+                                    .desired_width(f32::INFINITY)
+                                    .desired_rows(4)
+                                    .font(egui::TextStyle::Monospace)
+                                    .hint_text("Add notes here (supports **bold**, *italic*, `code`)...");
+                                let response = ui.add(text_edit);
+                                
+                                if response.changed() {
+                                    updated_description = Some(description.clone());
+                                }
+                                
+                                // Show markdown preview if there's content
+                                if !description.is_empty() {
+                                    ui.add_space(4.0);
+                                    ui.separator();
+                                    ui.label("Preview:");
+                                    CommonMarkViewer::new().show(ui, cache, &description);
+                                }
+                            });
                         });
                     });
+                
+                // Store the new size from the window response
+                if let Some(inner_response) = window_response {
+                    let new_size = inner_response.response.rect.size();
+                    self.popup_sizes.insert(node_idx, new_size);
+                }
+                
+                // Update description if changed
+                if let Some(new_desc) = updated_description {
+                    if let Some(info) = self.class_details.get_mut(&node_idx) {
+                        info.description = new_desc;
+                    }
+                }
             }
         }
 
@@ -3610,21 +3694,41 @@ mod code_analyzer {
                     }
                 }
                 
-                // Only show hover popup for main graph
+                // Show popup for hovered or selected nodes
                 if self.current_tab == AppTab::Graph {
-                    let mut new_hovered = None;
+                    // Find hovered node
+                    let mut hovered_node = None;
                     for idx in self.graph.g().node_indices() {
                         if let Some(node) = self.graph.node(idx) {
                             if node.hovered() {
-                                new_hovered = Some(idx);
+                                hovered_node = Some(idx);
                                 break;
                             }
                         }
                     }
-                    self.hovered_node = new_hovered;
-
+                    self.hovered_node = hovered_node;
+                    
+                    // Find selected nodes
+                    let mut selected_nodes: Vec<NodeIndex<u32>> = Vec::new();
+                    for idx in self.graph.g().node_indices() {
+                        if let Some(node) = self.graph.node(idx) {
+                            if node.selected() {
+                                selected_nodes.push(idx);
+                            }
+                        }
+                    }
+                    
+                    // Show popup for hovered node (priority)
                     if let Some(node_idx) = self.hovered_node {
                         self.draw_hover_popup(ui, node_idx);
+                    }
+                    
+                    // Show popups for selected nodes (if not already showing hovered)
+                    for selected_idx in selected_nodes {
+                        // Don't show duplicate popup if this node is also hovered
+                        if self.hovered_node != Some(selected_idx) {
+                            self.draw_hover_popup(ui, selected_idx);
+                        }
                     }
                 }
             });

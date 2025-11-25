@@ -16,6 +16,7 @@ web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElemen
 egui = "0.33"
 eframe = { version = "0.33", features = ["wgpu", "persistence"] }
 egui_graphs = { path = "../egui_graphs", features = ["events"] }
+egui_commonmark = "0.22"
 petgraph = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 
