@@ -34,7 +34,7 @@ pub fn start() -> Result<(), JsValue> {
 mod code_analyzer {
     use eframe::App;
     use egui::{Color32, FontFamily, FontId, Pos2, Rect, Shape, Stroke, Vec2};
-    use egui_graphs{
+    use egui_graphs::{
         DisplayEdge, DisplayNode, DrawContext, EdgeProps, Graph, GraphView, Node, NodeProps,
         SettingsInteraction, SettingsNavigation, SettingsStyle, FruchtermanReingoldState,
         MetadataFrame, get_layout_state, set_layout_state,
@@ -299,6 +299,12 @@ mod code_analyzer {
                 selected_color: default_config.node_selected_color,
                 use_sphere_rendering: false,
             }
+        }
+    }
+
+    impl CodeNode {
+        fn set_class_name(&mut self, name: String) {
+            self.class_name = name;
         }
     }
 
@@ -852,7 +858,7 @@ mod code_analyzer {
                 use_sphere_rendering: false,
                 dragging_enabled: true,
                 hover_enabled: true,
-                node_clicking_enabled: false,
+                node_clicking_enabled: true,
                 node_selection_enabled: true,
                 node_selection_multi_enabled: false,
                 edge_clicking_enabled: false,
@@ -898,9 +904,9 @@ mod code_analyzer {
         let ry = rotation_y.to_radians();
         let rz = rotation_z.to_radians();
 
-        let mut x0 = pos.x - pivot.x;
-        let mut y0 = pos.y - pivot.y;
-        let mut z0 = z;
+        let x0 = pos.x - pivot.x;
+        let y0 = pos.y - pivot.y;
+        let z0 = z;
         
         // Apply rotation around X axis
         let y1 = y0 * rx.cos() - z0 * rx.sin();
@@ -956,6 +962,9 @@ mod code_analyzer {
         nn_last_fire_time: f64,
         // Fit to screen tracking
         fit_to_screen_counter: u32,
+        // Node text editing
+        editing_node: Option<NodeIndex<u32>>,
+        edit_text: String,
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1109,6 +1118,8 @@ mod code_analyzer {
                 neuron_states: HashMap::new(),
                 nn_last_fire_time: 0.0,
                 fit_to_screen_counter: 3, // Start with counter for initial centering
+                editing_node: None,
+                edit_text: String::new(),
             }
         }
 
@@ -1756,7 +1767,7 @@ mod code_analyzer {
             let canvas_max = draw_meta.screen_to_canvas_pos(paint_rect.max);
 
             if self.config.show_grid {
-                let mut draw_grid = |grid_spacing: f32, stroke: egui::Stroke| {
+                let draw_grid = |grid_spacing: f32, stroke: egui::Stroke| {
                     let mut x = (canvas_min.x / grid_spacing).floor() * grid_spacing;
                     let max_x = (canvas_max.x / grid_spacing).ceil() * grid_spacing;
                     let mut guard = 0;
@@ -3262,11 +3273,12 @@ mod code_analyzer {
                     ui.label("📐 View Options:");
                     ui.checkbox(&mut self.config.show_grid, "Show Grid");
                     ui.checkbox(&mut self.config.show_axes, "Show Axes & Origin");
-                    let hier_button = egui::Button::new("↳ Arrange Hierarchically")
-                        .on_disabled_hover_text("Available only in 2D view");
-                    if ui
-                        .add_enabled(self.config.visualization_mode == VisualizationMode::TwoD, hier_button)
-                        .clicked()
+                    let is_2d = self.config.visualization_mode == VisualizationMode::TwoD;
+                    let hier_response = ui.add_enabled(is_2d, egui::Button::new("↳ Arrange Hierarchically"));
+                    if !is_2d {
+                        hier_response.clone().on_hover_text("Available only in 2D view");
+                    }
+                    if hier_response.clicked()
                     {
                         self.apply_hierarchical_layout();
                         self.config.fit_to_screen_enabled = true;
@@ -3436,14 +3448,32 @@ mod code_analyzer {
                     let settings_style = SettingsStyle::new()
                         .with_labels_always(self.config.labels_always);
                     
-                    let response = ui.add(
-                        &mut GraphView::<_, _, _,_, CodeNode, CodeEdge>::new(&mut self.graph)
-                            .with_id(Some(GRAPH_VIEW_ID.to_string()))
-                            .with_interactions(&settings_interaction)
-                            .with_navigations(&settings_navigation)
-                            .with_styles(&settings_style),
-                    );
+                    let mut graph_view = GraphView::<_, _, _,_, CodeNode, CodeEdge>::new(&mut self.graph)
+                        .with_id(Some(GRAPH_VIEW_ID.to_string()))
+                        .with_interactions(&settings_interaction)
+                        .with_navigations(&settings_navigation)
+                        .with_styles(&settings_style);
+                    
+                    let response = ui.add(&mut graph_view);
                     active_view_rect = Some(response.rect);
+                    
+                    // Handle node double-click for text editing
+                    // Check if double-clicked and find which node is hovered
+                    if response.double_clicked() {
+                        // Find the hovered node
+                        for idx in self.graph.g().node_indices() {
+                            if let Some(node) = self.graph.node(idx) {
+                                if node.hovered() {
+                                    // Start editing this node
+                                    if let Some(class_info) = self.class_details.get(&idx) {
+                                        self.editing_node = Some(idx);
+                                        self.edit_text = class_info.name.clone();
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     
                     // Reset fit_to_screen after counter expires
                     if self.config.fit_to_screen_enabled && self.fit_to_screen_counter > 0 {
@@ -3497,6 +3527,86 @@ mod code_analyzer {
                     }
                 }
 
+                // Handle node text editing overlay
+                if self.current_tab == AppTab::Graph {
+                    if let Some(editing_idx) = self.editing_node {
+                        // Get node position and transform to screen coordinates
+                        if let Some(node) = self.graph.node(editing_idx) {
+                            let node_pos = node.location();
+                            
+                            // Get metadata for coordinate transformation
+                            let meta = MetadataFrame::new(Some(GRAPH_VIEW_ID.to_string())).load(ui);
+                            let screen_pos = meta.canvas_to_screen_pos(node_pos);
+                            
+                            // Track whether to finish editing
+                            let mut finish_editing = false;
+                            let mut save_changes = false;
+                            
+                            // Create inline text edit at node position
+                            egui::Area::new(egui::Id::new("inline_node_edit"))
+                                .fixed_pos(Pos2::new(screen_pos.x - 60.0, screen_pos.y - 10.0))
+                                .order(egui::Order::Foreground)
+                                .show(ctx, |ui| {
+                                    // Add a frame around the input for visibility
+                                    egui::Frame::new()
+                                        .fill(Color32::from_rgba_unmultiplied(40, 40, 40, 220))
+                                        .stroke(Stroke::new(2.0, Color32::from_rgb(100, 150, 255)))
+                                        .corner_radius(4.0)
+                                        .inner_margin(egui::Margin::symmetric(8, 4))
+                                        .show(ui, |ui| {
+                                            // Style the text input to look integrated
+                                            let text_edit = egui::TextEdit::singleline(&mut self.edit_text)
+                                                .desired_width(120.0)
+                                                .font(egui::FontId::proportional(14.0))
+                                                .text_color(Color32::WHITE)
+                                                .cursor_at_end(true);
+                                            
+                                            let response = ui.add(text_edit);
+                                            
+                                            // Auto-focus on the text input
+                                            if !response.has_focus() {
+                                                response.request_focus();
+                                            }
+                                            
+                                            // Handle Enter to confirm
+                                            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                                save_changes = true;
+                                                finish_editing = true;
+                                            }
+                                            
+                                            // Handle Escape to cancel
+                                            if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                                                finish_editing = true;
+                                            }
+                                            
+                                            // Also confirm if clicked outside (lost focus without escape)
+                                            if response.lost_focus() && !ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                                                save_changes = true;
+                                                finish_editing = true;
+                                            }
+                                        });
+                                });
+                            
+                            // Apply changes outside the closure to avoid borrow conflicts
+                            if save_changes {
+                                let new_name = self.edit_text.clone();
+                                if let Some(class_info) = self.class_details.get_mut(&editing_idx) {
+                                    class_info.name = new_name.clone();
+                                }
+                                if let Some(node) = self.graph.node_mut(editing_idx) {
+                                    node.display_mut().set_class_name(new_name);
+                                }
+                            }
+                            if finish_editing {
+                                self.editing_node = None;
+                            }
+                        } else {
+                            // Node no longer exists, cancel editing
+                            self.editing_node = None;
+                        }
+                    }
+                }
+                
                 // Only show hover popup for main graph
                 if self.current_tab == AppTab::Graph {
                     let mut new_hovered = None;

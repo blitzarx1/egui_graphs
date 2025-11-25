@@ -15,7 +15,7 @@ js-sys = "0.3"
 web-sys = { version = "0.3", features = ["Window", "Document", "HtmlCanvasElement", "HtmlInputElement", "HtmlAnchorElement", "File", "FileList", "FileReader", "Blob", "Url", "Element"] }
 egui = "0.33"
 eframe = { version = "0.33", features = ["wgpu", "persistence"] }
-egui_graphs = { path = "../egui_graphs" }
+egui_graphs = { path = "../egui_graphs", features = ["events"] }
 petgraph = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 
