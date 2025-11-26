@@ -4,6 +4,7 @@ members = [
   "crates/demo-core",
   "crates/demo-web",
   "crates/code-analyzer-web",
+  "crates/music-visualizer",
 ]
 resolver = "2"
 

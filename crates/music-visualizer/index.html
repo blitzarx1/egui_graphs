@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Visualizer - Fractal Audio Reactive</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0a0a14;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        
+        #music_visualizer_canvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #0a0a14 0%, #1a1a2e 100%);
+            color: white;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+        }
+        
+        .loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, #64c8ff, #ff64c8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .loading-subtitle {
+            font-size: 1rem;
+            color: #888;
+            margin-bottom: 2rem;
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(100, 200, 255, 0.2);
+            border-top-color: #64c8ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-progress {
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        /* Audio permission hint */
+        .audio-hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(100, 200, 255, 0.1);
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: #64c8ff;
+            font-size: 0.85rem;
+            z-index: 100;
+            opacity: 0;
+            animation: fadeIn 0.5s ease-out 2s forwards;
+        }
+        
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+    </style>
+    <link data-trunk rel="rust" data-wasm-opt="0" />
+</head>
+<body>
+    <div class="loading" id="loading">
+        <h1 class="loading-title">🎵 Music Visualizer</h1>
+        <p class="loading-subtitle">Fractal Audio Reactive Experience</p>
+        <div class="spinner"></div>
+        <p class="loading-progress">Loading WebAssembly...</p>
+    </div>
+    
+    <canvas id="music_visualizer_canvas"></canvas>
+    
+    <div class="audio-hint" id="audioHint">
+        💡 Click "Microphone" in the sidebar to use live audio input
+    </div>
+    
+    <script>
+        // Hide loading screen when app is ready
+        const checkCanvas = setInterval(() => {
+            const canvas = document.getElementById('music_visualizer_canvas');
+            if (canvas && canvas.getContext) {
+                const ctx = canvas.getContext('2d') || canvas.getContext('webgl2') || canvas.getContext('webgl');
+                if (ctx) {
+                    setTimeout(() => {
+                        document.getElementById('loading').classList.add('hidden');
+                    }, 500);
+                    clearInterval(checkCanvas);
+                }
+            }
+        }, 100);
+        
+        // Hide audio hint after a while
+        setTimeout(() => {
+            const hint = document.getElementById('audioHint');
+            if (hint) {
+                hint.style.animation = 'none';
+                hint.style.opacity = '0';
+            }
+        }, 10000);
+    </script>
+</body>
+</html>

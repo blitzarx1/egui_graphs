@@ -1,0 +1,17 @@
+[build]
+target = "index.html"
+dist = "dist"
+
+[watch]
+watch = ["src", "index.html"]
+
+[serve]
+addresses = ["127.0.0.1"]
+port = 8087
+open = true
+
+# Disable wasm-opt to avoid bulk memory errors
+[[hooks]]
+stage = "post_build"
+command = "sh"
+command_arguments = ["-c", "echo 'Build complete'"]
