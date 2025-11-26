@@ -350,8 +350,8 @@ export function start() {
     wasm.start();
 }
 
-function __wasm_bindgen_func_elem_692(arg0, arg1, arg2) {
-    wasm.__wasm_bindgen_func_elem_692(arg0, arg1, addHeapObject(arg2));
+function __wasm_bindgen_func_elem_1516(arg0, arg1, arg2) {
+    wasm.__wasm_bindgen_func_elem_1516(arg0, arg1, addHeapObject(arg2));
 }
 
 function __wasm_bindgen_func_elem_353(arg0, arg1) {
@@ -372,8 +372,8 @@ function __wasm_bindgen_func_elem_690(arg0, arg1) {
     }
 }
 
-function __wasm_bindgen_func_elem_1516(arg0, arg1, arg2) {
-    wasm.__wasm_bindgen_func_elem_1516(arg0, arg1, addHeapObject(arg2));
+function __wasm_bindgen_func_elem_692(arg0, arg1, arg2) {
+    wasm.__wasm_bindgen_func_elem_692(arg0, arg1, addHeapObject(arg2));
 }
 
 const __wbindgen_enum_ResizeObserverBoxOptions = ["border-box", "content-box", "device-pixel-content-box"];
