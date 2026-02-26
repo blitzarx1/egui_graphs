@@ -40,7 +40,7 @@ pub struct EdgeShapeBuilder<'a> {
     shape_props: EdgeShapeProps,
     tip: Option<&'a TipProps>,
     stroke: Stroke,
-    scaler: Option<&'a MetadataFrame>,
+    scaler: Option<&'a MetadataFrame>, // TODO: do we need metadata dependency here?
 }
 
 impl<'a> EdgeShapeBuilder<'a> {
@@ -274,9 +274,11 @@ impl<'a> EdgeShapeBuilder<'a> {
         res
     }
 
-    pub fn build(&self) -> Vec<Shape> {
+    pub fn build(&self) -> EdgeShape {
         match self.shape_props {
-            EdgeShapeProps::Straight { bounds } => self.shape_straight(bounds),
+            EdgeShapeProps::Straight { bounds } => EdgeShape {
+                shapes: self.shape_straight(bounds),
+            },
             EdgeShapeProps::Looped {
                 node_center,
                 node_size,
@@ -284,7 +286,9 @@ impl<'a> EdgeShapeBuilder<'a> {
                 order,
             } => {
                 let param: f32 = order as f32;
-                self.shape_looped(node_center, node_size, loop_size, param)
+                EdgeShape {
+                    shapes: self.shape_looped(node_center, node_size, loop_size, param),
+                }
             }
             EdgeShapeProps::Curved {
                 bounds,
@@ -292,9 +296,27 @@ impl<'a> EdgeShapeBuilder<'a> {
                 order,
             } => {
                 let param: f32 = order as f32;
-                self.shape_curved(bounds, curve_size, param)
+                EdgeShape {
+                    shapes: self.shape_curved(bounds, curve_size, param),
+                }
             }
         }
+    }
+}
+
+pub struct EdgeShape {
+    shapes: Vec<Shape>,
+}
+
+impl EdgeShape {
+    pub fn body(&self) -> &Shape {
+        self.shapes
+            .first()
+            .expect("EdgeShape should have at least one shape")
+    }
+
+    pub fn all_shapes(&self) -> Vec<Shape> {
+        self.shapes.iter().cloned().collect()
     }
 }
 
@@ -319,7 +341,7 @@ mod tests {
         );
         let shapes = builder.build();
         // Expect a straight line segment (fallback)
-        assert!(matches!(shapes.first(), Some(Shape::LineSegment { .. })));
+        assert!(matches!(shapes.body(), Shape::LineSegment { .. }));
     }
 
     #[test]
@@ -331,7 +353,7 @@ mod tests {
             1,
         );
         let shapes = builder.build();
-        // First shape should be a cubic bezier
-        assert!(matches!(shapes.first(), Some(Shape::CubicBezier(_))));
+        // Body shape should be a cubic bezier
+        assert!(matches!(shapes.body(), Shape::CubicBezier(_)));
     }
 }

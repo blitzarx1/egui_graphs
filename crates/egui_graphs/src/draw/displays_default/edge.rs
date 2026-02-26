@@ -8,7 +8,7 @@ use petgraph::{stable_graph::IndexType, EdgeType};
 
 use crate::{draw::DrawContext, elements::EdgeProps, node_size, DisplayEdge, DisplayNode, Node};
 
-use super::edge_shape_builder::{EdgeShapeBuilder, TipProps};
+use super::edge_shape::{EdgeShapeBuilder, TipProps};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DefaultEdgeShape {
@@ -185,26 +185,35 @@ impl DefaultEdgeShape {
     ) -> Vec<Shape> {
         let mut res = vec![];
         let size = node_size(start, Vec2::new(-1., 0.));
-        let mut line_looped_shapes = EdgeShapeBuilder::new(stroke)
+        let looped_shapes = EdgeShapeBuilder::new(stroke)
             .looped(start.location(), size, self.loop_size, self.order)
             .with_scaler(ctx.meta)
             .build();
-        let line_looped_shape = line_looped_shapes.clone().pop().unwrap();
-        res.push(line_looped_shape);
-        let Shape::CubicBezier(line_looped) = line_looped_shapes.pop().unwrap() else {
-            panic!("invalid shape type")
-        };
-        if label_visible {
-            let galley = ctx.ctx.fonts_mut(|f| {
-                f.layout_no_wrap(
-                    self.label_text.clone(),
-                    FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
-                    color,
-                )
-            });
-            let median = Self::median_point(&line_looped);
-            res.push(Self::label_shape(galley, median, color));
+
+        res.extend(looped_shapes.all_shapes());
+        if !label_visible {
+            return res;
         }
+
+        let edge_body = looped_shapes.body();
+        let galley = ctx.ctx.fonts_mut(|f| {
+            f.layout_no_wrap(
+                self.label_text.clone(),
+                FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
+                color,
+            )
+        });
+        let anchor = match edge_body {
+            Shape::CubicBezier(cubic) => Self::median_point(cubic),
+            Shape::LineSegment { points, .. } => {
+                (*points.first().unwrap() + points.last().unwrap().to_vec2()) / 2.0
+            }
+            _ => {
+                panic!("unexpected shape type for looped edge body")
+            }
+        };
+        res.push(Self::label_shape(galley, anchor, color));
+
         res
     }
 
@@ -241,22 +250,25 @@ impl DefaultEdgeShape {
             builder = builder.with_tip(tip);
         }
         let straight_shapes = builder.build();
-        res.extend(straight_shapes);
-        if label_visible {
-            let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
-            let galley = ctx.ctx.fonts_mut(|f| {
-                f.layout_no_wrap(
-                    self.label_text.clone(),
-                    FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
-                    color,
-                )
-            });
-            let dist = end_connector_point - start_connector_point;
-            let center = ctx
-                .meta
-                .canvas_to_screen_pos(start_connector_point + dist / 2.);
-            res.push(Self::label_shape(galley, center, color));
+        res.extend(straight_shapes.all_shapes());
+        if !label_visible {
+            return res;
         }
+
+        let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
+        let galley = ctx.ctx.fonts_mut(|f| {
+            f.layout_no_wrap(
+                self.label_text.clone(),
+                FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
+                color,
+            )
+        });
+        let dist = end_connector_point - start_connector_point;
+        let center = ctx
+            .meta
+            .canvas_to_screen_pos(start_connector_point + dist / 2.);
+        res.push(Self::label_shape(galley, center, color));
+
         res
     }
 
@@ -296,38 +308,35 @@ impl DefaultEdgeShape {
         if let Some(ref tip) = tip_store {
             builder = builder.with_tip(tip);
         }
+
         let curved_shapes = builder.build();
-        // Use first shape for label anchor. It may be a cubic or a straight segment (degenerate case).
-        if let Some(first) = curved_shapes.first() {
-            res.extend(curved_shapes.clone());
-            if label_visible {
-                let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
-                let galley = ctx.ctx.fonts_mut(|f| {
-                    f.layout_no_wrap(
-                        self.label_text.clone(),
-                        FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
-                        color,
-                    )
-                });
-                let anchor = match first {
-                    Shape::CubicBezier(cubic) => Self::median_point(cubic),
-                    Shape::LineSegment { points, .. } => {
-                        let mid =
-                            (*points.first().unwrap() + points.last().unwrap().to_vec2()) / 2.0;
-                        mid
-                    }
-                    _ => {
-                        // Fallback to midpoint between connectors in canvas coords transformed to screen
-                        let center_canvas = ((start_connector_point.to_vec2()
-                            + end_connector_point.to_vec2())
-                            / 2.0)
-                            .to_pos2();
-                        ctx.meta.canvas_to_screen_pos(center_canvas)
-                    }
-                };
-                res.push(Self::label_shape(galley, anchor, color));
-            }
+
+        res.extend(curved_shapes.all_shapes());
+        if !label_visible {
+            return res;
         }
+
+        let edge_body = curved_shapes.body();
+        let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
+        let galley = ctx.ctx.fonts_mut(|f| {
+            f.layout_no_wrap(
+                self.label_text.clone(),
+                FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
+                color,
+            )
+        });
+        let anchor = match edge_body {
+            Shape::CubicBezier(cubic) => Self::median_point(cubic),
+            Shape::LineSegment { points, .. } => {
+                let mid = (*points.first().unwrap() + points.last().unwrap().to_vec2()) / 2.0;
+                mid
+            }
+            _ => {
+                panic!("unexpected shape type for curved edge body")
+            }
+        };
+        res.push(Self::label_shape(galley, anchor, color));
+
         res
     }
 
@@ -362,9 +371,16 @@ impl DefaultEdgeShape {
             .looped(node.location(), node_size, self.loop_size, self.order)
             .build();
 
-        match shape.first() {
-            Some(Shape::CubicBezier(cubic)) => is_point_on_curve(pos, cubic, self.width),
-            _ => panic!("invalid shape type"),
+        match shape.body() {
+            Shape::CubicBezier(cubic) => is_point_on_curve(pos, cubic, self.width),
+            Shape::LineSegment { points, .. } => {
+                distance_segment_to_point(
+                    points.first().unwrap().clone(),
+                    points.last().unwrap().clone(),
+                    pos,
+                ) <= self.width
+            }
+            _ => panic!("unexpected shape type for looped edge body"),
         }
     }
 
@@ -404,11 +420,17 @@ impl DefaultEdgeShape {
             .curved((start, end), self.curve_size, self.order)
             .build();
 
-        let curved_shape = match curved_shapes.first() {
-            Some(Shape::CubicBezier(curve)) => curve.clone(),
+        match curved_shapes.body() {
+            Shape::CubicBezier(cubic) => is_point_on_curve(pos, cubic, self.width),
+            Shape::LineSegment { points, .. } => {
+                distance_segment_to_point(
+                    points.first().unwrap().clone(),
+                    points.last().unwrap().clone(),
+                    pos,
+                ) <= self.width
+            }
             _ => panic!("invalid shape type"),
-        };
-        is_point_on_curve(pos, &curved_shape, self.width)
+        }
     }
 }
 

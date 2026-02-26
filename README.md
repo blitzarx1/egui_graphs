@@ -41,7 +41,7 @@ The project is on track for a stable release v1.0.0. For the moment, breaking re
 
 ### Basic setup example
 
-The source code of the following steps can be found in the [basic example](https://github.com/blitzar-tech/egui_graphs/blob/main/crates/egui_graphs/examples/basic.rs).
+The source code of the following steps can be found in the [basic example](https://github.com/blitzarx1/egui_graphs/blob/main/crates/egui_graphs/examples/basic.rs).
 
 #### Step 1: Setting up the `BasicApp` struct
 
