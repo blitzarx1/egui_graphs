@@ -6,7 +6,7 @@
 
 Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) and [egui](https://github.com/emilk/egui) in its DNA.
 
-![ezgif-790068b47a117daa](https://github.com/user-attachments/assets/e693958f-95a2-4a91-8a4d-fc0724eb01d7)
+![ezgif-7312f131a6515c6e](https://github.com/user-attachments/assets/22d8ce17-be22-4dc5-a337-4cea795cf46c)
 
 The project implements a Widget for the egui framework, enabling easy visualization of interactive graphs in rust. The goal is to implement the very basic engine for graph visualization within egui, which can be easily extended and customized for your needs.
 
