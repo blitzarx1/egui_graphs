@@ -6,11 +6,11 @@
 
 Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) and [egui](https://github.com/emilk/egui) in its DNA.
 
-![ezgif-73b0fc64ee3a86](https://github.com/user-attachments/assets/d78c4a87-4b63-4fe9-9db8-be50fb3b9bb9)
+![ezgif-7312f131a6515c6e](https://github.com/user-attachments/assets/22d8ce17-be22-4dc5-a337-4cea795cf46c)
 
 The project implements a Widget for the egui framework, enabling easy visualization of interactive graphs in rust. The goal is to implement the very basic engine for graph visualization within egui, which can be easily extended and customized for your needs.
 
-Check the [web-demo](https://blitzar-tech.github.io/egui_graphs/#g=bipartite.json) for the comprehensive overview of the widget possibilities.
+Check the [web-demo](https://blitzarx1.github.io/egui_graphs/#g=bipartite.json) for the comprehensive overview of the widget possibilities.
 
 - [x] Build wasm or native;
 - [x] Layouts and custom layout mechanism;
@@ -41,7 +41,7 @@ The project is on track for a stable release v1.0.0. For the moment, breaking re
 
 ### Basic setup example
 
-The source code of the following steps can be found in the [basic example](https://github.com/blitzar-tech/egui_graphs/blob/main/crates/egui_graphs/examples/basic.rs).
+The source code of the following steps can be found in the [basic example](https://github.com/blitzarx1/egui_graphs/blob/main/crates/egui_graphs/examples/basic.rs).
 
 #### Step 1: Setting up the `BasicApp` struct
 

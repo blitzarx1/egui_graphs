@@ -158,7 +158,7 @@ mod node {
         }
 
         fn closest_boundary_point(&self, dir: Vec2) -> Pos2 {
-            find_intersection(self.loc, self.size_x / 2., self.size_y / 2., dir)
+            closest_boundary_point_rect(self.loc, self.size_x, self.size_y, dir)
         }
 
         fn shapes(&mut self, ctx: &egui_graphs::DrawContext) -> Vec<egui::Shape> {
@@ -186,9 +186,10 @@ mod node {
             let shape_rect =
                 Shape::convex_polygon(points, Color32::default(), Stroke::new(1., color));
 
-            // update self size
-            self.size_x = rect.size().x;
-            self.size_y = rect.size().y;
+            // Keep interaction and edge snapping in canvas coordinates.
+            let zoom = ctx.meta.zoom.max(f32::EPSILON);
+            self.size_x = rect.size().x / zoom;
+            self.size_y = rect.size().y / zoom;
 
             vec![shape_rect, shape_label.into()]
         }
@@ -199,28 +200,6 @@ mod node {
         }
     }
 
-    fn find_intersection(center: Pos2, size_x: f32, size_y: f32, direction: Vec2) -> Pos2 {
-        if (direction.x.abs() * size_y) > (direction.y.abs() * size_x) {
-            // intersects left or right side
-            let x = if direction.x > 0.0 {
-                center.x + size_x / 2.0
-            } else {
-                center.x - size_x / 2.0
-            };
-            let y = center.y + direction.y / direction.x * (x - center.x);
-            Pos2::new(x, y)
-        } else {
-            // intersects top or bottom side
-            let y = if direction.y > 0.0 {
-                center.y + size_y / 2.0
-            } else {
-                center.y - size_y / 2.0
-            };
-            let x = center.x + direction.x / direction.y * (y - center.y);
-            Pos2::new(x, y)
-        }
-    }
-
     fn rect_to_points(rect: Rect) -> Vec<Pos2> {
         let top_left = rect.min;
         let bottom_right = rect.max;
@@ -228,5 +207,41 @@ mod node {
         let bottom_left = Pos2::new(top_left.x, bottom_right.y);
 
         vec![top_left, top_right, bottom_right, bottom_left]
+    }
+
+    fn closest_boundary_point_rect(center: Pos2, size_x: f32, size_y: f32, dir: Vec2) -> Pos2 {
+        let half_x = size_x * 0.5;
+        let half_y = size_y * 0.5;
+        let eps = f32::EPSILON;
+
+        if dir.length_sq() <= eps {
+            return Pos2::new(center.x + half_x, center.y);
+        }
+
+        if (dir.x.abs() * size_y) > (dir.y.abs() * size_x) {
+            // intersects left or right side
+            let x = if dir.x > 0.0 {
+                center.x + half_x
+            } else {
+                center.x - half_x
+            };
+            if dir.x.abs() <= eps {
+                return Pos2::new(x, center.y);
+            }
+            let y = center.y + dir.y / dir.x * (x - center.x);
+            Pos2::new(x, y)
+        } else {
+            // intersects top or bottom side
+            let y = if dir.y > 0.0 {
+                center.y + half_y
+            } else {
+                center.y - half_y
+            };
+            if dir.y.abs() <= eps {
+                return Pos2::new(center.x + half_x * dir.x.signum(), y);
+            }
+            let x = center.x + dir.x / dir.y * (y - center.y);
+            Pos2::new(x, y)
+        }
     }
 }
