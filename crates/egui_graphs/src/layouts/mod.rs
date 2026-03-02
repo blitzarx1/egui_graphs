@@ -1,3 +1,4 @@
+pub mod circular;
 pub mod force_directed;
 pub mod hierarchical;
 pub mod random;
