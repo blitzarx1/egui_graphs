@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use egui::{Pos2, Rect};
 use petgraph::stable_graph::DefaultIx;
 use petgraph::Directed;
@@ -240,6 +238,41 @@ where
         })
     }
 
+    /// Dynamically recalculates and packs the visual order of edges between two nodes.
+    fn update_edge_orders(&mut self, start: NodeIndex<Ix>, end: NodeIndex<Ix>) {
+        let mut ab_edges: Vec<_> = self
+            .g
+            .edges_connecting(start, end)
+            .map(|e| e.id())
+            .collect();
+        let mut ba_edges: Vec<_> = self
+            .g
+            .edges_connecting(end, start)
+            .map(|e| e.id())
+            .collect();
+
+        // Deduplicate: naturally empties ba_edges for undirected graphs and self-loops
+        ba_edges.retain(|id| !ab_edges.contains(id));
+
+        // Sort by current order to preserve the visual sequence of existing edges
+        ab_edges.sort_by_key(|&id| self.g.edge_weight(id).unwrap().order());
+        ba_edges.sort_by_key(|&id| self.g.edge_weight(id).unwrap().order());
+
+        // Reserve order 0 (straight line) if opposing traffic exists
+        let offset = if !ab_edges.is_empty() && !ba_edges.is_empty() {
+            1
+        } else {
+            0
+        };
+
+        for (i, id) in ab_edges.into_iter().enumerate() {
+            self.g.edge_weight_mut(id).unwrap().set_order(i + offset);
+        }
+        for (i, id) in ba_edges.into_iter().enumerate() {
+            self.g.edge_weight_mut(id).unwrap().set_order(i + offset);
+        }
+    }
+
     #[allow(clippy::missing_panics_doc)] // TODO: add panics doc
     pub fn add_edge_custom(
         &mut self,
@@ -248,61 +281,15 @@ where
         payload: E,
         edge_transform: impl FnOnce(&mut Edge<N, E, Ty, Ix, Dn, De>),
     ) -> EdgeIndex<Ix> {
-        // Choose the smallest non-negative order not yet used by edges in the SAME direction
-        // to avoid multiple edges sharing the same visual offset (stacking).
-        let used_orders: std::collections::HashSet<usize> = self
-            .g
-            .edges_connecting(start, end)
-            .map(|e| e.weight().order())
-            .collect();
-        let mut order = 0usize;
-        while used_orders.contains(&order) {
-            order += 1;
-        }
-
         let idx = self.g.add_edge(start, end, Edge::new(payload));
         let e = self.g.edge_weight_mut(idx).unwrap();
 
         e.set_id(idx);
-        e.set_order(order);
+        e.set_order(usize::MAX);
 
         edge_transform(e);
 
-        // If we have two opposite-direction edges with order 0 (two straight lines),
-        // bump all siblings' order by 1 to avoid overlapping straight segments.
-
-        let siblings_ids: Vec<_> = {
-            let mut visited = HashSet::new();
-            self.g
-                .edges_connecting(start, end)
-                .chain(self.g.edges_connecting(end, start))
-                .filter(|e| visited.insert(e.id()))
-                .map(|e| e.id())
-                .collect()
-        };
-
-        let mut had_zero = false;
-        let mut increase_order = false;
-        for id in &siblings_ids {
-            if let Some(edge) = self.g.edge_weight_mut(*id) {
-                if edge.order() == 0 {
-                    if had_zero {
-                        increase_order = true;
-                        break;
-                    }
-
-                    had_zero = true;
-                }
-            }
-        }
-
-        if increase_order {
-            for id in siblings_ids {
-                if let Some(edge) = self.g.edge_weight_mut(id) {
-                    edge.set_order(edge.order() + 1);
-                }
-            }
-        }
+        self.update_edge_orders(start, end);
 
         idx
     }
@@ -311,24 +298,9 @@ where
     /// Returns removed edge and None if it does not exist.
     pub fn remove_edge(&mut self, idx: EdgeIndex<Ix>) -> Option<Edge<N, E, Ty, Ix, Dn, De>> {
         let (start, end) = self.g.edge_endpoints(idx)?;
-        let order = self.g.edge_weight(idx)?.order();
-
         let payload = self.g.remove_edge(idx)?;
 
-        let siblings = self
-            .g
-            .edges_connecting(start, end)
-            .map(|edge_ref| edge_ref.id())
-            .collect::<Vec<_>>();
-
-        // update order of siblings
-        for s_idx in &siblings {
-            let sibling_order = self.g.edge_weight(*s_idx)?.order();
-            if sibling_order < order {
-                continue;
-            }
-            self.g.edge_weight_mut(*s_idx)?.set_order(sibling_order - 1);
-        }
+        self.update_edge_orders(start, end);
 
         Some(payload)
     }
@@ -447,7 +419,7 @@ mod tests {
     use petgraph::stable_graph::StableGraph;
 
     #[test]
-    fn edge_orders_do_not_duplicate_in_same_direction() {
+    fn edge_orders_pack_densely_with_bidirectional_offset() {
         // Directed graph with default display types
         let mut sg: StableGraph<(), ()> = StableGraph::default();
         let a = sg.add_node(());
@@ -455,31 +427,44 @@ mod tests {
         let mut g: Graph<(), (), Directed> =
             Graph::new(sg.map(|_, ()| crate::Node::new(()), |_, ()| crate::Edge::new(())));
 
-        // Add opposite-direction edges; both initially 0, then logic bumps them to 1.
+        // 1. Add opposite-direction edges
         let e1 = g.add_edge(a, b, ());
         let e2 = g.add_edge(b, a, ());
-        let o1 = g.edge(e1).unwrap().order();
-        let o2 = g.edge(e2).unwrap().order();
+
         assert_eq!(
-            o1, 1,
-            "A->B should be bumped to order 1 when B->A exists at 0"
+            g.edge(e1).unwrap().order(),
+            1,
+            "A->B should be offset to 1 due to bidirectional traffic"
         );
         assert_eq!(
-            o2, 1,
-            "B->A should be bumped to order 1 when A->B exists at 0"
+            g.edge(e2).unwrap().order(),
+            1,
+            "B->A should be offset to 1 due to bidirectional traffic"
         );
 
-        // Now add a second A->B edge; it should pick smallest unused (0), not duplicate 1.
+        // 2. Add a second A->B edge
         let e3 = g.add_edge(a, b, ());
-        let o3 = g.edge(e3).unwrap().order();
         assert_eq!(
-            o3, 0,
-            "Second A->B edge should get order 0 (smallest unused), not stack at 1"
+            g.edge(e3).unwrap().order(),
+            2,
+            "Second A->B edge should stack sequentially at order 2"
+        );
+        // Ensure e1 remained at 1
+        assert_eq!(g.edge(e1).unwrap().order(), 1);
+
+        // Ensure e2 remained at 1
+        assert_eq!(
+            g.edge(e2).unwrap().order(),
+            1,
+            "B->A order should not have changed"
         );
 
-        // Add third A->B; orders used are {0,1}, expect 2.
+        // 3. Add a third A->B edge
         let e4 = g.add_edge(a, b, ());
-        let o4 = g.edge(e4).unwrap().order();
-        assert_eq!(o4, 2, "Third A->B edge should get order 2");
+        assert_eq!(
+            g.edge(e4).unwrap().order(),
+            3,
+            "Third A->B edge should stack sequentially at order 3"
+        );
     }
 }
