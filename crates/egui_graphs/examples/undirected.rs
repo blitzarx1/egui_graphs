@@ -1,5 +1,4 @@
 use eframe::{run_native, App, CreationContext};
-use egui::Context;
 use egui_graphs::{generate_simple_ungraph, Graph, GraphView};
 use petgraph::Undirected;
 
@@ -15,8 +14,8 @@ impl UndirectedApp {
 }
 
 impl App for UndirectedApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.add(&mut GraphView::<_, _, _>::new(&mut self.g));
         });
     }

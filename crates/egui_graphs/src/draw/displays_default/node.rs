@@ -110,9 +110,9 @@ impl DefaultNodeShape {
             return c;
         }
         let style = if self.is_interacted() {
-            ctx.ctx.style().visuals.widgets.active
+            ctx.ctx.global_style().visuals.widgets.active
         } else {
-            ctx.ctx.style().visuals.widgets.inactive
+            ctx.ctx.global_style().visuals.widgets.inactive
         };
         style.fg_stroke.color
     }
@@ -120,7 +120,7 @@ impl DefaultNodeShape {
     fn effective_stroke(&self, ctx: &DrawContext) -> Stroke {
         let base = Stroke::default();
         if let Some(hook) = &ctx.style.node_stroke_hook {
-            let style_ref: &egui::Style = &ctx.ctx.style();
+            let style_ref: &egui::Style = &ctx.ctx.global_style();
             (hook)(self.selected, self.dragged, self.color, base, style_ref)
         } else {
             base

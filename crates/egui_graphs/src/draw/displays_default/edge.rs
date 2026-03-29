@@ -152,9 +152,9 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 impl DefaultEdgeShape {
     fn current_color(&self, ctx: &DrawContext) -> Color32 {
         let style = if self.selected {
-            ctx.ctx.style().visuals.widgets.active
+            ctx.ctx.global_style().visuals.widgets.active
         } else {
-            ctx.ctx.style().visuals.widgets.inactive
+            ctx.ctx.global_style().visuals.widgets.inactive
         };
         style.fg_stroke.color
     }
@@ -162,7 +162,7 @@ impl DefaultEdgeShape {
     fn current_stroke(&self, ctx: &DrawContext, color: Color32) -> Stroke {
         let base = Stroke::new(self.width, color);
         if let Some(hook) = &ctx.style.edge_stroke_hook {
-            let style_ref: &egui::Style = &ctx.ctx.style();
+            let style_ref: &egui::Style = &ctx.ctx.global_style();
             (hook)(self.selected, self.order, base, style_ref)
         } else {
             base
@@ -374,11 +374,8 @@ impl DefaultEdgeShape {
         match shape.body() {
             Shape::CubicBezier(cubic) => is_point_on_curve(pos, cubic, self.width),
             Shape::LineSegment { points, .. } => {
-                distance_segment_to_point(
-                    points.first().unwrap().clone(),
-                    points.last().unwrap().clone(),
-                    pos,
-                ) <= self.width
+                distance_segment_to_point(*points.first().unwrap(), *points.last().unwrap(), pos)
+                    <= self.width
             }
             _ => panic!("unexpected shape type for looped edge body"),
         }
@@ -423,11 +420,8 @@ impl DefaultEdgeShape {
         match curved_shapes.body() {
             Shape::CubicBezier(cubic) => is_point_on_curve(pos, cubic, self.width),
             Shape::LineSegment { points, .. } => {
-                distance_segment_to_point(
-                    points.first().unwrap().clone(),
-                    points.last().unwrap().clone(),
-                    pos,
-                ) <= self.width
+                distance_segment_to_point(*points.first().unwrap(), *points.last().unwrap(), pos)
+                    <= self.width
             }
             _ => panic!("invalid shape type"),
         }
