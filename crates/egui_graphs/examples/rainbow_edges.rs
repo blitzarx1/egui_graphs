@@ -1,6 +1,5 @@
 use edge::RainbowEdgeShape;
 use eframe::{run_native, App, CreationContext};
-use egui::Context;
 use egui_graphs::{generate_simple_digraph, DefaultNodeShape, Graph, GraphView};
 use petgraph::{csr::DefaultIx, Directed};
 
@@ -16,8 +15,8 @@ impl RainbowEdgesApp {
 }
 
 impl App for RainbowEdgesApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.add(
                 &mut GraphView::<_, _, _, _, _, RainbowEdgeShape>::new(&mut self.g)
                     .with_interactions(

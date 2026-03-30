@@ -1,5 +1,5 @@
 use eframe::{run_native, App, CreationContext};
-use egui::{Context, Window};
+use egui::Window;
 use egui_graphs::{generate_simple_digraph, DefaultGraphView, Graph};
 
 pub struct WindowApp {
@@ -14,8 +14,8 @@ impl WindowApp {
 }
 
 impl App for WindowApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        Window::new("windowed graph").show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
+        Window::new("windowed graph").show(ui.ctx(), |ui| {
             ui.add(&mut DefaultGraphView::new(&mut self.g));
         });
     }

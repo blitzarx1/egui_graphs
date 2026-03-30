@@ -201,7 +201,7 @@ impl DemoApp {
             events_buf,
             #[cfg(feature = "events")]
             event_filters: EventFilters::default(),
-            dark_mode: cc.egui_ctx.style().visuals.dark_mode,
+            dark_mode: cc.egui_ctx.global_style().visuals.dark_mode,
             show_debug_overlay: true,
             show_keybindings_overlay: false,
             keybindings_just_opened: false,
@@ -450,7 +450,7 @@ impl DemoApp {
         egui_graphs::reset::<FruchtermanReingoldWithCenterGravityState>(ui, None);
         egui_graphs::reset::<LayoutStateHierarchical>(ui, None);
         ui.ctx().set_visuals(egui::Visuals::dark());
-        self.dark_mode = ui.ctx().style().visuals.dark_mode;
+        self.dark_mode = ui.ctx().global_style().visuals.dark_mode;
         #[cfg(feature = "events")]
         {
             self.last_events.clear();
@@ -910,7 +910,7 @@ impl DemoApp {
     pub fn ui_style(&mut self, ui: &mut Ui) {
         CollapsingHeader::new("Style").show(ui, |ui| {
             ui.horizontal(|ui| {
-                let mut dark = ui.ctx().style().visuals.dark_mode;
+                let mut dark = ui.ctx().global_style().visuals.dark_mode;
                 if ui
                     .checkbox(&mut dark, "dark mode")
                     .on_hover_text("Toggle dark or light visuals")
@@ -1154,21 +1154,21 @@ impl DemoApp {
 }
 
 impl App for DemoApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, _: &mut eframe::Frame) {
         // Reset typing flag each frame; UI code will set it when a text field has focus
         self.typing_in_input = false;
         // Sync counts displayed on sliders with actual graph values
         self.sync_counts();
 
         // Handle global keyboard shortcuts and modal toggling
-        self.process_keybindings(ctx);
+        self.process_keybindings(ui.ctx());
 
         // Right side panel with controls
         if self.show_sidebar {
-            egui::SidePanel::right("right")
-                .default_width(SIDE_PANEL_WIDTH)
-                .min_width(SIDE_PANEL_WIDTH)
-                .show(ctx, |ui| {
+            egui::Panel::right("right")
+                .default_size(SIDE_PANEL_WIDTH)
+                .min_size(SIDE_PANEL_WIDTH)
+                .show_inside(ui, |ui| {
                     // Tabs header using selectable labels
                     ui.horizontal(|ui| {
                         ui.selectable_value(
@@ -1189,7 +1189,7 @@ impl App for DemoApp {
         }
 
         // Central graph view
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             if self.reset_requested {
                 self.reset_all(ui);
                 self.reset_requested = false;
@@ -1199,12 +1199,12 @@ impl App for DemoApp {
             // Detect if any file is being dragged over the app. Some platforms/browsers
             // don't provide a pointer position during file drags, so don't require it.
             // We draw the overlay only within the CentralPanel rect anyway.
-            self.drag_hover_graph = ctx.input(|i| !i.raw.hovered_files.is_empty());
+            self.drag_hover_graph = ui.ctx().input(|i| !i.raw.hovered_files.is_empty());
 
             // Handle drops this frame (platform may provide bytes immediately or later). Process the first valid one.
             let mut maybe_text: Option<String> = None;
             let mut maybe_name: Option<String> = None;
-            ctx.input(|i| {
+            ui.ctx().input(|i| {
                 for f in &i.raw.dropped_files {
                     if let Some(bytes) = &f.bytes {
                         if let Ok(s) = std::str::from_utf8(bytes) {
@@ -1567,7 +1567,7 @@ impl App for DemoApp {
         self.update_fps();
 
         // Draw modal after main UI
-        self.keybindings_modal(ctx);
+        self.keybindings_modal(ui.ctx());
     }
 }
 
@@ -1845,7 +1845,7 @@ impl DemoApp {
         }
 
         // Other keybindings (still disabled while typing to avoid graph actions while editing text)
-        let typing = self.typing_in_input || ctx.wants_keyboard_input();
+        let typing = self.typing_in_input || ctx.egui_wants_keyboard_input();
         let cmds = if typing {
             Vec::new()
         } else {

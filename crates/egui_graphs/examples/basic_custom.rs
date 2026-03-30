@@ -1,5 +1,5 @@
 use eframe::{run_native, App, CreationContext, NativeOptions};
-use egui::{Context, Pos2};
+use egui::Pos2;
 use egui_graphs::{DefaultGraphView, Graph, SettingsStyle};
 use petgraph::stable_graph::StableGraph;
 
@@ -28,8 +28,8 @@ impl BasicCustomApp {
 }
 
 impl App for BasicCustomApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.add(
                 &mut DefaultGraphView::new(&mut self.g)
                     .with_styles(&SettingsStyle::default().with_labels_always(true)),

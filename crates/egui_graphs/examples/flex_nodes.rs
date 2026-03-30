@@ -1,5 +1,5 @@
 use eframe::{run_native, App, CreationContext};
-use egui::{CentralPanel, Context, SidePanel, TextEdit};
+use egui::{CentralPanel, Panel, TextEdit};
 use egui_graphs::{generate_simple_digraph, Graph, GraphView, SettingsInteraction};
 use node::NodeShapeFlex;
 use petgraph::{
@@ -40,8 +40,8 @@ impl FlexNodesApp {
         }
     }
 
-    fn render(&mut self, ctx: &Context) {
-        SidePanel::right("right_panel").show(ctx, |ui| {
+    fn render(&mut self, ui: &mut egui::Ui) {
+        Panel::right("right_panel").show_inside(ui, |ui| {
             ui.label("Select a node to change its label");
             ui.add_enabled_ui(
                 self.selected_node.is_some() || self.selected_edge.is_some(),
@@ -55,7 +55,7 @@ impl FlexNodesApp {
                 self.reset(ui);
             }
         });
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show_inside(ui, |ui| {
             let widget = &mut GraphView::<_, _, _, _, _, _>::new(&mut self.g).with_interactions(
                 &SettingsInteraction::default().with_node_selection_enabled(true),
             );
@@ -68,26 +68,24 @@ impl FlexNodesApp {
             return;
         }
 
-        if self.selected_node.is_some() {
-            let idx = self.selected_node.unwrap();
-            if idx.index().to_string() == self.label_input {
+        if let Some(node_index) = self.selected_node {
+            if node_index.index().to_string() == self.label_input {
                 return;
             }
 
             self.g
-                .node_mut(idx)
+                .node_mut(node_index)
                 .unwrap()
                 .set_label(self.label_input.clone());
         }
 
-        if self.selected_edge.is_some() {
-            let idx = self.selected_edge.unwrap();
-            if idx.index().to_string() == self.label_input {
+        if let Some(edge_index) = self.selected_edge {
+            if edge_index.index().to_string() == self.label_input {
                 return;
             }
 
             self.g
-                .edge_mut(idx)
+                .edge_mut(edge_index)
                 .unwrap()
                 .set_label(self.label_input.clone());
         }
@@ -107,9 +105,9 @@ impl FlexNodesApp {
 }
 
 impl App for FlexNodesApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.read_data();
-        self.render(ctx);
+        self.render(ui);
         self.update_data();
     }
 }
@@ -164,7 +162,7 @@ mod node {
         fn shapes(&mut self, ctx: &egui_graphs::DrawContext) -> Vec<egui::Shape> {
             // find node center location on the screen coordinates
             let center = ctx.meta.canvas_to_screen_pos(self.loc);
-            let color = ctx.ctx.style().visuals.text_color();
+            let color = ctx.ctx.global_style().visuals.text_color();
 
             // create label
             let galley = ctx.ctx.fonts_mut(|f| {

@@ -1,5 +1,4 @@
 use eframe::{run_native, App, CreationContext};
-use egui::Context;
 use egui_graphs::{
     default_edge_transform, default_node_transform, to_graph_custom, DefaultEdgeShape, Graph,
     GraphView, SettingsInteraction, SettingsNavigation,
@@ -39,8 +38,8 @@ impl AnimatedNodesApp {
 }
 
 impl App for AnimatedNodesApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.add(
                 &mut GraphView::<_, _, _, _, NodeShapeAnimated, DefaultEdgeShape>::new(&mut self.g)
                     .with_navigations(
@@ -180,7 +179,7 @@ mod node {
             let center = ctx.meta.canvas_to_screen_pos(self.loc);
             let size = ctx.meta.canvas_to_screen_size(self.size);
             let rect_default = Rect::from_center_size(center, Vec2::new(size, size));
-            let color = ctx.ctx.style().visuals.weak_text_color();
+            let color = ctx.ctx.global_style().visuals.weak_text_color();
 
             let diff = if self.dragged {
                 self.get_rotation_increment()
@@ -206,7 +205,7 @@ mod node {
                 Shape::convex_polygon(points, Color32::default(), Stroke::new(1., color));
 
             // create label
-            let color = ctx.ctx.style().visuals.text_color();
+            let color = ctx.ctx.global_style().visuals.text_color();
             let galley = ctx.ctx.fonts_mut(|f| {
                 f.layout_no_wrap(
                     self.label.clone(),

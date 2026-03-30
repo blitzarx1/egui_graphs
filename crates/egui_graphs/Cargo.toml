@@ -33,8 +33,6 @@ events = ["dep:crossbeam", "demo-core/events"]
 
 [dev-dependencies]
 eframe.workspace = true
-bevy.workspace = true
-bevy_egui.workspace = true
 serde_json.workspace = true
 ureq = { workspace = true, default-features = true, features = ["json"] }
 criterion = { workspace = true, features = ["html_reports"] }

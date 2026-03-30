@@ -316,7 +316,7 @@ impl EdgeShape {
     }
 
     pub fn all_shapes(&self) -> Vec<Shape> {
-        self.shapes.iter().cloned().collect()
+        self.shapes.to_vec()
     }
 }
 

@@ -1,5 +1,5 @@
 use eframe::{run_native, App, CreationContext};
-use egui::{CentralPanel, Context, SidePanel, TextEdit};
+use egui::{CentralPanel, Panel, TextEdit};
 use egui_graphs::{
     generate_simple_digraph, DefaultGraphView, Graph, SettingsInteraction, SettingsStyle,
 };
@@ -38,8 +38,8 @@ impl LabelChangeApp {
         }
     }
 
-    fn render(&mut self, ctx: &Context) {
-        SidePanel::right("right_panel").show(ctx, |ui| {
+    fn render(&mut self, ui: &mut egui::Ui) {
+        Panel::right("right_panel").show_inside(ui, |ui| {
             ui.label("Change Label");
             ui.add_enabled_ui(
                 self.selected_node.is_some() || self.selected_edge.is_some(),
@@ -53,7 +53,7 @@ impl LabelChangeApp {
                 self.reset(ui);
             }
         });
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show_inside(ui, |ui| {
             let widget = &mut DefaultGraphView::new(&mut self.g)
                 .with_interactions(
                     &SettingsInteraction::default()
@@ -70,26 +70,24 @@ impl LabelChangeApp {
             return;
         }
 
-        if self.selected_node.is_some() {
-            let idx = self.selected_node.unwrap();
-            if idx.index().to_string() == self.label_input {
+        if let Some(node_index) = self.selected_node {
+            if node_index.index().to_string() == self.label_input {
                 return;
             }
 
             self.g
-                .node_mut(idx)
+                .node_mut(node_index)
                 .unwrap()
                 .set_label(self.label_input.clone());
         }
 
-        if self.selected_edge.is_some() {
-            let idx = self.selected_edge.unwrap();
-            if idx.index().to_string() == self.label_input {
+        if let Some(edge_index) = self.selected_edge {
+            if edge_index.index().to_string() == self.label_input {
                 return;
             }
 
             self.g
-                .edge_mut(idx)
+                .edge_mut(edge_index)
                 .unwrap()
                 .set_label(self.label_input.clone());
         }
@@ -109,9 +107,9 @@ impl LabelChangeApp {
 }
 
 impl App for LabelChangeApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.read_data();
-        self.render(ctx);
+        self.render(ui);
         self.update_data();
     }
 }

@@ -3,7 +3,7 @@
 // FIXME: graph is not visible for id_1, works fine when ids and graphs are different
 
 use eframe::{run_native, App, CreationContext, Frame};
-use egui::{CentralPanel, Context, Layout, SidePanel};
+use egui::{CentralPanel, Layout, Panel};
 use egui_graphs::{generate_simple_digraph, DefaultGraphView, Graph};
 
 pub struct BasicApp {
@@ -23,26 +23,26 @@ impl BasicApp {
 }
 
 impl App for BasicApp {
-    fn update(&mut self, ctx: &Context, _: &mut Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut Frame) {
         let id1 = Some("id_1".to_string());
         let id2 = Some("id_2".to_string());
 
-        let available_width = ctx.available_rect().width();
-        SidePanel::left("left_panel")
-            .default_width(available_width / 3.)
+        let available_width = ui.ctx().content_rect().width();
+        Panel::left("left_panel")
+            .default_size(available_width / 3.)
             .resizable(true)
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 ui.allocate_ui_with_layout(ui.max_rect().size(), Layout::default(), |ui| {
                     ui.add(&mut DefaultGraphView::new(&mut self.g1).with_id(id1.clone()));
                 });
             });
-        SidePanel::right("right_panel")
-            .default_width(available_width / 3.)
+        Panel::right("right_panel")
+            .default_size(available_width / 3.)
             .resizable(true)
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 ui.add(&mut DefaultGraphView::new(&mut self.g1).with_id(id1))
             });
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show_inside(ui, |ui| {
             ui.add(&mut DefaultGraphView::new(&mut self.g2).with_id(id2))
         });
     }
