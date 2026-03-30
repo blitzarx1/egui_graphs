@@ -29,15 +29,12 @@ crossbeam = { workspace = true, optional = true }
 [features]
 events = ["dep:crossbeam", "demo-core/events"]
 
-
-
 [dev-dependencies]
 eframe.workspace = true
 serde_json.workspace = true
 ureq = { workspace = true, default-features = true, features = ["json"] }
 criterion = { workspace = true, features = ["html_reports"] }
 demo-core = { path = "../demo-core" }
- 
 
 [[bench]]
 name = "fruchterman_reingold"
