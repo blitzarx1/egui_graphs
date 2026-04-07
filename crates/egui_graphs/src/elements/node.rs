@@ -161,6 +161,10 @@ where
         self.props.color = Some(color);
     }
 
+    pub fn unset_color(&mut self) {
+        self.props.color = None;
+    }
+
     pub fn location(&self) -> Pos2 {
         self.props.location()
     }
