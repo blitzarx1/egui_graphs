@@ -995,6 +995,10 @@ where
             return;
         }
 
+        let Some(pointer_pos) = resp.hover_pos() else {
+            return;
+        };
+
         ui.input(|i| {
             let delta = i.zoom_delta();
             if delta == 1. {
@@ -1002,7 +1006,7 @@ where
             }
 
             let step = self.settings_navigation.zoom_speed * (delta - 1.).signum();
-            let local_center = i.pointer.hover_pos().map(|p| self.local_pos(resp, p));
+            let local_center = Some(self.local_pos(resp, pointer_pos));
             // Use a local rect (origin at 0,0) for zoom center math.
             let local_rect = Rect::from_min_size(Pos2::ZERO, resp.rect.size());
             self.zoom(&local_rect, step, local_center, meta);
