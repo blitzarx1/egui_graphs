@@ -21,6 +21,10 @@ pub use helpers::{
     generate_simple_ungraph, node_size, to_graph, to_graph_custom,
 };
 
+pub use layouts::circular::{
+    Circular as LayoutCircular, SortOrder as LayoutCircularSortOrder,
+    SpacingConfig as LayoutCircularSpacingConfig, State as LayoutStateCircular,
+};
 pub use layouts::force_directed::{
     CenterGravity, CenterGravityParams, Extra, ForceAlgorithm,
     ForceDirected as LayoutForceDirected, FruchtermanReingold, FruchtermanReingoldState,
