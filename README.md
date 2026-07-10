@@ -311,20 +311,14 @@ From the workspace root, specify the package and the example name:
 
 ```bash
 # demo example
-cargo run -p egui_graphs --example demo
+cargo r --release --example demo
 
 # another example (basic)
-cargo run -p egui_graphs --example basic
+cargo r --release --example basic
 
 # custom force-directed layout
-cargo run -p egui_graphs --example custom_force
-
-# serialize and deserialize nodes, edges, and a graph
-cargo run -p egui_graphs --example serde_roundtrip
+cargo r --release --example custom_force
 
 # inspect per-frame GraphView responses
-cargo run -p egui_graphs --example graph_view_response
-
-# release mode
-cargo run -p egui_graphs --example demo --release
+cargo r --release --example graph_view_response
 ```
