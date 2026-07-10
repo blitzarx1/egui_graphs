@@ -250,26 +250,12 @@ trunk serve
 # opens http://127.0.0.1:8080 (or similar)
 ```
 
-With the events feature enabled:
-
-```bash
-cd crates/demo-web
-trunk serve --features events
-```
-
 Build static assets:
 
 ```bash
 cd crates/demo-web
 trunk build
 # output in crates/demo-web/dist
-```
-
-Build with the events feature enabled:
-
-```bash
-cd crates/demo-web
-trunk build --features events
 ```
 
 ### Run any native example
@@ -285,9 +271,6 @@ cargo run -p egui_graphs --example basic
 
 # inspect per-frame GraphView responses
 cargo run -p egui_graphs --example graph_view_response
-
-# enable features (e.g., events)
-cargo run -p egui_graphs --example demo --features events
 
 # release mode
 cargo run -p egui_graphs --example demo --release

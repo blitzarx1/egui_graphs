@@ -47,7 +47,7 @@ impl SettingsInteraction {
         self
     }
 
-    /// Enables hover detection for nodes and emits hover events when hovered node changes.
+    /// Enables hover detection for nodes and reports hover changes in [`crate::GraphViewResponse`].
     /// Also sets pointing hand cursor when hovering a node or dragging.
     ///
     /// Note: This is implicitly enabled when `dragging_enabled`, `node_selection_enabled`,

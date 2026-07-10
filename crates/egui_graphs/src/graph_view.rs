@@ -145,15 +145,7 @@ where
     )
 }
 
-pub type DefaultGraphView<'a> = GraphView<'a, layouts::random::State, layouts::random::Random>;
-
-#[cfg(feature = "events")]
-use crate::events::{
-    Event, EventSink, PayloadEdgeClick, PayloadEdgeDeselect, PayloadEdgeSelect, PayloadNodeClick,
-    PayloadNodeDeselect, PayloadNodeDoubleClick, PayloadNodeDragEnd, PayloadNodeDragStart,
-    PayloadNodeHoverEnter, PayloadNodeHoverLeave, PayloadNodeMove, PayloadNodeSelect, PayloadPan,
-    PayloadZoom,
-};
+pub type DefaultGraphView = GraphView<layouts::random::State, layouts::random::Random>;
 
 // Effective interaction flags after applying master->child rules.
 #[derive(Clone, Copy, Debug, Default)]
@@ -172,7 +164,7 @@ struct EffectiveInteraction {
 ///
 /// Pass the graph to [`GraphView::show`]. The returned [`GraphViewResponse`] contains both
 /// the regular egui response and graph-specific changes produced during that frame.
-pub struct GraphView<'a, S = layouts::random::State, L = layouts::random::Random>
+pub struct GraphView<S = layouts::random::State, L = layouts::random::Random>
 where
     S: LayoutState,
     L: Layout<S>,
@@ -183,13 +175,10 @@ where
 
     custom_id: Option<String>,
 
-    #[cfg(feature = "events")]
-    events_sink: Option<&'a dyn EventSink>,
-
-    _marker: PhantomData<(&'a (), L, S)>,
+    _marker: PhantomData<(L, S)>,
 }
 
-impl<'a, S, L> Default for GraphView<'a, S, L>
+impl<S, L> Default for GraphView<S, L>
 where
     S: LayoutState,
     L: Layout<S>,
@@ -200,14 +189,12 @@ where
             settings_interaction: SettingsInteraction::default(),
             settings_navigation: SettingsNavigation::default(),
             custom_id: None,
-            #[cfg(feature = "events")]
-            events_sink: None,
             _marker: PhantomData,
         }
     }
 }
 
-struct GraphViewFrame<'a, 'g, N, E, Ty, Ix, Nd, Ed, S, L>
+struct GraphViewFrame<'g, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
@@ -223,10 +210,8 @@ where
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
     custom_id: Option<String>,
-    #[cfg(feature = "events")]
-    events_sink: Option<&'a dyn EventSink>,
     changes: Vec<GraphChange<Ix>>,
-    _marker: PhantomData<(&'a (), L, S)>,
+    _marker: PhantomData<(L, S)>,
 }
 
 struct ViewState {
@@ -263,7 +248,7 @@ impl ViewState {
     }
 }
 
-impl<N, E, Ty, Ix, Nd, Ed, S, L> GraphViewFrame<'_, '_, N, E, Ty, Ix, Nd, Ed, S, L>
+impl<N, E, Ty, Ix, Nd, Ed, S, L> GraphViewFrame<'_, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
@@ -344,7 +329,7 @@ where
 }
 
 // Configuration and rendering entry point.
-impl<'a, S, L> GraphView<'a, S, L>
+impl<S, L> GraphView<S, L>
 where
     S: LayoutState,
     L: Layout<S>,
@@ -376,8 +361,6 @@ where
             settings_navigation: self.settings_navigation,
             settings_style: self.settings_style,
             custom_id: self.custom_id,
-            #[cfg(feature = "events")]
-            events_sink: self.events_sink,
             changes: Vec::new(),
             _marker: PhantomData,
         }
@@ -406,21 +389,6 @@ where
     pub fn with_id(mut self, custom_id: Option<String>) -> Self {
         self.custom_id = custom_id;
         self
-    }
-
-    #[cfg(feature = "events")]
-    /// Supply a generic sink that will receive interaction events.
-    /// Works with `crossbeam::Sender<Event>`, closures `Fn(Event)`, or custom implementations.
-    pub fn with_event_sink(mut self, sink: &'a dyn EventSink) -> Self {
-        self.events_sink = Some(sink);
-        self
-    }
-
-    #[cfg(feature = "events")]
-    #[deprecated(since = "0.28.0", note = "Use with_event_sink instead")]
-    /// Backwards-compat wrapper for crossbeam channels.
-    pub fn with_events(self, events_publisher: &'a crossbeam::channel::Sender<Event>) -> Self {
-        self.with_event_sink(events_publisher)
     }
 
     /// Advance the active layout simulation by a fixed number of steps immediately.
@@ -536,7 +504,7 @@ where
     }
 }
 
-impl<N, E, Ty, Ix, Dn, De, S, L> GraphViewFrame<'_, '_, N, E, Ty, Ix, Dn, De, S, L>
+impl<N, E, Ty, Ix, Dn, De, S, L> GraphViewFrame<'_, N, E, Ty, Ix, Dn, De, S, L>
 where
     N: Clone,
     E: Clone,
@@ -1145,73 +1113,12 @@ where
     }
 
     fn record_change(&mut self, change: GraphChange<Ix>) {
-        #[cfg(feature = "events")]
-        if let Some(sink) = self.events_sink {
-            sink.send(Self::legacy_event(&change));
-        }
-
         self.changes.push(change);
-    }
-
-    #[cfg(feature = "events")]
-    fn legacy_event(change: &GraphChange<Ix>) -> Event {
-        match change {
-            GraphChange::Panned { delta, new_pan } => Event::Pan(PayloadPan {
-                diff: (*delta).into(),
-                new_pan: (*new_pan).into(),
-            }),
-            GraphChange::Zoomed { delta, new_zoom } => Event::Zoom(PayloadZoom {
-                diff: *delta,
-                new_zoom: *new_zoom,
-            }),
-            GraphChange::NodeMoved {
-                node,
-                delta,
-                new_position,
-            } => Event::NodeMove(PayloadNodeMove {
-                id: node.index(),
-                diff: (*delta).into(),
-                new_pos: [new_position.x, new_position.y],
-            }),
-            GraphChange::NodeDragStarted { node } => {
-                Event::NodeDragStart(PayloadNodeDragStart { id: node.index() })
-            }
-            GraphChange::NodeDragEnded { node } => {
-                Event::NodeDragEnd(PayloadNodeDragEnd { id: node.index() })
-            }
-            GraphChange::NodeSelected { node } => {
-                Event::NodeSelect(PayloadNodeSelect { id: node.index() })
-            }
-            GraphChange::NodeDeselected { node } => {
-                Event::NodeDeselect(PayloadNodeDeselect { id: node.index() })
-            }
-            GraphChange::NodeClicked { node } => {
-                Event::NodeClick(PayloadNodeClick { id: node.index() })
-            }
-            GraphChange::NodeDoubleClicked { node } => {
-                Event::NodeDoubleClick(PayloadNodeDoubleClick { id: node.index() })
-            }
-            GraphChange::NodeHoverEntered { node } => {
-                Event::NodeHoverEnter(PayloadNodeHoverEnter { id: node.index() })
-            }
-            GraphChange::NodeHoverExited { node } => {
-                Event::NodeHoverLeave(PayloadNodeHoverLeave { id: node.index() })
-            }
-            GraphChange::EdgeClicked { edge } => {
-                Event::EdgeClick(PayloadEdgeClick { id: edge.index() })
-            }
-            GraphChange::EdgeSelected { edge } => {
-                Event::EdgeSelect(PayloadEdgeSelect { id: edge.index() })
-            }
-            GraphChange::EdgeDeselected { edge } => {
-                Event::EdgeDeselect(PayloadEdgeDeselect { id: edge.index() })
-            }
-        }
     }
 }
 
 // Force-run variants available when the layout state supports animation toggling.
-impl<'a, S, L> GraphView<'a, S, L>
+impl<S, L> GraphView<S, L>
 where
     S: layouts::AnimatedState + LayoutState,
     L: Layout<S>,
@@ -1396,8 +1303,7 @@ mod tests {
         Directed,
     };
 
-    type TestFrame<'a, 'g> = GraphViewFrame<
-        'a,
+    type TestFrame<'g> = GraphViewFrame<
         'g,
         (),
         (),
@@ -1409,15 +1315,13 @@ mod tests {
         layouts::random::Random,
     >;
 
-    fn test_frame(graph: &mut Graph) -> TestFrame<'_, '_> {
+    fn test_frame(graph: &mut Graph) -> TestFrame<'_> {
         GraphViewFrame {
             g: graph,
             settings_interaction: SettingsInteraction::default(),
             settings_navigation: SettingsNavigation::default(),
             settings_style: SettingsStyle::default(),
             custom_id: None,
-            #[cfg(feature = "events")]
-            events_sink: None,
             changes: Vec::new(),
             _marker: PhantomData,
         }
@@ -1499,25 +1403,5 @@ mod tests {
             let response: GraphViewResponse<u16> = DefaultGraphView::new().show(ui, &mut graph);
             assert!(!response.changes.is_empty());
         });
-    }
-
-    #[cfg(feature = "events")]
-    #[test]
-    fn legacy_events_are_adapted_from_graph_changes() {
-        let node = NodeIndex::<DefaultIx>::new(7);
-        let change = GraphChange::NodeMoved {
-            node,
-            delta: Vec2::new(1.0, -2.0),
-            new_position: Pos2::new(3.0, 4.0),
-        };
-
-        assert_eq!(
-            TestFrame::legacy_event(&change),
-            Event::NodeMove(PayloadNodeMove {
-                id: 7,
-                diff: [1.0, -2.0],
-                new_pos: [3.0, 4.0],
-            })
-        );
     }
 }
