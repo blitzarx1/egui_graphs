@@ -1,6 +1,6 @@
 use eframe::{run_native, App, CreationContext};
 use egui::{CentralPanel, Panel, TextEdit};
-use egui_graphs::{generate_simple_digraph, Graph, GraphView, SettingsInteraction};
+use egui_graphs::{generate_simple_digraph, DefaultGraphView, Graph, SettingsInteraction};
 use node::NodeShapeFlex;
 use petgraph::{
     stable_graph::{DefaultIx, EdgeIndex, NodeIndex},
@@ -56,10 +56,11 @@ impl FlexNodesApp {
             }
         });
         CentralPanel::default().show(ui, |ui| {
-            let widget = &mut GraphView::<_, _, _, _, _, _>::new(&mut self.g).with_interactions(
-                &SettingsInteraction::default().with_node_selection_enabled(true),
-            );
-            ui.add(widget);
+            DefaultGraphView::new()
+                .with_interactions(
+                    &SettingsInteraction::default().with_node_selection_enabled(true),
+                )
+                .show(ui, &mut self.g);
         });
     }
 

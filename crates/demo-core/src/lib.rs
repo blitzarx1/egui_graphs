@@ -3,18 +3,16 @@ use eframe::{App, CreationContext};
 use egui::{self, Align2, CollapsingHeader, Color32, Pos2, Rect, ScrollArea, Ui};
 use egui_graphs::{
     generate_random_graph, FruchtermanReingoldWithCenterGravity,
-    FruchtermanReingoldWithCenterGravityState, Graph, LayoutForceDirected, LayoutHierarchical,
-    LayoutHierarchicalOrientation, LayoutStateHierarchical,
+    FruchtermanReingoldWithCenterGravityState, Graph, GraphChange, LayoutForceDirected,
+    LayoutHierarchical, LayoutHierarchicalOrientation, LayoutStateHierarchical,
 };
 use petgraph::stable_graph::{DefaultIx, EdgeIndex, NodeIndex};
 use petgraph::{Directed, Undirected};
 use rand::Rng;
-#[cfg(all(feature = "events", target_arch = "wasm32"))]
+#[cfg(target_arch = "wasm32")]
 use std::{cell::RefCell, rc::Rc};
-#[cfg(not(feature = "events"))]
-use web_time::Instant;
 
-mod event_filters;
+mod change_filters;
 mod graph_ops;
 mod import;
 mod keybindings;
@@ -23,33 +21,24 @@ mod overlays;
 mod spec;
 mod status;
 mod tabs;
-#[cfg(all(target_arch = "wasm32", not(feature = "events")))]
-use std::{cell::RefCell, rc::Rc};
 use tabs::import_load::UserUpload;
 mod ui_consts;
 mod util;
 
 pub const MAX_NODE_COUNT: usize = 2500;
 pub const MAX_EDGE_COUNT: usize = 5000;
-#[cfg(feature = "events")]
-pub const EVENTS_LIMIT: usize = 500;
+pub const CHANGES_LIMIT: usize = 500;
 // Keep margins consistent for overlays/buttons in the CentralPanel
 use ui_consts::{
     HEADING_TEXT_SIZE, OVERLAY_BTN_SIZE, OVERLAY_BTN_SPACING, OVERLAY_ICON_SIZE, SECTION_SPACING,
     SELECTED_SCROLL_MAX_HEIGHT, SIDE_PANEL_WIDTH, UI_MARGIN,
 };
 
-#[cfg(feature = "events")]
-use crate::event_filters::EventFilters;
+use crate::change_filters::ChangeFilters;
 use crate::graph_ops::GraphActions;
 use crate::keybindings::{dispatch as dispatch_keybindings, Command};
 use crate::metrics::MetricsRecorder;
 use crate::status::{StatusKind, StatusQueue};
-#[cfg(feature = "events")]
-pub use crossbeam::channel::{unbounded, Receiver, Sender};
-#[cfg(feature = "events")]
-pub use egui_graphs::events::Event;
-
 pub mod settings;
 
 fn info_icon(ui: &mut egui::Ui, tip: &str) {
@@ -93,23 +82,11 @@ pub struct DemoApp {
     pub metrics: MetricsRecorder,
     // UI
     pub show_sidebar: bool,
-    #[cfg(not(feature = "events"))]
-    pub copy_tip_until: Option<Instant>,
-    // Events (feature gated)
-    #[cfg(feature = "events")]
-    pub pan: [f32; 2],
-    #[cfg(feature = "events")]
-    pub zoom: f32,
-    #[cfg(feature = "events")]
-    pub last_events: Vec<String>,
-    #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
-    pub event_publisher: crate::Sender<Event>,
-    #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
-    pub event_consumer: crate::Receiver<Event>,
-    #[cfg(all(feature = "events", target_arch = "wasm32"))]
-    pub events_buf: Rc<RefCell<Vec<Event>>>,
-    #[cfg(feature = "events")]
-    pub event_filters: EventFilters,
+    // Graph changes returned by the most recent GraphView frames.
+    pan: egui::Vec2,
+    zoom: f32,
+    last_changes: Vec<GraphChange<DefaultIx>>,
+    change_filters: ChangeFilters,
     // Misc
     pub dark_mode: bool,
     pub show_debug_overlay: bool,
@@ -167,11 +144,6 @@ impl DemoApp {
         let mut g = generate_random_graph(settings_graph.count_node, settings_graph.count_edge);
         Self::distribute_nodes_circle_generic(&mut g);
 
-        #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
-        let (event_publisher, event_consumer) = crate::unbounded();
-        #[cfg(all(feature = "events", target_arch = "wasm32"))]
-        let events_buf: Rc<RefCell<Vec<Event>>> = Rc::new(RefCell::new(Vec::new()));
-
         #[allow(unused_mut)]
         let mut app = Self {
             g: DemoGraph::Directed(g),
@@ -185,22 +157,10 @@ impl DemoApp {
             metrics: MetricsRecorder::new(),
             // Start with side panel hidden by default
             show_sidebar: false,
-            #[cfg(not(feature = "events"))]
-            copy_tip_until: None,
-            #[cfg(feature = "events")]
-            pan: [0.0, 0.0],
-            #[cfg(feature = "events")]
+            pan: egui::Vec2::ZERO,
             zoom: 1.0,
-            #[cfg(feature = "events")]
-            last_events: Vec::new(),
-            #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
-            event_publisher,
-            #[cfg(all(feature = "events", not(target_arch = "wasm32")))]
-            event_consumer,
-            #[cfg(all(feature = "events", target_arch = "wasm32"))]
-            events_buf,
-            #[cfg(feature = "events")]
-            event_filters: EventFilters::default(),
+            last_changes: Vec::new(),
+            change_filters: ChangeFilters::default(),
             dark_mode: cc.egui_ctx.global_style().visuals.dark_mode,
             show_debug_overlay: true,
             show_keybindings_overlay: false,
@@ -451,13 +411,10 @@ impl DemoApp {
         egui_graphs::reset::<LayoutStateHierarchical>(ui, None);
         ui.ctx().set_visuals(egui::Visuals::dark());
         self.dark_mode = ui.ctx().global_style().visuals.dark_mode;
-        #[cfg(feature = "events")]
-        {
-            self.last_events.clear();
-            self.pan = [0.0, 0.0];
-            self.zoom = 1.0;
-            self.event_filters = EventFilters::default();
-        }
+        self.last_changes.clear();
+        self.pan = egui::Vec2::ZERO;
+        self.zoom = 1.0;
+        self.change_filters = ChangeFilters::default();
         // Web: clear URL hash (remove g param and any others)
         #[cfg(target_arch = "wasm32")]
         {
@@ -579,8 +536,6 @@ impl DemoApp {
                                 match &mut self.g {
                                     DemoGraph::Directed(g) => {
                                         egui_graphs::GraphView::<
-                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                                         >::fast_forward_force_run(ui, g, 100, None);
@@ -588,8 +543,6 @@ impl DemoApp {
                                     }
                                     DemoGraph::Undirected(g) => {
                                         egui_graphs::GraphView::<
-                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                                         >::fast_forward_force_run(ui, g, 100, None);
@@ -601,8 +554,6 @@ impl DemoApp {
                                 match &mut self.g {
                                     DemoGraph::Directed(g) => {
                                         let _ = egui_graphs::GraphView::<
-                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                                         >::fast_forward_budgeted_force_run(ui, g, 1000, 100, None);
@@ -610,8 +561,6 @@ impl DemoApp {
                                     }
                                     DemoGraph::Undirected(g) => {
                                         let _ = egui_graphs::GraphView::<
-                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                                         >::fast_forward_budgeted_force_run(ui, g, 1000, 100, None);
@@ -623,8 +572,6 @@ impl DemoApp {
                                 match &mut self.g {
                                     DemoGraph::Directed(g) => {
                                         let _ = egui_graphs::GraphView::<
-                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                                         >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000, None);
@@ -632,8 +579,6 @@ impl DemoApp {
                                     }
                                     DemoGraph::Undirected(g) => {
                                         let _ = egui_graphs::GraphView::<
-                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                                         >::fast_forward_until_stable_force_run(ui, g, 0.01, 1000, None);
@@ -645,8 +590,6 @@ impl DemoApp {
                                 match &mut self.g {
                                     DemoGraph::Directed(g) => {
                                         let _ = egui_graphs::GraphView::<
-                                            (), (), petgraph::Directed, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                                         >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000, None);
@@ -654,8 +597,6 @@ impl DemoApp {
                                     }
                                     DemoGraph::Undirected(g) => {
                                         let _ = egui_graphs::GraphView::<
-                                            (), (), petgraph::Undirected, petgraph::stable_graph::DefaultIx,
-                                            egui_graphs::DefaultNodeShape, egui_graphs::DefaultEdgeShape,
                                             FruchtermanReingoldWithCenterGravityState,
                                             LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
                                         >::fast_forward_until_stable_budgeted_force_run(ui, g, 0.01, 10000, 1000, None);
@@ -995,44 +936,24 @@ impl DemoApp {
             });
     }
 
-    #[cfg(feature = "events")]
-    pub fn ui_events(&mut self, ui: &mut Ui) {
-        CollapsingHeader::new("Events")
+    pub fn ui_changes(&mut self, ui: &mut Ui) {
+        CollapsingHeader::new("Changes")
             .default_open(true)
             .show(ui, |ui| {
-                // Ensure the events section has a reasonable minimum height so it doesn't collapse too small.
-                #[cfg(feature = "events")]
-                {
-                    ui.set_min_height(crate::ui_consts::EVENTS_MIN_HEIGHT);
-                }
+                ui.set_min_height(crate::ui_consts::CHANGES_MIN_HEIGHT);
                 ui.horizontal(|ui| {
                     if ui.button("All").clicked() {
-                        self.event_filters = EventFilters {
-                            pan: true,
-                            zoom: true,
-                            node_move: true,
-                            node_drag_start: true,
-                            node_drag_end: true,
-                            node_hover_enter: true,
-                            node_hover_leave: true,
-                            node_select: true,
-                            node_deselect: true,
-                            node_click: true,
-                            node_double_click: true,
-                            edge_click: true,
-                            edge_select: true,
-                            edge_deselect: true,
-                        };
+                        self.change_filters = ChangeFilters::default();
                     }
                     if ui.button("None").clicked() {
-                        self.event_filters = EventFilters {
+                        self.change_filters = ChangeFilters {
                             pan: false,
                             zoom: false,
                             node_move: false,
                             node_drag_start: false,
                             node_drag_end: false,
                             node_hover_enter: false,
-                            node_hover_leave: false,
+                            node_hover_exit: false,
                             node_select: false,
                             node_deselect: false,
                             node_click: false,
@@ -1041,75 +962,83 @@ impl DemoApp {
                             edge_select: false,
                             edge_deselect: false,
                         };
-                        // After disabling all, clear list for clarity
-                        self.last_events.clear();
+                        self.last_changes.clear();
                     }
                     if ui.button("Clear").clicked() {
-                        self.last_events.clear();
+                        self.last_changes.clear();
                     }
                     ui.label(format!(
                         "showing {} / {}",
-                        self.last_events.len(),
-                        EVENTS_LIMIT
+                        self.last_changes.len(),
+                        CHANGES_LIMIT
                     ));
                 });
 
                 ui.separator();
                 ui.label("Filters");
-                egui::Grid::new("events_filters_grid")
+                egui::Grid::new("changes_filters_grid")
                     .num_columns(2)
                     .spacing(egui::vec2(12.0, 4.0))
                     .show(ui, |ui| {
                         let mut changed = false;
-                        changed |= ui.checkbox(&mut self.event_filters.pan, "Pan").changed();
-                        changed |= ui.checkbox(&mut self.event_filters.zoom, "Zoom").changed();
-                        ui.end_row();
                         changed |= ui
-                            .checkbox(&mut self.event_filters.node_move, "NodeMove")
+                            .checkbox(&mut self.change_filters.pan, "Panned")
                             .changed();
                         changed |= ui
-                            .checkbox(&mut self.event_filters.node_drag_start, "NodeDragStart")
+                            .checkbox(&mut self.change_filters.zoom, "Zoomed")
                             .changed();
                         ui.end_row();
                         changed |= ui
-                            .checkbox(&mut self.event_filters.node_drag_end, "NodeDragEnd")
+                            .checkbox(&mut self.change_filters.node_move, "NodeMoved")
                             .changed();
                         changed |= ui
-                            .checkbox(&mut self.event_filters.node_hover_enter, "NodeHoverEnter")
-                            .changed();
-                        ui.end_row();
-                        changed |= ui
-                            .checkbox(&mut self.event_filters.node_hover_leave, "NodeHoverLeave")
-                            .changed();
-                        changed |= ui
-                            .checkbox(&mut self.event_filters.node_select, "NodeSelect")
+                            .checkbox(&mut self.change_filters.node_drag_start, "NodeDragStarted")
                             .changed();
                         ui.end_row();
                         changed |= ui
-                            .checkbox(&mut self.event_filters.node_deselect, "NodeDeselect")
+                            .checkbox(&mut self.change_filters.node_drag_end, "NodeDragEnded")
                             .changed();
                         changed |= ui
-                            .checkbox(&mut self.event_filters.node_click, "NodeClick")
-                            .changed();
-                        ui.end_row();
-                        changed |= ui
-                            .checkbox(&mut self.event_filters.node_double_click, "NodeDoubleClick")
-                            .changed();
-                        changed |= ui
-                            .checkbox(&mut self.event_filters.edge_click, "EdgeClick")
+                            .checkbox(
+                                &mut self.change_filters.node_hover_enter,
+                                "NodeHoverEntered",
+                            )
                             .changed();
                         ui.end_row();
                         changed |= ui
-                            .checkbox(&mut self.event_filters.edge_select, "EdgeSelect")
+                            .checkbox(&mut self.change_filters.node_hover_exit, "NodeHoverExited")
                             .changed();
                         changed |= ui
-                            .checkbox(&mut self.event_filters.edge_deselect, "EdgeDeselect")
+                            .checkbox(&mut self.change_filters.node_select, "NodeSelected")
+                            .changed();
+                        ui.end_row();
+                        changed |= ui
+                            .checkbox(&mut self.change_filters.node_deselect, "NodeDeselected")
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.change_filters.node_click, "NodeClicked")
+                            .changed();
+                        ui.end_row();
+                        changed |= ui
+                            .checkbox(
+                                &mut self.change_filters.node_double_click,
+                                "NodeDoubleClicked",
+                            )
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.change_filters.edge_click, "EdgeClicked")
+                            .changed();
+                        ui.end_row();
+                        changed |= ui
+                            .checkbox(&mut self.change_filters.edge_select, "EdgeSelected")
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.change_filters.edge_deselect, "EdgeDeselected")
                             .changed();
                         ui.end_row();
 
                         if changed {
-                            // Drop already stored events that are no longer enabled
-                            self.event_filters.purge_disabled(&mut self.last_events);
+                            self.change_filters.purge_disabled(&mut self.last_changes);
                             ui.ctx().request_repaint();
                         }
                     });
@@ -1118,28 +1047,12 @@ impl DemoApp {
                 let list_h = ui.available_height();
                 ScrollArea::vertical().max_height(list_h).show(ui, |ui| {
                     // Show in chronological order; newest at bottom.
-                    for ev in &self.last_events {
-                        ui.code(ev);
+                    for change in &self.last_changes {
+                        ui.code(format!("{change:?}"));
                     }
                 });
             });
     }
-
-    #[cfg(not(feature = "events"))]
-    pub fn ui_events(&mut self, ui: &mut Ui) {
-        self.show_events_feature_tip(ui);
-    }
-
-    #[cfg(not(feature = "events"))]
-    pub fn show_events_feature_tip(&mut self, ui: &mut Ui) {
-        ui.group(|ui| {
-            ui.colored_label(egui::Color32::from_rgb(200, 180, 40),
-                "Tip: enable the 'events' feature to see interaction events (pan/zoom, clicks, selections).",
-            );
-        });
-    }
-    #[cfg(feature = "events")]
-    pub fn show_events_feature_tip(&mut self, _ui: &mut Ui) {}
 
     pub fn sync_counts(&mut self) {
         let (n, e) = match &self.g {
@@ -1342,38 +1255,21 @@ impl App for DemoApp {
             }
             let settings_style = &style_builder;
 
-            match (&mut self.g, self.selected_layout) {
+            let graph_response = match (&mut self.g, self.selected_layout) {
                 (DemoGraph::Directed(ref mut g), DemoLayout::FruchtermanReingold) => {
                     if let Some(spec::PendingLayout::FR(st)) = self.pending_layout.take() {
                         egui_graphs::set_layout_state::<FruchtermanReingoldWithCenterGravityState>(
                             ui, st, None,
                         );
                     }
-                    let mut view = egui_graphs::GraphView::<
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
+                    egui_graphs::GraphView::<
                         FruchtermanReingoldWithCenterGravityState,
                         LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                    >::new(g)
+                    >::new()
                     .with_interactions(settings_interaction)
                     .with_navigations(settings_navigation)
-                    .with_styles(settings_style);
-                    #[cfg(feature = "events")]
-                    {
-                        #[cfg(not(target_arch = "wasm32"))]
-                        {
-                            view = view.with_event_sink(&self.event_publisher);
-                        }
-                        #[cfg(target_arch = "wasm32")]
-                        {
-                            view = view.with_event_sink(&self.events_buf);
-                        }
-                    }
-                    ui.add(&mut view);
+                    .with_styles(settings_style)
+                    .show(ui, g)
                 }
                 (DemoGraph::Undirected(ref mut g), DemoLayout::FruchtermanReingold) => {
                     if let Some(spec::PendingLayout::FR(st)) = self.pending_layout.take() {
@@ -1381,93 +1277,37 @@ impl App for DemoApp {
                             ui, st, None,
                         );
                     }
-                    let mut view = egui_graphs::GraphView::<
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
+                    egui_graphs::GraphView::<
                         FruchtermanReingoldWithCenterGravityState,
                         LayoutForceDirected<FruchtermanReingoldWithCenterGravity>,
-                    >::new(g)
+                    >::new()
                     .with_interactions(settings_interaction)
                     .with_navigations(settings_navigation)
-                    .with_styles(settings_style);
-                    #[cfg(feature = "events")]
-                    {
-                        #[cfg(not(target_arch = "wasm32"))]
-                        {
-                            view = view.with_event_sink(&self.event_publisher);
-                        }
-                        #[cfg(target_arch = "wasm32")]
-                        {
-                            view = view.with_event_sink(&self.events_buf);
-                        }
-                    }
-                    ui.add(&mut view);
+                    .with_styles(settings_style)
+                    .show(ui, g)
                 }
                 (DemoGraph::Directed(ref mut g), DemoLayout::Hierarchical) => {
                     if let Some(spec::PendingLayout::Hier(st)) = self.pending_layout.take() {
                         egui_graphs::set_layout_state::<LayoutStateHierarchical>(ui, st, None);
                     }
-                    let mut view = egui_graphs::GraphView::<
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        LayoutStateHierarchical,
-                        LayoutHierarchical,
-                    >::new(g)
-                    .with_interactions(settings_interaction)
-                    .with_navigations(settings_navigation)
-                    .with_styles(settings_style);
-                    #[cfg(feature = "events")]
-                    {
-                        #[cfg(not(target_arch = "wasm32"))]
-                        {
-                            view = view.with_event_sink(&self.event_publisher);
-                        }
-                        #[cfg(target_arch = "wasm32")]
-                        {
-                            view = view.with_event_sink(&self.events_buf);
-                        }
-                    }
-                    ui.add(&mut view);
+                    egui_graphs::GraphView::<LayoutStateHierarchical, LayoutHierarchical>::new()
+                        .with_interactions(settings_interaction)
+                        .with_navigations(settings_navigation)
+                        .with_styles(settings_style)
+                        .show(ui, g)
                 }
                 (DemoGraph::Undirected(ref mut g), DemoLayout::Hierarchical) => {
                     if let Some(spec::PendingLayout::Hier(st)) = self.pending_layout.take() {
                         egui_graphs::set_layout_state::<LayoutStateHierarchical>(ui, st, None);
                     }
-                    let mut view = egui_graphs::GraphView::<
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        _,
-                        LayoutStateHierarchical,
-                        LayoutHierarchical,
-                    >::new(g)
-                    .with_interactions(settings_interaction)
-                    .with_navigations(settings_navigation)
-                    .with_styles(settings_style);
-                    #[cfg(feature = "events")]
-                    {
-                        #[cfg(not(target_arch = "wasm32"))]
-                        {
-                            view = view.with_event_sink(&self.event_publisher);
-                        }
-                        #[cfg(target_arch = "wasm32")]
-                        {
-                            view = view.with_event_sink(&self.events_buf);
-                        }
-                    }
-                    ui.add(&mut view);
+                    egui_graphs::GraphView::<LayoutStateHierarchical, LayoutHierarchical>::new()
+                        .with_interactions(settings_interaction)
+                        .with_navigations(settings_navigation)
+                        .with_styles(settings_style)
+                        .show(ui, g)
                 }
-            }
+            };
+            self.record_graph_changes(&graph_response.changes);
 
             // After rendering the view, handle pending one-shot navigation actions.
 
@@ -1483,6 +1323,7 @@ impl App for DemoApp {
                 let new_pan = ui.max_rect().center().to_vec2() - graph_center.to_vec2() * meta.zoom;
                 meta.pan = new_pan;
                 meta.save(ui);
+                self.pan = new_pan;
                 self.pan_to_graph_pending = false;
                 self.notify_info("Fit to screen (no zoom)");
             }
@@ -1492,9 +1333,6 @@ impl App for DemoApp {
                 self.settings_navigation.fit_to_screen_enabled = false;
                 self.fit_to_screen_once_pending = false;
             }
-
-            #[cfg(feature = "events")]
-            self.consume_events();
 
             // Capture latest layout step count for overlay display
             if let DemoLayout::FruchtermanReingold = self.selected_layout {
@@ -1541,18 +1379,14 @@ impl App for DemoApp {
                     DemoGraph::Directed(g) => (g.node_count(), g.edge_count()),
                     DemoGraph::Undirected(g) => (g.node_count(), g.edge_count()),
                 };
-                #[cfg(feature = "events")]
-                let (pan_opt, zoom_opt) = (Some(self.pan), Some(self.zoom));
-                #[cfg(not(feature = "events"))]
-                let (pan_opt, zoom_opt) = (None, None);
                 crate::overlays::debug_overlay::render(
                     ui,
                     &self.metrics,
                     n,
                     e,
                     self.metrics.last_step_count(),
-                    pan_opt,
-                    zoom_opt,
+                    Some(self.pan),
+                    Some(self.zoom),
                 );
             }
             // Draw drag-drop hint last so it's visible above the graph
@@ -1623,75 +1457,22 @@ impl DemoApp {
 
         self.metrics.record_sample(step_ms, draw_ms);
     }
-    #[cfg(feature = "events")]
-    fn consume_events(&mut self) {
-        use egui_graphs::events::Event;
-        let mut push_event = |e: &Event| {
-            if !self.event_filters.enabled_for(e) {
-                return;
-            }
-            match e {
-                Event::Pan(p) => self.pan = p.new_pan,
-                Event::Zoom(z) => self.zoom = z.new_zoom,
+    fn record_graph_changes(&mut self, changes: &[GraphChange<DefaultIx>]) {
+        for change in changes {
+            match change {
+                GraphChange::Panned { new_pan, .. } => self.pan = *new_pan,
+                GraphChange::Zoomed { new_zoom, .. } => self.zoom = *new_zoom,
                 _ => {}
             }
-            let s = format!("{:?}", e);
-            self.last_events.push(s);
-            if self.last_events.len() > crate::EVENTS_LIMIT {
-                let overflow = self.last_events.len() - crate::EVENTS_LIMIT;
-                self.last_events.drain(0..overflow);
-            }
-        };
 
-        #[cfg(test)]
-        mod tests {
-            use super::*;
-            use egui_graphs::Graph;
-            use petgraph::{stable_graph::DefaultIx, Directed, Undirected};
-
-            #[test]
-            fn picks_metrics_route_by_graph_type_and_layout() {
-                // Directed graph
-                let sg_d: petgraph::stable_graph::StableGraph<(), (), Directed, DefaultIx> =
-                    Default::default();
-                let g_d: Graph<(), (), Directed, DefaultIx> = Graph::from(&sg_d);
-                let demo_d = DemoGraph::Directed(g_d);
-                assert_eq!(
-                    pick_metrics_route(&demo_d, DemoLayout::FruchtermanReingold),
-                    MetricsRoute::DirectedFR
-                );
-                assert_eq!(
-                    pick_metrics_route(&demo_d, DemoLayout::Hierarchical),
-                    MetricsRoute::DirectedHier
-                );
-
-                // Undirected graph
-                let sg_u: petgraph::stable_graph::StableGraph<(), (), Undirected, DefaultIx> =
-                    Default::default();
-                let g_u: Graph<(), (), Undirected, DefaultIx> = Graph::from(&sg_u);
-                let demo_u = DemoGraph::Undirected(g_u);
-                assert_eq!(
-                    pick_metrics_route(&demo_u, DemoLayout::FruchtermanReingold),
-                    MetricsRoute::UndirectedFR
-                );
-                assert_eq!(
-                    pick_metrics_route(&demo_u, DemoLayout::Hierarchical),
-                    MetricsRoute::UndirectedHier
-                );
+            if self.change_filters.enabled_for(change) {
+                self.last_changes.push(change.clone());
             }
         }
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            while let Ok(e) = self.event_consumer.try_recv() {
-                push_event(&e);
-            }
-        }
-        #[cfg(target_arch = "wasm32")]
-        {
-            let mut buf = self.events_buf.borrow_mut();
-            for e in buf.drain(..) {
-                push_event(&e);
-            }
+
+        if self.last_changes.len() > CHANGES_LIMIT {
+            let overflow = self.last_changes.len() - CHANGES_LIMIT;
+            self.last_changes.drain(0..overflow);
         }
     }
 
@@ -1933,15 +1714,11 @@ impl DemoApp {
         ctx.input(|i| {
             for ev in &i.events {
                 match ev {
-                    egui::Event::Key { pressed, .. } => {
-                        if *pressed {
-                            any_key_pressed = true;
-                        }
+                    egui::Event::Key { pressed, .. } if *pressed => {
+                        any_key_pressed = true;
                     }
-                    egui::Event::PointerButton { pressed, .. } => {
-                        if *pressed {
-                            any_pointer_pressed = true;
-                        }
+                    egui::Event::PointerButton { pressed, .. } if *pressed => {
+                        any_pointer_pressed = true;
                     }
                     _ => {}
                 }
@@ -2104,5 +1881,37 @@ pub(crate) fn web_build_share_url_for_example(name: &str) -> Option<String> {
 pub(crate) fn web_hash_clear() {
     if let Some(window) = web_sys::window() {
         let _ = window.location().set_hash("");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn picks_metrics_route_by_graph_type_and_layout() {
+        let directed =
+            petgraph::stable_graph::StableGraph::<(), (), Directed, DefaultIx>::default();
+        let directed = DemoGraph::Directed(Graph::from(&directed));
+        assert_eq!(
+            pick_metrics_route(&directed, DemoLayout::FruchtermanReingold),
+            MetricsRoute::DirectedFR
+        );
+        assert_eq!(
+            pick_metrics_route(&directed, DemoLayout::Hierarchical),
+            MetricsRoute::DirectedHier
+        );
+
+        let undirected =
+            petgraph::stable_graph::StableGraph::<(), (), Undirected, DefaultIx>::default();
+        let undirected = DemoGraph::Undirected(Graph::from(&undirected));
+        assert_eq!(
+            pick_metrics_route(&undirected, DemoLayout::FruchtermanReingold),
+            MetricsRoute::UndirectedFR
+        );
+        assert_eq!(
+            pick_metrics_route(&undirected, DemoLayout::Hierarchical),
+            MetricsRoute::UndirectedHier
+        );
     }
 }

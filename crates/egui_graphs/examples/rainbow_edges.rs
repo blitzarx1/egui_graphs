@@ -1,6 +1,6 @@
 use edge::RainbowEdgeShape;
 use eframe::{run_native, App, CreationContext};
-use egui_graphs::{generate_simple_digraph, DefaultNodeShape, Graph, GraphView};
+use egui_graphs::{generate_simple_digraph, DefaultGraphView, DefaultNodeShape, Graph};
 use petgraph::{csr::DefaultIx, Directed};
 
 pub struct RainbowEdgesApp {
@@ -17,12 +17,11 @@ impl RainbowEdgesApp {
 impl App for RainbowEdgesApp {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.add(
-                &mut GraphView::<_, _, _, _, _, RainbowEdgeShape>::new(&mut self.g)
-                    .with_interactions(
-                        &egui_graphs::SettingsInteraction::default().with_dragging_enabled(true),
-                    ),
-            );
+            DefaultGraphView::new()
+                .with_interactions(
+                    &egui_graphs::SettingsInteraction::default().with_dragging_enabled(true),
+                )
+                .show(ui, &mut self.g);
         });
     }
 }

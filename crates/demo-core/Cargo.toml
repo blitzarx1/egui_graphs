@@ -21,7 +21,6 @@ petgraph = { workspace = true, default-features = false, features = [
 ] }
 rand.workspace = true
 web-time.workspace = true
-crossbeam = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 rfd = "0.14"
@@ -48,5 +47,5 @@ web-sys = { version = "0.3", features = [
 ] }
 
 [features]
-# Enable events in this demo and pull in crossbeam for native channels
-events = ["egui_graphs/events", "dep:crossbeam"]
+# Compatibility feature for consumers that still enable the legacy library events API.
+events = ["egui_graphs/events"]

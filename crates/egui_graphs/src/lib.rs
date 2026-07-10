@@ -2,6 +2,7 @@ mod draw;
 mod elements;
 mod graph;
 mod graph_view;
+mod graph_view_response;
 mod helpers;
 mod layouts;
 mod metadata;
@@ -14,6 +15,7 @@ pub use graph_view::{
     get_layout_state, get_metrics, reset, reset_layout, set_layout_state, DefaultGraphView,
     GraphView,
 };
+pub use graph_view_response::{GraphChange, GraphViewResponse};
 #[allow(deprecated)]
 pub use helpers::{
     add_edge, add_edge_custom, add_node, add_node_custom, default_edge_transform,

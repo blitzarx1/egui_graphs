@@ -30,10 +30,9 @@ impl BasicCustomApp {
 impl App for BasicCustomApp {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.add(
-                &mut DefaultGraphView::new(&mut self.g)
-                    .with_styles(&SettingsStyle::default().with_labels_always(true)),
-            );
+            DefaultGraphView::new()
+                .with_styles(&SettingsStyle::default().with_labels_always(true))
+                .show(ui, &mut self.g);
         });
     }
 }

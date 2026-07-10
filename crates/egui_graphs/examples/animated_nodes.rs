@@ -1,7 +1,7 @@
 use eframe::{run_native, App, CreationContext};
 use egui_graphs::{
-    default_edge_transform, default_node_transform, to_graph_custom, DefaultEdgeShape, Graph,
-    GraphView, SettingsInteraction, SettingsNavigation,
+    default_edge_transform, default_node_transform, to_graph_custom, DefaultGraphView, Graph,
+    SettingsInteraction, SettingsNavigation,
 };
 use node::NodeShapeAnimated;
 use petgraph::{
@@ -40,20 +40,19 @@ impl AnimatedNodesApp {
 impl App for AnimatedNodesApp {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.add(
-                &mut GraphView::<_, _, _, _, NodeShapeAnimated, DefaultEdgeShape>::new(&mut self.g)
-                    .with_navigations(
-                        &SettingsNavigation::default()
-                            .with_fit_to_screen_enabled(false)
-                            .with_zoom_and_pan_enabled(true),
-                    )
-                    .with_interactions(
-                        &SettingsInteraction::default()
-                            .with_dragging_enabled(true)
-                            .with_node_selection_enabled(true)
-                            .with_edge_selection_enabled(true),
-                    ),
-            );
+            DefaultGraphView::new()
+                .with_navigations(
+                    &SettingsNavigation::default()
+                        .with_fit_to_screen_enabled(false)
+                        .with_zoom_and_pan_enabled(true),
+                )
+                .with_interactions(
+                    &SettingsInteraction::default()
+                        .with_dragging_enabled(true)
+                        .with_node_selection_enabled(true)
+                        .with_edge_selection_enabled(true),
+                )
+                .show(ui, &mut self.g);
         });
     }
 }

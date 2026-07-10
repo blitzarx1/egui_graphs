@@ -27,7 +27,7 @@ web-time.workspace = true
 crossbeam = { workspace = true, optional = true }
 
 [features]
-events = ["dep:crossbeam", "demo-core/events"]
+events = ["dep:crossbeam"]
 
 [dev-dependencies]
 eframe.workspace = true

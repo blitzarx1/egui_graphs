@@ -1,18 +1,19 @@
 use std::marker::PhantomData;
 
 use crate::{
-    draw::{drawer::Drawer, DefaultEdgeShape, DefaultNodeShape, DrawContext},
+    draw::{drawer::Drawer, DrawContext},
+    graph_view_response::{GraphChange, GraphViewResponse},
     layouts::{self, Layout, LayoutState},
     metadata::{reset_metadata, MetadataFrame, MetadataInstance},
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
     DisplayEdge, DisplayNode, Graph,
 };
 
-use egui::{Id, PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
+use egui::{Id, PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2};
 use web_time::Instant;
 
-use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
-use petgraph::{graph::IndexType, Directed};
+use petgraph::graph::EdgeIndex;
+use petgraph::graph::IndexType;
 use petgraph::{stable_graph::NodeIndex, EdgeType};
 
 // Shared cores to avoid duplication across general and force-run variants.
@@ -144,17 +145,7 @@ where
     )
 }
 
-pub type DefaultGraphView<'a> = GraphView<
-    'a,
-    (),
-    (),
-    Directed,
-    DefaultIx,
-    DefaultNodeShape,
-    DefaultEdgeShape,
-    layouts::random::State,
-    layouts::random::Random,
->;
+pub type DefaultGraphView<'a> = GraphView<'a, layouts::random::State, layouts::random::Random>;
 
 #[cfg(feature = "events")]
 use crate::events::{
@@ -177,43 +168,15 @@ struct EffectiveInteraction {
     edge_selection_multi: bool,
 }
 
-/// Widget for visualizing and interacting with graphs.
+/// Configures and renders an interactive graph.
 ///
-/// It implements [`egui::Widget`] and can be used like any other widget.
-///
-/// The widget uses a mutable reference to the [`petgraph::stable_graph::StableGraph`<`super::Node`<N>, `super::Edge`<E>>]
-/// struct to visualize and interact with the graph. `N` and `E` is arbitrary client data associated with nodes and edges.
-/// You can customize the visualization and interaction behavior using [`SettingsInteraction`], [`SettingsNavigation`] and [`SettingsStyle`] structs.
-///
-/// When any interaction or node property change occurs, the widget sends [`Event`] struct to the provided
-/// [`Sender<Event>`] channel, which can be set via the `with_interactions` method. The [`Event`] struct contains information about
-/// a change that occurred in the graph. Client can use this information to modify external state of his application if needed.
-///
-/// When the user performs navigation actions (zoom & pan or fit to screen), they do not
-/// produce changes. This is because these actions are performed on the global coordinates and do not change any
-/// properties of the nodes or edges.
-pub struct GraphView<
-    'a,
-    N = (),
-    E = (),
-    Ty = Directed,
-    Ix = DefaultIx,
-    Nd = DefaultNodeShape,
-    Ed = DefaultEdgeShape,
-    S = layouts::random::State,
-    L = layouts::random::Random,
-> where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Nd: DisplayNode<N, E, Ty, Ix>,
-    Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+/// Pass the graph to [`GraphView::show`]. The returned [`GraphViewResponse`] contains both
+/// the regular egui response and graph-specific changes produced during that frame.
+pub struct GraphView<'a, S = layouts::random::State, L = layouts::random::Random>
+where
     S: LayoutState,
     L: Layout<S>,
 {
-    g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
-
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
@@ -223,7 +186,47 @@ pub struct GraphView<
     #[cfg(feature = "events")]
     events_sink: Option<&'a dyn EventSink>,
 
-    _marker: PhantomData<(Nd, Ed, L, S)>,
+    _marker: PhantomData<(&'a (), L, S)>,
+}
+
+impl<'a, S, L> Default for GraphView<'a, S, L>
+where
+    S: LayoutState,
+    L: Layout<S>,
+{
+    fn default() -> Self {
+        Self {
+            settings_style: SettingsStyle::default(),
+            settings_interaction: SettingsInteraction::default(),
+            settings_navigation: SettingsNavigation::default(),
+            custom_id: None,
+            #[cfg(feature = "events")]
+            events_sink: None,
+            _marker: PhantomData,
+        }
+    }
+}
+
+struct GraphViewFrame<'a, 'g, N, E, Ty, Ix, Nd, Ed, S, L>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Nd: DisplayNode<N, E, Ty, Ix>,
+    Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
+    S: LayoutState,
+    L: Layout<S>,
+{
+    g: &'g mut Graph<N, E, Ty, Ix, Nd, Ed>,
+    settings_interaction: SettingsInteraction,
+    settings_navigation: SettingsNavigation,
+    settings_style: SettingsStyle,
+    custom_id: Option<String>,
+    #[cfg(feature = "events")]
+    events_sink: Option<&'a dyn EventSink>,
+    changes: Vec<GraphChange<Ix>>,
+    _marker: PhantomData<(&'a (), L, S)>,
 }
 
 struct ViewState {
@@ -260,7 +263,7 @@ impl ViewState {
     }
 }
 
-impl<N, E, Ty, Ix, Nd, Ed, S, L> Widget for &mut GraphView<'_, N, E, Ty, Ix, Nd, Ed, S, L>
+impl<N, E, Ty, Ix, Nd, Ed, S, L> GraphViewFrame<'_, '_, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
@@ -271,7 +274,7 @@ where
     S: LayoutState,
     L: Layout<S>,
 {
-    fn ui(self, ui: &mut Ui) -> Response {
+    fn show(mut self, ui: &mut Ui) -> GraphViewResponse<Ix> {
         // Measure layout step time
         let t0 = Instant::now();
         self.sync_layout(ui);
@@ -333,44 +336,81 @@ where
 
         ui.ctx().request_repaint();
 
-        resp
+        GraphViewResponse {
+            response: resp,
+            changes: self.changes,
+        }
     }
 }
 
-// Constructor and lifetime-bound methods
-impl<'a, N, E, Ty, Ix, Dn, De, S, L> GraphView<'a, N, E, Ty, Ix, Dn, De, S, L>
+// Configuration and rendering entry point.
+impl<'a, S, L> GraphView<'a, S, L>
 where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
     S: LayoutState,
     L: Layout<S>,
 {
-    /// Creates a new `GraphView` widget with default navigation and interactions settings.
+    /// Creates a graph view with default navigation, interaction, and style settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
-    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Dn, De>) -> Self {
-        Self {
-            g,
+    pub fn new() -> Self {
+        Self::default()
+    }
 
-            settings_style: SettingsStyle::default(),
-            settings_interaction: SettingsInteraction::default(),
-            settings_navigation: SettingsNavigation::default(),
-
-            custom_id: None,
-
+    /// Renders `graph` and returns both the egui response and graph-specific changes
+    /// produced during this frame.
+    pub fn show<N, E, Ty, Ix, Dn, De>(
+        self,
+        ui: &mut Ui,
+        graph: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    ) -> GraphViewResponse<Ix>
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
+        GraphViewFrame::<N, E, Ty, Ix, Dn, De, S, L> {
+            g: graph,
+            settings_interaction: self.settings_interaction,
+            settings_navigation: self.settings_navigation,
+            settings_style: self.settings_style,
+            custom_id: self.custom_id,
             #[cfg(feature = "events")]
-            events_sink: Option::default(),
-
+            events_sink: self.events_sink,
+            changes: Vec::new(),
             _marker: PhantomData,
         }
+        .show(ui)
+    }
+
+    /// Makes the view interactive according to the provided settings.
+    pub fn with_interactions(mut self, settings_interaction: &SettingsInteraction) -> Self {
+        self.settings_interaction = settings_interaction.clone();
+        self
+    }
+
+    /// Modifies default navigation settings.
+    pub fn with_navigations(mut self, settings_navigation: &SettingsNavigation) -> Self {
+        self.settings_navigation = settings_navigation.clone();
+        self
+    }
+
+    /// Modifies default style settings.
+    pub fn with_styles(mut self, settings_style: &SettingsStyle) -> Self {
+        self.settings_style = settings_style.clone();
+        self
+    }
+
+    /// Sets a custom ID used for layout and view metadata persistence.
+    pub fn with_id(mut self, custom_id: Option<String>) -> Self {
+        self.custom_id = custom_id;
+        self
     }
 
     #[cfg(feature = "events")]
     /// Supply a generic sink that will receive interaction events.
-    /// Works with crossbeam::Sender<Event>, closures `Fn(Event)`, or custom implementations.
+    /// Works with `crossbeam::Sender<Event>`, closures `Fn(Event)`, or custom implementations.
     pub fn with_event_sink(mut self, sink: &'a dyn EventSink) -> Self {
         self.events_sink = Some(sink);
         self
@@ -382,9 +422,121 @@ where
     pub fn with_events(self, events_publisher: &'a crossbeam::channel::Sender<Event>) -> Self {
         self.with_event_sink(events_publisher)
     }
+
+    /// Advance the active layout simulation by a fixed number of steps immediately.
+    pub fn fast_forward<N, E, Ty, Ix, Dn, De>(
+        ui: &mut Ui,
+        graph: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        steps: u32,
+        id: Option<String>,
+    ) where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
+        ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
+            ui,
+            graph,
+            steps,
+            None,
+            |_state| None,
+            |_state, _token| {},
+            id,
+        );
+    }
+
+    /// Advance the active layout by up to `target_steps`, stopping at `max_millis`.
+    pub fn fast_forward_budgeted<N, E, Ty, Ix, Dn, De>(
+        ui: &mut Ui,
+        graph: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        target_steps: u32,
+        max_millis: u64,
+        id: Option<String>,
+    ) -> u32
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
+        ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
+            ui,
+            graph,
+            target_steps,
+            Some(max_millis),
+            |_state| None,
+            |_state, _token| {},
+            id,
+        )
+    }
+
+    /// Run simulation steps until average node displacement is below `epsilon`
+    /// or `max_steps` is reached.
+    pub fn fast_forward_until_stable<N, E, Ty, Ix, Dn, De>(
+        ui: &mut Ui,
+        graph: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        epsilon: f32,
+        max_steps: u32,
+        id: Option<String>,
+    ) -> (u32, f32)
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
+        ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
+            ui,
+            graph,
+            epsilon,
+            max_steps,
+            None,
+            |_state| None,
+            |_state| None,
+            |_state, _token| {},
+            id,
+        )
+    }
+
+    /// Budgeted variant of [`Self::fast_forward_until_stable`].
+    pub fn fast_forward_until_stable_budgeted<N, E, Ty, Ix, Dn, De>(
+        ui: &mut Ui,
+        graph: &mut Graph<N, E, Ty, Ix, Dn, De>,
+        epsilon: f32,
+        max_steps: u32,
+        max_millis: u64,
+        id: Option<String>,
+    ) -> (u32, f32)
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
+        ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
+            ui,
+            graph,
+            epsilon,
+            max_steps,
+            Some(max_millis),
+            |_state| None,
+            |_state| None,
+            |_state, _token| {},
+            id,
+        )
+    }
 }
 
-impl<N, E, Ty, Ix, Dn, De, S, L> GraphView<'_, N, E, Ty, Ix, Dn, De, S, L>
+impl<N, E, Ty, Ix, Dn, De, S, L> GraphViewFrame<'_, '_, N, E, Ty, Ix, Dn, De, S, L>
 where
     N: Clone,
     E: Clone,
@@ -487,183 +639,19 @@ where
         let prev = self.g.hovered_node();
         if hovered_now != prev {
             if let Some(prev_idx) = prev {
-                #[cfg(feature = "events")]
-                {
-                    self.publish_event(Event::NodeHoverLeave(PayloadNodeHoverLeave {
-                        id: prev_idx.index(),
-                    }));
-                }
-                #[cfg(not(feature = "events"))]
-                {
-                    let _ = prev_idx;
-                }
+                self.record_change(GraphChange::NodeHoverExited { node: prev_idx });
                 if let Some(n) = self.g.node_mut(prev_idx) {
                     n.set_hovered(false);
                 }
             }
             if let Some(cur_idx) = hovered_now {
-                #[cfg(feature = "events")]
-                {
-                    self.publish_event(Event::NodeHoverEnter(PayloadNodeHoverEnter {
-                        id: cur_idx.index(),
-                    }));
-                }
-                #[cfg(not(feature = "events"))]
-                {
-                    let _ = cur_idx;
-                }
+                self.record_change(GraphChange::NodeHoverEntered { node: cur_idx });
                 if let Some(n) = self.g.node_mut(cur_idx) {
                     n.set_hovered(true);
                 }
             }
             self.g.set_hovered_node(hovered_now);
         }
-    }
-
-    /// Makes widget interactive according to the provided settings.
-    pub fn with_interactions(mut self, settings_interaction: &SettingsInteraction) -> Self {
-        self.settings_interaction = settings_interaction.clone();
-        self
-    }
-
-    /// Modifies default behaviour of navigation settings.
-    pub fn with_navigations(mut self, settings_navigation: &SettingsNavigation) -> Self {
-        self.settings_navigation = settings_navigation.clone();
-        self
-    }
-
-    /// Modifies default style settings.
-    pub fn with_styles(mut self, settings_style: &SettingsStyle) -> Self {
-        self.settings_style = settings_style.clone();
-        self
-    }
-
-    /// Sets a custom unique ID for this widget instance. Useful when you have multiple graph views
-    /// in the same UI and want to keep their state (layout, metadata) separate.
-    pub fn with_id(mut self, custom_id: Option<String>) -> Self {
-        self.custom_id = custom_id;
-        self
-    }
-
-    /// Advance the active layout simulation by a fixed number of steps immediately.
-    pub fn fast_forward(
-        ui: &mut egui::Ui,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-        steps: u32,
-        id: Option<String>,
-    ) where
-        N: Clone,
-        E: Clone,
-        Ty: EdgeType,
-        Ix: IndexType,
-        Dn: DisplayNode<N, E, Ty, Ix>,
-        De: DisplayEdge<N, E, Ty, Ix, Dn>,
-        S: LayoutState,
-        L: Layout<S>,
-    {
-        ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
-            ui,
-            g,
-            steps,
-            None,
-            |_s| None,
-            |_s, _tok| {},
-            id,
-        );
-    }
-
-    /// Advance the active layout by up to `target_steps`, but stop early if `max_millis` has elapsed.
-    /// Returns the number of steps actually performed.
-    pub fn fast_forward_budgeted(
-        ui: &mut egui::Ui,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-        target_steps: u32,
-        max_millis: u64,
-        id: Option<String>,
-    ) -> u32
-    where
-        N: Clone,
-        E: Clone,
-        Ty: EdgeType,
-        Ix: IndexType,
-        Dn: DisplayNode<N, E, Ty, Ix>,
-        De: DisplayEdge<N, E, Ty, Ix, Dn>,
-        S: LayoutState,
-        L: Layout<S>,
-    {
-        ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
-            ui,
-            g,
-            target_steps,
-            Some(max_millis),
-            |_s| None,
-            |_s, _tok| {},
-            id,
-        )
-    }
-
-    /// Run simulation steps until the average node displacement drops below `epsilon`
-    /// or `max_steps` is reached. Returns (`steps_done`, `last_avg_disp`).
-    pub fn fast_forward_until_stable(
-        ui: &mut egui::Ui,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-        epsilon: f32,
-        max_steps: u32,
-        id: Option<String>,
-    ) -> (u32, f32)
-    where
-        N: Clone,
-        E: Clone,
-        Ty: EdgeType,
-        Ix: IndexType,
-        Dn: DisplayNode<N, E, Ty, Ix>,
-        De: DisplayEdge<N, E, Ty, Ix, Dn>,
-        S: LayoutState,
-        L: Layout<S>,
-    {
-        ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
-            ui,
-            g,
-            epsilon,
-            max_steps,
-            None,
-            |_s| None, // no internal metric available in general case
-            |_s| None,
-            |_s, _tok| {},
-            id,
-        )
-    }
-
-    /// Budgeted variant of `fast_forward_until_stable`.
-    pub fn fast_forward_until_stable_budgeted(
-        ui: &mut egui::Ui,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-        epsilon: f32,
-        max_steps: u32,
-        max_millis: u64,
-        id: Option<String>,
-    ) -> (u32, f32)
-    where
-        N: Clone,
-        E: Clone,
-        Ty: EdgeType,
-        Ix: IndexType,
-        Dn: DisplayNode<N, E, Ty, Ix>,
-        De: DisplayEdge<N, E, Ty, Ix, Dn>,
-        S: LayoutState,
-        L: Layout<S>,
-    {
-        ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
-            ui,
-            g,
-            epsilon,
-            max_steps,
-            Some(max_millis),
-            |_s| None,
-            |_s| None,
-            |_s, _tok| {},
-            id,
-        )
     }
 
     fn sync_layout(&mut self, ui: &mut Ui) {
@@ -717,7 +705,7 @@ where
     /// Fits the graph to the screen if it is the first frame or
     /// fit to screen setting is enabled;
     fn handle_fit_to_screen(
-        &self,
+        &mut self,
         r: &Response,
         meta: &mut MetadataFrame,
         instance: &mut MetadataInstance,
@@ -939,7 +927,7 @@ where
         }
     }
 
-    fn fit_to_screen(&self, rect: &Rect, meta: &mut MetadataFrame) {
+    fn fit_to_screen(&mut self, rect: &Rect, meta: &mut MetadataFrame) {
         let raw_bounds = meta.graph_bounds();
         let (mut min, mut max) = (raw_bounds.min, raw_bounds.max);
         let invalid_bounds = !min.x.is_finite()
@@ -974,7 +962,7 @@ where
     }
 
     fn handle_navigation(
-        &self,
+        &mut self,
         ui: &Ui,
         resp: &Response,
         meta: &mut MetadataFrame,
@@ -985,7 +973,7 @@ where
     }
 
     fn handle_zoom(
-        &self,
+        &mut self,
         ui: &Ui,
         resp: &Response,
         meta: &mut MetadataFrame,
@@ -1013,7 +1001,12 @@ where
         });
     }
 
-    fn handle_pan(&self, resp: &Response, meta: &mut MetadataFrame, _eff: EffectiveInteraction) {
+    fn handle_pan(
+        &mut self,
+        resp: &Response,
+        meta: &mut MetadataFrame,
+        _eff: EffectiveInteraction,
+    ) {
         if !self.settings_navigation.zoom_and_pan_enabled {
             return;
         }
@@ -1033,7 +1026,13 @@ where
     }
 
     /// Zooms the graph by the given delta. It also compensates with pan to keep the zoom center in the same place.
-    fn zoom(&self, rect: &Rect, delta: f32, zoom_center: Option<Pos2>, meta: &mut MetadataFrame) {
+    fn zoom(
+        &mut self,
+        rect: &Rect,
+        delta: f32,
+        zoom_center: Option<Pos2>,
+        meta: &mut MetadataFrame,
+    ) {
         let center_pos = zoom_center.unwrap_or(rect.center()).to_vec2();
         let graph_center_pos = (center_pos - meta.pan) / meta.zoom;
         let factor = 1. + delta;
@@ -1049,53 +1048,37 @@ where
     fn select_node(&mut self, idx: NodeIndex<Ix>) {
         let n = self.g.node_mut(idx).unwrap();
         n.set_selected(true);
-
-        #[cfg(feature = "events")]
-        self.publish_event(Event::NodeSelect(PayloadNodeSelect { id: idx.index() }));
+        self.record_change(GraphChange::NodeSelected { node: idx });
     }
 
     fn deselect_node(&mut self, idx: NodeIndex<Ix>) {
         let n = self.g.node_mut(idx).unwrap();
         n.set_selected(false);
-
-        #[cfg(feature = "events")]
-        self.publish_event(Event::NodeDeselect(PayloadNodeDeselect { id: idx.index() }));
+        self.record_change(GraphChange::NodeDeselected { node: idx });
     }
 
-    #[allow(unused_variables, clippy::unused_self)]
-    fn set_node_clicked(&self, idx: NodeIndex<Ix>) {
-        #[cfg(feature = "events")]
-        self.publish_event(Event::NodeClick(PayloadNodeClick { id: idx.index() }));
+    fn set_node_clicked(&mut self, idx: NodeIndex<Ix>) {
+        self.record_change(GraphChange::NodeClicked { node: idx });
     }
 
-    #[allow(unused_variables, clippy::unused_self)]
-    fn set_node_double_clicked(&self, idx: NodeIndex<Ix>) {
-        #[cfg(feature = "events")]
-        self.publish_event(Event::NodeDoubleClick(PayloadNodeDoubleClick {
-            id: idx.index(),
-        }));
+    fn set_node_double_clicked(&mut self, idx: NodeIndex<Ix>) {
+        self.record_change(GraphChange::NodeDoubleClicked { node: idx });
     }
 
-    #[allow(unused_variables, clippy::unused_self)]
-    fn set_edge_clicked(&self, idx: EdgeIndex<Ix>) {
-        #[cfg(feature = "events")]
-        self.publish_event(Event::EdgeClick(PayloadEdgeClick { id: idx.index() }));
+    fn set_edge_clicked(&mut self, idx: EdgeIndex<Ix>) {
+        self.record_change(GraphChange::EdgeClicked { edge: idx });
     }
 
     fn select_edge(&mut self, idx: EdgeIndex<Ix>) {
         let e = self.g.edge_mut(idx).unwrap();
         e.set_selected(true);
-
-        #[cfg(feature = "events")]
-        self.publish_event(Event::EdgeSelect(PayloadEdgeSelect { id: idx.index() }));
+        self.record_change(GraphChange::EdgeSelected { edge: idx });
     }
 
     fn deselect_edge(&mut self, idx: EdgeIndex<Ix>) {
         let e = self.g.edge_mut(idx).unwrap();
         e.set_selected(false);
-
-        #[cfg(feature = "events")]
-        self.publish_event(Event::EdgeDeselect(PayloadEdgeDeselect { id: idx.index() }));
+        self.record_change(GraphChange::EdgeDeselected { edge: idx });
     }
 
     /// Deselects all nodes AND edges.
@@ -1122,92 +1105,134 @@ where
         let n = self.g.node_mut(idx).unwrap();
         let new_loc = n.location() + delta;
         n.set_location(new_loc);
-
-        #[cfg(feature = "events")]
-        self.publish_event(Event::NodeMove(PayloadNodeMove {
-            id: idx.index(),
-            diff: delta.into(),
-            new_pos: [new_loc.x, new_loc.y],
-        }));
+        self.record_change(GraphChange::NodeMoved {
+            node: idx,
+            delta,
+            new_position: new_loc,
+        });
     }
 
     fn set_drag_start(&mut self, idx: NodeIndex<Ix>) {
         let n = self.g.node_mut(idx).unwrap();
         n.set_dragged(true);
-
-        #[cfg(feature = "events")]
-        self.publish_event(Event::NodeDragStart(PayloadNodeDragStart {
-            id: idx.index(),
-        }));
+        self.record_change(GraphChange::NodeDragStarted { node: idx });
     }
 
     fn set_drag_end(&mut self, idx: NodeIndex<Ix>) {
         let n = self.g.node_mut(idx).unwrap();
         n.set_dragged(false);
-
-        #[cfg(feature = "events")]
-        self.publish_event(Event::NodeDragEnd(PayloadNodeDragEnd { id: idx.index() }));
+        self.record_change(GraphChange::NodeDragEnded { node: idx });
     }
 
-    #[allow(unused_variables, clippy::unused_self)]
-    fn set_pan(&self, new_pan: Vec2, meta: &mut MetadataFrame) {
-        let diff = new_pan - meta.pan;
-        if diff == Vec2::ZERO {
+    fn set_pan(&mut self, new_pan: Vec2, meta: &mut MetadataFrame) {
+        let delta = new_pan - meta.pan;
+        if delta == Vec2::ZERO {
             return;
         }
 
         meta.pan = new_pan;
-
-        #[cfg(feature = "events")]
-        self.publish_event(Event::Pan(PayloadPan {
-            diff: diff.into(),
-            new_pan: new_pan.into(),
-        }));
+        self.record_change(GraphChange::Panned { delta, new_pan });
     }
 
-    #[allow(unused_variables, clippy::unused_self)]
-    fn set_zoom(&self, new_zoom: f32, meta: &mut MetadataFrame) {
-        let diff = new_zoom - meta.zoom;
-        if diff == 0. {
+    fn set_zoom(&mut self, new_zoom: f32, meta: &mut MetadataFrame) {
+        let delta = new_zoom - meta.zoom;
+        if delta == 0. {
             return;
         }
 
         meta.zoom = new_zoom;
+        self.record_change(GraphChange::Zoomed { delta, new_zoom });
+    }
 
+    fn record_change(&mut self, change: GraphChange<Ix>) {
         #[cfg(feature = "events")]
-        self.publish_event(Event::Zoom(PayloadZoom { diff, new_zoom }));
+        if let Some(sink) = self.events_sink {
+            sink.send(Self::legacy_event(&change));
+        }
+
+        self.changes.push(change);
     }
 
     #[cfg(feature = "events")]
-    fn publish_event(&self, event: Event) {
-        if let Some(sink) = self.events_sink {
-            sink.send(event);
+    fn legacy_event(change: &GraphChange<Ix>) -> Event {
+        match change {
+            GraphChange::Panned { delta, new_pan } => Event::Pan(PayloadPan {
+                diff: (*delta).into(),
+                new_pan: (*new_pan).into(),
+            }),
+            GraphChange::Zoomed { delta, new_zoom } => Event::Zoom(PayloadZoom {
+                diff: *delta,
+                new_zoom: *new_zoom,
+            }),
+            GraphChange::NodeMoved {
+                node,
+                delta,
+                new_position,
+            } => Event::NodeMove(PayloadNodeMove {
+                id: node.index(),
+                diff: (*delta).into(),
+                new_pos: [new_position.x, new_position.y],
+            }),
+            GraphChange::NodeDragStarted { node } => {
+                Event::NodeDragStart(PayloadNodeDragStart { id: node.index() })
+            }
+            GraphChange::NodeDragEnded { node } => {
+                Event::NodeDragEnd(PayloadNodeDragEnd { id: node.index() })
+            }
+            GraphChange::NodeSelected { node } => {
+                Event::NodeSelect(PayloadNodeSelect { id: node.index() })
+            }
+            GraphChange::NodeDeselected { node } => {
+                Event::NodeDeselect(PayloadNodeDeselect { id: node.index() })
+            }
+            GraphChange::NodeClicked { node } => {
+                Event::NodeClick(PayloadNodeClick { id: node.index() })
+            }
+            GraphChange::NodeDoubleClicked { node } => {
+                Event::NodeDoubleClick(PayloadNodeDoubleClick { id: node.index() })
+            }
+            GraphChange::NodeHoverEntered { node } => {
+                Event::NodeHoverEnter(PayloadNodeHoverEnter { id: node.index() })
+            }
+            GraphChange::NodeHoverExited { node } => {
+                Event::NodeHoverLeave(PayloadNodeHoverLeave { id: node.index() })
+            }
+            GraphChange::EdgeClicked { edge } => {
+                Event::EdgeClick(PayloadEdgeClick { id: edge.index() })
+            }
+            GraphChange::EdgeSelected { edge } => {
+                Event::EdgeSelect(PayloadEdgeSelect { id: edge.index() })
+            }
+            GraphChange::EdgeDeselected { edge } => {
+                Event::EdgeDeselect(PayloadEdgeDeselect { id: edge.index() })
+            }
         }
     }
 }
 
 // Force-run variants available when the layout state supports animation toggling.
-impl<N, E, Ty, Ix, Dn, De, S, L> GraphView<'_, N, E, Ty, Ix, Dn, De, S, L>
+impl<'a, S, L> GraphView<'a, S, L>
 where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
     S: layouts::AnimatedState + LayoutState,
     L: Layout<S>,
 {
     /// Advance simulation even if paused by temporarily forcing `running = true`.
-    pub fn fast_forward_force_run(
-        ui: &mut egui::Ui,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    pub fn fast_forward_force_run<N, E, Ty, Ix, Dn, De>(
+        ui: &mut Ui,
+        graph: &mut Graph<N, E, Ty, Ix, Dn, De>,
         steps: u32,
         id: Option<String>,
-    ) {
+    ) where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
         ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
             ui,
-            g,
+            graph,
             steps,
             None,
             |s| {
@@ -1225,16 +1250,24 @@ where
     }
 
     /// Budgeted variant of `fast_forward_force_run`.
-    pub fn fast_forward_budgeted_force_run(
-        ui: &mut egui::Ui,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    pub fn fast_forward_budgeted_force_run<N, E, Ty, Ix, Dn, De>(
+        ui: &mut Ui,
+        graph: &mut Graph<N, E, Ty, Ix, Dn, De>,
         target_steps: u32,
         max_millis: u64,
         id: Option<String>,
-    ) -> u32 {
+    ) -> u32
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
         ff_steps_core::<N, E, Ty, Ix, Dn, De, S, L, _, _>(
             ui,
-            g,
+            graph,
             target_steps,
             Some(max_millis),
             |s| {
@@ -1252,16 +1285,24 @@ where
     }
 
     /// Until-stable variant that forces running during the operation.
-    pub fn fast_forward_until_stable_force_run(
-        ui: &mut egui::Ui,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    pub fn fast_forward_until_stable_force_run<N, E, Ty, Ix, Dn, De>(
+        ui: &mut Ui,
+        graph: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
         id: Option<String>,
-    ) -> (u32, f32) {
+    ) -> (u32, f32)
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
         ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
             ui,
-            g,
+            graph,
             epsilon,
             max_steps,
             None,
@@ -1281,17 +1322,25 @@ where
     }
 
     /// Budgeted until-stable variant with forced running.
-    pub fn fast_forward_until_stable_budgeted_force_run(
-        ui: &mut egui::Ui,
-        g: &mut Graph<N, E, Ty, Ix, Dn, De>,
+    pub fn fast_forward_until_stable_budgeted_force_run<N, E, Ty, Ix, Dn, De>(
+        ui: &mut Ui,
+        graph: &mut Graph<N, E, Ty, Ix, Dn, De>,
         epsilon: f32,
         max_steps: u32,
         max_millis: u64,
         id: Option<String>,
-    ) -> (u32, f32) {
+    ) -> (u32, f32)
+    where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
         ff_until_stable_core::<N, E, Ty, Ix, Dn, De, S, L, _, _, _>(
             ui,
-            g,
+            graph,
             epsilon,
             max_steps,
             Some(max_millis),
@@ -1336,4 +1385,139 @@ pub fn get_layout_state<S: LayoutState>(ui: &egui::Ui, id: Option<String>) -> S 
 /// Persists a new layout state so that on the next frame it will be applied.
 pub fn set_layout_state<S: LayoutState>(ui: &mut egui::Ui, state: S, id: Option<String>) {
     state.save(ui, id);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{DefaultEdgeShape, DefaultNodeShape};
+    use petgraph::{
+        stable_graph::{DefaultIx, StableGraph},
+        Directed,
+    };
+
+    type TestFrame<'a, 'g> = GraphViewFrame<
+        'a,
+        'g,
+        (),
+        (),
+        Directed,
+        DefaultIx,
+        DefaultNodeShape,
+        DefaultEdgeShape,
+        layouts::random::State,
+        layouts::random::Random,
+    >;
+
+    fn test_frame(graph: &mut Graph) -> TestFrame<'_, '_> {
+        GraphViewFrame {
+            g: graph,
+            settings_interaction: SettingsInteraction::default(),
+            settings_navigation: SettingsNavigation::default(),
+            settings_style: SettingsStyle::default(),
+            custom_id: None,
+            #[cfg(feature = "events")]
+            events_sink: None,
+            changes: Vec::new(),
+            _marker: PhantomData,
+        }
+    }
+
+    #[test]
+    fn records_typed_changes_in_occurrence_order_without_coalescing() {
+        let stable = StableGraph::<(), ()>::default();
+        let mut graph: Graph = Graph::from(&stable);
+        let node = graph.add_node(());
+        let mut frame = test_frame(&mut graph);
+
+        frame.set_node_clicked(node);
+        frame.select_node(node);
+        frame.move_node(node, Vec2::new(1.0, 2.0));
+        frame.move_node(node, Vec2::new(3.0, 4.0));
+
+        assert_eq!(
+            frame.changes,
+            vec![
+                GraphChange::NodeClicked { node },
+                GraphChange::NodeSelected { node },
+                GraphChange::NodeMoved {
+                    node,
+                    delta: Vec2::new(1.0, 2.0),
+                    new_position: Pos2::new(1.0, 2.0),
+                },
+                GraphChange::NodeMoved {
+                    node,
+                    delta: Vec2::new(3.0, 4.0),
+                    new_position: Pos2::new(4.0, 6.0),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn show_returns_only_changes_from_the_current_frame() {
+        let ctx = egui::Context::default();
+        let stable = StableGraph::<(), ()>::default();
+        let mut graph: Graph = Graph::from(&stable);
+        graph.add_node(());
+        let navigation = SettingsNavigation::default().with_fit_to_screen_enabled(false);
+
+        let mut first_changes = Vec::new();
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            first_changes = DefaultGraphView::new()
+                .with_navigations(&navigation)
+                .show(ui, &mut graph)
+                .changes;
+        });
+
+        assert!(first_changes
+            .iter()
+            .any(|change| matches!(change, GraphChange::Panned { .. })));
+        assert!(first_changes
+            .iter()
+            .any(|change| matches!(change, GraphChange::Zoomed { .. })));
+
+        let mut second_changes = Vec::new();
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            second_changes = DefaultGraphView::new()
+                .with_navigations(&navigation)
+                .show(ui, &mut graph)
+                .changes;
+        });
+
+        assert!(second_changes.is_empty());
+    }
+
+    #[test]
+    fn show_infers_a_non_default_graph_index_type() {
+        let ctx = egui::Context::default();
+        let stable = StableGraph::<(), (), Directed, u16>::default();
+        let mut graph: Graph<(), (), Directed, u16> = Graph::from(&stable);
+        graph.add_node(());
+
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            let response: GraphViewResponse<u16> = DefaultGraphView::new().show(ui, &mut graph);
+            assert!(!response.changes.is_empty());
+        });
+    }
+
+    #[cfg(feature = "events")]
+    #[test]
+    fn legacy_events_are_adapted_from_graph_changes() {
+        let node = NodeIndex::<DefaultIx>::new(7);
+        let change = GraphChange::NodeMoved {
+            node,
+            delta: Vec2::new(1.0, -2.0),
+            new_position: Pos2::new(3.0, 4.0),
+        };
+
+        assert_eq!(
+            TestFrame::legacy_event(&change),
+            Event::NodeMove(PayloadNodeMove {
+                id: 7,
+                diff: [1.0, -2.0],
+                new_pos: [3.0, 4.0],
+            })
+        );
+    }
 }

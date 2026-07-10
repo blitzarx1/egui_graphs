@@ -54,14 +54,14 @@ impl LabelChangeApp {
             }
         });
         CentralPanel::default().show(ui, |ui| {
-            let widget = &mut DefaultGraphView::new(&mut self.g)
+            DefaultGraphView::new()
                 .with_interactions(
                     &SettingsInteraction::default()
                         .with_node_selection_enabled(true)
                         .with_edge_selection_enabled(true),
                 )
-                .with_styles(&SettingsStyle::default().with_labels_always(true));
-            ui.add(widget);
+                .with_styles(&SettingsStyle::default().with_labels_always(true))
+                .show(ui, &mut self.g);
         });
     }
 
