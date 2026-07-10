@@ -118,6 +118,15 @@ fn main() {
 
 You can further customize the appearance and behavior of your graph by modifying the settings or adding more nodes and edges as needed.
 
+### Custom renderers
+
+Custom `DisplayNode` and `DisplayEdge` implementations receive a `DrawContext`. Use
+`ctx.style.labels_always()`, `ctx.style.resolve_node_stroke(...)`, and
+`ctx.style.resolve_edge_stroke(...)` inside those renderers to preserve the graph-wide label and
+stroke settings. The public `EdgeShapeBuilder`, `EdgeShapeProps`, and `TipProps` types can be used
+to construct the same straight, curved, looped, and arrow-tipped edge geometry as the default
+renderer without copying its internals.
+
 ## Features
 
 ### Layouts
@@ -181,14 +190,52 @@ egui_graphs::GraphView::<S, L>::new().show(ui, &mut graph);
 
 ##### Author a custom extra
 
-You can implement your own force by implementing the `ExtraForce` trait and then composing it via `Extra<MyExtra, ENABLED>` in a tuple. To keep this README focused, see the trait docs for a full example and method signature (docs.rs → egui_graphs → layouts → force_directed → extras → core → ExtraForce).
-
-Once implemented, use the public aliases to plug it in:
+Implement `ExtraForce` and compose it through `Extra<MyExtra, ENABLED>` in a tuple. Extra-force parameters are persisted with layout state, so they must implement `Serialize` and `Deserialize`.
+The complete runnable version is in the [`custom_force` example](https://github.com/blitzarx1/egui_graphs/blob/main/crates/egui_graphs/examples/custom_force.rs).
 
 ```rust
-use egui_graphs::{Extra, FruchtermanReingoldWithExtras, FruchtermanReingoldWithExtrasState, LayoutForceDirected};
+use egui::{Rect, Vec2};
+use egui_graphs::{
+    DisplayEdge, DisplayNode, Extra, ExtraForce, FruchtermanReingoldWithExtras,
+    FruchtermanReingoldWithExtrasState, Graph, LayoutForceDirected,
+};
+use petgraph::EdgeType;
+use serde::{Deserialize, Serialize};
 
-type Extras = (Extra<MyExtra, true>, ());
+#[derive(Debug, Default)]
+struct PullToCenter;
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+struct PullToCenterParams {
+    strength: f32,
+}
+
+impl ExtraForce for PullToCenter {
+    type Params = PullToCenterParams;
+
+    fn apply<N, E, Ty, Ix, Dn, De>(
+        params: &Self::Params,
+        graph: &Graph<N, E, Ty, Ix, Dn, De>,
+        indices: &[petgraph::stable_graph::NodeIndex<Ix>],
+        displacements: &mut [Vec2],
+        area: Rect,
+        _k: f32,
+    ) where
+        N: Clone,
+        E: Clone,
+        Ty: EdgeType,
+        Ix: petgraph::csr::IndexType,
+        Dn: DisplayNode<N, E, Ty, Ix>,
+        De: DisplayEdge<N, E, Ty, Ix, Dn>,
+    {
+        for (position, index) in indices.iter().enumerate() {
+            let location = graph.g().node_weight(*index).unwrap().location();
+            displacements[position] += (area.center() - location) * params.strength;
+        }
+    }
+}
+
+type Extras = (Extra<PullToCenter, true>, ());
 type S = FruchtermanReingoldWithExtrasState<Extras>;
 type L = LayoutForceDirected<FruchtermanReingoldWithExtras<Extras>>;
 egui_graphs::GraphView::<S, L>::new().show(ui, &mut graph);
@@ -268,6 +315,12 @@ cargo run -p egui_graphs --example demo
 
 # another example (basic)
 cargo run -p egui_graphs --example basic
+
+# custom force-directed layout
+cargo run -p egui_graphs --example custom_force
+
+# serialize and deserialize nodes, edges, and a graph
+cargo run -p egui_graphs --example serde_roundtrip
 
 # inspect per-frame GraphView responses
 cargo run -p egui_graphs --example graph_view_response

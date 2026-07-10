@@ -51,7 +51,7 @@ where
     S: LayoutState,
     L: Layout<S>,
 {
-    pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>, ctx: &'a DrawContext<'a>) -> Self {
+    pub(crate) fn new(g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>, ctx: &'a DrawContext<'a>) -> Self {
         Drawer {
             ctx,
             g,

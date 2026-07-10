@@ -1,1 +1,1 @@
-pub mod fruchterman_reingold;
+pub(crate) mod fruchterman_reingold;

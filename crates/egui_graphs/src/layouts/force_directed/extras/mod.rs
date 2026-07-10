@@ -1,6 +1,6 @@
 mod core;
 
-pub mod center_gravity;
+mod center_gravity;
 
 pub use center_gravity::{CenterGravity, CenterGravityParams};
 #[allow(unused_imports)]

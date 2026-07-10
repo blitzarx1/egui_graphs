@@ -226,6 +226,22 @@ impl SettingsStyle {
         self
     }
 
+    /// Returns whether labels should be drawn even when an element is not interacted with.
+    ///
+    /// Custom [`crate::DisplayNode`] and [`crate::DisplayEdge`] renderers need to consult this
+    /// method when deciding whether to draw their labels so they honor the graph-wide style.
+    ///
+    /// ```
+    /// use egui_graphs::DrawContext;
+    ///
+    /// fn should_draw_label(ctx: &DrawContext<'_>) -> bool {
+    ///     ctx.style.labels_always()
+    /// }
+    /// ```
+    pub fn labels_always(&self) -> bool {
+        self.labels_always
+    }
+
     /// Provide a hook to customize node stroke (outline) styling.
     /// The hook receives: `(selected, dragged, node_color, current_stroke, egui_style)` and should return a new `Stroke`.
     /// Example:
@@ -260,15 +276,81 @@ impl SettingsStyle {
         self.edge_stroke_hook = Some(std::sync::Arc::new(f));
         self
     }
+
+    /// Applies the configured node stroke hook to `current_stroke`.
+    ///
+    /// Custom [`crate::DisplayNode`] renderers need to use this method when choosing their
+    /// outline stroke so they honor the same style hook as the default node renderer.
+    ///
+    /// ```
+    /// use egui_graphs::DrawContext;
+    ///
+    /// fn node_stroke(ctx: &DrawContext<'_>) -> egui::Stroke {
+    ///     let style = ctx.ctx.global_style();
+    ///     ctx.style.resolve_node_stroke(
+    ///         false,
+    ///         false,
+    ///         None,
+    ///         egui::Stroke::default(),
+    ///         &style,
+    ///     )
+    /// }
+    /// ```
+    pub fn resolve_node_stroke(
+        &self,
+        selected: bool,
+        dragged: bool,
+        node_color: Option<egui::Color32>,
+        current_stroke: egui::Stroke,
+        egui_style: &egui::Style,
+    ) -> egui::Stroke {
+        self.node_stroke_hook
+            .as_ref()
+            .map_or(current_stroke, |hook| {
+                (hook)(selected, dragged, node_color, current_stroke, egui_style)
+            })
+    }
+
+    /// Applies the configured edge stroke hook to `current_stroke`.
+    ///
+    /// Custom [`crate::DisplayEdge`] renderers need to use this method when choosing their stroke
+    /// so they honor the same style hook as the default edge renderer.
+    ///
+    /// ```
+    /// use egui_graphs::DrawContext;
+    ///
+    /// fn edge_stroke(ctx: &DrawContext<'_>) -> egui::Stroke {
+    ///     let style = ctx.ctx.global_style();
+    ///     ctx.style.resolve_edge_stroke(
+    ///         false,
+    ///         0,
+    ///         egui::Stroke::default(),
+    ///         &style,
+    ///     )
+    /// }
+    /// ```
+    pub fn resolve_edge_stroke(
+        &self,
+        selected: bool,
+        order: usize,
+        current_stroke: egui::Stroke,
+        egui_style: &egui::Style,
+    ) -> egui::Stroke {
+        self.edge_stroke_hook
+            .as_ref()
+            .map_or(current_stroke, |hook| {
+                (hook)(selected, order, current_stroke, egui_style)
+            })
+    }
 }
 
 /// Type alias for the node stroke hook closure to keep type signatures concise.
-pub type NodeStrokeHook = std::sync::Arc<
+pub(crate) type NodeStrokeHook = std::sync::Arc<
     dyn Fn(bool, bool, Option<egui::Color32>, egui::Stroke, &egui::Style) -> egui::Stroke
         + Send
         + Sync,
 >;
 
 /// Type alias for the edge stroke hook closure to keep type signatures concise.
-pub type EdgeStrokeHook =
+pub(crate) type EdgeStrokeHook =
     std::sync::Arc<dyn Fn(bool, usize, egui::Stroke, &egui::Style) -> egui::Stroke + Send + Sync>;

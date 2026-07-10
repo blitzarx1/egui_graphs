@@ -4,7 +4,9 @@ use egui::{epaint::CubicBezierShape, Color32, Pos2, Shape, Stroke, Vec2};
 
 use crate::metadata::MetadataFrame;
 
-enum EdgeShapeProps {
+/// Geometry used by [`EdgeShapeBuilder`] to construct an edge body.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum EdgeShapeProps {
     Straight {
         bounds: (Pos2, Pos2),
     },
@@ -21,67 +23,29 @@ enum EdgeShapeProps {
     },
 }
 
-impl Default for EdgeShapeProps {
-    fn default() -> Self {
-        Self::Straight {
-            bounds: (Pos2::default(), Pos2::default()),
-        }
-    }
-}
-
-#[derive(Default)]
+/// Arrow-tip geometry for a directed edge.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TipProps {
     pub size: f32,
     pub angle: f32,
 }
 
-#[derive(Default)]
 pub struct EdgeShapeBuilder<'a> {
     shape_props: EdgeShapeProps,
-    tip: Option<&'a TipProps>,
+    tip: Option<TipProps>,
     stroke: Stroke,
     scaler: Option<&'a MetadataFrame>, // TODO: do we need metadata dependency here?
 }
 
 impl<'a> EdgeShapeBuilder<'a> {
-    pub fn new(stroke: Stroke) -> Self {
+    /// Creates a builder for the provided edge geometry and stroke.
+    pub fn new(shape_props: EdgeShapeProps, stroke: Stroke) -> Self {
         Self {
+            shape_props,
             stroke,
-            ..Default::default()
+            tip: None,
+            scaler: None,
         }
-    }
-
-    pub fn straight(mut self, bounds: (Pos2, Pos2)) -> Self {
-        self.shape_props = EdgeShapeProps::Straight { bounds };
-
-        self
-    }
-
-    pub fn curved(mut self, bounds: (Pos2, Pos2), curve_size: f32, order: usize) -> Self {
-        self.shape_props = EdgeShapeProps::Curved {
-            bounds,
-            curve_size,
-            order,
-        };
-
-        self
-    }
-
-    pub fn looped(
-        mut self,
-        node_center: Pos2,
-        node_size: f32,
-        loop_size: f32,
-        order: usize,
-    ) -> Self {
-        self.shape_props = EdgeShapeProps::Looped {
-            node_center,
-            node_size,
-            loop_size,
-            order,
-        };
-
-        self
     }
 
     pub fn with_scaler(mut self, scaler: &'a MetadataFrame) -> Self {
@@ -90,13 +54,13 @@ impl<'a> EdgeShapeBuilder<'a> {
         self
     }
 
-    pub fn with_tip(mut self, tip_props: &'a TipProps) -> Self {
+    pub fn with_tip(mut self, tip_props: TipProps) -> Self {
         self.tip = Some(tip_props);
 
         self
     }
 
-    pub fn shape_straight(&self, bounds: (Pos2, Pos2)) -> Vec<Shape> {
+    fn shape_straight(&self, bounds: (Pos2, Pos2)) -> Vec<Shape> {
         let mut res = vec![];
 
         let (start, end) = bounds;
@@ -274,7 +238,7 @@ impl<'a> EdgeShapeBuilder<'a> {
         res
     }
 
-    pub fn build(&self) -> EdgeShape {
+    pub fn build(self) -> EdgeShape {
         match self.shape_props {
             EdgeShapeProps::Straight { bounds } => EdgeShape {
                 shapes: self.shape_straight(bounds),
@@ -304,6 +268,8 @@ impl<'a> EdgeShapeBuilder<'a> {
     }
 }
 
+/// Shapes produced for one edge, including its body and optional arrow tip.
+#[derive(Clone, Debug)]
 pub struct EdgeShape {
     shapes: Vec<Shape>,
 }
@@ -315,8 +281,14 @@ impl EdgeShape {
             .expect("EdgeShape should have at least one shape")
     }
 
-    pub fn all_shapes(&self) -> Vec<Shape> {
-        self.shapes.to_vec()
+    /// Returns all shapes, with the edge body first and the optional arrow tip second.
+    pub fn shapes(&self) -> &[Shape] {
+        &self.shapes
+    }
+
+    /// Consumes this value and returns its shapes without cloning them.
+    pub fn into_shapes(self) -> Vec<Shape> {
+        self.shapes
     }
 }
 
@@ -334,10 +306,13 @@ mod tests {
     #[test]
     fn curved_falls_back_to_straight_when_zero_length() {
         let stroke = Stroke::new(1.0, Color32::WHITE);
-        let builder = EdgeShapeBuilder::new(stroke).curved(
-            (Pos2::new(0.0, 0.0), Pos2::new(0.0, 0.0)),
-            20.0,
-            1,
+        let builder = EdgeShapeBuilder::new(
+            EdgeShapeProps::Curved {
+                bounds: (Pos2::new(0.0, 0.0), Pos2::new(0.0, 0.0)),
+                curve_size: 20.0,
+                order: 1,
+            },
+            stroke,
         );
         let shapes = builder.build();
         // Expect a straight line segment (fallback)
@@ -347,10 +322,13 @@ mod tests {
     #[test]
     fn curved_builds_cubic_for_normal_bounds() {
         let stroke = Stroke::new(1.0, Color32::WHITE);
-        let builder = EdgeShapeBuilder::new(stroke).curved(
-            (Pos2::new(0.0, 0.0), Pos2::new(10.0, 0.0)),
-            20.0,
-            1,
+        let builder = EdgeShapeBuilder::new(
+            EdgeShapeProps::Curved {
+                bounds: (Pos2::new(0.0, 0.0), Pos2::new(10.0, 0.0)),
+                curve_size: 20.0,
+                order: 1,
+            },
+            stroke,
         );
         let shapes = builder.build();
         // Body shape should be a cubic bezier

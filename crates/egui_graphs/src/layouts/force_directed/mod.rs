@@ -2,10 +2,10 @@ mod algorithm;
 mod implementations;
 mod layout;
 
-pub mod extras;
+mod extras;
 
 pub use algorithm::ForceAlgorithm;
-pub use extras::{CenterGravity, CenterGravityParams, Extra};
+pub use extras::{CenterGravity, CenterGravityParams, Extra, ExtraForce, ExtrasTuple};
 pub use implementations::fruchterman_reingold::with_extras::{
     FruchtermanReingoldWithCenterGravity, FruchtermanReingoldWithCenterGravityState,
     FruchtermanReingoldWithExtras, FruchtermanReingoldWithExtrasState,

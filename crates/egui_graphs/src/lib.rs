@@ -1,3 +1,5 @@
+#![warn(unreachable_pub)]
+
 mod draw;
 mod elements;
 mod graph;
@@ -8,7 +10,10 @@ mod layouts;
 mod metadata;
 mod settings;
 
-pub use draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext};
+pub use draw::{
+    DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext, EdgeShape,
+    EdgeShapeBuilder, EdgeShapeProps, TipProps,
+};
 pub use elements::{Edge, EdgeProps, Node, NodeProps};
 pub use graph::Graph;
 pub use graph_view::{
@@ -24,7 +29,7 @@ pub use helpers::{
 };
 
 pub use layouts::force_directed::{
-    CenterGravity, CenterGravityParams, Extra, ForceAlgorithm,
+    CenterGravity, CenterGravityParams, Extra, ExtraForce, ExtrasTuple, ForceAlgorithm,
     ForceDirected as LayoutForceDirected, FruchtermanReingold, FruchtermanReingoldState,
     FruchtermanReingoldWithCenterGravity, FruchtermanReingoldWithCenterGravityState,
     FruchtermanReingoldWithExtras, FruchtermanReingoldWithExtrasState,
@@ -34,6 +39,6 @@ pub use layouts::hierarchical::{
     State as LayoutStateHierarchical,
 };
 pub use layouts::random::{Random as LayoutRandom, State as LayoutStateRandom};
-pub use layouts::{Layout, LayoutState};
+pub use layouts::{AnimatedState, Layout, LayoutState};
 pub use metadata::{reset_metadata, MetadataFrame};
 pub use settings::{SettingsInteraction, SettingsNavigation, SettingsStyle};

@@ -1,5 +1,5 @@
 mod core;
 
-pub mod with_extras;
+pub(crate) mod with_extras;
 
 pub use core::{FruchtermanReingold, FruchtermanReingoldState};

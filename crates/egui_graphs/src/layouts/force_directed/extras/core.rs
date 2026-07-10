@@ -7,7 +7,14 @@ use crate::{DisplayEdge, DisplayNode, Graph};
 /// An additional force to be applied after the base forces.
 /// Implementors are zero-sized marker types with the behavior in `apply`.
 pub trait ExtraForce: std::fmt::Debug + Default + Send + Sync + 'static {
-    type Params: Clone + Default + std::fmt::Debug + Send + Sync + 'static;
+    type Params: Serialize
+        + DeserializeOwned
+        + Clone
+        + Default
+        + std::fmt::Debug
+        + Send
+        + Sync
+        + 'static;
 
     /// Apply the extra force: accumulate into `disp` (same convention as base helpers).
     fn apply<N, E, Ty, Ix, Dn, De>(
@@ -115,7 +122,6 @@ impl ExtrasTuple for () {
 impl<Head, const B: bool, Tail> ExtrasTuple for (Extra<Head, B>, Tail)
 where
     Head: ExtraForce,
-    Head::Params: Serialize + DeserializeOwned,
     Tail: ExtrasTuple,
 {
     fn apply_all<N, EE, Ty, Ix, Dn, De>(

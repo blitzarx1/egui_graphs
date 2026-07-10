@@ -24,6 +24,9 @@ where
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
     /// Use `ctx.painter` to have low level access to egui painting process.
+    /// Custom renderers should use [`crate::SettingsStyle::labels_always`] and
+    /// [`crate::SettingsStyle::resolve_node_stroke`] through `ctx.style` to honor the
+    /// graph-wide style settings.
     fn shapes(&mut self, ctx: &DrawContext) -> Vec<Shape>;
 
     /// Is called on every frame. Can be used for updating state of the implementation of [`DisplayNode`]
@@ -54,6 +57,9 @@ where
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
     /// Use `ctx.painter` to have low level access to egui painting process.
+    /// Custom renderers should use [`crate::SettingsStyle::labels_always`] and
+    /// [`crate::SettingsStyle::resolve_edge_stroke`] through `ctx.style` to honor the
+    /// graph-wide style settings.
     fn shapes(
         &mut self,
         start: &Node<N, E, Ty, Ix, D>,
