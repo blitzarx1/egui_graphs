@@ -32,7 +32,7 @@ jobs:
 
       - name: Build demo-web with Trunk
         working-directory: crates/demo-web
-        run: trunk build --release --public-url /egui_graphs/ --features events
+        run: trunk build --release --public-url /egui_graphs/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

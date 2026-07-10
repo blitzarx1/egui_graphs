@@ -24,11 +24,6 @@ petgraph = { workspace = true, default-features = false, features = [
 serde = { workspace = true, features = ["derive"] }
 web-time.workspace = true
 
-crossbeam = { workspace = true, optional = true }
-
-[features]
-events = ["dep:crossbeam"]
-
 [dev-dependencies]
 eframe.workspace = true
 serde_json.workspace = true
