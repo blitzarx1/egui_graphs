@@ -197,7 +197,7 @@ impl DemoApp {
             self.ui_selected(ui);
             self.ui_style(ui);
             self.ui_debug(ui);
-            self.ui_events(ui);
+            self.ui_changes(ui);
         });
     }
 }

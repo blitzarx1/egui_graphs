@@ -8,14 +8,14 @@ Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) 
 
 ![ezgif-7312f131a6515c6e](https://github.com/user-attachments/assets/22d8ce17-be22-4dc5-a337-4cea795cf46c)
 
-The project implements a Widget for the egui framework, enabling easy visualization of interactive graphs in rust. The goal is to implement the very basic engine for graph visualization within egui, which can be easily extended and customized for your needs.
+The project provides a `GraphView` for the egui framework, enabling easy visualization of interactive graphs in rust. The goal is to implement the very basic engine for graph visualization within egui, which can be easily extended and customized for your needs.
 
 Check the [web-demo](https://blitzarx1.github.io/egui_graphs) for the comprehensive overview of the widget possibilities.
 
 - [x] Build wasm or native;
 - [x] Layouts and custom layout mechanism;
 - [x] Zooming and panning;
-- [x] Node and edges interactions and events reporting: click, double click, select, drag;
+- [x] Node and edge interaction reporting: click, double click, select, hover, drag;
 - [x] Node and Edge labels;
 - [x] Dark/Light theme support via egui context styles;
 - [x] User stroke styling hooks (node & edge) for dynamic customization;
@@ -31,6 +31,7 @@ Check the [web-demo](https://blitzarx1.github.io/egui_graphs) for the comprehens
 - [Features](#features)
   - [Layouts](#layouts)
   - [Styling Hooks (Node & Edge Strokes)](#styling-hooks-node--edge-strokes)
+  - [GraphView response](#graphview-response)
   - [Events](#events)
 
 ## Status
@@ -88,13 +89,13 @@ fn generate_graph() -> petgraph::StableGraph<(), ()> {
 
 #### Step 4: Implementing the `eframe::App` trait
 
-Now, lets implement the `eframe::App` trait for the `BasicApp`. In the `update()` function, we create a `egui::CentralPanel` and add the `egui_graphs::GraphView` widget to it.
+Now, lets implement the `eframe::App` trait for the `BasicApp`. In the `ui()` function, we create an `egui::CentralPanel` and show the `egui_graphs::GraphView` in it.
 
 ```rust
 impl eframe::App for BasicApp {
-    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut egui_graphs::GraphView::new(&mut self.g));
+    fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ui, |ui| {
+            egui_graphs::DefaultGraphView::new().show(ui, &mut self.g);
         });
     }
 }
@@ -188,6 +189,9 @@ cargo run -p egui_graphs --example demo
 # another example (basic)
 cargo run -p egui_graphs --example basic
 
+# inspect per-frame GraphView responses
+cargo run -p egui_graphs --example graph_view_response
+
 # enable features (e.g., events)
 cargo run -p egui_graphs --example demo --features events
 
@@ -209,20 +213,17 @@ Built-in layouts with a pluggable API. The `Layout` trait powers layout selectio
 
 ```rust
 // Default random layout
-let mut view = egui_graphs::DefaultGraphView::new(&mut graph);
-ui.add(&mut view);
+egui_graphs::DefaultGraphView::new().show(ui, &mut graph);
 
 // Pick a specific layout (Hierarchical)
 type L = egui_graphs::LayoutHierarchical;
 type S = egui_graphs::LayoutStateHierarchical;
-let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
-ui.add(&mut view);
+egui_graphs::GraphView::<S, L>::new().show(ui, &mut graph);
 
 // Force‑Directed (FR) with Center Gravity
 type L = egui_graphs::LayoutForceDirected<egui_graphs::FruchtermanReingoldWithCenterGravity>;
 type S = egui_graphs::FruchtermanReingoldWithCenterGravityState;
-let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
-ui.add(&mut view);
+egui_graphs::GraphView::<S, L>::new().show(ui, &mut graph);
 ```
 
 #### In-depth: Force‑Directed layout
@@ -236,7 +237,7 @@ use egui_graphs::{LayoutForceDirected, FruchtermanReingold, FruchtermanReingoldS
 
 type L = LayoutForceDirected<FruchtermanReingold>;
 type S = FruchtermanReingoldState;
-let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
+egui_graphs::GraphView::<S, L>::new().show(ui, &mut graph);
 ```
 
 #### Extras (composable add‑ons)
@@ -252,12 +253,11 @@ use egui_graphs::{
 
 type L = LayoutForceDirected<FruchtermanReingoldWithCenterGravity>;
 type S = FruchtermanReingoldWithCenterGravityState;
-let mut state = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::get_layout_state(ui);
+let mut state = egui_graphs::get_layout_state::<S>(ui, None);
 state.base.is_running = true;
 state.extras.0.params.c = 0.2;
-egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::set_layout_state(ui, state);
-let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
-ui.add(&mut view);
+egui_graphs::set_layout_state(ui, state, None);
+egui_graphs::GraphView::<S, L>::new().show(ui, &mut graph);
 ```
 
 ##### Author a custom extra
@@ -272,7 +272,7 @@ use egui_graphs::{Extra, FruchtermanReingoldWithExtras, FruchtermanReingoldWithE
 type Extras = (Extra<MyExtra, true>, ());
 type S = FruchtermanReingoldWithExtrasState<Extras>;
 type L = LayoutForceDirected<FruchtermanReingoldWithExtras<Extras>>;
-let mut view = egui_graphs::GraphView::<_,_,_,_,_,_,S,L>::new(&mut graph);
+egui_graphs::GraphView::<S, L>::new().show(ui, &mut graph);
 ```
 
 Composition is order-sensitive; each enabled extra accumulates into the shared displacement vector in tuple order.
@@ -304,8 +304,9 @@ let style = egui_graphs::SettingsStyle::new()
         s
     });
 
-let mut view = egui_graphs::GraphView::new(&mut graph)
-    .with_styles(&style);
+egui_graphs::DefaultGraphView::new()
+    .with_styles(&style)
+    .show(ui, &mut graph);
 ```
 
 Hooks receive the current `Stroke` derived from the active egui theme, so your custom logic stays consistent with light/dark modes.
@@ -327,8 +328,26 @@ Implement a custom `DisplayNode` / `DisplayEdge` when you need to change geometr
 
 Rule of thumb: start with hooks; switch to a custom drawer if you find yourself wanting to modify anything beyond the single stroke per node/edge.
 
+### GraphView response
+
+`GraphView::show` returns a `GraphViewResponse`. Its `response` field is the standard `egui::Response` for the allocated graph area, while `changes` contains the graph-specific changes produced by that call:
+
+```rust
+let result = egui_graphs::DefaultGraphView::new().show(ui, &mut graph);
+
+if result.response.hovered() {
+    // The pointer is over this GraphView.
+}
+
+for change in result.changes {
+    println!("{change:?}");
+}
+```
+
+Changes are transient and ordered by occurrence. Repeated changes are kept as separate entries, and an interaction-free frame returns an empty vector. Variants involving nodes or edges use the graph's `NodeIndex<Ix>` or `EdgeIndex<Ix>` type; graph-wide changes such as pan and zoom do not depend on an entity index. Store or aggregate a batch in your application when it must outlive the current frame. See the [`graph_view_response` example](https://github.com/blitzarx1/egui_graphs/blob/main/crates/egui_graphs/examples/graph_view_response.rs) for a complete application.
+
 ### Events
 
-Can be enabled with `events` feature. Events describe a change made in graph whether it changed zoom level or node dragging.
+The optional `events` feature provides push-based delivery to an event sink. Prefer `GraphViewResponse::changes` when processing interactions in the immediate-mode update that calls `show`.
 
-Combining this feature with custom node draw function allows to implement custom node behavior and drawing according to the events happening.
+Combining events with a custom node draw function allows custom behavior and drawing according to interactions happening outside the immediate `show` call.

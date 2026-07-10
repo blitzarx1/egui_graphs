@@ -45,34 +45,31 @@ impl App for BasicApp {
             .default_size(available_width / 3.)
             .resizable(true)
             .show(ui, |ui| {
-                let resp = ui.add(
-                    &mut DefaultGraphView::new(&mut self.g1)
-                        .with_navigations(&settings_nav)
-                        .with_interactions(&settings_int)
-                        .with_id(id1.clone()),
-                );
-                render_graph_id(ui, &resp, &id1);
+                let result = DefaultGraphView::new()
+                    .with_navigations(&settings_nav)
+                    .with_interactions(&settings_int)
+                    .with_id(id1.clone())
+                    .show(ui, &mut self.g1);
+                render_graph_id(ui, &result.response, &id1);
             });
         Panel::right("right_panel")
             .default_size(available_width / 3.)
             .resizable(true)
             .show(ui, |ui| {
-                let resp = ui.add(
-                    &mut DefaultGraphView::new(&mut self.g1)
-                        .with_navigations(&settings_nav)
-                        .with_interactions(&settings_int)
-                        .with_id(id1.clone()),
-                );
-                render_graph_id(ui, &resp, &id1);
-            });
-        CentralPanel::default().show(ui, |ui| {
-            let resp = ui.add(
-                &mut DefaultGraphView::new(&mut self.g2)
+                let result = DefaultGraphView::new()
                     .with_navigations(&settings_nav)
                     .with_interactions(&settings_int)
-                    .with_id(id2.clone()),
-            );
-            render_graph_id(ui, &resp, &id2);
+                    .with_id(id1.clone())
+                    .show(ui, &mut self.g1);
+                render_graph_id(ui, &result.response, &id1);
+            });
+        CentralPanel::default().show(ui, |ui| {
+            let result = DefaultGraphView::new()
+                .with_navigations(&settings_nav)
+                .with_interactions(&settings_int)
+                .with_id(id2.clone())
+                .show(ui, &mut self.g2);
+            render_graph_id(ui, &result.response, &id2);
         });
     }
 }

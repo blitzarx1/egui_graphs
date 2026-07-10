@@ -16,7 +16,7 @@ impl WindowApp {
 impl App for WindowApp {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         Window::new("windowed graph").show(ui.ctx(), |ui| {
-            ui.add(&mut DefaultGraphView::new(&mut self.g));
+            DefaultGraphView::new().show(ui, &mut self.g);
         });
     }
 }

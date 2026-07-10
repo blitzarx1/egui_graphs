@@ -1,7 +1,7 @@
 use crate::metrics::MetricsRecorder;
 use crate::ui_consts::{DEBUG_MONO_FONT_SIZE, UI_MARGIN};
 use crate::{MAX_EDGE_COUNT, MAX_NODE_COUNT};
-use egui::{FontId, Pos2, Rect, Ui};
+use egui::{FontId, Pos2, Rect, Ui, Vec2};
 
 pub fn render(
     ui: &mut Ui,
@@ -9,7 +9,7 @@ pub fn render(
     node_count: usize,
     edge_count: usize,
     last_step_count: usize,
-    pan: Option<[f32; 2]>,
+    pan: Option<Vec2>,
     zoom: Option<f32>,
 ) {
     // Compose overlay text
@@ -32,10 +32,10 @@ pub fn render(
         let steps_line = format!("Steps: {}", last_step_count);
         let (pan_line, zoom_line) = match (pan, zoom) {
             (Some(p), Some(z)) => (
-                Some(format!("Pan: [{:.1}, {:.1}]", p[0], p[1])),
+                Some(format!("Pan: [{:.1}, {:.1}]", p.x, p.y)),
                 Some(format!("Zoom: {:.2}", z)),
             ),
-            (Some(p), None) => (Some(format!("Pan: [{:.1}, {:.1}]", p[0], p[1])), None),
+            (Some(p), None) => (Some(format!("Pan: [{:.1}, {:.1}]", p.x, p.y)), None),
             (None, Some(z)) => (None, Some(format!("Zoom: {:.2}", z))),
             (None, None) => (None, None),
         };

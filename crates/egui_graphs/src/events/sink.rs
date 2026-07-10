@@ -20,7 +20,7 @@ where
     }
 }
 
-/// Forward events into an Rc<RefCell<Vec<Event>>> buffer (useful for wasm UIs).
+/// Forward events into an `Rc<RefCell<Vec<Event>>>` buffer (useful for wasm UIs).
 #[cfg(feature = "events")]
 impl EventSink for std::rc::Rc<std::cell::RefCell<Vec<Event>>> {
     fn send(&self, e: Event) {
@@ -40,7 +40,7 @@ impl EventSink for crossbeam::channel::Sender<Event> {
 
 /// Allow passing an immutable reference to a crossbeam Sender as a sink.
 #[cfg(feature = "events")]
-impl<'a> EventSink for &'a crossbeam::channel::Sender<Event> {
+impl EventSink for &crossbeam::channel::Sender<Event> {
     fn send(&self, e: Event) {
         let _ = crossbeam::channel::Sender::send(*self, e);
     }

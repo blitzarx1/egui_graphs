@@ -19,5 +19,4 @@ pub const HEADING_TEXT_SIZE: f32 = 16.0; // headings / prominent labels
 
 // Sections specific
 pub const SELECTED_SCROLL_MAX_HEIGHT: f32 = 150.0;
-#[cfg(feature = "events")]
-pub const EVENTS_MIN_HEIGHT: f32 = 220.0;
+pub const CHANGES_MIN_HEIGHT: f32 = 220.0;
