@@ -22,7 +22,7 @@ impl Default for Bounds {
 }
 
 impl Bounds {
-    pub fn compute_next<
+    fn compute_next<
         N: Clone,
         E: Clone,
         Ty: EdgeType,
@@ -162,7 +162,11 @@ impl MetadataFrame {
 /// Compose an instance-scoped Id for per-widget persisted state, namespaced by custom_id.
 /// Use this when storing UI-local data (like top-left or per-instance first-frame) to avoid
 /// conflicts between multiple views that share the same custom_id.
-pub fn instance_scoped_id(widget_id: Id, custom_id: Option<String>, suffix: &'static str) -> Id {
+pub(crate) fn instance_scoped_id(
+    widget_id: Id,
+    custom_id: Option<String>,
+    suffix: &'static str,
+) -> Id {
     widget_id.with((KEY_PREFIX, custom_id.unwrap_or_default(), suffix))
 }
 
@@ -172,13 +176,13 @@ pub fn reset_metadata(ui: &mut Ui, id: Option<String>) {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MetadataInstance {
+pub(crate) struct MetadataInstance {
     pub last_top_left: Pos2,
     pub first_frame_pending: bool,
 }
 
 impl MetadataInstance {
-    pub fn load(
+    pub(crate) fn load(
         ui: &mut Ui,
         widget_id: Id,
         custom_id: &Option<String>,
@@ -194,7 +198,7 @@ impl MetadataInstance {
         })
     }
 
-    pub fn save(&self, ui: &mut Ui, widget_id: Id, custom_id: &Option<String>) {
+    pub(crate) fn save(&self, ui: &mut Ui, widget_id: Id, custom_id: &Option<String>) {
         let key = instance_scoped_id(widget_id, custom_id.clone(), "local");
         ui.ctx().data_mut(|data| {
             data.insert_persisted(key, self.clone());
@@ -205,13 +209,13 @@ impl MetadataInstance {
 /// Compose a shared-scoped Id for values persisted per custom_id with an extra suffix.
 /// Useful to store additional per-graph data alongside MetadataFrame.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MetadataSync {
+pub(crate) struct MetadataSync {
     pub drag_owner: Option<String>,
     pub hover_owner: Option<String>,
 }
 
 impl MetadataSync {
-    pub fn load(ui: &mut Ui, custom_id: &Option<String>) -> Self {
+    pub(crate) fn load(ui: &mut Ui, custom_id: &Option<String>) -> Self {
         let drag_owner = ui.ctx().data_mut(|data| {
             data.get_persisted::<Option<String>>(shared_instance_id(
                 custom_id.clone(),
@@ -232,7 +236,7 @@ impl MetadataSync {
         }
     }
 
-    pub fn save(&self, ui: &mut Ui, custom_id: &Option<String>) {
+    pub(crate) fn save(&self, ui: &mut Ui, custom_id: &Option<String>) {
         ui.ctx().data_mut(|data| {
             data.insert_persisted(
                 shared_instance_id(custom_id.clone(), "drag_owner"),
@@ -246,7 +250,7 @@ impl MetadataSync {
     }
 }
 
-pub fn shared_instance_id(custom_id: Option<String>, suffix: &'static str) -> Id {
+pub(crate) fn shared_instance_id(custom_id: Option<String>, suffix: &'static str) -> Id {
     Id::new(format!(
         "{KEY_PREFIX}_{}_{}",
         custom_id.unwrap_or_default(),
@@ -256,7 +260,7 @@ pub fn shared_instance_id(custom_id: Option<String>, suffix: &'static str) -> Id
 
 /// Compose a stable string key for instance-local maps (when you need a serializable key).
 /// Uses widget_id Debug, custom_id and suffix.
-pub fn instance_key_string(
+pub(crate) fn instance_key_string(
     widget_id: Id,
     custom_id: Option<String>,
     suffix: &'static str,

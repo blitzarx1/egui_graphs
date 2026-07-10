@@ -8,7 +8,7 @@ use petgraph::{stable_graph::IndexType, EdgeType};
 
 use crate::{draw::DrawContext, elements::EdgeProps, node_size, DisplayEdge, DisplayNode, Node};
 
-use super::edge_shape::{EdgeShapeBuilder, TipProps};
+use super::edge_shape::{EdgeShapeBuilder, EdgeShapeProps, TipProps};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct DefaultEdgeShape {
@@ -65,7 +65,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         end: &Node<N, E, Ty, Ix, D>,
         ctx: &DrawContext,
     ) -> Vec<egui::Shape> {
-        let label_visible = ctx.style.labels_always || self.selected;
+        let label_visible = ctx.style.labels_always() || self.selected;
         let color = self.current_color(ctx);
         let stroke = self.current_stroke(ctx, color);
 
@@ -161,12 +161,9 @@ impl DefaultEdgeShape {
 
     fn current_stroke(&self, ctx: &DrawContext, color: Color32) -> Stroke {
         let base = Stroke::new(self.width, color);
-        if let Some(hook) = &ctx.style.edge_stroke_hook {
-            let style_ref: &egui::Style = &ctx.ctx.global_style();
-            (hook)(self.selected, self.order, base, style_ref)
-        } else {
-            base
-        }
+        let style = ctx.ctx.global_style();
+        ctx.style
+            .resolve_edge_stroke(self.selected, self.order, base, &style)
     }
 
     fn loop_shapes<
@@ -185,12 +182,19 @@ impl DefaultEdgeShape {
     ) -> Vec<Shape> {
         let mut res = vec![];
         let size = node_size(start, Vec2::new(-1., 0.));
-        let looped_shapes = EdgeShapeBuilder::new(stroke)
-            .looped(start.location(), size, self.loop_size, self.order)
-            .with_scaler(ctx.meta)
-            .build();
+        let looped_shapes = EdgeShapeBuilder::new(
+            EdgeShapeProps::Looped {
+                node_center: start.location(),
+                node_size: size,
+                loop_size: self.loop_size,
+                order: self.order,
+            },
+            stroke,
+        )
+        .with_scaler(ctx.meta)
+        .build();
 
-        res.extend(looped_shapes.all_shapes());
+        res.extend_from_slice(looped_shapes.shapes());
         if !label_visible {
             return res;
         }
@@ -233,24 +237,29 @@ impl DefaultEdgeShape {
         let mut res = vec![];
         let color = self.current_color(ctx);
         let stroke = self.current_stroke(ctx, color);
-        let label_visible = ctx.style.labels_always || self.selected;
+        let label_visible = ctx.style.labels_always() || self.selected;
         let start_connector_point = start.display().closest_boundary_point(dir);
         let end_connector_point = end.display().closest_boundary_point(-dir);
-        let mut builder = EdgeShapeBuilder::new(stroke)
-            .straight((start_connector_point, end_connector_point))
-            .with_scaler(ctx.meta);
-        let mut tip_store: Option<TipProps> = None;
-        if ctx.is_directed {
-            tip_store = Some(TipProps {
+        let mut builder = EdgeShapeBuilder::new(
+            EdgeShapeProps::Straight {
+                bounds: (start_connector_point, end_connector_point),
+            },
+            stroke,
+        )
+        .with_scaler(ctx.meta);
+        let tip_store = if ctx.is_directed {
+            Some(TipProps {
                 size: self.tip_size,
                 angle: self.tip_angle,
-            });
-        }
-        if let Some(ref tip) = tip_store {
+            })
+        } else {
+            None
+        };
+        if let Some(tip) = tip_store {
             builder = builder.with_tip(tip);
         }
         let straight_shapes = builder.build();
-        res.extend(straight_shapes.all_shapes());
+        res.extend_from_slice(straight_shapes.shapes());
         if !label_visible {
             return res;
         }
@@ -288,30 +297,33 @@ impl DefaultEdgeShape {
         let mut res = vec![];
         let color = self.current_color(ctx);
         let stroke = self.current_stroke(ctx, color);
-        let label_visible = ctx.style.labels_always || self.selected;
+        let label_visible = ctx.style.labels_always() || self.selected;
         let start_connector_point = start.display().closest_boundary_point(dir);
         let end_connector_point = end.display().closest_boundary_point(-dir);
-        let mut builder = EdgeShapeBuilder::new(stroke)
-            .curved(
-                (start_connector_point, end_connector_point),
-                self.curve_size,
-                self.order,
-            )
-            .with_scaler(ctx.meta);
-        let mut tip_store: Option<TipProps> = None;
-        if ctx.is_directed {
-            tip_store = Some(TipProps {
+        let mut builder = EdgeShapeBuilder::new(
+            EdgeShapeProps::Curved {
+                bounds: (start_connector_point, end_connector_point),
+                curve_size: self.curve_size,
+                order: self.order,
+            },
+            stroke,
+        )
+        .with_scaler(ctx.meta);
+        let tip_store = if ctx.is_directed {
+            Some(TipProps {
                 size: self.tip_size,
                 angle: self.tip_angle,
-            });
-        }
-        if let Some(ref tip) = tip_store {
+            })
+        } else {
+            None
+        };
+        if let Some(tip) = tip_store {
             builder = builder.with_tip(tip);
         }
 
         let curved_shapes = builder.build();
 
-        res.extend(curved_shapes.all_shapes());
+        res.extend_from_slice(curved_shapes.shapes());
         if !label_visible {
             return res;
         }
@@ -367,9 +379,16 @@ impl DefaultEdgeShape {
         let node_size = node_size(node, Vec2::new(-1., 0.));
 
         let loop_stroke = Stroke::new(self.width, Color32::default());
-        let shape = EdgeShapeBuilder::new(loop_stroke)
-            .looped(node.location(), node_size, self.loop_size, self.order)
-            .build();
+        let shape = EdgeShapeBuilder::new(
+            EdgeShapeProps::Looped {
+                node_center: node.location(),
+                node_size,
+                loop_size: self.loop_size,
+                order: self.order,
+            },
+            loop_stroke,
+        )
+        .build();
 
         match shape.body() {
             Shape::CubicBezier(cubic) => is_point_on_curve(pos, cubic, self.width),
@@ -413,9 +432,15 @@ impl DefaultEdgeShape {
         let end = node_end.display().closest_boundary_point(-dir);
 
         let stroke = Stroke::new(self.width, Color32::default());
-        let curved_shapes = EdgeShapeBuilder::new(stroke)
-            .curved((start, end), self.curve_size, self.order)
-            .build();
+        let curved_shapes = EdgeShapeBuilder::new(
+            EdgeShapeProps::Curved {
+                bounds: (start, end),
+                curve_size: self.curve_size,
+                order: self.order,
+            },
+            stroke,
+        )
+        .build();
 
         match curved_shapes.body() {
             Shape::CubicBezier(cubic) => is_point_on_curve(pos, cubic, self.width),

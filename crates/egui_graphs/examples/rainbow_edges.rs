@@ -37,8 +37,11 @@ fn main() {
 }
 
 mod edge {
-    use egui::{Color32, Pos2, Shape, Stroke, Vec2};
-    use egui_graphs::{DefaultEdgeShape, DisplayEdge, DisplayNode, DrawContext, EdgeProps, Node};
+    use egui::{Color32, Pos2, Stroke, Vec2};
+    use egui_graphs::{
+        DefaultEdgeShape, DisplayEdge, DisplayNode, DrawContext, EdgeProps, EdgeShapeBuilder,
+        EdgeShapeProps, Node, TipProps,
+    };
     use petgraph::{stable_graph::IndexType, EdgeType};
 
     const TIP_ANGLE: f32 = std::f32::consts::TAU / 30.;
@@ -81,52 +84,40 @@ mod edge {
             let (dx, dy) = (x_dist / COLORS.len() as f32, y_dist / COLORS.len() as f32);
             let d_vec = Vec2::new(dx, dy);
 
-            let mut stroke = Stroke::default();
-            let mut points_line;
+            let style = ctx.ctx.global_style();
 
             for (i, color) in COLORS.iter().enumerate() {
-                stroke = Stroke::new(self.default_impl.width, *color);
-                points_line = vec![
+                let bounds = (
                     start + i as f32 * d_vec,
                     end - (COLORS.len() - i - 1) as f32 * d_vec,
-                ];
+                );
+                let stroke = ctx.style.resolve_edge_stroke(
+                    self.default_impl.selected,
+                    self.default_impl.order,
+                    Stroke::new(self.default_impl.width, *color),
+                    &style,
+                );
+                let mut builder =
+                    EdgeShapeBuilder::new(EdgeShapeProps::Straight { bounds }, stroke)
+                        .with_scaler(ctx.meta);
 
-                stroke.width = ctx.meta.canvas_to_screen_size(stroke.width);
-                points_line = points_line
-                    .iter()
-                    .map(|p| ctx.meta.canvas_to_screen_pos(*p))
-                    .collect();
-                res.push(Shape::line_segment(
-                    [points_line[0], points_line[1]],
-                    stroke,
-                ));
+                if ctx.is_directed && i == COLORS.len() - 1 {
+                    builder = builder.with_tip(TipProps {
+                        size: TIP_SIZE,
+                        angle: TIP_ANGLE,
+                    });
+                }
+                res.extend(builder.build().into_shapes());
             }
-
-            let tip_dir = (end - start).normalized();
-
-            let arrow_tip_dir_1 = rotate_vector(tip_dir, TIP_ANGLE) * TIP_SIZE;
-            let arrow_tip_dir_2 = rotate_vector(tip_dir, -TIP_ANGLE) * TIP_SIZE;
-
-            let tip_start_1 = end - arrow_tip_dir_1;
-            let tip_start_2 = end - arrow_tip_dir_2;
-
-            let mut points_tip = vec![end, tip_start_1, tip_start_2];
-
-            points_tip = points_tip
-                .iter()
-                .map(|p| ctx.meta.canvas_to_screen_pos(*p))
-                .collect();
-
-            res.push(Shape::convex_polygon(
-                points_tip,
-                stroke.color,
-                Stroke::default(),
-            ));
 
             res
         }
 
-        fn update(&mut self, _: &egui_graphs::EdgeProps<E>) {}
+        fn update(&mut self, props: &egui_graphs::EdgeProps<E>) {
+            self.default_impl.order = props.order;
+            self.default_impl.selected = props.selected;
+            self.default_impl.label_text.clone_from(&props.label);
+        }
 
         fn is_inside(
             &self,
@@ -136,12 +127,5 @@ mod edge {
         ) -> bool {
             self.default_impl.is_inside(start, end, pos)
         }
-    }
-
-    /// rotates vector by angle
-    fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
-        let cos = angle.cos();
-        let sin = angle.sin();
-        Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
     }
 }

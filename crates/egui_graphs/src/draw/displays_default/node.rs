@@ -67,7 +67,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType> DisplayNode<N, E, Ty, Ix>
             .into(),
         );
 
-        if !(ctx.style.labels_always || self.selected || self.dragged || self.hovered) {
+        if !(ctx.style.labels_always() || self.selected || self.dragged || self.hovered) {
             return res;
         }
 
@@ -119,12 +119,9 @@ impl DefaultNodeShape {
 
     fn effective_stroke(&self, ctx: &DrawContext) -> Stroke {
         let base = Stroke::default();
-        if let Some(hook) = &ctx.style.node_stroke_hook {
-            let style_ref: &egui::Style = &ctx.ctx.global_style();
-            (hook)(self.selected, self.dragged, self.color, base, style_ref)
-        } else {
-            base
-        }
+        let style = ctx.ctx.global_style();
+        ctx.style
+            .resolve_node_stroke(self.selected, self.dragged, self.color, base, &style)
     }
 
     fn label_galley(
