@@ -37,4 +37,4 @@ harness = false
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # Enable JS RNG source for all wasm dependents via feature unification.
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
