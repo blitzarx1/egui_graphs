@@ -63,6 +63,20 @@ where
     }
 }
 
+impl<N, E, Ty, Ix, Dn, De> Default for Graph<N, E, Ty, Ix, Dn, De>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<N, E, Ty, Ix, Dn, De> Graph<N, E, Ty, Ix, Dn, De>
 where
     N: Clone,
@@ -72,9 +86,9 @@ where
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    pub fn new(g: StableGraphType<N, E, Ty, Ix, Dn, De>) -> Self {
+    pub fn new() -> Self {
         Self {
-            g,
+            g: StableGraphType::<N, E, Ty, Ix, Dn, De>::default(),
             selected_nodes: Vec::default(),
             selected_edges: Vec::default(),
             dragged_node: Option::default(),
@@ -444,16 +458,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use petgraph::stable_graph::StableGraph;
 
     #[test]
     fn edge_orders_do_not_duplicate_in_same_direction() {
         // Directed graph with default display types
-        let mut sg: StableGraph<(), ()> = StableGraph::default();
-        let a = sg.add_node(());
-        let b = sg.add_node(());
-        let mut g: Graph<(), (), Directed> =
-            Graph::new(sg.map(|_, ()| crate::Node::new(()), |_, ()| crate::Edge::new(())));
+        let mut g: Graph<(), (), Directed> = Graph::new();
+        let a = g.add_node(());
+        let b = g.add_node(());
 
         // Add opposite-direction edges; both initially 0, then logic bumps them to 1.
         let e1 = g.add_edge(a, b, ());

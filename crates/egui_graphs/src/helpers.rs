@@ -2,7 +2,7 @@ use crate::{DisplayEdge, DisplayNode, Edge, Graph, Node};
 use egui::Vec2;
 use petgraph::{
     graph::IndexType,
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
+    stable_graph::{NodeIndex, StableGraph},
     visit::IntoNodeReferences,
     Directed, EdgeType, Undirected,
 };
@@ -84,10 +84,7 @@ where
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    let g_stable =
-        StableGraph::<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>::default();
-
-    let mut g = Graph::new(g_stable);
+    let mut g = Graph::new();
 
     let nidx_by_input_nidx = input
         .node_references()

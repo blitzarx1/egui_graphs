@@ -1,7 +1,6 @@
 use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui::Pos2;
 use egui_graphs::{DefaultGraphView, Graph, SettingsStyle};
-use petgraph::stable_graph::StableGraph;
 
 pub struct BasicCustomApp {
     g: Graph,
@@ -9,7 +8,7 @@ pub struct BasicCustomApp {
 
 impl BasicCustomApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let mut g = Graph::new(StableGraph::default());
+        let mut g = Graph::new();
 
         let positions = vec![Pos2::new(0., 0.), Pos2::new(50., 0.), Pos2::new(0., 50.)];
         let mut idxs = Vec::with_capacity(positions.len());
