@@ -21,10 +21,9 @@ pub use graph_view::{
     GraphView,
 };
 pub use graph_view_response::{GraphChange, GraphViewResponse};
-#[allow(deprecated)]
+
 pub use helpers::{
-    add_edge, add_edge_custom, add_node, add_node_custom, default_edge_transform,
-    default_node_transform, generate_random_graph, generate_simple_digraph,
+    default_edge_transform, default_node_transform, generate_random_graph, generate_simple_digraph,
     generate_simple_ungraph, node_size, to_graph, to_graph_custom,
 };
 

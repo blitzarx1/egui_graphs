@@ -2,101 +2,12 @@ use crate::{DisplayEdge, DisplayNode, Edge, Graph, Node};
 use egui::Vec2;
 use petgraph::{
     graph::IndexType,
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
+    stable_graph::{NodeIndex, StableGraph},
     visit::IntoNodeReferences,
     Directed, EdgeType, Undirected,
 };
 use rand::Rng;
 use std::collections::HashMap;
-
-/// Helper function which adds user's node to the [`super::Graph`] instance.
-///
-/// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-#[deprecated(since = "0.25.0", note = "please use `super::Graph::add_node` instead")]
-pub fn add_node<N, E, Ty, Ix, Dn, De>(g: &mut Graph<N, E, Ty, Ix, Dn, De>, n: &N) -> NodeIndex<Ix>
-where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
-{
-    #[allow(deprecated)]
-    add_node_custom(g, n, default_node_transform)
-}
-
-/// Helper function which adds user's node to the [`super::Graph`] instance with custom node transform function.
-///
-/// If graph is not empty it picks any node position and adds new node in the vicinity of it.
-#[deprecated(
-    since = "0.25.0",
-    note = "please use `super::Graph::add_node_custom` instead"
-)]
-pub fn add_node_custom<N, E, Ty, Ix, Dn, De>(
-    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-    n: &N,
-    node_transform: impl FnOnce(&mut Node<N, E, Ty, Ix, Dn>),
-) -> NodeIndex<Ix>
-where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
-{
-    g.add_node_custom(n.clone(), node_transform)
-}
-
-/// Helper function which adds user's edge to the [`super::Graph`] instance.
-#[deprecated(since = "0.25.0", note = "please use `super::Graph::add_edge` instead")]
-pub fn add_edge<N, E, Ty, Ix, Dn, De>(
-    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-    start: NodeIndex<Ix>,
-    end: NodeIndex<Ix>,
-    e: &E,
-) -> EdgeIndex<Ix>
-where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
-{
-    #[allow(deprecated)]
-    add_edge_custom(
-        g,
-        start,
-        end,
-        e,
-        default_edge_transform::<N, E, Ty, Ix, Dn, De>,
-    )
-}
-
-/// Helper function which adds user's edge to the [`super::Graph`] instance with custom edge transform function.
-#[deprecated(
-    since = "0.25.0",
-    note = "please use `super::Graph::add_edge_custom` instead"
-)]
-pub fn add_edge_custom<N, E, Ty, Ix, Dn, De>(
-    g: &mut Graph<N, E, Ty, Ix, Dn, De>,
-    start: NodeIndex<Ix>,
-    end: NodeIndex<Ix>,
-    e: &E,
-    edge_transform: impl FnOnce(&mut Edge<N, E, Ty, Ix, Dn, De>),
-) -> EdgeIndex<Ix>
-where
-    N: Clone,
-    E: Clone,
-    Ty: EdgeType,
-    Ix: IndexType,
-    Dn: DisplayNode<N, E, Ty, Ix>,
-    De: DisplayEdge<N, E, Ty, Ix, Dn>,
-{
-    g.add_edge_custom(start, end, e.clone(), edge_transform)
-}
 
 /// Helper function which transforms [`petgraph::stable_graph::StableGraph`] into the [`super::Graph`] required by the [`super::GraphView`] widget.
 ///
@@ -173,10 +84,7 @@ where
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    let g_stable =
-        StableGraph::<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>::default();
-
-    let mut g = Graph::new(g_stable);
+    let mut g = Graph::new();
 
     let nidx_by_input_nidx = input
         .node_references()

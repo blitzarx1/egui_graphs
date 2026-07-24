@@ -54,8 +54,7 @@ fn verify_edge_roundtrip() {
 }
 
 fn roundtrip_graph() -> Roundtrip {
-    let mut graph: Graph<NodePayload, EdgePayload> =
-        Graph::new(petgraph::stable_graph::StableGraph::default());
+    let mut graph: Graph<NodePayload, EdgePayload> = Graph::new();
     let first = graph.add_node_with_label(
         NodePayload {
             value: 1,

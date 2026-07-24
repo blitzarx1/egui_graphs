@@ -1,6 +1,5 @@
 use eframe::{run_native, App, CreationContext, NativeOptions};
 use egui_graphs::{DefaultGraphView, Graph};
-use petgraph::stable_graph::StableGraph;
 
 pub struct BasicApp {
     g: Graph,
@@ -8,8 +7,9 @@ pub struct BasicApp {
 
 impl BasicApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let g = generate_graph();
-        Self { g: Graph::from(&g) }
+        Self {
+            g: generate_graph(),
+        }
     }
 }
 
@@ -21,8 +21,8 @@ impl App for BasicApp {
     }
 }
 
-fn generate_graph() -> StableGraph<(), ()> {
-    let mut g = StableGraph::new();
+fn generate_graph() -> Graph {
+    let mut g = Graph::new();
 
     let a = g.add_node(());
     let b = g.add_node(());

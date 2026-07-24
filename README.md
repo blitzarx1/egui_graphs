@@ -4,7 +4,7 @@
 
 # egui_graphs
 
-Graph visualization with rust, [petgraph](https://github.com/petgraph/petgraph) and [egui](https://github.com/emilk/egui) in its DNA.
+Graph visualization with rust and [egui](https://github.com/emilk/egui).
 
 ![ezgif-7312f131a6515c6e](https://github.com/user-attachments/assets/22d8ce17-be22-4dc5-a337-4cea795cf46c)
 
@@ -59,8 +59,7 @@ Next, implement the `new()` function for the `BasicApp` struct.
 ```rust
 impl BasicApp {
     fn new(_: &eframe::CreationContext<'_>) -> Self {
-        let g = generate_graph();
-        Self { g: egui_graphs::Graph::from(&g) }
+        Self { g: generate_graph() }
     }
 }
 ```
@@ -70,8 +69,8 @@ impl BasicApp {
 Create a helper function called `generate_graph()`. In this example, we create three nodes and three edges.
 
 ```rust
-fn generate_graph() -> petgraph::StableGraph<(), ()> {
-    let mut g = petgraph::StableGraph::new();
+fn generate_graph() -> egui_graphs::Graph {
+    let mut g = egui_graphs::Graph::new();
 
     let a = g.add_node(());
     let b = g.add_node(());
