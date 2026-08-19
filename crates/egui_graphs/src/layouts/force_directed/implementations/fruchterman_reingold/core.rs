@@ -22,7 +22,11 @@ pub struct FruchtermanReingoldState {
     pub step_count: u64,
 }
 
-impl LayoutState for FruchtermanReingoldState {}
+impl LayoutState for FruchtermanReingoldState {
+    fn wants_repaint(&self) -> bool {
+        self.is_running()
+    }
+}
 
 impl Default for FruchtermanReingoldState {
     fn default() -> Self {

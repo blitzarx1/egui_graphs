@@ -20,6 +20,20 @@ pub trait LayoutState: SerializableAny + Default + Debug {
             data.insert_persisted(get_id(id), self);
         });
     }
+
+    /// Does this layout still need frames driven for it?
+    ///
+    /// `GraphView` calls this once per frame and only requests a repaint when
+    /// it returns `true`. The default is `true`, which is the historical
+    /// behaviour: a state that cannot tell when it is finished keeps the frame
+    /// stream alive. Animated states should override it with their running
+    /// flag, so a settled graph lets the host application go idle.
+    ///
+    /// Note that egui already repaints on input events, so panning, zooming,
+    /// hovering, dragging and selection continue to work while this is `false`.
+    fn wants_repaint(&self) -> bool {
+        true
+    }
 }
 
 /// Optional hooks for animated/simulated layout states.
