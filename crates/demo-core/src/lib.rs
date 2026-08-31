@@ -1063,6 +1063,22 @@ impl DemoApp {
         self.settings_graph.count_edge = e;
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn drain_web_uploads(&mut self) {
+        let pending: Vec<UserUpload> = {
+            let mut buf = self.web_upload_buf.borrow_mut();
+            core::mem::take(&mut *buf)
+        };
+        for up in pending {
+            self.load_graph_from_str(&up.name, &up.data);
+            self.user_uploads.push(up);
+            if self.user_uploads.len() > 20 {
+                let overflow = self.user_uploads.len() - 20;
+                self.user_uploads.drain(0..overflow);
+            }
+        }
+    }
+
     // (moved) ui_import_tab in tabs::import_load
 }
 
@@ -1072,6 +1088,9 @@ impl App for DemoApp {
         self.typing_in_input = false;
         // Sync counts displayed on sliders with actual graph values
         self.sync_counts();
+
+        #[cfg(target_arch = "wasm32")]
+        self.drain_web_uploads();
 
         // Handle global keyboard shortcuts and modal toggling
         self.process_keybindings(ui.ctx());
@@ -1117,46 +1136,41 @@ impl App for DemoApp {
             // Handle drops this frame (platform may provide bytes immediately or later). Process the first valid one.
             let mut maybe_text: Option<String> = None;
             let mut maybe_name: Option<String> = None;
-            ui.ctx().input(|i| {
+            let ctx = ui.ctx().clone();
+            #[cfg(target_arch = "wasm32")]
+            let web_upload_buf = self.web_upload_buf.clone();
+            ctx.input(|i| {
                 for f in &i.raw.dropped_files {
-                    if let Some(bytes) = &f.bytes {
-                        if let Ok(s) = std::str::from_utf8(bytes) {
-                            maybe_text = Some(s.to_owned());
-                            // Name (native path if available)
-                            #[cfg(not(target_arch = "wasm32"))]
-                            {
-                                if let Some(path) = &f.path {
-                                    if let Some(fname) = path.file_name().and_then(|o| o.to_str()) {
-                                        maybe_name = Some(fname.to_owned());
-                                    }
+                    let path = f.path();
+                    if let Some(fname) = path.file_name().and_then(|o| o.to_str()) {
+                        maybe_name = Some(fname.to_owned());
+                    }
+
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        let name = maybe_name
+                            .clone()
+                            .unwrap_or_else(|| format!("Upload {}", self.user_uploads.len() + 1));
+                        let file = f.clone();
+                        let buf = web_upload_buf.clone();
+                        let ctx = ctx.clone();
+                        wasm_bindgen_futures::spawn_local(async move {
+                            if let Ok(bytes) = file.bytes_async().await {
+                                if let Ok(data) = String::from_utf8(bytes) {
+                                    buf.borrow_mut().push(UserUpload { name, data });
+                                    ctx.request_repaint();
                                 }
                             }
-                            // Fallback: if no path or on web, use provided display name
-                            if maybe_name.is_none() && !f.name.is_empty() {
-                                maybe_name = Some(f.name.clone());
-                            }
+                        });
+                        break;
+                    }
+
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if let Ok(bytes) = f.bytes() {
+                        if let Ok(s) = std::str::from_utf8(&bytes) {
+                            maybe_text = Some(s.to_owned());
                             break;
                         }
-                    }
-                    // Native fallback: read from path if available
-                    #[cfg(not(target_arch = "wasm32"))]
-                    if let Some(path) = &f.path {
-                        if let Ok(data) = std::fs::read(path) {
-                            if let Ok(s) = String::from_utf8(data) {
-                                maybe_text = Some(s);
-                                if let Some(fname) = path.file_name().and_then(|o| o.to_str()) {
-                                    maybe_name = Some(fname.to_owned());
-                                }
-                                break;
-                            }
-                        }
-                    } else if maybe_name.is_none() && !f.name.is_empty() {
-                        // If platform provided only the name (no path), keep it for the uploads list
-                        maybe_name = Some(f.name.clone());
-                    }
-                    // On web or if no path/bytes-name captured yet, still try to capture the display name
-                    if maybe_name.is_none() && !f.name.is_empty() {
-                        maybe_name = Some(f.name.clone());
                     }
                 }
             });

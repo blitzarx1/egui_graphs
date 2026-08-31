@@ -1367,12 +1367,13 @@ mod tests {
         let navigation = SettingsNavigation::default().with_fit_to_screen_enabled(false);
 
         let mut first_changes = Vec::new();
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+        ctx.run_ui(egui::RawInput::default(), |ui| {
             first_changes = DefaultGraphView::new()
                 .with_navigations(&navigation)
                 .show(ui, &mut graph)
                 .changes;
-        });
+        })
+        .drop_without_applying_deltas();
 
         assert!(first_changes
             .iter()
@@ -1382,12 +1383,13 @@ mod tests {
             .any(|change| matches!(change, GraphChange::Zoomed { .. })));
 
         let mut second_changes = Vec::new();
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+        ctx.run_ui(egui::RawInput::default(), |ui| {
             second_changes = DefaultGraphView::new()
                 .with_navigations(&navigation)
                 .show(ui, &mut graph)
                 .changes;
-        });
+        })
+        .drop_without_applying_deltas();
 
         assert!(second_changes.is_empty());
     }
@@ -1399,9 +1401,10 @@ mod tests {
         let mut graph: Graph<(), (), Directed, u16> = Graph::from(&stable);
         graph.add_node(());
 
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+        ctx.run_ui(egui::RawInput::default(), |ui| {
             let response: GraphViewResponse<u16> = DefaultGraphView::new().show(ui, &mut graph);
             assert!(!response.changes.is_empty());
-        });
+        })
+        .drop_without_applying_deltas();
     }
 }

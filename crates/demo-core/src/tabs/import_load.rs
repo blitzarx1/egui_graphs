@@ -120,21 +120,7 @@ impl DemoApp {
 
                 // On web, drain any completed async uploads and import them now
                 #[cfg(target_arch = "wasm32")]
-                {
-                    // Take pending uploads out first to avoid borrowing self while calling methods
-                    let pending: Vec<UserUpload> = {
-                        let mut buf = self.web_upload_buf.borrow_mut();
-                        core::mem::take(&mut *buf)
-                    };
-                    for up in pending.into_iter() {
-                        self.load_graph_from_str(&up.name, &up.data);
-                        self.user_uploads.push(up);
-                        if self.user_uploads.len() > 20 {
-                            let overflow = self.user_uploads.len() - 20;
-                            self.user_uploads.drain(0..overflow);
-                        }
-                    }
-                }
+                self.drain_web_uploads();
 
                 ui.add_space(8.0);
                 ui.group(|ui| {
