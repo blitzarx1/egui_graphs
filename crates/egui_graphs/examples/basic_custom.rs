@@ -8,21 +8,9 @@ pub struct BasicCustomApp {
 
 impl BasicCustomApp {
     fn new(_: &CreationContext<'_>) -> Self {
-        let mut g = Graph::new();
-
-        let positions = vec![Pos2::new(0., 0.), Pos2::new(50., 0.), Pos2::new(0., 50.)];
-        let mut idxs = Vec::with_capacity(positions.len());
-        for position in positions {
-            let idx = g.add_node_with_label_and_location((), position.to_string(), position);
-
-            idxs.push(idx);
+        Self {
+            g: generate_graph(),
         }
-
-        g.add_edge(idxs[0], idxs[1], ());
-        g.add_edge(idxs[1], idxs[2], ());
-        g.add_edge(idxs[2], idxs[0], ());
-
-        Self { g }
     }
 }
 
@@ -34,6 +22,24 @@ impl App for BasicCustomApp {
                 .show(ui, &mut self.g);
         });
     }
+}
+
+fn generate_graph() -> Graph {
+    let mut g = Graph::new();
+
+    let positions = vec![Pos2::new(0., 0.), Pos2::new(50., 0.), Pos2::new(0., 50.)];
+    let mut idxs = Vec::with_capacity(positions.len());
+    for position in positions {
+        let idx = g.add_node_with_label_and_location((), position.to_string(), position);
+
+        idxs.push(idx);
+    }
+
+    g.add_edge(idxs[0], idxs[1], ());
+    g.add_edge(idxs[1], idxs[2], ());
+    g.add_edge(idxs[2], idxs[0], ());
+
+    g
 }
 
 fn main() {
