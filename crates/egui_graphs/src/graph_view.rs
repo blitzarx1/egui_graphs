@@ -319,7 +319,9 @@ where
         // Consolidated writes at the end of the frame
         view.save(ui, resp.id, &self.custom_id);
 
-        ui.ctx().request_repaint();
+        if S::load(ui, self.custom_id.clone()).wants_repaint() {
+            ui.ctx().request_repaint();
+        }
 
         GraphViewResponse {
             response: resp,
